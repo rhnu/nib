@@ -7,7 +7,7 @@ import type {
 } from "./bindings/workbench";
 
 function sourceLabel(source: SettingSource): string {
-  if (source.kind === "draft") return "当前草稿";
+  if (source.kind === "draft") return "当前创作";
   if (source.kind === "sdkDefault") return "SDK 默认";
   return `${source.name}${source.expanded ? "（已展开）" : ""}`;
 }
@@ -36,7 +36,7 @@ export function ResolutionInspector({
           ? instance.binding.name
           : (resource?.name ?? "缺失的 Preset"),
       );
-    } else labels.push("当前草稿");
+    } else labels.push("当前创作");
     if (issue.scope) labels.push(issue.scope === "positive" ? "基础提示" : "负面提示");
     const composition = instance
       ? instance.binding.kind === "expanded"
@@ -87,7 +87,7 @@ export function ResolutionInspector({
                       <span className="tag">{fragment.scope === "positive" ? "基础" : "负面"}</span>
                       <span>
                         {fragment.resourceName ??
-                          (fragment.presetInstanceId ? "配方文本" : "草稿文本")}
+                          (fragment.presetInstanceId ? "配方文本" : "直接文本")}
                       </span>
                       {fragment.overridden && <span className="accent-text">覆盖</span>}
                       {fragment.expanded && <span className="muted">已展开</span>}

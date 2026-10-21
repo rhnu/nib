@@ -89,7 +89,7 @@ fn instance(id: &str, resource_id: &str, overrides: Vec<InstanceOverride>) -> Pr
 
 #[test]
 fn stable_resource_identity_survives_rename_and_reports_current_source() {
-    let mut draft = Draft::new("Study");
+    let mut draft = Draft::default();
     draft
         .composition
         .positive
@@ -117,26 +117,28 @@ fn instance_edits_are_local_and_empty_text_suppresses_a_definition() {
         GenerationSettings::default(),
     );
     let resources = Resources::new(vec![definition.clone(), chunk("chunk", "shared")]);
-    let mut draft = Draft::new("Study");
-    draft.presets = vec![
-        instance(
-            "edited",
-            "recipe",
-            vec![
-                InstanceOverride {
-                    node_id: "base".into(),
-                    enabled: None,
-                    text: Some(String::new()),
-                },
-                InstanceOverride {
-                    node_id: "linked".into(),
-                    enabled: None,
-                    text: Some("local".into()),
-                },
-            ],
-        ),
-        instance("original", "recipe", vec![]),
-    ];
+    let draft = Draft {
+        presets: vec![
+            instance(
+                "edited",
+                "recipe",
+                vec![
+                    InstanceOverride {
+                        node_id: "base".into(),
+                        enabled: None,
+                        text: Some(String::new()),
+                    },
+                    InstanceOverride {
+                        node_id: "linked".into(),
+                        enabled: None,
+                        text: Some("local".into()),
+                    },
+                ],
+            ),
+            instance("original", "recipe", vec![]),
+        ],
+        ..Draft::default()
+    };
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "local\noriginal\nshared");
     assert!(result.fragments[0].overridden);
@@ -165,14 +167,16 @@ fn both_scopes_follow_preset_order_then_draft_order() {
             GenerationSettings::default(),
         ),
     ]);
-    let mut draft = Draft::new("Order");
-    draft.presets = vec![
-        instance("one-instance", "one", vec![]),
-        instance("two-instance", "two", vec![]),
-    ];
-    draft.composition = Composition {
-        positive: vec![text("local-p", "p3")],
-        negative: vec![text("local-n", "n3")],
+    let draft = Draft {
+        presets: vec![
+            instance("one-instance", "one", vec![]),
+            instance("two-instance", "two", vec![]),
+        ],
+        composition: Composition {
+            positive: vec![text("local-p", "p3")],
+            negative: vec![text("local-n", "n3")],
+        },
+        ..Draft::default()
     };
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "p1\np2\np3");
@@ -199,11 +203,13 @@ fn missing_and_wrong_kind_dependencies_preserve_other_content_and_locations() {
             GenerationSettings::default(),
         ),
     ]);
-    let mut draft = Draft::new("Repair");
-    draft.presets = vec![
-        instance("wrong-kind", "not-preset", vec![]),
-        instance("recipe-instance", "recipe", vec![]),
-    ];
+    let mut draft = Draft {
+        presets: vec![
+            instance("wrong-kind", "not-preset", vec![]),
+            instance("recipe-instance", "recipe", vec![]),
+        ],
+        ..Draft::default()
+    };
     draft.composition.positive = vec![text("intact", "keep"), chunk_node("wrong-chunk", "recipe")];
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "keep");
@@ -226,7 +232,7 @@ fn missing_and_wrong_kind_dependencies_preserve_other_content_and_locations() {
 
 #[test]
 fn disabled_references_do_not_read_or_report_missing_resources() {
-    let mut draft = Draft::new("Disabled");
+    let mut draft = Draft::default();
     let mut disabled_node = chunk_node("entry", "missing");
     if let PromptNode::Chunk { enabled, .. } = &mut disabled_node {
         *enabled = false;
@@ -250,7 +256,7 @@ fn disabled_instance_override_skips_a_missing_chunk() {
         vec![],
         GenerationSettings::default(),
     )]);
-    let mut draft = Draft::new("Disabled edit");
+    let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
         "recipe",
@@ -282,11 +288,13 @@ fn parameter_layers_keep_sparse_values_and_use_final_models_sdk_defaults() {
         preset("one", vec![], vec![], first),
         preset("two", vec![], vec![], second),
     ]);
-    let mut draft = Draft::new("Settings");
-    draft.presets = vec![
-        instance("first", "one", vec![]),
-        instance("second", "two", vec![]),
-    ];
+    let mut draft = Draft {
+        presets: vec![
+            instance("first", "one", vec![]),
+            instance("second", "two", vec![]),
+        ],
+        ..Draft::default()
+    };
     draft.settings.model = Some(Model::NaiDiffusion45Full);
     draft.settings.steps = Some(31);
     let result = resolve_draft(&draft, &resources).unwrap();
@@ -311,7 +319,7 @@ fn parameter_layers_keep_sparse_values_and_use_final_models_sdk_defaults() {
 
 #[test]
 fn empty_draft_uses_sdk_default_model_and_all_its_defaults() {
-    let result = resolve_draft(&Draft::new("Blank"), &Resources::default()).unwrap();
+    let result = resolve_draft(&Draft::default(), &Resources::default()).unwrap();
     let model = Model::default();
     let defaults = model.descriptor().defaults();
     assert_eq!(result.settings.model, model);
@@ -344,7 +352,7 @@ fn expansion_keeps_text_settings_identity_and_group_but_detaches_all_dependencie
             text: Some(" local ".into()),
         }],
     );
-    let mut draft = Draft::new("Expand");
+    let mut draft = Draft::default();
     draft.presets.push(linked.clone());
     let before = resolve_draft(&draft, &resources).unwrap();
     let expanded = expand_preset(&linked, &resources).unwrap();
@@ -403,7 +411,7 @@ fn single_chunk_expansion_keeps_explicit_empty_override_and_enabled_state() {
 
 #[test]
 fn empty_chunk_override_does_not_fall_back_to_shared_text() {
-    let mut draft = Draft::new("Empty override");
+    let mut draft = Draft::default();
     draft.composition.positive = vec![
         PromptNode::Chunk {
             id: "empty".into(),
@@ -433,7 +441,7 @@ fn instance_can_enable_a_disabled_entry_without_changing_the_preset() {
         GenerationSettings::default(),
     );
     let resources = Resources::new(vec![definition.clone()]);
-    let mut draft = Draft::new("Enable entry");
+    let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
         "recipe",
@@ -483,7 +491,7 @@ fn stale_override_is_visible_and_blocks_lossy_expansion() {
         vec![],
         GenerationSettings::default(),
     )]);
-    let mut draft = Draft::new("Stale edit");
+    let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
         "recipe",
@@ -504,7 +512,7 @@ fn stale_override_is_visible_and_blocks_lossy_expansion() {
 }
 
 #[test]
-fn save_validation_rejects_ambiguous_identities_and_empty_names() {
+fn save_validation_rejects_ambiguous_identities() {
     let resource = preset(
         "recipe",
         vec![text("duplicate", "positive")],
@@ -515,19 +523,19 @@ fn save_validation_rejects_ambiguous_identities_and_empty_names() {
         validate_resource(&resource).unwrap_err().field,
         "composition.node.id"
     );
-    let mut draft = Draft::new("   ");
-    assert_eq!(validate_draft(&draft).unwrap_err().field, "name");
-    draft.name = "Valid".into();
-    draft.presets = vec![
-        instance("same", "one", vec![]),
-        instance("same", "two", vec![]),
-    ];
+    let draft = Draft {
+        presets: vec![
+            instance("same", "one", vec![]),
+            instance("same", "two", vec![]),
+        ],
+        ..Draft::default()
+    };
     assert_eq!(validate_draft(&draft).unwrap_err().field, "presets.id");
 }
 
 #[test]
 fn malformed_expanded_groups_and_duplicate_overrides_cannot_be_saved() {
-    let mut draft = Draft::new("Invalid");
+    let mut draft = Draft::default();
     draft.presets.push(PresetInstance {
         id: "instance".into(),
         enabled: true,
@@ -576,7 +584,7 @@ fn backend_failures_remain_errors_in_resolution_and_expansion() {
             Err(PersistenceError::Locked)
         }
     }
-    let mut draft = Draft::new("Failure");
+    let mut draft = Draft::default();
     draft
         .composition
         .positive

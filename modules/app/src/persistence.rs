@@ -20,7 +20,7 @@ pub enum PersistenceError {
     NotFound { kind: &'static str, id: String },
     #[error("{kind} {id} changed since it was loaded")]
     Conflict { kind: &'static str, id: String },
-    #[error("database schema {found} is newer than this application supports")]
+    #[error("database schema {found} is incompatible with this application")]
     UnsupportedSchema { found: i64 },
     #[error("{message}")]
     InvalidData { message: String },

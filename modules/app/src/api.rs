@@ -17,7 +17,6 @@ pub struct AppInfo {
 pub struct WorkspaceSnapshot {
     pub info: AppInfo,
     pub resources: Vec<crate::library::ResourceSummary>,
-    pub drafts: Vec<crate::session::DraftSummary>,
     pub draft: crate::session::Draft,
     pub models: Vec<String>,
 }

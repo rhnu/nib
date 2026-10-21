@@ -20,10 +20,10 @@ pub struct ResourceSnapshot<'a> {
 }
 
 impl SqliteDatabase {
-    /// Opens retained data and applies supported migrations atomically.
+    /// Opens retained data and initializes a new database atomically.
     ///
     /// # Errors
-    /// Returns the underlying open or migration failure, or rejects a newer schema.
+    /// Returns the underlying open or initialization failure, or rejects an incompatible schema.
     pub fn open(path: &Path) -> Result<Self, PersistenceError> {
         let mut connection = Connection::open(path)
             .map_err(|error| PersistenceError::failure("open the local database", error))?;
@@ -37,7 +37,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version > 1 {
+        if version != 0 && version != 2 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

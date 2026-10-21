@@ -44,9 +44,6 @@ impl DesktopState {
             })?;
         }
         let database = SqliteDatabase::open(&self.path)?;
-        if database.list_drafts()?.is_empty() {
-            database.save_draft(&Draft::new("未命名草稿"))?;
-        }
         let database = Arc::new(database);
         *slot = Some(Arc::clone(&database));
         tracing::info!("opened the local creation database");
@@ -69,7 +66,7 @@ fn persistence_error(error: PersistenceError) -> ApiError {
         },
         PersistenceError::UnsupportedSchema { .. } => (
             ErrorCode::Unavailable,
-            "本地数据由更新版本的 nib 创建，请使用兼容版本打开。",
+            "本地数据库结构与当前版本不兼容，请移走旧 nib.sqlite3 后重新打开。",
         ),
         _ => (
             ErrorCode::Unavailable,
@@ -123,26 +120,12 @@ pub(crate) async fn get_workspace(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<WorkspaceSnapshot, ApiError> {
     with_database(state, |database| {
-        let drafts = database.list_drafts().map_err(persistence_error)?;
-        let first = drafts.first().ok_or_else(|| ApiError {
-            code: ErrorCode::NotFound,
-            message: "尚无草稿，请创建草稿。".to_owned(),
-        })?;
-        let draft = database
-            .get_draft(&first.id)
-            .map_err(persistence_error)?
-            .ok_or_else(|| {
-                persistence_error(PersistenceError::NotFound {
-                    kind: "draft",
-                    id: first.id.clone(),
-                })
-            })?;
+        let draft = database.get_draft().map_err(persistence_error)?;
         Ok(WorkspaceSnapshot {
             info: nib_app::app_info(),
             resources: database
                 .search_resources(&ResourceQuery::default())
                 .map_err(persistence_error)?,
-            drafts,
             draft,
             models: novelai_bridge::Model::ALL
                 .into_iter()
@@ -209,39 +192,12 @@ pub(crate) async fn delete_resource(
 }
 
 #[tauri::command]
-pub(crate) async fn get_draft(
-    state: tauri::State<'_, DesktopState>,
-    id: String,
-) -> Result<Draft, ApiError> {
-    with_database(state, move |database| {
-        database
-            .get_draft(&id)
-            .map_err(persistence_error)?
-            .ok_or_else(|| persistence_error(PersistenceError::NotFound { kind: "draft", id }))
-    })
-    .await
-}
-
-#[tauri::command]
 pub(crate) async fn save_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
 ) -> Result<Draft, ApiError> {
     with_database(state, move |database| {
         database.save_draft(&draft).map_err(persistence_error)
-    })
-    .await
-}
-
-#[tauri::command]
-pub(crate) async fn create_draft(
-    state: tauri::State<'_, DesktopState>,
-    name: String,
-) -> Result<Draft, ApiError> {
-    with_database(state, move |database| {
-        database
-            .save_draft(&Draft::new(name))
-            .map_err(persistence_error)
     })
     .await
 }

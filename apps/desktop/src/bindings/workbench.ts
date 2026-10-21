@@ -24,9 +24,7 @@ export type PresetBinding = { "kind": "linked", resourceId: string, overrides: A
 
 export type PresetInstance = { id: string, enabled: boolean, binding: PresetBinding, };
 
-export type Draft = { id: string, revision: number, name: string, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, };
-
-export type DraftSummary = { id: string, revision: number, name: string, };
+export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, };
 
 export type ValidationError = { field: string, message: string, };
 
@@ -46,7 +44,7 @@ export type SettingsProvenance = { model: SettingSource, size: SettingSource, st
 
 export type ResolvedDraft = { positive: string, negative: string, fragments: Array<ResolvedFragment>, settings: ResolvedSettings, provenance: SettingsProvenance, issues: Array<ResolutionIssue>, };
 
-export type WorkspaceSnapshot = { info: AppInfo, resources: Array<ResourceSummary>, drafts: Array<DraftSummary>, draft: Draft, models: Array<string>, };
+export type WorkspaceSnapshot = { info: AppInfo, resources: Array<ResourceSummary>, draft: Draft, models: Array<string>, };
 
 export type ErrorCode = "unavailable" | "notFound" | "conflict" | "invalid" | "unresolved";
 

@@ -268,38 +268,6 @@ svg {
   width: 1px;
   background: var(--line);
 }
-.draft-picker {
-  display: flex;
-  align-items: center;
-  min-width: 80px;
-  gap: 6px;
-}
-.draft-picker > svg {
-  color: var(--muted);
-}
-.draft-picker select {
-  width: 180px;
-  border-color: transparent;
-  background: transparent;
-  font-weight: 500;
-}
-.save-status {
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.save-status.danger {
-  color: var(--danger);
-}
-.unsaved-dot {
-  height: 6px;
-  width: 6px;
-  background: var(--muted);
-  border-radius: 50%;
-}
 .workspace-body {
   display: grid;
   grid-template-columns: 274px minmax(0, 1fr);
@@ -321,16 +289,6 @@ svg {
 .context-rail > section {
   padding: 17px 14px;
   border-bottom: 1px solid var(--line-subtle);
-}
-.draft-context {
-  display: grid;
-  gap: 9px;
-}
-.draft-title > span {
-  display: none;
-}
-.draft-title input {
-  font-weight: 550;
 }
 .section-heading {
   display: flex;
@@ -1011,9 +969,6 @@ details > summary {
   .app-brand {
     gap: 10px;
   }
-  .draft-picker select {
-    width: 145px;
-  }
   .editor-label {
     display: none;
   }
@@ -1044,9 +999,6 @@ details > summary {
   .resource-editor {
     border-left: 0;
   }
-  .save-status {
-    font-size: 11px;
-  }
 }
 @media (max-width: 580px) {
   .workspace-body {
@@ -1060,14 +1012,7 @@ details > summary {
   .workspace-body:not(.context-hidden) {
     grid-template-rows: auto minmax(0, 1fr);
   }
-  .app-toolbar .button-copy {
-    display: none;
-  }
-  .draft-picker select {
-    width: 100px;
-  }
-  .brand-divider,
-  .save-status svg {
+  .brand-divider {
     display: none;
   }
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Allows the local main window to edit retained resources and drafts.",
+  "description": "Allows the local main window to edit resources and automatically retain the current creation.",
   "windows": ["main"],
   "permissions": [
     "allow-get-workspace",
@@ -9,9 +9,7 @@
     "allow-get-resource",
     "allow-save-resource",
     "allow-delete-resource",
-    "allow-get-draft",
     "allow-save-draft",
-    "allow-create-draft",
     "allow-resolve-draft",
     "allow-expand-chunk",
     "allow-expand-preset",

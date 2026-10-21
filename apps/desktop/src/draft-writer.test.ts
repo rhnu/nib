@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftWriter } from "./draft-writer";
 
-type Document = { id: string; revision: number; text: string };
-const initial: Document = { id: "draft-a", revision: 1, text: "original" };
+type Document = { revision: number; text: string };
+const initial: Document = { revision: 1, text: "original" };
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -14,6 +14,57 @@ function deferred<T>() {
 }
 
 describe("DraftWriter", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it("automatically saves the latest content and parameters after edits settle", async () => {
+    const write = vi.fn(async (value: Document & { steps: number }) => ({
+      ...value,
+      revision: value.revision + 1,
+    }));
+    const writer = new DraftWriter(write);
+    writer.replace({ ...initial, steps: 20 });
+    writer.edit({ ...initial, steps: 20, text: "edited" });
+    await vi.advanceTimersByTimeAsync(200);
+    writer.edit({ ...initial, steps: 28, text: "edited" });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(write).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(write).toHaveBeenCalledExactlyOnceWith({ ...initial, text: "edited", steps: 28 });
+    expect(writer.getSnapshot()).toMatchObject({
+      value: { revision: 2, text: "edited", steps: 28 },
+      dirty: false,
+      error: null,
+    });
+  });
+
+  it("retains failed automatic saves and resumes automatically on the next edit", async () => {
+    const write = vi
+      .fn<(value: Document) => Promise<Document>>()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementation(async (value) => ({ ...value, revision: 2 }));
+    const writer = new DraftWriter(write);
+    writer.replace(initial);
+    writer.edit({ ...initial, text: "keep me" });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(writer.getSnapshot()).toMatchObject({
+      value: { revision: 1, text: "keep me" },
+      dirty: true,
+      saving: false,
+      error: expect.any(Error),
+    });
+    writer.edit({ ...initial, text: "latest" });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(writer.getSnapshot()).toMatchObject({
+      value: { revision: 2, text: "latest" },
+      dirty: false,
+      error: null,
+    });
+  });
+
   it("serializes edits made during a save using the returned revision", async () => {
     const first = deferred<Document>();
     const writes: Document[] = [];
@@ -57,7 +108,7 @@ describe("DraftWriter", () => {
       dirty: true,
       saving: false,
     });
-    expect(() => writer.replace({ ...initial, id: "draft-b" })).toThrow();
+    expect(() => writer.replace(initial)).toThrow();
     await writer.flush();
     expect(writer.getSnapshot()).toMatchObject({
       value: { text: "keep me", revision: 2 },

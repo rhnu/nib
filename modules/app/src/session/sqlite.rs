@@ -1,47 +1,27 @@
 use rusqlite::{OptionalExtension as _, params};
 
-use super::{Draft, DraftStore, DraftSummary, validate_draft};
-use crate::persistence::{
-    PersistenceError, SqliteDatabase, decode, encode, next_revision, write_miss,
-};
+use super::{Draft, DraftStore, validate_draft};
+use crate::persistence::{PersistenceError, SqliteDatabase, decode, encode, next_revision};
 
 impl DraftStore for SqliteDatabase {
-    fn get_draft(&self, id: &str) -> Result<Option<Draft>, PersistenceError> {
+    fn get_draft(&self) -> Result<Draft, PersistenceError> {
         let connection = self.connection()?;
         let row = connection.query_row(
-            "SELECT id, revision, name, composition, presets, settings FROM drafts WHERE id = ?1",
-            [id],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, String>(5)?)),
-        ).optional().map_err(|error| PersistenceError::failure("read a draft", error))?;
-        row.map(|(id, revision, name, composition, presets, settings)| {
-            Ok(Draft {
-                id,
-                revision,
-                name,
-                composition: decode(&composition)?,
-                presets: decode(&presets)?,
-                settings: decode(&settings)?,
-            })
-        })
-        .transpose()
-    }
-
-    fn list_drafts(&self) -> Result<Vec<DraftSummary>, PersistenceError> {
-        let connection = self.connection()?;
-        let mut statement = connection
-            .prepare("SELECT id, revision, name FROM drafts ORDER BY updated_at DESC, rowid DESC")
-            .map_err(|error| PersistenceError::failure("prepare the draft list", error))?;
-        statement
-            .query_map([], |row| {
-                Ok(DraftSummary {
-                    id: row.get(0)?,
-                    revision: row.get(1)?,
-                    name: row.get(2)?,
+            "SELECT revision, composition, presets, settings FROM current_creation WHERE id = 1",
+            [],
+            |row| Ok((row.get::<_, u32>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?)),
+        ).optional().map_err(|error| PersistenceError::failure("read the current creation", error))?;
+        row.map_or_else(
+            || Ok(Draft::default()),
+            |(revision, composition, presets, settings)| {
+                Ok(Draft {
+                    revision,
+                    composition: decode(&composition)?,
+                    presets: decode(&presets)?,
+                    settings: decode(&settings)?,
                 })
-            })
-            .map_err(|error| PersistenceError::failure("list drafts", error))?
-            .collect::<Result<_, _>>()
-            .map_err(|error| PersistenceError::failure("read the draft list", error))
+            },
+        )
     }
 
     fn save_draft(&self, draft: &Draft) -> Result<Draft, PersistenceError> {
@@ -55,35 +35,24 @@ impl DraftStore for SqliteDatabase {
         let connection = self.connection()?;
         let count = if draft.revision == 0 {
             connection.execute(
-                "INSERT INTO drafts(id, revision, name, composition, presets, settings) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(id) DO NOTHING",
-                params![draft.id, revision, draft.name, composition, presets, settings],
+                "INSERT INTO current_creation(id, revision, composition, presets, settings) VALUES (1, ?1, ?2, ?3, ?4) ON CONFLICT(id) DO NOTHING",
+                params![revision, composition, presets, settings],
             )
         } else {
             connection.execute(
-                "UPDATE drafts SET revision = ?2, name = ?3, composition = ?4, presets = ?5, settings = ?6, updated_at = CAST(unixepoch('subsec') * 1000 AS INTEGER) WHERE id = ?1 AND revision = ?7",
-                params![draft.id, revision, draft.name, composition, presets, settings, draft.revision],
+                "UPDATE current_creation SET revision = ?1, composition = ?2, presets = ?3, settings = ?4 WHERE id = 1 AND revision = ?5",
+                params![revision, composition, presets, settings, draft.revision],
             )
-        }.map_err(|error| PersistenceError::failure("save a draft", error))?;
+        }.map_err(|error| PersistenceError::failure("save the current creation", error))?;
         if count == 0 {
-            return Err(write_miss(&connection, "drafts", "draft", &draft.id));
+            return Err(PersistenceError::Conflict {
+                kind: "current creation",
+                id: "1".to_owned(),
+            });
         }
         Ok(Draft {
             revision,
             ..draft.clone()
         })
-    }
-
-    fn delete_draft(&self, id: &str, revision: u32) -> Result<(), PersistenceError> {
-        let connection = self.connection()?;
-        let count = connection
-            .execute(
-                "DELETE FROM drafts WHERE id = ?1 AND revision = ?2",
-                params![id, revision],
-            )
-            .map_err(|error| PersistenceError::failure("delete a draft", error))?;
-        if count == 0 {
-            return Err(write_miss(&connection, "drafts", "draft", id));
-        }
-        Ok(())
     }
 }

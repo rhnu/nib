@@ -11,7 +11,7 @@ use nib_app::{
         ResolvedFragment, ResolvedSettings, Resource, ResourceContent, SettingSource,
         SettingsProvenance, ValidationError,
     },
-    session::{Draft, DraftSummary},
+    session::Draft,
 };
 use ts_rs::{Config, TS};
 
@@ -63,7 +63,6 @@ fn types(check: bool) -> Result<()> {
         PresetBinding::decl(&config),
         PresetInstance::decl(&config),
         Draft::decl(&config),
-        DraftSummary::decl(&config),
         ValidationError::decl(&config),
         PromptScope::decl(&config),
         ResolutionIssueKind::decl(&config),

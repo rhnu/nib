@@ -17,9 +17,7 @@ export const api = {
   saveResource: (resource: Resource) => invoke<Resource>("save_resource", { resource }),
   deleteResource: (id: string, revision: number) =>
     invoke<void>("delete_resource", { id, revision }),
-  draft: (id: string) => invoke<Draft>("get_draft", { id }),
   saveDraft: (draft: Draft) => invoke<Draft>("save_draft", { draft }),
-  createDraft: (name: string) => invoke<Draft>("create_draft", { name }),
   resolve: (draft: Draft) => invoke<ResolvedDraft>("resolve_draft", { draft }),
   expandChunk: (node: PromptNode) => invoke<PromptNode>("expand_chunk", { node }),
   expandPreset: (instance: PresetInstance) => invoke<PresetInstance>("expand_preset", { instance }),

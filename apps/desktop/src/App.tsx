@@ -2,22 +2,18 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  Check,
   CircleAlert,
-  FileText,
   Library,
   LoaderCircle,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  Save,
   ScanText,
   Sun,
 } from "lucide-react";
 import type {
   Draft,
-  DraftSummary,
   Resource,
   ResourceSummary,
   ResolvedDraft,
@@ -29,7 +25,7 @@ import { CompositionEditor, moveItem, SettingsEditor } from "./composition-edito
 import { PresetEditor } from "./preset-editor";
 import { ResourceLibrary } from "./resource-library";
 import { ResolutionInspector } from "./resolution-inspector";
-import { IconButton, Modal } from "./ui";
+import { IconButton } from "./ui";
 
 /** The workspace owns live draft state; reusable resources are fetched through the host. */
 export default function App() {
@@ -37,7 +33,6 @@ export default function App() {
   const written = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
   const draft = written.value;
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
-  const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [resources, setResources] = useState(new Map<string, Resource>());
   const resourceEpoch = useRef(0);
   const [loading, setLoading] = useState(isTauri);
@@ -56,9 +51,6 @@ export default function App() {
   }, [resourceDirty]);
   const [inspector, setInspector] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
-  const [switching, setSwitching] = useState(false);
-  const [newDraft, setNewDraft] = useState(false);
-  const [newName, setNewName] = useState("");
   const [theme, setTheme] = useState(() =>
     localStorage.getItem("nib-theme") === "light" ? "light" : "dark",
   );
@@ -76,7 +68,6 @@ export default function App() {
       .then(async (snapshot) => {
         if (!active) return;
         setWorkspace(snapshot);
-        setDrafts(snapshot.drafts);
         writer.replace(snapshot.draft);
         const fetched = await Promise.all(snapshot.resources.map((item) => api.resource(item.id)));
         if (active) {
@@ -94,31 +85,6 @@ export default function App() {
       active = false;
     };
   }, [attempt, writer]);
-  useEffect(() => {
-    if (!written.dirty || written.error) return;
-    const timer = setTimeout(() => {
-      void writer.flush().catch(() => {});
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [draft, writer, written.dirty, written.error]);
-  useEffect(
-    () =>
-      writer.subscribe(() => {
-        const current = writer.getSnapshot();
-        if (!current.value || current.dirty) return;
-        const summary = {
-          id: current.value.id,
-          revision: current.value.revision,
-          name: current.value.name,
-        };
-        setDrafts((previous) =>
-          previous.some((item) => item.id === summary.id)
-            ? previous.map((item) => (item.id === summary.id ? summary : item))
-            : [...previous, summary],
-        );
-      }),
-    [writer],
-  );
   useEffect(() => {
     if (!draft) return;
     let active = true;
@@ -167,7 +133,7 @@ export default function App() {
           await writer.flush();
           await getCurrentWindow().destroy();
         } catch (cause) {
-          setError(`窗口未关闭，草稿仍保留在编辑器中：${errorMessage(cause)}`);
+          setError(`窗口未关闭，当前创作仍保留在编辑器中：${errorMessage(cause)}`);
         }
       })
       .then(
@@ -232,38 +198,6 @@ export default function App() {
     if (!resources.has(resource.id))
       void refreshResources().catch((cause: unknown) => setError(errorMessage(cause)));
   };
-  const switchDraft = async (id: string) => {
-    if (switching || id === draft?.id) return;
-    setSwitching(true);
-    setError("");
-    try {
-      await writer.flush();
-      const next = await api.draft(id);
-      writer.replace(next);
-      setResolved(null);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setSwitching(false);
-    }
-  };
-  const createDraft = async () => {
-    if (!newName.trim() || switching) return;
-    setSwitching(true);
-    setError("");
-    try {
-      await writer.flush();
-      const next = await api.createDraft(newName.trim());
-      writer.replace(next);
-      setResolved(null);
-      setNewDraft(false);
-      setNewName("");
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setSwitching(false);
-    }
-  };
   if (loading || startupError || !workspace || !draft)
     return (
       <main className="startup">
@@ -280,7 +214,7 @@ export default function App() {
             <>
               <p className="startup-message">
                 {startupError ||
-                  "当前在独立浏览器中运行，未连接桌面宿主。资源与草稿需要通过 nib 桌面应用打开。"}
+                  "当前在独立浏览器中运行，未连接桌面宿主。资源与当前创作需要通过 nib 桌面应用打开。"}
               </p>
               <button
                 onClick={() => {
@@ -310,56 +244,8 @@ export default function App() {
           nib
           <span className="brand-divider" />
         </div>
-        <div className="draft-picker">
-          <FileText size={15} />
-          <select
-            aria-label="当前草稿"
-            disabled={switching}
-            value={draft.id}
-            onChange={(event) => void switchDraft(event.target.value)}
-          >
-            {drafts.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.id === draft.id ? draft.name : item.name}
-              </option>
-            ))}
-          </select>
-          <IconButton
-            label="新建草稿"
-            onClick={() => {
-              setError("");
-              setNewDraft(true);
-            }}
-          >
-            <Plus size={16} />
-          </IconButton>
-        </div>
+        <span className="editor-label">当前创作</span>
         <span className="spacer" />
-        <output className={`save-status ${written.error ? "danger" : ""}`}>
-          {written.error ? (
-            <CircleAlert size={14} />
-          ) : written.saving ? (
-            <LoaderCircle size={14} className="spin" />
-          ) : !written.dirty ? (
-            <Check size={14} />
-          ) : (
-            <span className="unsaved-dot" />
-          )}
-          {written.error
-            ? "保存失败"
-            : written.saving
-              ? "正在保存"
-              : written.dirty
-                ? "未保存"
-                : "已保存"}
-        </output>
-        <button
-          disabled={written.saving || !written.dirty}
-          onClick={() => void writer.flush().catch(() => {})}
-        >
-          <Save size={15} />
-          <span className="button-copy">保存</span>
-        </button>
         <IconButton
           label={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -383,17 +269,6 @@ export default function App() {
       )}
       <div className={`workspace-body ${contextOpen ? "" : "context-hidden"}`}>
         <aside className="context-rail">
-          <section className="draft-context">
-            <div className="eyebrow">当前创作</div>
-            <label className="field draft-title">
-              <span>草稿名称</span>
-              <input
-                value={draft.name}
-                aria-label="草稿名称"
-                onChange={(event) => edit({ ...draft, name: event.target.value })}
-              />
-            </label>
-          </section>
           <section className="preset-context">
             <header className="section-heading">
               <h2>
@@ -414,7 +289,7 @@ export default function App() {
                   models={workspace.models}
                   onChange={(value) => {
                     const current = writer.getSnapshot().value;
-                    if (current?.id === draft.id)
+                    if (current)
                       edit({
                         ...current,
                         presets: current.presets.map((item) =>
@@ -529,42 +404,6 @@ export default function App() {
         onDirtyChange={setResourceDirty}
         notice={error || (written.error ? errorMessage(written.error) : "")}
       />
-      <Modal
-        open={newDraft}
-        onClose={() => {
-          if (!switching) setNewDraft(false);
-        }}
-        title="新建草稿"
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void createDraft();
-          }}
-        >
-          <label className="field">
-            <span>草稿名称</span>
-            <input
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              placeholder="为这次创作命名"
-            />
-          </label>
-          {error && (
-            <p className="inline-warning" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="dialog-actions">
-            <button type="button" onClick={() => setNewDraft(false)} disabled={switching}>
-              取消
-            </button>
-            <button className="primary" disabled={!newName.trim() || switching}>
-              {switching ? "创建中…" : "创建草稿"}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

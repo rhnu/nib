@@ -69,13 +69,11 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
     Ok(())
 }
 
-/// Checks draft identity, names, entry identities and instance override structure.
+/// Checks composition entry identities and instance override structure.
 ///
 /// # Errors
 /// Returns the field and reason for the first structural violation.
 pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
-    nonempty(&draft.id, "id")?;
-    nonempty(&draft.name, "name")?;
     composition(&draft.composition, false)?;
     let mut ids = HashSet::new();
     for instance in &draft.presets {

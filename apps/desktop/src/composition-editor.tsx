@@ -269,9 +269,7 @@ function NodeEditor({
         }
       />
       <footer className="node-footer">
-        <span>
-          {node.kind === "chunk" ? "链接资源 · 这里的修改只用于当前实例" : "当前草稿文本"}
-        </span>
+        <span>{node.kind === "chunk" ? "链接资源 · 这里的修改只用于当前实例" : "直接文本"}</span>
         <div className="button-group">
           <IconButton label="上移片段" disabled={!canUp} onClick={up}>
             <ArrowUp size={13} />
