@@ -5,6 +5,9 @@ use tauri::Manager as _;
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 mod commands;
+mod credentials;
+mod generation;
+mod state;
 
 /// Initializes host diagnostics and runs the native desktop event loop.
 ///
@@ -25,8 +28,7 @@ pub fn run() -> anyhow::Result<()> {
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
         .setup(|app| {
-            let path = app.path().app_data_dir()?.join("nib.sqlite3");
-            app.manage(commands::DesktopState::new(path));
+            app.manage(state::DesktopState::new(app.path().app_data_dir()?));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -39,6 +41,17 @@ pub fn run() -> anyhow::Result<()> {
             commands::resolve_draft,
             commands::expand_chunk,
             commands::expand_preset,
+            generation::get_account_status,
+            generation::save_account_key,
+            generation::delete_account_key,
+            generation::quote_generation,
+            generation::submit_generation,
+            generation::list_jobs,
+            generation::cancel_job,
+            generation::retry_job,
+            generation::list_results,
+            generation::read_result_image,
+            generation::restore_result,
         ])
         .run(tauri::generate_context!())
         .context("run the nib desktop application")

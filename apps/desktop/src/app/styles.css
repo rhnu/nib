@@ -1,0 +1,20 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "../shared/styles/tokens.css";
+@import "../shared/styles/base.css";
+@import "../shared/ui/styles.css";
+@import "./startup.css";
+@import "../features/workbench/styles.css";
+@import "../features/prompt/styles.css";
+@import "../features/library/styles.css";
+
+/* Preserve nib's pixel density while exposing existing theme tokens to utilities. */
+@theme inline {
+  --spacing: 4px;
+  --color-panel: var(--surface);
+  --color-raised: var(--raised);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+}

@@ -1,0 +1,46 @@
+:root {
+  font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
+  --bg: #191b1e;
+  --surface: #202226;
+  --raised: #282b30;
+  --input: #1b1d21;
+  --hover: #32363c;
+  --line: #35383e;
+  --line-subtle: #2b2e33;
+  --text: #e7e9ec;
+  --muted: #a2a8b2;
+  --accent: #5bc4bc;
+  --accent-fill: #2c8881;
+  --accent-text: #c8fbf4;
+  --accent-soft: #203b3b;
+  --danger: #f0a3a5;
+  --danger-bg: #3d292e;
+  --shadow: 0 18px 80px #0008, 0 2px 10px #0005;
+  color: var(--text);
+  background: var(--bg);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f1f2f4;
+  --surface: #fafafa;
+  --raised: #fff;
+  --input: #fff;
+  --hover: #e8ebee;
+  --line: #d3d6dc;
+  --line-subtle: #e3e5e9;
+  --text: #252a30;
+  --muted: #686f79;
+  --accent: #247e77;
+  --accent-fill: #287e77;
+  --accent-text: #fff;
+  --accent-soft: #dfefec;
+  --danger: #ac3d48;
+  --danger-bg: #fae8eb;
+  --shadow: 0 18px 80px #26323c26, 0 2px 10px #26323c15;
+}

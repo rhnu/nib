@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 360px;
+}
+fieldset {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1 {
+  font-size: 22px;
+  font-weight: 580;
+  letter-spacing: -0.5px;
+}
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+h3 {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+  margin: 0 0 9px;
+}
+p {
+  overflow-wrap: anywhere;
+}
+svg {
+  flex-shrink: 0;
+}
+.spacer {
+  flex: 1;
+}
+.muted,
+.help-note,
+.empty-note {
+  color: var(--muted);
+}
+.accent-text {
+  color: var(--accent);
+}
+.danger {
+  color: var(--danger);
+}
+.eyebrow {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 1.3px;
+}
+.count {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 450;
+}
+.empty-note {
+  font-size: 12px;
+  line-height: 1.75;
+  margin: 3px 0;
+}
+.help-note {
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 12px 0 0;
+}
+details > summary {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 10px 0;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

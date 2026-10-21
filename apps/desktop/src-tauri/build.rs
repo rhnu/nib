@@ -12,6 +12,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "resolve_draft",
             "expand_chunk",
             "expand_preset",
+            "get_account_status",
+            "save_account_key",
+            "delete_account_key",
+            "quote_generation",
+            "submit_generation",
+            "list_jobs",
+            "cancel_job",
+            "retry_job",
+            "list_results",
+            "read_result_image",
+            "restore_result",
         ]));
     tauri_build::try_build(attributes)?;
     Ok(())

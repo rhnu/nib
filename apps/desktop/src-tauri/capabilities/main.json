@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Allows the local main window to edit resources and automatically retain the current creation.",
+  "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
     "allow-get-workspace",
@@ -13,6 +13,17 @@
     "allow-resolve-draft",
     "allow-expand-chunk",
     "allow-expand-preset",
+    "allow-get-account-status",
+    "allow-save-account-key",
+    "allow-delete-account-key",
+    "allow-quote-generation",
+    "allow-submit-generation",
+    "allow-list-jobs",
+    "allow-cancel-job",
+    "allow-retry-job",
+    "allow-list-results",
+    "allow-read-result-image",
+    "allow-restore-result",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-destroy"

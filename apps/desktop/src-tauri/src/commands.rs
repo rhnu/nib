@@ -1,10 +1,5 @@
 //! IPC adaptation and blocking database work. Domain behavior stays in nib-app.
 
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
-
 use nib_app::{
     api::{ApiError, ErrorCode, WorkspaceSnapshot},
     library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
@@ -16,42 +11,9 @@ use nib_app::{
     session::{Draft, DraftStore as _},
 };
 
-#[derive(Clone)]
-pub(crate) struct DesktopState {
-    path: PathBuf,
-    database: Arc<Mutex<Option<Arc<SqliteDatabase>>>>,
-}
+use crate::state::DesktopState;
 
-impl DesktopState {
-    pub(crate) fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            database: Arc::new(Mutex::new(None)),
-        }
-    }
-
-    fn database(&self) -> Result<Arc<SqliteDatabase>, PersistenceError> {
-        let mut slot = self
-            .database
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?;
-        if let Some(database) = slot.as_ref() {
-            return Ok(Arc::clone(database));
-        }
-        if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|error| {
-                PersistenceError::failure("create the application data directory", error)
-            })?;
-        }
-        let database = SqliteDatabase::open(&self.path)?;
-        let database = Arc::new(database);
-        *slot = Some(Arc::clone(&database));
-        tracing::info!("opened the local creation database");
-        Ok(database)
-    }
-}
-
-fn persistence_error(error: PersistenceError) -> ApiError {
+pub(crate) fn persistence_error(error: PersistenceError) -> ApiError {
     let (code, message) = match error {
         PersistenceError::NotFound { .. } => (ErrorCode::NotFound, "内容已不存在，请刷新后重试。"),
         PersistenceError::Conflict { .. } => (

@@ -28,6 +28,11 @@ impl SqliteDatabase {
         let mut connection = Connection::open(path)
             .map_err(|error| PersistenceError::failure("open the local database", error))?;
         connection
+            .pragma_update(None, "foreign_keys", true)
+            .map_err(|error| {
+                PersistenceError::failure("enable database reference integrity", error)
+            })?;
+        connection
             .busy_timeout(Duration::from_secs(5))
             .map_err(|error| {
                 PersistenceError::failure("configure the database busy timeout", error)
@@ -37,7 +42,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version != 0 && version != 2 {
+        if version != 0 && version != 3 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

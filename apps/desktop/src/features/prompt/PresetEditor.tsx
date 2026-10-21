@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, FileText, Link2, RotateCcw } from "lucide-react";
-import type { InstanceOverride, PresetInstance, Resource } from "./bindings/workbench";
-import { CompositionEditor, SettingsEditor } from "./composition-editor";
-import { api, errorMessage } from "./workbench-api";
-import { ActionsMenu, IconButton, Toggle } from "./ui";
+import { ArrowDown, ArrowUp, FileText, Link2 } from "lucide-react";
+import type { InstanceOverride, PresetInstance, Resource } from "../../bindings/workbench";
+import { CompositionEditor } from "./CompositionEditor";
+import { SettingsEditor } from "./SettingsEditor";
+import { PresetOverrides } from "./PresetOverrides";
+import { promptApi } from "./api";
+import { errorMessage } from "../../shared/host/error";
+import { ActionsMenu, IconButton, Toggle } from "../../shared/ui";
 
 export function PresetEditor({
   instance,
@@ -79,7 +82,7 @@ export function PresetEditor({
                     {
                       label: "展开为独立配方",
                       action: () => {
-                        void api.expandPreset(instance).then(
+                        void promptApi.expandPreset(instance).then(
                           (result) => {
                             if (latest.current.active && latest.current.instance === instance)
                               latest.current.onChange(result);
@@ -104,58 +107,13 @@ export function PresetEditor({
             {binding.kind === "linked" ? (
               <>
                 <p className="help-note">局部修改只保存在本次实例中，原资源保持不变。</p>
-                {(["positive", "negative"] as const).map((scope) => (
-                  <section key={scope}>
-                    <h3>{scope === "positive" ? "基础提示" : "负面提示"}</h3>
-                    {composition[scope].length === 0 && <p className="muted">没有内容</p>}
-                    {composition[scope].map((node) => {
-                      const local = binding.overrides.find((item) => item.nodeId === node.id) ?? {
-                        nodeId: node.id,
-                        enabled: null,
-                        text: null,
-                      };
-                      const source = node.kind === "chunk" ? resources.get(node.resourceId) : null;
-                      const original =
-                        node.kind === "text"
-                          ? node.text
-                          : (node.overrideText ??
-                            (source?.content.kind === "chunk" ? source.content.text : ""));
-                      return (
-                        <div className="instance-override" key={node.id}>
-                          <header>
-                            <span>
-                              {node.kind === "chunk" ? (source?.name ?? "Chunk 缺失") : "文本"}
-                            </span>
-                            <span className="spacer" />
-                            <Toggle
-                              label="启用配方片段"
-                              checked={local.enabled ?? node.enabled}
-                              onChange={(enabled) => override({ ...local, enabled })}
-                            />
-                            <IconButton
-                              label="恢复原资源内容与状态"
-                              disabled={local.enabled === null && local.text === null}
-                              onClick={() =>
-                                override({ nodeId: node.id, enabled: null, text: null })
-                              }
-                            >
-                              <RotateCcw size={14} />
-                            </IconButton>
-                          </header>
-                          <textarea
-                            aria-label={`${name} ${scope === "positive" ? "基础" : "负面"}提示本次覆盖`}
-                            spellCheck={false}
-                            value={local.text ?? original}
-                            onChange={(event) => override({ ...local, text: event.target.value })}
-                          />
-                          {(local.text !== null || local.enabled !== null) && (
-                            <span className="tag">本次覆盖</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </section>
-                ))}
+                <PresetOverrides
+                  composition={composition}
+                  overrides={binding.overrides}
+                  resources={resources}
+                  name={name}
+                  onChange={override}
+                />
               </>
             ) : (
               <>
@@ -169,7 +127,7 @@ export function PresetEditor({
                   }
                   expandChunk={async (node) => {
                     try {
-                      return await api.expandChunk(node);
+                      return await promptApi.expandChunk(node);
                     } catch (cause) {
                       onError(errorMessage(cause));
                       return node;

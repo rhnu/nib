@@ -1,0 +1,131 @@
+.library-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 17px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+.search-field > svg {
+  position: absolute;
+  left: 9px;
+  color: var(--muted);
+}
+.search-field > input {
+  padding-left: 31px;
+}
+.library-toolbar > select {
+  width: 105px;
+}
+.library-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.library-body.has-editor {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+.resource-list {
+  padding: 8px;
+  overflow: auto;
+}
+.resource-list > .empty-note {
+  padding: 28px 20px;
+}
+.resource-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.resource-row.selected {
+  background: var(--accent-soft);
+}
+.resource-row:hover {
+  background: var(--hover);
+}
+.resource-select {
+  flex: 1;
+  min-width: 0;
+  justify-content: start;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 9px 7px;
+  gap: 10px;
+}
+.resource-select > svg {
+  color: var(--muted);
+}
+.resource-select > span {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  min-width: 0;
+}
+.resource-select small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 1px;
+  font-weight: 400;
+}
+.resource-editor {
+  border-left: 1px solid var(--line);
+  overflow: auto;
+  padding: 12px 18px 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.resource-editor-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.resource-editor fieldset {
+  display: grid;
+  gap: 18px;
+  flex: 1;
+  align-content: start;
+}
+.resource-text textarea {
+  min-height: 230px;
+}
+.resource-editor-footer {
+  padding: 14px 0;
+  margin-top: 20px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--line-subtle);
+}
+.resource-editor-footer .muted {
+  font-size: 11px;
+}
+.library-footer {
+  border-top: 1px solid var(--line-subtle);
+  padding: 9px 17px;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .library-body.has-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .library-body.has-editor .resource-list {
+    display: none;
+  }
+  .resource-editor {
+    border-left: 0;
+  }
+}

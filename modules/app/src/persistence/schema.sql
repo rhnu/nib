@@ -15,4 +15,25 @@ CREATE TABLE current_creation (
     settings TEXT NOT NULL CHECK (json_valid(settings))
 );
 
-PRAGMA user_version = 2;
+CREATE TABLE jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
+    submitted_at INTEGER NOT NULL,
+    finished_at INTEGER,
+    error TEXT,
+    submission TEXT NOT NULL CHECK (json_valid(submission))
+);
+CREATE INDEX jobs_status_id ON jobs(status, id);
+
+CREATE TABLE generation_results (
+    id TEXT PRIMARY KEY NOT NULL,
+    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    sample_index INTEGER NOT NULL CHECK (sample_index >= 0),
+    seed INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK (json_valid(format)),
+    byte_length INTEGER NOT NULL CHECK (byte_length > 0),
+    UNIQUE (job_id, sample_index)
+);
+
+PRAGMA user_version = 3;

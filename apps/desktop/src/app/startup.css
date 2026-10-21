@@ -1,0 +1,48 @@
+.startup {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+  place-items: center;
+}
+.startup-panel {
+  width: min(430px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 12px 60px #0001;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 26px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.startup-panel h1 {
+  font-size: 27px;
+  margin-bottom: 4px;
+}
+.startup-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 20px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.startup-panel details {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.startup-panel code {
+  color: var(--text);
+}
