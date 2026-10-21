@@ -1,4 +1,4 @@
-use novelai_bridge::{GeneratedImageMetadata, ImageSize};
+use novelai_bridge::{GeneratedImageMetadata, ImageSize, MetadataOrigin};
 use serde::Serialize;
 
 use super::MediaLibrary;
@@ -19,6 +19,11 @@ pub enum ImageMetadataStatus {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct KnownImageMetadata {
+    #[cfg_attr(
+        feature = "typegen",
+        ts(type = "\"png_text\" | \"exif_user_comment\" | \"stealth_png_comp\" | null")
+    )]
+    pub origin: Option<MetadataOrigin>,
     pub prompt: Option<String>,
     pub negative_prompt: Option<String>,
     pub model: Option<String>,
@@ -76,6 +81,7 @@ pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetad
         GeneratedImageMetadata::Parsed(metadata) => ImageMetadataReport {
             status: ImageMetadataStatus::Parsed,
             generation: Some(KnownImageMetadata {
+                origin: metadata.origin,
                 prompt: metadata.prompt.clone(),
                 negative_prompt: metadata.negative_prompt.clone(),
                 model: metadata.model.clone(),

@@ -29,7 +29,7 @@ CREATE INDEX jobs_status_id ON jobs(status, id);
 
 CREATE TABLE media_assets (
     id TEXT PRIMARY KEY NOT NULL,
-    kind TEXT NOT NULL CHECK (kind IN ('image', 'vibe')),
+    kind TEXT NOT NULL CHECK (kind IN ('image', 'vibe', 'vibeDocument')),
     mime_type TEXT NOT NULL,
     byte_length INTEGER NOT NULL CHECK (byte_length > 0),
     width INTEGER,
@@ -44,8 +44,9 @@ CREATE TABLE generation_results (
     sample_index INTEGER NOT NULL CHECK (sample_index >= 0),
     asset_id TEXT NOT NULL REFERENCES media_assets(id),
     seed INTEGER,
+    image_source TEXT CHECK (image_source IS NULL OR json_valid(image_source)),
     created_at INTEGER NOT NULL,
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;

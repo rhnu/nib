@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream};
 use novelai_bridge::{
-    CreditEvent, CreditObserver, RequestOutcome, StreamingTransport, Transport, TransportRequest,
-    TransportResponse, TransportSseEvent, TransportSseResponse,
+    CreditEvent, CreditObserver, RequestOutcome, Transport, TransportHeader, TransportRequest,
+    TransportResponse, TransportSseEvent,
 };
 
 use super::*;
@@ -21,28 +21,27 @@ impl Transport for MemoryTransport {
         &self,
         _request: TransportRequest,
     ) -> Result<TransportResponse, novelai_bridge::TransportError> {
-        panic!("streaming test must not make ordinary requests")
-    }
-}
-
-#[async_trait]
-impl StreamingTransport for MemoryTransport {
-    async fn execute_sse(
-        &self,
-        _request: TransportRequest,
-    ) -> Result<TransportSseResponse, novelai_bridge::TransportError> {
-        let events = stream::iter(self.events.clone().into_iter().map(Ok));
+        let events = stream::iter(self.events.clone().into_iter().map(|event| {
+            Ok(format!("event: {}\ndata: {}\n\n", event.event, event.data).into_bytes())
+        }));
         let eof = self.eof.clone();
         let tail = stream::unfold(eof, |gate| async move {
             if let Some(gate) = gate {
                 gate.notified().await;
             }
             None::<(
-                Result<TransportSseEvent, novelai_bridge::TransportError>,
+                Result<Vec<u8>, novelai_bridge::TransportError>,
                 Option<Arc<Notify>>,
             )>
         });
-        Ok(TransportSseResponse::Events(Box::pin(events.chain(tail))))
+        Ok(TransportResponse {
+            status: 200,
+            headers: vec![TransportHeader {
+                name: "content-type".to_owned(),
+                value: b"text/event-stream".to_vec(),
+            }],
+            body: Box::pin(events.chain(tail)),
+        })
     }
 }
 
@@ -81,10 +80,14 @@ impl FinalOutputStore for MemoryOutputs {
         job: &JobRecord,
         output: crate::media::JobOutput,
     ) -> Result<(), PersistenceError> {
-        let crate::media::JobOutput::Generation(output) = output else {
-            return Err(PersistenceError::InvalidData {
-                message: "streaming test only retains generation".to_owned(),
-            });
+        let image_count = match output {
+            crate::media::JobOutput::Generation(output) => output.images.len(),
+            crate::media::JobOutput::Upscale(output) => output.images.len(),
+            _ => {
+                return Err(PersistenceError::InvalidData {
+                    message: "image execution test only retains image collections".to_owned(),
+                });
+            },
         };
         let mut records = self.jobs.records.lock().unwrap();
         let record = records
@@ -93,7 +96,7 @@ impl FinalOutputStore for MemoryOutputs {
             .unwrap();
         if record.status == JobStatus::Running {
             record.status = JobStatus::Completed;
-            self.images.lock().unwrap().push(output.images.len());
+            self.images.lock().unwrap().push(image_count);
         }
         self.jobs.changed.notify_one();
         Ok(())
@@ -103,7 +106,7 @@ impl FinalOutputStore for MemoryOutputs {
 fn event(kind: &str) -> TransportSseEvent {
     let data = match kind {
         "final" => serde_json::json!({"samp_ix":0,"gen_id":1,"image":PNG}),
-        "intermediate" => serde_json::json!({"samp_ix":0,"step_ix":2,"gen_id":1,"image":"preview"}),
+        "intermediate" => serde_json::json!({"samp_ix":0,"step_ix":2,"gen_id":1,"image":PNG}),
         "error" => serde_json::json!({"samp_ix":0,"message":"private-provider-message"}),
         _ => unreachable!(),
     };
@@ -129,7 +132,7 @@ fn streaming_queue(
         images: Mutex::new(Vec::new()),
     });
     let observer = Arc::new(MemoryObserver::default());
-    let transport: Arc<dyn StreamingTransport> = Arc::new(MemoryTransport { events, eof });
+    let transport: Arc<dyn Transport> = Arc::new(MemoryTransport { events, eof });
     let client = novelai_bridge::Client::new(transport, novelai_bridge::ClientConfig::default())
         .with_credit_observer(Arc::<MemoryObserver>::clone(&observer));
     let queue = JobQueue::new(
@@ -195,12 +198,18 @@ async fn final_event_is_not_completed_until_sdk_validates_eof() {
     let job = queue.enqueue(&streamed_submission()).unwrap();
     let worker = tokio::spawn(Arc::clone(&queue).run());
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        let mut preview_received = false;
         loop {
-            if matches!(
-                feedback.recv().await.unwrap(),
-                JobFeedback::FinalReceived { .. }
-            ) {
-                break;
+            match feedback.recv().await.unwrap() {
+                JobFeedback::Preview { image_bytes, .. } => {
+                    assert!(image_bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+                    preview_received = true;
+                },
+                JobFeedback::FinalReceived { .. } => {
+                    assert!(preview_received);
+                    break;
+                },
+                JobFeedback::Finished { .. } => panic!("stream ended before its final event"),
             }
         }
     })
@@ -301,6 +310,7 @@ async fn unavailable_frozen_input_fails_one_job_and_allows_the_next() {
         color_correct: true,
         extra_noise_seed: None,
         add_original_image: true,
+        max_enhance: false,
     };
     let first = queue.enqueue(&bad).unwrap();
     let second = queue.enqueue(&streamed_submission()).unwrap();
@@ -310,6 +320,63 @@ async fn unavailable_frozen_input_fails_one_job_and_allows_the_next() {
     assert_eq!(*jobs.claimed.lock().unwrap(), [first.id, second.id]);
     assert_eq!(*outputs.images.lock().unwrap(), [1]);
     assert!(!queue.failed.load(Ordering::Acquire));
+    worker.abort();
+    drop(worker.await);
+}
+
+#[tokio::test]
+async fn upscale_executes_its_frozen_options_and_retains_returned_images() {
+    #[derive(Default)]
+    struct UpscaleTransport {
+        requests: Mutex<Vec<TransportRequest>>,
+    }
+    #[async_trait]
+    impl Transport for UpscaleTransport {
+        async fn execute(
+            &self,
+            request: TransportRequest,
+        ) -> Result<TransportResponse, novelai_bridge::TransportError> {
+            self.requests.lock().unwrap().push(request);
+            let image = crate::media::AssetReader::image(&ImageAssets, "source").unwrap();
+            Ok(TransportResponse::from_bytes(
+                200,
+                vec![TransportHeader {
+                    name: "content-type".to_owned(),
+                    value: b"image/png".to_vec(),
+                }],
+                image.as_bytes().to_vec(),
+            ))
+        }
+    }
+    let transport = Arc::new(UpscaleTransport::default());
+    let erased: Arc<dyn Transport> = Arc::<UpscaleTransport>::clone(&transport);
+    let client = novelai_bridge::Client::new(erased, novelai_bridge::ClientConfig::default());
+    let (mut queue, jobs, outputs, _) = streaming_queue(Vec::new(), None);
+    let mutable = Arc::get_mut(&mut queue).unwrap();
+    mutable.assets = Arc::new(ImageAssets);
+    mutable.clients = Arc::new(MemoryClient(client));
+    let mut draft = Draft::default();
+    draft.inputs.operation = crate::session::CreationOperation::Upscale {
+        asset_id: "source".to_owned(),
+        model: novelai_bridge::Model::NaiDiffusion5Curated,
+        declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::Sigma035,
+    };
+    let frozen = queue.freeze(&draft).unwrap();
+    let retained = sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+    let job = queue.enqueue(&retained).unwrap();
+    let worker = tokio::spawn(Arc::clone(&queue).run());
+    assert_eq!(terminal(&jobs, &job.id).await, JobStatus::Completed);
+    assert_eq!(*outputs.images.lock().unwrap(), [1]);
+    {
+        let requests = transport.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].endpoint.ends_with("/ai/upscale"));
+        let body: serde_json::Value =
+            serde_json::from_slice(requests[0].body.as_ref().unwrap()).unwrap();
+        assert_eq!(body["model"], "nai-diffusion-5-curated");
+        assert_eq!(body["declared_blur_sigma"], 0.35);
+        assert!(body.get("parameters").is_none());
+    }
     worker.abort();
     drop(worker.await);
 }

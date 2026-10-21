@@ -71,7 +71,8 @@ pub(super) fn apply_output_overrides(
                 asset_id,
                 reference_type,
                 strength,
-                fidelity
+                fidelity,
+                information_extracted
             );
         } else {
             missing_output_override(&edit.id, false, context, issues);
@@ -83,13 +84,13 @@ pub(super) fn apply_output_overrides(
             .iter_mut()
             .find(|target| target.id == edit.id)
         {
-            fields!(target, edit, enabled, asset_id, strength);
+            fields!(target, edit, enabled, input, strength);
         } else {
             missing_output_override(&edit.id, false, context, issues);
         }
     }
-    if edits.vibe_strength.is_some() {
-        references.vibe_strength = edits.vibe_strength;
+    if edits.normalize_vibe_strength.is_some() {
+        references.normalize_vibe_strength = edits.normalize_vibe_strength;
     }
     (characters, references)
 }

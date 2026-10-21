@@ -36,6 +36,23 @@ describe("generation quote eligibility", () => {
         null,
       ),
     ).toBe(true);
+    expect(
+      isQuoteEligible(
+        {
+          ...draft,
+          inputs: {
+            ...draft.inputs,
+            operation: {
+              kind: "upscale",
+              assetId: "image",
+              model: "nai-diffusion-5-curated",
+              declaredBlurSigma: 0,
+            },
+          },
+        },
+        null,
+      ),
+    ).toBe(true);
     expect(isQuoteEligible(draft, null)).toBe(false);
   });
 });
@@ -71,8 +88,7 @@ describe("generation quote identity", () => {
             kind: "inpainting",
             assetId: "source",
             maskAssetId: "mask",
-            strength: 0.5,
-            noise: 0,
+            img2img: null,
             addOriginalImage: true,
           },
         },

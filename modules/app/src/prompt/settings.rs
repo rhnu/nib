@@ -1,7 +1,7 @@
 //! Sparse application overrides; defaults and legal values belong to the SDK.
 use novelai_bridge::{
-    GenerateImageRequest, ImageFormat, ImageSize, Model, NoiseSchedule, QualityPreset, Sampler,
-    UcPreset,
+    AlphaMode, GenerateImageRequest, ImageFormat, ImageResponseFormat, ImageSize, Model,
+    NoiseSchedule, QualityPreset, Sampler, UcPreset,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +29,7 @@ pub struct GenerationSettings {
     pub quality: Option<QualityPreset>,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
     pub uc_preset: Option<UcPreset>,
+    pub legacy_uc: Option<bool>,
     pub transparent_background: Option<bool>,
     pub furry_mode: Option<bool>,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
@@ -40,6 +41,13 @@ pub struct GenerationSettings {
     pub smea_dyn: Option<bool>,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
     pub image_format: Option<ImageFormat>,
+    #[cfg_attr(
+        feature = "typegen",
+        ts(type = "\"straight\" | \"premultiplied\" | null")
+    )]
+    pub alpha_mode: Option<AlphaMode>,
+    #[cfg_attr(feature = "typegen", ts(type = "\"zip\" | \"json\" | null"))]
+    pub response_format: Option<ImageResponseFormat>,
     pub use_coords: Option<bool>,
 }
 
@@ -66,6 +74,7 @@ pub struct ResolvedSettings {
     pub quality: QualityPreset,
     #[cfg_attr(feature = "typegen", ts(type = "string"))]
     pub uc_preset: UcPreset,
+    pub legacy_uc: bool,
     pub transparent_background: bool,
     pub furry_mode: bool,
     #[cfg_attr(feature = "typegen", ts(type = "string"))]
@@ -77,6 +86,10 @@ pub struct ResolvedSettings {
     pub smea_dyn: bool,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
     pub image_format: Option<ImageFormat>,
+    #[cfg_attr(feature = "typegen", ts(type = "\"straight\" | \"premultiplied\""))]
+    pub alpha_mode: AlphaMode,
+    #[cfg_attr(feature = "typegen", ts(type = "\"zip\" | \"json\""))]
+    pub response_format: ImageResponseFormat,
     pub use_coords: Option<bool>,
 }
 
@@ -123,6 +136,10 @@ impl GenerationSettings {
             self.uc_preset = Some(value);
             provenance.uc_preset = source.clone();
         }
+        if let Some(value) = values.legacy_uc {
+            self.legacy_uc = Some(value);
+            provenance.legacy_uc = source.clone();
+        }
         if let Some(value) = values.transparent_background {
             self.transparent_background = Some(value);
             provenance.transparent_background = source.clone();
@@ -159,6 +176,14 @@ impl GenerationSettings {
             self.image_format = Some(value);
             provenance.image_format = source.clone();
         }
+        if let Some(value) = values.alpha_mode {
+            self.alpha_mode = Some(value);
+            provenance.alpha_mode = source.clone();
+        }
+        if let Some(value) = values.response_format {
+            self.response_format = Some(value);
+            provenance.response_format = source.clone();
+        }
         if let Some(value) = values.use_coords {
             self.use_coords = Some(value);
             provenance.use_coords = source.clone();
@@ -194,6 +219,9 @@ impl GenerationSettings {
         if let Some(value) = self.uc_preset {
             request.core.uc_preset = value;
         }
+        if let Some(value) = self.legacy_uc {
+            request.core.legacy_uc = value;
+        }
         if let Some(value) = self.transparent_background {
             request.core.transparent_background = value;
         }
@@ -221,6 +249,12 @@ impl GenerationSettings {
         if let Some(value) = self.image_format {
             request.output.image_format = Some(value);
         }
+        if let Some(value) = self.alpha_mode {
+            request.output.alpha_mode = value;
+        }
+        if let Some(value) = self.response_format {
+            request.output.response_format = value;
+        }
         let mut resolved = ResolvedSettings::from_request(&request);
         resolved.use_coords = self.use_coords;
         resolved
@@ -241,6 +275,7 @@ impl ResolvedSettings {
             n_samples: request.core.n_samples,
             quality: request.core.quality,
             uc_preset: request.core.uc_preset,
+            legacy_uc: request.core.legacy_uc,
             transparent_background: request.core.transparent_background,
             furry_mode: request.core.furry_mode,
             noise_schedule: request.sampling.noise_schedule,
@@ -250,6 +285,8 @@ impl ResolvedSettings {
             smea: request.guidance.smea,
             smea_dyn: request.guidance.smea_dyn,
             image_format: request.output.image_format,
+            alpha_mode: request.output.alpha_mode,
+            response_format: request.output.response_format,
             use_coords: request
                 .characters
                 .as_ref()
@@ -268,6 +305,7 @@ impl ResolvedSettings {
         request.core.n_samples = self.n_samples;
         request.core.quality = self.quality;
         request.core.uc_preset = self.uc_preset;
+        request.core.legacy_uc = self.legacy_uc;
         request.core.transparent_background = self.transparent_background;
         request.core.furry_mode = self.furry_mode;
         request.sampling.noise_schedule = self.noise_schedule;
@@ -277,6 +315,8 @@ impl ResolvedSettings {
         request.guidance.smea = self.smea;
         request.guidance.smea_dyn = self.smea_dyn;
         request.output.image_format = self.image_format;
+        request.output.alpha_mode = self.alpha_mode;
+        request.output.response_format = self.response_format;
         if let Some(characters) = &mut request.characters {
             characters.use_coords = self.use_coords;
         } else if self.use_coords.is_some() {
@@ -300,6 +340,7 @@ impl ResolvedSettings {
             n_samples: Some(self.n_samples),
             quality: Some(self.quality),
             uc_preset: Some(self.uc_preset),
+            legacy_uc: Some(self.legacy_uc),
             transparent_background: Some(self.transparent_background),
             furry_mode: Some(self.furry_mode),
             noise_schedule: Some(self.noise_schedule),
@@ -309,6 +350,8 @@ impl ResolvedSettings {
             smea: Some(self.smea),
             smea_dyn: Some(self.smea_dyn),
             image_format: self.image_format,
+            alpha_mode: Some(self.alpha_mode),
+            response_format: Some(self.response_format),
             use_coords: self.use_coords,
         }
     }

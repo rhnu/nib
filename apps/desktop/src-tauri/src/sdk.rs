@@ -9,7 +9,7 @@ use nib_app::{
 };
 use novelai_bridge::{
     ApiKeySource, Client, ClientConfig, CreditEvent, CreditObserver, ReqwestOptions,
-    ReqwestTransport, SecretString, StreamingTransport, Tokenizers,
+    ReqwestTransport, SecretString, Tokenizers, Transport,
 };
 use secrecy::ExposeSecret as _;
 
@@ -17,7 +17,7 @@ use crate::credentials::NativeCredentials;
 
 struct CachedClient {
     key: SecretString,
-    client: Client<dyn StreamingTransport>,
+    client: Client<dyn Transport>,
 }
 
 pub(crate) struct SdkClients {
@@ -42,10 +42,12 @@ impl SdkClients {
             .map_err(|_poisoned| PersistenceError::Locked)? = None;
         Ok(())
     }
+
+    pub(crate) fn tokenizers(&self) -> Arc<Tokenizers> { Arc::clone(&self.tokenizers) }
 }
 
 impl SdkClientProvider for SdkClients {
-    fn client(&self) -> Result<Client<dyn StreamingTransport>, JobError> {
+    fn client(&self) -> Result<Client<dyn Transport>, JobError> {
         let key = self
             .credentials
             .load()?
@@ -64,7 +66,7 @@ impl SdkClientProvider for SdkClients {
             ..ReqwestOptions::default()
         })
         .map_err(novelai_bridge::BridgeError::from)?;
-        let transport: Arc<dyn StreamingTransport> = Arc::new(transport);
+        let transport: Arc<dyn Transport> = Arc::new(transport);
         let client = Client::new(transport, ClientConfig::default())
             .with_tokenizers(Arc::clone(&self.tokenizers))
             .with_credit_observer(Arc::new(CreditDiagnostics));
@@ -75,7 +77,7 @@ impl SdkClientProvider for SdkClients {
         Ok(client)
     }
 
-    fn cached_client(&self) -> Option<Client<dyn StreamingTransport>> {
+    fn cached_client(&self) -> Option<Client<dyn Transport>> {
         self.cached
             .lock()
             .ok()?

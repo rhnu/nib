@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use futures_util::StreamExt;
 use novelai_bridge::{
     EncodeVibeRequest, GenerateImageResult, ImageStreamEvent, RunDirectorToolRequest,
-    ValidationPolicy,
+    UpscaleImageRequest, ValidationPolicy,
 };
 use tokio::sync::Notify;
 
@@ -107,7 +107,7 @@ impl JobQueue {
                             chunk=stream.next()=>{
                                 let Some(chunk)=chunk else {break;};
                                 match chunk?.event {
-                                    ImageStreamEvent::Intermediate {samp_ix,step_ix,image,..} => {drop(self.feedback.send(JobFeedback::Preview {job_id:record.id.clone(),sample_index:samp_ix,step_index:step_ix,image_base64:image}));},
+                                    ImageStreamEvent::Intermediate {samp_ix,step_ix,image,..} => {drop(self.feedback.send(JobFeedback::Preview {job_id:record.id.clone(),sample_index:samp_ix,step_index:step_ix,image_bytes:image}));},
                                     ImageStreamEvent::Final {samp_ix,image,..} => {finals.insert(samp_ix,image);drop(self.feedback.send(JobFeedback::FinalReceived {job_id:record.id.clone(),sample_index:samp_ix}));},
                                     ImageStreamEvent::Error {..}|ImageStreamEvent::Unknown {..}=>{},
                                 }
@@ -130,6 +130,9 @@ impl JobQueue {
             PreparedOperation::Vibe(prepared) => {
                 JobOutput::Vibe(client.encode_vibe_prepared(prepared).await?)
             },
+            PreparedOperation::Upscale(prepared) => {
+                JobOutput::Upscale(client.upscale_prepared(prepared).await?)
+            },
         };
         let media = Arc::clone(&self.media);
         let record = record.clone();
@@ -145,6 +148,7 @@ enum PreparedOperation {
     },
     Director(novelai_bridge::PreparedDirector),
     Vibe(novelai_bridge::PreparedVibe),
+    Upscale(novelai_bridge::PreparedUpscale),
 }
 
 fn prepare_operation(
@@ -176,13 +180,37 @@ fn prepare_operation(
             asset_id,
             model,
             information_extracted,
+            mask_asset_id,
+            crop_to_mask,
+            focus_seed,
+            info_extract_seed,
             ..
         } => Ok(PreparedOperation::Vibe(
             EncodeVibeRequest {
                 image: super::operations::image(assets, &asset_id)?,
                 model,
                 information_extracted,
+                mask: mask_asset_id
+                    .as_ref()
+                    .map(|id| super::operations::image(assets, id))
+                    .transpose()?,
+                crop_to_mask,
+                focus_seed,
+                info_extract_seed,
                 policy: ValidationPolicy::Normalize,
+            }
+            .prepare()?,
+        )),
+        FrozenSubmission::Upscale {
+            asset_id,
+            model,
+            declared_blur_sigma,
+            ..
+        } => Ok(PreparedOperation::Upscale(
+            UpscaleImageRequest {
+                image: super::operations::image(assets, &asset_id)?,
+                model,
+                declared_blur_sigma,
             }
             .prepare()?,
         )),

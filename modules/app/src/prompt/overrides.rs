@@ -3,6 +3,8 @@
 use novelai_bridge::{CharacterPosition, CharacterReferenceType};
 use serde::{Deserialize, Serialize};
 
+use crate::session::VibeInput;
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
@@ -10,7 +12,7 @@ pub struct PresetOutputOverrides {
     pub characters: Vec<CharacterOutputOverride>,
     pub precise: Vec<PreciseReferenceOverride>,
     pub vibes: Vec<VibeReferenceOverride>,
-    pub vibe_strength: Option<f32>,
+    pub normalize_vibe_strength: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,6 +36,7 @@ pub struct PreciseReferenceOverride {
     pub reference_type: Option<CharacterReferenceType>,
     pub strength: Option<f32>,
     pub fidelity: Option<f32>,
+    pub information_extracted: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -42,6 +45,6 @@ pub struct PreciseReferenceOverride {
 pub struct VibeReferenceOverride {
     pub id: String,
     pub enabled: Option<bool>,
-    pub asset_id: Option<String>,
+    pub input: Option<VibeInput>,
     pub strength: Option<f32>,
 }

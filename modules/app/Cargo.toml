@@ -9,6 +9,7 @@ publish.workspace = true
 typegen = ["dep:ts-rs"]
 
 [dependencies]
+async-trait.workspace = true
 novelai-bridge.workspace = true
 futures-util.workspace = true
 rusqlite.workspace = true
@@ -18,9 +19,6 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 ts-rs = { workspace = true, optional = true }
-
-[dev-dependencies]
-async-trait.workspace = true
 
 [lints]
 workspace = true

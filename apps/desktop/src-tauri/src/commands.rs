@@ -2,6 +2,7 @@
 
 use nib_app::{
     api::{ApiError, ErrorCode, WorkspaceSnapshot},
+    jobs::SdkClientProvider as _,
     library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{
@@ -75,6 +76,24 @@ async fn with_database<T: Send + 'static>(
             message: "本地数据操作未完成，请重试。".to_owned(),
         }
     })?
+}
+
+#[tauri::command]
+pub(crate) async fn inspect_tokens(
+    state: tauri::State<'_, DesktopState>,
+    model: novelai_bridge::Model,
+    text: String,
+    framing: novelai_bridge::FramingPolicy,
+) -> Result<prompt::TokenInspection, ApiError> {
+    let desktop = state.inner().clone();
+    crate::generation::blocking(move || {
+        let sdk = desktop.sdk().map_err(crate::generation::generation_error)?;
+        prompt::inspect_tokens(&sdk.tokenizers(), model, &text, framing)
+            .map_err(novelai_bridge::BridgeError::from)
+            .map_err(nib_app::jobs::JobError::from)
+            .map_err(crate::generation::generation_error)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -219,4 +238,22 @@ pub(crate) async fn expand_preset(
             .map_err(expansion_error)
     })
     .await
+}
+
+#[tauri::command]
+pub(crate) async fn suggest_tags(
+    state: tauri::State<'_, DesktopState>,
+    request: novelai_bridge::SuggestTagsRequest,
+) -> Result<novelai_bridge::SuggestTagsResult, ApiError> {
+    let desktop = state.inner().clone();
+    let client = crate::generation::blocking(move || {
+        desktop
+            .sdk()
+            .and_then(|clients| clients.client())
+            .map_err(crate::generation::generation_error)
+    })
+    .await?;
+    prompt::TagQuery::suggest_tags(&client, request)
+        .await
+        .map_err(|error| crate::generation::generation_error(error.into()))
 }

@@ -8,6 +8,35 @@ export const mediaApi = {
     invokeHost<MediaAsset>("import_image_asset", { bytes, name, sourceAssetId }),
   importVibe: (bytes: number[], name: string | null = null) =>
     invokeHost<MediaAsset>("import_vibe_asset", { bytes, name }),
+  importVibeDocument: (bytes: number[], name: string | null = null) =>
+    invokeHost<MediaAsset>("import_vibe_document", { bytes, name }),
+  createImageVibeDocument: (imageId: string) =>
+    invokeHost<MediaAsset>("create_image_vibe_document", { imageId }),
+  createEncodedVibeDocument: (vibeId: string, modelKey: string) =>
+    invokeHost<MediaAsset>("create_encoded_vibe_document", { vibeId, modelKey }),
+  bundleVibeDocuments: (documentIds: string[]) =>
+    invokeHost<MediaAsset>("bundle_vibe_documents", { documentIds }),
+  importPngVibeDocument: (imageId: string) =>
+    invokeHost<MediaAsset | null>("import_png_vibe_document", { imageId }),
+  exportVibeDocument: (id: string) => invokeHost<ArrayBuffer>("export_vibe_document", { id }),
+  embedVibeDocument: (documentId: string, imageId: string) =>
+    invokeHost<MediaAsset>("embed_vibe_document", { documentId, imageId }),
+  writePngText: (imageId: string, entries: [string, string][]) =>
+    invokeHost<MediaAsset>("write_png_text", { imageId, entries }),
+  importDocumentImage: (documentId: string, entryIndex: number) =>
+    invokeHost<MediaAsset>("import_document_image", { documentId, entryIndex }),
+  importDocumentEncoding: (
+    documentId: string,
+    entryIndex: number,
+    modelKey: string,
+    parameterKey: string,
+  ) =>
+    invokeHost<MediaAsset>("import_document_encoding", {
+      documentId,
+      entryIndex,
+      modelKey,
+      parameterKey,
+    }),
   content: (id: string) => invokeHost<ArrayBuffer>("read_media_asset", { id }),
   metadata: (id: string) => invokeHost<ImageMetadataReport>("inspect_image_metadata", { id }),
   embeddedVibes: (id: string) => invokeHost<MediaAsset[]>("import_embedded_vibes", { id }),

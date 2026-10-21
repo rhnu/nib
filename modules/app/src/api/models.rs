@@ -1,6 +1,8 @@
 //! IPC views read SDK descriptors; they never decide request validity.
 
-use novelai_bridge::{GenerationMode, ReferenceAvailability, ReferenceIntent};
+use novelai_bridge::{
+    GenerationMode, QualityPreset, ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
+};
 use serde::Serialize;
 
 use crate::{prompt::ResolvedDraft, session::CreationOperation};
@@ -20,7 +22,18 @@ pub struct ModelCapabilities {
     pub character_positioning: Option<String>,
     pub streaming: bool,
     pub inpainting: bool,
+    pub inpainting_image_to_image: bool,
+    pub max_enhance: bool,
     pub encode_vibe: bool,
+    pub vibe_input_path: Option<String>,
+    pub custom_negative_prompts: bool,
+    pub legacy_uc: bool,
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub quality_presets: Vec<QualityPreset>,
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub uc_presets: Vec<UcPreset>,
+    #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
+    pub fixed_sampler: Option<Sampler>,
     pub transparent_background: bool,
     pub furry_mode: bool,
     pub smea: bool,
@@ -48,7 +61,6 @@ impl From<ReferenceAvailability> for ReferenceStatus {
                 ReferenceAvailability::Available => "available",
                 ReferenceAvailability::NotRequested => "notRequested",
                 ReferenceAvailability::Unsupported => "unsupported",
-                ReferenceAvailability::InputNotImplemented => "inputNotImplemented",
                 ReferenceAvailability::UnsupportedMode => "unsupportedMode",
                 ReferenceAvailability::ConflictWithCharacterReference => {
                     "conflictWithPreciseReference"
@@ -68,7 +80,9 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
         CreationOperation::ImageToImage { .. } => GenerationMode::ImageToImage,
         CreationOperation::Inpainting { .. } => GenerationMode::Inpainting,
         CreationOperation::TextToImage => GenerationMode::TextToImage,
-        CreationOperation::Director { .. } | CreationOperation::EncodeVibe { .. } => return None,
+        CreationOperation::Director { .. }
+        | CreationOperation::EncodeVibe { .. }
+        | CreationOperation::Upscale { .. } => return None,
     };
     let references = descriptor.resolve_references(
         mode,
@@ -102,7 +116,35 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
         }),
         streaming: descriptor.support().streaming,
         inpainting: descriptor.support().inpainting.is_some(),
+        inpainting_image_to_image: descriptor
+            .support()
+            .inpainting
+            .is_some_and(|profile| profile.image_to_image),
+        max_enhance: descriptor.support().max_enhance,
         encode_vibe: descriptor.can_encode_vibe(),
+        vibe_input_path: descriptor.support().vibe.map(|profile| {
+            match profile.input {
+                novelai_bridge::VibeInputPath::RawImage => "image",
+                novelai_bridge::VibeInputPath::Encoded => "encoded",
+                _ => "unknown",
+            }
+            .to_owned()
+        }),
+        custom_negative_prompts: descriptor.prompt().custom_negative_prompts,
+        legacy_uc: descriptor.prompt().legacy_uc,
+        quality_presets: descriptor
+            .prompt()
+            .quality_presets
+            .iter()
+            .map(|definition| definition.preset)
+            .collect(),
+        uc_presets: descriptor
+            .prompt()
+            .uc_presets
+            .iter()
+            .map(|definition| definition.preset)
+            .collect(),
+        fixed_sampler: descriptor.sampling().fixed_sampler,
         transparent_background: descriptor.prompt().transparent_background,
         furry_mode: descriptor.prompt().furry_mode,
         smea: descriptor.sampling().smea,

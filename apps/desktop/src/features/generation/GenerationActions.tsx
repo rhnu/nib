@@ -97,7 +97,11 @@ export function GenerationActions({
                   : "配置账户以生成"}
           </span>
           {estimate.quote ? (
-            <span className="generation-submit-cost">{estimate.quote.estimatedAnlas} Anlas</span>
+            <span className="generation-submit-cost">
+              {estimate.quote.estimatedAnlas === null
+                ? "费用未知"
+                : `${estimate.quote.estimatedAnlas} Anlas`}
+            </span>
           ) : estimate.loading ? (
             <span className="generation-submit-cost">估算中…</span>
           ) : null}

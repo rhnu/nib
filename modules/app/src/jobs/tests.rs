@@ -427,6 +427,7 @@ impl SdkClientProvider for NoClient {
     fn cached_client(&self) -> Option<SdkClient> { None }
 }
 
+mod inputs;
 mod stream;
 
 struct ImageAssets;
@@ -499,6 +500,7 @@ fn image_submission_stores_only_parameters_and_immutable_input_ids() {
         color_correct: true,
         extra_noise_seed: Some(123),
         add_original_image: true,
+        max_enhance: false,
     };
     let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
     let encoded = sqlite::encode_submission(&frozen).unwrap();
@@ -546,6 +548,7 @@ fn implicit_noise_seed_is_frozen_from_the_sdk_effective_payload() {
         color_correct: true,
         extra_noise_seed: None,
         add_original_image: true,
+        max_enhance: false,
     };
     let raw = operations::hydrate(
         resolved.generation_request(),
@@ -615,6 +618,10 @@ fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
         asset_id: "source".to_owned(),
         model: novelai_bridge::Model::NaiDiffusion45Full,
         information_extracted: 9.0,
+        mask_asset_id: Some("source".to_owned()),
+        crop_to_mask: Some(true),
+        focus_seed: Some(123),
+        info_extract_seed: Some(456),
     };
     let frozen = queue.freeze(&draft).unwrap();
     assert!(frozen.resolved().is_none());
@@ -626,10 +633,18 @@ fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
     assert_eq!(sqlite::decode_submission(&encoded).unwrap(), frozen);
     let FrozenSubmission::EncodeVibe {
         information_extracted,
+        mask_asset_id,
+        crop_to_mask,
+        focus_seed,
+        info_extract_seed,
         ..
     } = frozen
     else {
         panic!("expected Vibe encoding")
     };
     assert!((information_extracted - 1.0).abs() < f32::EPSILON);
+    assert_eq!(mask_asset_id.as_deref(), Some("source"));
+    assert_eq!(crop_to_mask, Some(true));
+    assert_eq!(focus_seed, Some(123));
+    assert_eq!(info_extract_seed, Some(456));
 }

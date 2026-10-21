@@ -45,7 +45,7 @@ pub enum FrozenSubmission {
         #[cfg_attr(
             feature = "typegen",
             ts(
-                type = "\"lineart\" | \"sketch\" | \"bg_removal\" | \"declutter\" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }"
+                type = "\"lineart\" | \"sketch\" | \"bg_removal\" | \"declutter\" | \"declutter_keep_bubbles\" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }"
             )
         )]
         command: novelai_bridge::DirectorCommand,
@@ -56,6 +56,20 @@ pub enum FrozenSubmission {
         #[cfg_attr(feature = "typegen", ts(type = "string"))]
         model: novelai_bridge::Model,
         information_extracted: f32,
+        mask_asset_id: Option<String>,
+        crop_to_mask: Option<bool>,
+        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+        focus_seed: Option<i64>,
+        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+        info_extract_seed: Option<i64>,
+    },
+    Upscale {
+        asset_id: String,
+        diagnostics: Vec<ParameterDiagnostic>,
+        #[cfg_attr(feature = "typegen", ts(type = "string"))]
+        model: novelai_bridge::Model,
+        #[cfg_attr(feature = "typegen", ts(type = "0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5"))]
+        declared_blur_sigma: novelai_bridge::UpscaleBlurSigma,
     },
 }
 
@@ -79,6 +93,7 @@ impl FrozenSubmission {
             Self::Generation { .. } => OperationKind::Generation,
             Self::Director { .. } => OperationKind::Director,
             Self::EncodeVibe { .. } => OperationKind::EncodeVibe,
+            Self::Upscale { .. } => OperationKind::Upscale,
         }
     }
 
@@ -86,7 +101,8 @@ impl FrozenSubmission {
         match self {
             Self::Generation { diagnostics, .. }
             | Self::Director { diagnostics, .. }
-            | Self::EncodeVibe { diagnostics, .. } => diagnostics,
+            | Self::EncodeVibe { diagnostics, .. }
+            | Self::Upscale { diagnostics, .. } => diagnostics,
         }
     }
 }
@@ -107,6 +123,7 @@ pub enum OperationKind {
     Generation,
     Director,
     EncodeVibe,
+    Upscale,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,13 +164,21 @@ pub struct TokenFieldUsage {
 }
 
 /// Estimates use SDK account context only when it has previously been sampled explicitly.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct GenerationQuote {
     pub operation: OperationKind,
     pub resolved: Option<ResolvedDraft>,
-    pub estimated_anlas: u32,
+    pub estimated_anlas: Option<u32>,
+    // Input, expected output and pricing dimensions are distinct for Max Enhance.
+    #[cfg_attr(
+        feature = "typegen",
+        ts(
+            type = "{ input_size: { width: number; height: number }; output_size: { width: number; height: number }; pricing_size: { width: number; height: number } } | null"
+        )
+    )]
+    pub geometry: Option<novelai_bridge::GenerationGeometry>,
     pub account_specific: bool,
     pub too_expensive: bool,
     pub tokens: Vec<TokenFieldUsage>,
@@ -175,7 +200,7 @@ pub enum JobFeedback {
         job_id: String,
         sample_index: u32,
         step_index: u32,
-        image_base64: String,
+        image_bytes: Vec<u8>,
     },
     FinalReceived {
         job_id: String,
@@ -216,7 +241,7 @@ impl JobError {
 }
 
 /// The host owns SDK construction, credential changes, shared account state and observation.
-pub type SdkClient = Client<dyn novelai_bridge::StreamingTransport>;
+pub type SdkClient = Client<dyn novelai_bridge::Transport>;
 
 pub trait SdkClientProvider: Send + Sync {
     /// Resolves credentials and constructs or reuses a local SDK client, without network I/O.

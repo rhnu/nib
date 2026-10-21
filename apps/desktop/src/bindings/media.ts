@@ -2,9 +2,11 @@
 
 import type { Draft } from "./workbench";
 
-export type AssetKind = "image" | "vibe";
+export type AssetKind = "image" | "vibe" | "vibeDocument";
 
-export type AssetSource = { "kind": "import", name: string | null, } | { "kind": "asset", assetId: string, } | { "kind": "embeddedVibe", assetId: string, entryIndex: number, model: string | null, displayName: string | null, strength: number | null, informationExtracted: number | null, } | { "kind": "job", jobId: string, };
+export type ResultImageSource = { "kind": "raw" } | { "kind": "archive", name: string, index: number, } | { "kind": "json", position: number, index: number | null, seed: number | null, };
+
+export type AssetSource = { "kind": "import", name: string | null, } | { "kind": "asset", assetId: string, } | { "kind": "embeddedVibe", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, displayName: string | null, strength: number | null, informationExtracted: number | null, } | { "kind": "job", jobId: string, } | { "kind": "vibeDocumentEntry", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, } | { "kind": "pngVibeDocument", imageAssetId: string, documentAssetId: string, } | { "kind": "vibeBundle", assetIds: Array<string>, };
 
 export type MediaAsset = { id: string, kind: AssetKind, mimeType: string, byteLength: number, width: number | null, height: number | null, createdAt: number, source: AssetSource, available: boolean, };
 
@@ -12,7 +14,7 @@ export type ImageMetadataStatus = "parsed" | "notPresent" | "unsupportedFormat" 
 
 export type KnownCharacterMetadata = { sourceIndex: number, prompt: string | null, negativePrompt: string | null, };
 
-export type KnownImageMetadata = { prompt: string | null, negativePrompt: string | null, model: string | null, seed: number | null, size: { width: number; height: number } | null, steps: number | null, sampler: string | null, scale: number | null, noiseSchedule: string | null, cfgRescale: number | null, ucPreset: number | null, qualityToggle: boolean | null, source: string | null, software: string | null, characters: Array<KnownCharacterMetadata>, embeddedVibeCount: number, };
+export type KnownImageMetadata = { origin: "png_text" | "exif_user_comment" | "stealth_png_comp" | null, prompt: string | null, negativePrompt: string | null, model: string | null, seed: number | null, size: { width: number; height: number } | null, steps: number | null, sampler: string | null, scale: number | null, noiseSchedule: string | null, cfgRescale: number | null, ucPreset: number | null, qualityToggle: boolean | null, source: string | null, software: string | null, characters: Array<KnownCharacterMetadata>, embeddedVibeCount: number, };
 
 export type ImageMetadataReport = { status: ImageMetadataStatus, generation: KnownImageMetadata | null, warnings: Array<string>, };
 

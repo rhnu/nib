@@ -2,7 +2,8 @@
 use novelai_bridge::{
     AnlasPricingContext, CharacterReference, EncodeVibeRequest, GenerateImageRequest,
     GenerationDelivery, GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet,
-    RunDirectorToolRequest, ValidationPolicy, VibeReference, VibeTransferConfig,
+    RunDirectorToolRequest, UpscaleImageRequest, ValidationPolicy, VibeReference,
+    VibeTransferConfig,
 };
 
 use super::{
@@ -11,7 +12,7 @@ use super::{
 use crate::{
     media::AssetReader,
     prompt::{ResolvedDraft, ResolvedSettings},
-    session::{CreationInputs, CreationOperation, Draft, validate_draft},
+    session::{CreationInputs, CreationOperation, Draft, VibeInput, validate_draft},
 };
 
 impl JobQueue {
@@ -34,11 +35,22 @@ impl JobQueue {
                 asset_id,
                 model,
                 information_extracted,
+                mask_asset_id,
+                crop_to_mask,
+                focus_seed,
+                info_extract_seed,
             } => {
                 let prepared = EncodeVibeRequest {
                     image: image(self.assets.as_ref(), asset_id)?,
                     model: *model,
                     information_extracted: *information_extracted,
+                    mask: mask_asset_id
+                        .as_ref()
+                        .map(|id| image(self.assets.as_ref(), id))
+                        .transpose()?,
+                    crop_to_mask: *crop_to_mask,
+                    focus_seed: *focus_seed,
+                    info_extract_seed: *info_extract_seed,
                     policy: ValidationPolicy::Normalize,
                 }
                 .prepare()?;
@@ -46,7 +58,29 @@ impl JobQueue {
                     asset_id: asset_id.clone(),
                     model: prepared.model(),
                     information_extracted: prepared.information_extracted(),
+                    mask_asset_id: mask_asset_id.clone(),
+                    crop_to_mask: *crop_to_mask,
+                    focus_seed: *focus_seed,
+                    info_extract_seed: *info_extract_seed,
                     diagnostics: adjustments(prepared.adjustments()),
+                })
+            },
+            CreationOperation::Upscale {
+                asset_id,
+                model,
+                declared_blur_sigma,
+            } => {
+                let prepared = UpscaleImageRequest {
+                    image: image(self.assets.as_ref(), asset_id)?,
+                    model: *model,
+                    declared_blur_sigma: *declared_blur_sigma,
+                }
+                .prepare()?;
+                Ok(FrozenSubmission::Upscale {
+                    asset_id: asset_id.clone(),
+                    model: prepared.model(),
+                    declared_blur_sigma: prepared.declared_blur_sigma(),
+                    diagnostics: Vec::new(),
                 })
             },
             _ => {
@@ -70,13 +104,19 @@ impl JobQueue {
             .map_or_else(AnlasPricingContext::default, AnlasPricingContext::from);
         let operation = submission.operation();
         let diagnostics = submission.diagnostics().to_vec();
+        let mut geometry = None;
         let (resolved, estimated_anlas, too_expensive, tokens) = match submission {
             FrozenSubmission::Generation {
                 resolved, request, ..
             } => {
                 let hydrated = hydrate(*request, &resolved.inputs, self.assets.as_ref())?;
-                let estimate = hydrated.estimate_anlas_cost(context)?;
-                let usage = hydrated.count_tokens(&self.tokenizers)?;
+                let plan = hydrated.normalize()?;
+                geometry = Some(*plan.geometry());
+                let estimate =
+                    novelai_bridge::estimate_anlas_cost(plan.anlas_estimate_input(context));
+                let usage = plan
+                    .count_tokens(&self.tokenizers)
+                    .map_err(novelai_bridge::BridgeError::from)?;
                 let mut tokens = vec![
                     token_field("prompt".to_owned(), usage.prompt),
                     token_field("negativePrompt".to_owned(), usage.negative_prompt),
@@ -93,27 +133,44 @@ impl JobQueue {
                 }
                 (
                     Some(*resolved),
-                    estimate.total,
+                    Some(estimate.total),
                     estimate.is_too_expensive(),
                     tokens,
                 )
             },
-            FrozenSubmission::Director { asset_id, .. } => (
+            FrozenSubmission::Director {
+                asset_id, command, ..
+            } => (
                 None,
-                novelai_bridge::estimate_director_tool_cost(
-                    image(self.assets.as_ref(), &asset_id)?.size(),
-                    context,
+                Some(
+                    RunDirectorToolRequest {
+                        image: image(self.assets.as_ref(), &asset_id)?,
+                        command,
+                        policy: ValidationPolicy::Normalize,
+                    }
+                    .prepare()?
+                    .estimate_anlas_cost(context),
                 ),
                 false,
                 Vec::new(),
             ),
             FrozenSubmission::EncodeVibe { .. } => (
                 None,
-                novelai_bridge::estimate_anlas_cost(novelai_bridge::AnlasEstimateInput {
-                    pending_vibe_encodes: 1,
-                    ..Default::default()
-                })
-                .vibe_encoding,
+                Some(
+                    novelai_bridge::estimate_anlas_cost(novelai_bridge::AnlasEstimateInput {
+                        pending_vibe_encodes: 1,
+                        ..Default::default()
+                    })
+                    .vibe_encoding,
+                ),
+                false,
+                Vec::new(),
+            ),
+            FrozenSubmission::Upscale { asset_id, .. } => (
+                None,
+                novelai_bridge::estimate_upscale_cost(
+                    image(self.assets.as_ref(), &asset_id)?.size(),
+                ),
                 false,
                 Vec::new(),
             ),
@@ -130,6 +187,7 @@ impl JobQueue {
             operation,
             resolved,
             estimated_anlas,
+            geometry,
             account_specific: subscription.is_some(),
             too_expensive,
             tokens,
@@ -240,21 +298,32 @@ fn freeze_extra_noise_seed(
     inputs: &mut CreationInputs,
     prepared: &novelai_bridge::PreparedGeneration,
 ) -> Result<(), JobError> {
-    let CreationOperation::ImageToImage {
-        extra_noise_seed: slot @ None,
-        ..
-    } = &mut inputs.operation
-    else {
-        return Ok(());
+    let (slot, inpainting) = match &mut inputs.operation {
+        CreationOperation::ImageToImage {
+            extra_noise_seed, ..
+        } => (extra_noise_seed, false),
+        CreationOperation::Inpainting {
+            img2img: Some(input),
+            ..
+        } => (&mut input.extra_noise_seed, true),
+        _ => return Ok(()),
     };
+    if slot.is_some() {
+        return Ok(());
+    }
     // The SDK exposes this implicit effective value only in its prepared payload.
     // Freezing it keeps result reuse independent from a later per-sample seed change.
     let encoded = prepared.encode(GenerationDelivery::Images)?;
     let body: serde_json::Value = serde_json::from_slice(&encoded).map_err(|error| {
         crate::persistence::PersistenceError::failure("read the SDK effective noise seed", error)
     })?;
+    let parameters = if inpainting {
+        &body["parameters"]["img2img"]
+    } else {
+        &body["parameters"]
+    };
     *slot = Some(
-        body["parameters"]["extra_noise_seed"]
+        parameters["extra_noise_seed"]
             .as_i64()
             .ok_or_else(|| JobError::Invalid("SDK 准备结果缺少有效噪声种子。".to_owned()))?,
     );
@@ -275,6 +344,7 @@ pub(super) fn hydrate(
             color_correct,
             extra_noise_seed,
             add_original_image,
+            max_enhance,
         } => GenerationInput::ImageToImage(ImageToImageInput {
             image: image(assets, asset_id)?,
             strength: *strength,
@@ -282,18 +352,17 @@ pub(super) fn hydrate(
             color_correct: *color_correct,
             extra_noise_seed: *extra_noise_seed,
             add_original_image: *add_original_image,
+            max_enhance: *max_enhance,
         }),
         CreationOperation::Inpainting {
             asset_id,
             mask_asset_id,
-            strength,
-            noise,
+            img2img,
             add_original_image,
         } => GenerationInput::Inpainting(InpaintingInput {
             image: image(assets, asset_id)?,
             mask: image(assets, mask_asset_id)?,
-            strength: *strength,
-            noise: *noise,
+            img2img: img2img.clone(),
             add_original_image: *add_original_image,
         }),
         _ => return Err(JobError::Invalid("该操作不是图像生成。".to_owned())),
@@ -309,6 +378,7 @@ pub(super) fn hydrate(
                 reference_type: item.reference_type,
                 strength: item.strength,
                 fidelity: item.fidelity,
+                information_extracted: item.information_extracted,
             })
         })
         .collect::<Result<Vec<_>, JobError>>()?;
@@ -317,11 +387,21 @@ pub(super) fn hydrate(
         .iter()
         .filter(|item| item.enabled)
         .map(|item| {
-            Ok(VibeReference {
-                vibe_data_cache: assets
-                    .vibe(&item.asset_id)
-                    .map_err(|source| JobError::InputMedia { source })?,
-                strength: item.strength,
+            Ok(match &item.input {
+                VibeInput::Encoded { asset_id } => VibeReference::encoded(
+                    assets
+                        .vibe(asset_id)
+                        .map_err(|source| JobError::InputMedia { source })?,
+                    item.strength,
+                ),
+                VibeInput::Image {
+                    asset_id,
+                    information_extracted,
+                } => VibeReference::image(
+                    image(assets, asset_id)?,
+                    *information_extracted,
+                    item.strength,
+                ),
             })
         })
         .collect::<Result<Vec<_>, JobError>>()?;
@@ -329,7 +409,7 @@ pub(super) fn hydrate(
         character_references: precise,
         vibe_transfer: (!vibes.is_empty()).then(|| VibeTransferConfig {
             references: vibes,
-            strength: references.vibe_strength.unwrap_or(1.0),
+            normalize_strength: references.normalize_vibe_strength.unwrap_or(true),
         }),
     };
     request.references = (!references.is_empty()).then_some(references);
@@ -345,6 +425,7 @@ fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
                 color_correct,
                 extra_noise_seed,
                 add_original_image,
+                max_enhance,
                 ..
             },
             GenerationInput::ImageToImage(value),
@@ -354,18 +435,17 @@ fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
             *color_correct = value.color_correct;
             *extra_noise_seed = value.extra_noise_seed;
             *add_original_image = value.add_original_image;
+            *max_enhance = value.max_enhance;
         },
         (
             CreationOperation::Inpainting {
-                strength,
-                noise,
+                img2img,
                 add_original_image,
                 ..
             },
             GenerationInput::Inpainting(value),
         ) => {
-            *strength = value.strength;
-            *noise = value.noise;
+            img2img.clone_from(&value.img2img);
             *add_original_image = value.add_original_image;
         },
         _ => {},
@@ -386,20 +466,34 @@ fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
             item.strength = value.strength;
             item.fidelity = value.fidelity;
             item.reference_type = value.reference_type;
+            item.information_extracted = value.information_extracted;
         }
         if let Some(vibe) = &references.vibe_transfer {
-            inputs.references.vibe_strength = Some(vibe.strength);
+            inputs.references.normalize_vibe_strength = Some(vibe.normalize_strength);
             for (item, value) in inputs.references.vibes.iter_mut().zip(&vibe.references) {
                 item.strength = value.strength;
+                if let (
+                    VibeInput::Image {
+                        information_extracted,
+                        ..
+                    },
+                    novelai_bridge::VibeReferenceInput::Image {
+                        information_extracted: effective,
+                        ..
+                    },
+                ) = (&mut item.input, &value.input)
+                {
+                    *information_extracted = *effective;
+                }
             }
         } else {
             inputs.references.vibes.clear();
-            inputs.references.vibe_strength = None;
+            inputs.references.normalize_vibe_strength = None;
         }
     } else {
         inputs.references.precise.clear();
         inputs.references.vibes.clear();
-        inputs.references.vibe_strength = None;
+        inputs.references.normalize_vibe_strength = None;
     }
 }
 

@@ -18,6 +18,7 @@ use crate::persistence::PersistenceError;
 pub enum AssetKind {
     Image,
     Vibe,
+    VibeDocument,
 }
 
 /// Describes application provenance without granting access to an external path.
@@ -39,12 +40,26 @@ pub enum AssetSource {
         asset_id: String,
         entry_index: usize,
         model: Option<String>,
+        parameter_key: Option<String>,
         display_name: Option<String>,
         strength: Option<f32>,
         information_extracted: Option<f32>,
     },
     Job {
         job_id: String,
+    },
+    VibeDocumentEntry {
+        asset_id: String,
+        entry_index: usize,
+        model: Option<String>,
+        parameter_key: Option<String>,
+    },
+    PngVibeDocument {
+        image_asset_id: String,
+        document_asset_id: String,
+    },
+    VibeBundle {
+        asset_ids: Vec<String>,
     },
 }
 
@@ -177,31 +192,7 @@ impl MediaLibrary {
         let Some(metadata) = inspection.parsed() else {
             return Ok(Vec::new());
         };
-        let mut encodings = Vec::new();
-        for (entry_index, entry) in metadata.vibe_entries.iter().enumerate() {
-            let payloads = entry.encoding.iter().map(|value| (None, value)).chain(
-                entry
-                    .model_encodings
-                    .iter()
-                    .map(|(model, value)| (Some(model.clone()), value)),
-            );
-            for (model, payload) in payloads {
-                let encoding = VibeEncoding::from_base64(payload).map_err(|error| {
-                    PersistenceError::failure("decode an embedded Vibe encoding", error)
-                })?;
-                encodings.push((
-                    encoding,
-                    AssetSource::EmbeddedVibe {
-                        asset_id: id.to_owned(),
-                        entry_index,
-                        model,
-                        display_name: entry.display_name.clone(),
-                        strength: entry.strength,
-                        information_extracted: entry.information_extracted,
-                    },
-                ));
-            }
-        }
+        let encodings = embedded_vibe_encodings(id, metadata)?;
         let imported = encodings
             .into_iter()
             .map(|(encoding, source)| {
@@ -315,14 +306,28 @@ impl MediaLibrary {
         }
     }
 
-    fn validate_source(&self, source: &AssetSource) -> Result<(), PersistenceError> {
+    pub(super) fn validate_source(&self, source: &AssetSource) -> Result<(), PersistenceError> {
         match source {
-            AssetSource::Asset { asset_id } | AssetSource::EmbeddedVibe { asset_id, .. } => {
+            AssetSource::Asset { asset_id }
+            | AssetSource::EmbeddedVibe { asset_id, .. }
+            | AssetSource::VibeDocumentEntry { asset_id, .. } => {
                 self.asset(asset_id)?;
+            },
+            AssetSource::PngVibeDocument {
+                image_asset_id,
+                document_asset_id,
+            } => {
+                self.require_asset(image_asset_id, AssetKind::Image)?;
+                self.require_asset(document_asset_id, AssetKind::VibeDocument)?;
             },
             AssetSource::Job { job_id } => {
                 use crate::jobs::JobStore;
                 self.database.get_job(job_id)?;
+            },
+            AssetSource::VibeBundle { asset_ids } => {
+                for id in asset_ids {
+                    self.require_asset(id, AssetKind::VibeDocument)?;
+                }
             },
             AssetSource::Import { .. } => {},
         }
@@ -377,4 +382,40 @@ fn image_format(bytes: &[u8]) -> ImageMediaFormat {
     } else {
         ImageMediaFormat::WebP
     }
+}
+
+pub(super) fn embedded_vibe_encodings(
+    id: &str,
+    metadata: &novelai_bridge::ImageMetadata,
+) -> Result<Vec<(VibeEncoding, AssetSource)>, PersistenceError> {
+    let mut encodings = Vec::new();
+    for (entry_index, entry) in metadata.vibe_entries.iter().enumerate() {
+        let payloads = entry
+            .encoding
+            .iter()
+            .map(|value| (None, None, value))
+            .chain(entry.model_encodings.iter().flat_map(|(model, records)| {
+                records.iter().map(move |(parameter_key, value)| {
+                    (Some(model.clone()), Some(parameter_key.clone()), value)
+                })
+            }));
+        for (model, parameter_key, payload) in payloads {
+            let encoding = VibeEncoding::from_base64(payload).map_err(|error| {
+                PersistenceError::failure("decode an embedded Vibe encoding", error)
+            })?;
+            encodings.push((
+                encoding,
+                AssetSource::EmbeddedVibe {
+                    asset_id: id.to_owned(),
+                    entry_index,
+                    model,
+                    parameter_key,
+                    display_name: entry.display_name.clone(),
+                    strength: entry.strength,
+                    information_extracted: entry.information_extracted,
+                },
+            ));
+        }
+    }
+    Ok(encodings)
 }

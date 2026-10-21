@@ -94,12 +94,12 @@ fn outputs(
     for (id, asset_id) in references
         .precise
         .iter()
-        .map(|value| (&value.id, &value.asset_id))
+        .map(|value| (value.id.as_str(), value.asset_id.as_str()))
         .chain(
             references
                 .vibes
                 .iter()
-                .map(|value| (&value.id, &value.asset_id)),
+                .map(|value| (value.id.as_str(), value.input.asset_id())),
         )
     {
         nonempty(id, "references.id")?;
@@ -144,9 +144,19 @@ pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
     match &draft.inputs.operation {
         CreationOperation::TextToImage => {},
         CreationOperation::ImageToImage { asset_id, .. }
-        | CreationOperation::Director { asset_id, .. }
-        | CreationOperation::EncodeVibe { asset_id, .. } => {
+        | CreationOperation::Upscale { asset_id, .. }
+        | CreationOperation::Director { asset_id, .. } => {
             nonempty(asset_id, "inputs.operation.assetId")?;
+        },
+        CreationOperation::EncodeVibe {
+            asset_id,
+            mask_asset_id,
+            ..
+        } => {
+            nonempty(asset_id, "inputs.operation.assetId")?;
+            if let Some(mask_asset_id) = mask_asset_id {
+                nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;
+            }
         },
         CreationOperation::Inpainting {
             asset_id,
@@ -242,7 +252,7 @@ fn validate_output_overrides(
             output_overrides
                 .vibes
                 .iter()
-                .filter_map(|edit| edit.asset_id.as_deref()),
+                .filter_map(|edit| edit.input.as_ref().map(crate::session::VibeInput::asset_id)),
         )
     {
         nonempty(asset_id, "presets.outputOverrides.assetId")?;

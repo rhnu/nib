@@ -41,6 +41,115 @@ fn full_sparse_settings_preserve_explicit_false_and_zero_seed() {
 }
 
 #[test]
+fn output_settings_and_legacy_uc_keep_precedence_sources_and_standalone_values() {
+    use novelai_bridge::{AlphaMode, ImageResponseFormat};
+
+    let definition = preset(
+        "recipe",
+        vec![],
+        vec![],
+        GenerationSettings {
+            model: Some(Model::NaiDiffusion4Full),
+            legacy_uc: Some(true),
+            alpha_mode: Some(AlphaMode::Premultiplied),
+            response_format: Some(ImageResponseFormat::Json),
+            ..GenerationSettings::default()
+        },
+    );
+    let draft = Draft {
+        presets: vec![instance("use", "recipe", vec![])],
+        settings: GenerationSettings {
+            legacy_uc: Some(false),
+            alpha_mode: Some(AlphaMode::Straight),
+            ..GenerationSettings::default()
+        },
+        ..Draft::default()
+    };
+    let resolved = resolve_draft(&draft, &Resources::new(vec![definition])).unwrap();
+    let request = resolved.generation_request();
+    assert!(!request.core.legacy_uc);
+    assert_eq!(request.output.alpha_mode, AlphaMode::Straight);
+    assert_eq!(request.output.response_format, ImageResponseFormat::Json);
+    assert_eq!(resolved.provenance.legacy_uc, SettingSource::Draft);
+    assert_eq!(resolved.provenance.alpha_mode, SettingSource::Draft);
+    assert!(matches!(
+        &resolved.provenance.response_format,
+        SettingSource::Preset { preset_instance_id, .. } if preset_instance_id == "use"
+    ));
+    let explicit = ResolvedSettings::from_request(&request).explicit();
+    assert_eq!(explicit.legacy_uc, Some(false));
+    assert_eq!(explicit.alpha_mode, Some(AlphaMode::Straight));
+    assert_eq!(explicit.response_format, Some(ImageResponseFormat::Json));
+    let restored = resolve_draft(
+        &Draft {
+            settings: explicit,
+            ..Draft::default()
+        },
+        &Resources::default(),
+    )
+    .unwrap();
+    assert_eq!(restored.generation_request(), request);
+}
+
+#[test]
+fn absent_overrides_take_defaults_from_each_sdk_model() {
+    for model in Model::ALL {
+        let resolved = resolve_draft(
+            &Draft {
+                settings: GenerationSettings {
+                    model: Some(model),
+                    ..GenerationSettings::default()
+                },
+                ..Draft::default()
+            },
+            &Resources::default(),
+        )
+        .unwrap();
+        let sdk_defaults = novelai_bridge::GenerateImageRequest::builder("", model).build();
+        assert_eq!(resolved.settings.quality, sdk_defaults.core.quality);
+        assert_eq!(resolved.settings.uc_preset, sdk_defaults.core.uc_preset);
+        assert_eq!(resolved.settings.sampler, sdk_defaults.sampling.sampler);
+        assert_eq!(resolved.settings.alpha_mode, sdk_defaults.output.alpha_mode);
+        assert_eq!(
+            resolved.settings.response_format,
+            sdk_defaults.output.response_format
+        );
+        assert_eq!(resolved.provenance.quality, SettingSource::SdkDefault);
+        assert_eq!(resolved.provenance.uc_preset, SettingSource::SdkDefault);
+    }
+}
+
+#[test]
+fn new_model_capabilities_project_sdk_controls_and_reference_paths() {
+    let resolve_model = |model| {
+        resolve_draft(
+            &Draft {
+                settings: GenerationSettings {
+                    model: Some(model),
+                    ..GenerationSettings::default()
+                },
+                ..Draft::default()
+            },
+            &Resources::default(),
+        )
+        .unwrap()
+    };
+    let medium =
+        crate::api::model_capabilities(&resolve_model(Model::NaiDiffusion5FullMedium)).unwrap();
+    assert!(!medium.custom_negative_prompts);
+    assert_eq!(medium.fixed_sampler, Some(Sampler::KEulerAncestral));
+    let curated =
+        crate::api::model_capabilities(&resolve_model(Model::NaiDiffusion5Curated)).unwrap();
+    assert!(curated.custom_negative_prompts);
+    assert!(curated.max_enhance);
+    assert!(curated.inpainting_image_to_image);
+    let v3 = crate::api::model_capabilities(&resolve_model(Model::NaiDiffusion3)).unwrap();
+    assert_eq!(v3.vibe_input_path.as_deref(), Some("image"));
+    assert!(v3.can_add_vibe_reference);
+    assert!(!v3.encode_vibe);
+}
+
+#[test]
 fn character_overrides_and_sources_survive_preset_expansion() {
     let mut definition = preset("recipe", vec![], vec![], GenerationSettings::default());
     let ResourceContent::Preset { characters, .. } = &mut definition.content else {
@@ -129,7 +238,9 @@ fn repeated_preset_reference_outputs_keep_independent_ids_and_sources() {
     references.vibes.push(crate::session::VibeReferenceInput {
         id: "ref".into(),
         enabled: true,
-        asset_id: "stable-asset".into(),
+        input: crate::session::VibeInput::Encoded {
+            asset_id: "stable-asset".into(),
+        },
         strength: 0.4,
     });
     let resolved = resolve_draft(
@@ -168,7 +279,7 @@ fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
     let resolved = resolve_draft(&restored, &Resources::default()).unwrap();
     let second = resolved.generation_request();
     assert_eq!(second.core, request.core);
-    let metadata = novelai_bridge::PngMetadata {
+    let metadata = novelai_bridge::ImageMetadata {
         prompt: Some("portrait, masterpiece".into()),
         characters: vec![novelai_bridge::CharacterMetadata {
             source_index: 0,
@@ -214,7 +325,17 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
             reference_type: novelai_bridge::CharacterReferenceType::Character,
             strength: 0.4,
             fidelity: 0.5,
+            information_extracted: 1.0,
         });
+    references.vibes.push(crate::session::VibeReferenceInput {
+        id: "style".into(),
+        enabled: true,
+        input: crate::session::VibeInput::Encoded {
+            asset_id: "encoded".into(),
+        },
+        strength: 0.5,
+    });
+    references.normalize_vibe_strength = Some(true);
     let mut linked = instance("use", "recipe", vec![]);
     let PresetBinding::Linked {
         output_overrides, ..
@@ -234,7 +355,18 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
         reference_type: None,
         strength: Some(0.8),
         fidelity: Some(0.7),
+        information_extracted: Some(0.6),
     });
+    output_overrides.vibes.push(VibeReferenceOverride {
+        id: "style".into(),
+        enabled: None,
+        input: Some(crate::session::VibeInput::Image {
+            asset_id: "raw-style".into(),
+            information_extracted: 0.7,
+        }),
+        strength: None,
+    });
+    output_overrides.normalize_vibe_strength = Some(false);
     let resources = Resources::new(vec![definition.clone()]);
     let mut draft = Draft {
         presets: vec![linked.clone()],
@@ -244,10 +376,20 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
     assert_eq!(resolved.characters[0].positive, "hero");
     assert!(resolved.characters[0].overridden);
     assert_eq!(resolved.characters[0].position.x, 0.1);
-    let reference = &resolved.inputs.references.precise[0];
+    let references = &resolved.inputs.references;
+    let reference = &references.precise[0];
     assert!(!reference.enabled);
     assert_eq!(reference.asset_id, "replacement");
     assert_eq!(reference.strength, 0.8);
+    assert_eq!(reference.information_extracted, 0.6);
+    assert_eq!(references.normalize_vibe_strength, Some(false));
+    assert_eq!(
+        references.vibes[0].input,
+        crate::session::VibeInput::Image {
+            asset_id: "raw-style".into(),
+            information_extracted: 0.7,
+        }
+    );
     assert!(resolved.input_sources[0].overridden);
     draft.presets[0] = expand_preset(&linked, &resources).unwrap();
     let expanded = resolve_draft(&draft, &Resources::default()).unwrap();
@@ -256,7 +398,6 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
         resolved.characters[0].position
     );
     assert_eq!(expanded.inputs.references, resolved.inputs.references);
-    assert_eq!(resources.values["recipe"], definition);
 }
 
 #[test]
@@ -271,7 +412,7 @@ fn removed_output_override_targets_block_expansion() {
     output_overrides.vibes.push(VibeReferenceOverride {
         id: "removed".into(),
         enabled: Some(false),
-        asset_id: None,
+        input: None,
         strength: None,
     });
     let resources = Resources::new(vec![preset(

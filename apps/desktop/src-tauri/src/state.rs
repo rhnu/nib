@@ -16,7 +16,6 @@ use crate::{credentials::NativeCredentials, sdk::SdkClients};
 
 pub(crate) struct GenerationRuntime {
     pub(crate) queue: Arc<JobQueue>,
-    pub(crate) clients: Arc<SdkClients>,
 }
 
 #[derive(Clone)]
@@ -24,6 +23,7 @@ pub(crate) struct DesktopState {
     data_dir: PathBuf,
     database: Arc<Mutex<Option<Arc<SqliteDatabase>>>>,
     media: Arc<Mutex<Option<Arc<MediaLibrary>>>>,
+    sdk: Arc<Mutex<Option<Arc<SdkClients>>>>,
     generation: Arc<Mutex<Option<Arc<GenerationRuntime>>>>,
     feedback: Arc<Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>>,
     pub(crate) credentials: Arc<NativeCredentials>,
@@ -35,6 +35,7 @@ impl DesktopState {
             data_dir,
             database: Arc::new(Mutex::new(None)),
             media: Arc::new(Mutex::new(None)),
+            sdk: Arc::new(Mutex::new(None)),
             generation: Arc::new(Mutex::new(None)),
             feedback: Arc::new(Mutex::new(HashMap::new())),
             credentials: Arc::new(NativeCredentials::default()),
@@ -75,15 +76,31 @@ impl DesktopState {
     }
 
     pub(crate) fn invalidate_sdk(&self) -> Result<(), JobError> {
-        if let Some(runtime) = self
-            .generation
+        if let Some(clients) = self
+            .sdk
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?
             .as_ref()
         {
-            runtime.clients.invalidate()?;
+            clients.invalidate()?;
         }
         Ok(())
+    }
+
+    pub(crate) fn sdk(&self) -> Result<Arc<SdkClients>, JobError> {
+        let mut slot = self
+            .sdk
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if let Some(clients) = slot.as_ref() {
+            return Ok(Arc::clone(clients));
+        }
+        let tokenizers = Arc::new(
+            novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
+        );
+        let clients = Arc::new(SdkClients::new(Arc::clone(&self.credentials), tokenizers));
+        *slot = Some(Arc::clone(&clients));
+        Ok(clients)
     }
 
     pub(crate) fn replace_feedback(
@@ -123,13 +140,7 @@ impl DesktopState {
         }
         let database = self.database()?;
         let media = self.media()?;
-        let tokenizers = Arc::new(
-            novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
-        );
-        let clients = Arc::new(SdkClients::new(
-            Arc::clone(&self.credentials),
-            Arc::clone(&tokenizers),
-        ));
+        let clients = self.sdk()?;
         let queue = JobQueue::new(
             Arc::<SqliteDatabase>::clone(&database),
             database,
@@ -137,7 +148,7 @@ impl DesktopState {
             Arc::<NativeCredentials>::clone(&self.credentials),
             Arc::<MediaLibrary>::clone(&media),
             Arc::<SdkClients>::clone(&clients),
-            tokenizers,
+            clients.tokenizers(),
         )?;
         let worker = Arc::clone(&queue);
         tauri::async_runtime::spawn(async move {
@@ -149,7 +160,7 @@ impl DesktopState {
                 }
             }
         });
-        let runtime = Arc::new(GenerationRuntime { queue, clients });
+        let runtime = Arc::new(GenerationRuntime { queue });
         *slot = Some(Arc::clone(&runtime));
         Ok(runtime)
     }

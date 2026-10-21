@@ -1,6 +1,6 @@
 //! Standalone restoration uses effective SDK input without resource dependencies.
 
-use novelai_bridge::{GenerateImageRequest, ImageSize, PngMetadata, QualityPreset, UcPreset};
+use novelai_bridge::{GenerateImageRequest, ImageMetadata, ImageSize, QualityPreset, UcPreset};
 
 use super::{CreationInputs, Draft};
 use crate::prompt::{
@@ -68,7 +68,7 @@ fn known_identifier<T: serde::de::DeserializeOwned>(value: Option<&String>) -> O
 /// Recovers only known metadata values; absent masks, image references and character positions
 /// remain absent. Embedded prompt text is already conditioned, so automatic tags are disabled.
 #[must_use]
-pub fn draft_from_metadata(metadata: &PngMetadata) -> Draft {
+pub fn draft_from_metadata(metadata: &ImageMetadata) -> Draft {
     Draft {
         composition: composition(
             "metadata",
@@ -95,17 +95,9 @@ pub fn draft_from_metadata(metadata: &PngMetadata) -> Draft {
             uc_preset: if metadata.negative_prompt.is_some() {
                 Some(UcPreset::None)
             } else {
-                metadata.uc_preset.and_then(|identifier| {
-                    [
-                        UcPreset::Heavy,
-                        UcPreset::Light,
-                        UcPreset::FurryFocus,
-                        UcPreset::HumanFocus,
-                        UcPreset::None,
-                    ]
-                    .into_iter()
-                    .find(|preset| preset.as_api_value() == identifier)
-                })
+                // Metadata retains an untyped legacy index. It is not the current
+                // SDK preset's tag_hint, so it cannot establish a typed selection.
+                None
             },
             ..GenerationSettings::default()
         },

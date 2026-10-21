@@ -81,6 +81,7 @@ pub struct SettingsProvenance {
     pub n_samples: SettingSource,
     pub quality: SettingSource,
     pub uc_preset: SettingSource,
+    pub legacy_uc: SettingSource,
     pub transparent_background: SettingSource,
     pub furry_mode: SettingSource,
     pub noise_schedule: SettingSource,
@@ -90,6 +91,8 @@ pub struct SettingsProvenance {
     pub smea: SettingSource,
     pub smea_dyn: SettingSource,
     pub image_format: SettingSource,
+    pub alpha_mode: SettingSource,
+    pub response_format: SettingSource,
     pub use_coords: SettingSource,
 }
 

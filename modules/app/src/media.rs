@@ -3,6 +3,7 @@
 mod assets;
 mod metadata;
 mod sqlite;
+mod vibe;
 
 use std::{fs, path::PathBuf, sync::Arc};
 
@@ -10,8 +11,11 @@ pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
 pub use metadata::{
     ImageMetadataReport, ImageMetadataStatus, KnownCharacterMetadata, KnownImageMetadata,
 };
-use novelai_bridge::{GenerateImageResult, GeneratedImage, VibeEncoding};
-use serde::Serialize;
+use novelai_bridge::{
+    GenerateImageResult, GeneratedImage, GeneratedImageSource, RunDirectorToolResult,
+    UpscaleImageResult, VibeEncoding,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     jobs::{FrozenSubmission, JobRecord},
@@ -28,6 +32,7 @@ pub struct GenerationResult {
     pub sample_index: u32,
     pub asset_id: String,
     pub kind: AssetKind,
+    pub image_source: Option<ResultImageSource>,
     #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
     pub seed: Option<i64>,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
@@ -35,6 +40,51 @@ pub struct GenerationResult {
     pub mime_type: String,
     pub available: bool,
     pub submission: FrozenSubmission,
+}
+
+/// Durable response identity; the SDK's source type is intentionally serialize-only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ResultImageSource {
+    Raw,
+    Archive {
+        name: String,
+        index: usize,
+    },
+    Json {
+        position: usize,
+        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+        index: Option<i64>,
+        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+        seed: Option<i64>,
+    },
+}
+
+impl TryFrom<&GeneratedImageSource> for ResultImageSource {
+    type Error = PersistenceError;
+
+    fn try_from(source: &GeneratedImageSource) -> Result<Self, Self::Error> {
+        match source {
+            GeneratedImageSource::Raw => Ok(Self::Raw),
+            GeneratedImageSource::Archive { name, index } => Ok(Self::Archive {
+                name: name.clone(),
+                index: *index,
+            }),
+            GeneratedImageSource::Json {
+                position,
+                index,
+                seed,
+            } => Ok(Self::Json {
+                position: *position,
+                index: *index,
+                seed: *seed,
+            }),
+            _ => Err(PersistenceError::InvalidData {
+                message: "SDK 返回了尚不支持保存的图片来源类型。".to_owned(),
+            }),
+        }
+    }
 }
 
 /// Binary delivery stays separate from serializable asset and result metadata.
@@ -46,7 +96,8 @@ pub struct MediaContent {
 /// SDK outputs preserve the distinction between images and opaque Vibe material.
 pub enum JobOutput {
     Generation(GenerateImageResult),
-    Director(GeneratedImage),
+    Director(RunDirectorToolResult),
+    Upscale(UpscaleImageResult),
     Vibe(VibeEncoding),
 }
 
@@ -71,20 +122,26 @@ struct GenerationSample {
 fn generation_samples(
     output: GenerateImageResult,
 ) -> Result<Vec<GenerationSample>, PersistenceError> {
-    if output.images.is_empty() {
+    image_samples(output.images)
+}
+
+fn image_samples(images: Vec<GeneratedImage>) -> Result<Vec<GenerationSample>, PersistenceError> {
+    if images.is_empty() {
         return Err(PersistenceError::InvalidData {
             message: "NovelAI 未返回最终图像。".to_owned(),
         });
     }
-    output
-        .images
+    images
         .into_iter()
         .enumerate()
         .map(|(index, image)| {
             let index = u32::try_from(index)
                 .map_err(|error| PersistenceError::failure("represent a sample index", error))?;
             // A request seed does not establish an individual sample's actual seed.
-            let seed = image.seed();
+            let seed = image.seed().or(match image.source() {
+                GeneratedImageSource::Json { seed, .. } => *seed,
+                _ => None,
+            });
             Ok(GenerationSample { index, image, seed })
         })
         .collect()
@@ -192,6 +249,9 @@ impl MediaLibrary {
             notices.push("SDK 在元信息中发现无法解释的字段，请检查导入内容。".to_owned());
         }
         let draft = crate::session::draft_from_metadata(metadata);
+        if metadata.uc_preset.is_some() && metadata.negative_prompt.is_none() {
+            notices.push("图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。".to_owned());
+        }
         if metadata.model.is_some() && draft.settings.model.is_none() {
             notices.push("图片中的模型标识不受当前 SDK 识别，未据此选择模型。".to_owned());
         }
@@ -216,7 +276,14 @@ impl MediaLibrary {
             CreationOperation::TextToImage => Vec::new(),
             CreationOperation::ImageToImage { asset_id, .. }
             | CreationOperation::Director { asset_id, .. }
-            | CreationOperation::EncodeVibe { asset_id, .. } => vec![asset_id],
+            | CreationOperation::Upscale { asset_id, .. } => vec![asset_id],
+            CreationOperation::EncodeVibe {
+                asset_id,
+                mask_asset_id,
+                ..
+            } => std::iter::once(asset_id.as_str())
+                .chain(mask_asset_id.as_deref())
+                .collect(),
             CreationOperation::Inpainting {
                 asset_id,
                 mask_asset_id,
@@ -233,7 +300,11 @@ impl MediaLibrary {
             self.require_asset(id, AssetKind::Image)?;
         }
         for reference in &inputs.references.vibes {
-            self.require_asset(&reference.asset_id, AssetKind::Vibe)?;
+            let (id, kind) = match &reference.input {
+                crate::session::VibeInput::Encoded { asset_id } => (asset_id, AssetKind::Vibe),
+                crate::session::VibeInput::Image { asset_id, .. } => (asset_id, AssetKind::Image),
+            };
+            self.require_asset(id, kind)?;
         }
         Ok(())
     }
@@ -267,6 +338,7 @@ impl MediaLibrary {
         seed: Option<i64>,
     ) -> Result<RetainedOutput, PersistenceError> {
         let format = image.format();
+        let source = ResultImageSource::try_from(image.source())?;
         // GeneratedImage has no decoded-size accessor. Move its payload into the SDK
         // image boundary to obtain actual dimensions without trusting embedded metadata.
         let image = novelai_bridge::EncodedImage::from_bytes(image.into_bytes())
@@ -281,7 +353,7 @@ impl MediaLibrary {
                 job_id: job.id.clone(),
             },
         )?;
-        Ok(retained(job, sample_index, seed, asset))
+        Ok(retained(job, sample_index, seed, Some(source), asset))
     }
 }
 
@@ -292,7 +364,14 @@ impl FinalOutputStore for MediaLibrary {
                 .into_iter()
                 .map(|sample| self.stage_image(job, sample.index, sample.image, sample.seed))
                 .collect::<Result<Vec<_>, _>>()?,
-            JobOutput::Director(image) => vec![self.stage_image(job, 0, image, None)?],
+            JobOutput::Director(output) => image_samples(output.images)?
+                .into_iter()
+                .map(|sample| self.stage_image(job, sample.index, sample.image, sample.seed))
+                .collect::<Result<Vec<_>, _>>()?,
+            JobOutput::Upscale(output) => image_samples(output.images)?
+                .into_iter()
+                .map(|sample| self.stage_image(job, sample.index, sample.image, sample.seed))
+                .collect::<Result<Vec<_>, _>>()?,
             JobOutput::Vibe(encoding) => {
                 let asset = self.stage_asset(
                     AssetKind::Vibe,
@@ -303,7 +382,7 @@ impl FinalOutputStore for MediaLibrary {
                         job_id: job.id.clone(),
                     },
                 )?;
-                vec![retained(job, 0, None, asset)]
+                vec![retained(job, 0, None, None, asset)]
             },
         };
         // Every staged file has been completely written and synchronized. The single
@@ -316,6 +395,7 @@ fn retained(
     job: &JobRecord,
     sample_index: u32,
     seed: Option<i64>,
+    image_source: Option<ResultImageSource>,
     asset: MediaAsset,
 ) -> RetainedOutput {
     RetainedOutput {
@@ -325,6 +405,7 @@ fn retained(
             sample_index,
             asset_id: asset.id.clone(),
             kind: asset.kind,
+            image_source,
             seed,
             created_at: asset.created_at,
             mime_type: asset.mime_type.clone(),
@@ -362,6 +443,10 @@ fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft
             asset_id,
             model,
             information_extracted,
+            mask_asset_id,
+            crop_to_mask,
+            focus_seed,
+            info_extract_seed,
             ..
         } => Draft {
             inputs: CreationInputs {
@@ -369,6 +454,26 @@ fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft
                     asset_id: asset_id.clone(),
                     model: *model,
                     information_extracted: *information_extracted,
+                    mask_asset_id: mask_asset_id.clone(),
+                    crop_to_mask: *crop_to_mask,
+                    focus_seed: *focus_seed,
+                    info_extract_seed: *info_extract_seed,
+                },
+                ..CreationInputs::default()
+            },
+            ..Draft::default()
+        },
+        FrozenSubmission::Upscale {
+            asset_id,
+            model,
+            declared_blur_sigma,
+            ..
+        } => Draft {
+            inputs: CreationInputs {
+                operation: CreationOperation::Upscale {
+                    asset_id: asset_id.clone(),
+                    model: *model,
+                    declared_blur_sigma: *declared_blur_sigma,
                 },
                 ..CreationInputs::default()
             },

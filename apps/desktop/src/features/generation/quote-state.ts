@@ -21,5 +21,10 @@ export function isQuoteEligible(
   resolved?: Pick<ResolvedDraft, "positive"> | null,
 ): boolean {
   const operation = draft.inputs.operation.kind;
-  return operation === "director" || operation === "encodeVibe" || hasResolvedPrompt(resolved);
+  return (
+    operation === "director" ||
+    operation === "encodeVibe" ||
+    operation === "upscale" ||
+    hasResolvedPrompt(resolved)
+  );
 }

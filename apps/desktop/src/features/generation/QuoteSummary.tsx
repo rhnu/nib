@@ -13,7 +13,13 @@ export function QuoteSummary({ quote }: { quote: GenerationQuote }) {
   return (
     <span className="generation-estimate">
       <span>
-        <strong>{quote.estimatedAnlas}</strong> Anlas
+        {quote.estimatedAnlas === null ? (
+          <strong>费用未知</strong>
+        ) : (
+          <>
+            <strong>{quote.estimatedAnlas}</strong> Anlas
+          </>
+        )}
       </span>
       <QuoteHelp />
       {quote.tooExpensive && <span className="generation-danger">超出费用限制</span>}

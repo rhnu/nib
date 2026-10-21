@@ -77,6 +77,151 @@ pub(crate) async fn import_vibe_asset(
 }
 
 #[tauri::command]
+pub(crate) async fn create_image_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    image_id: String,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .create_image_vibe_document(&image_id)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn create_encoded_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    vibe_id: String,
+    model_key: String,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .create_encoded_vibe_document(&vibe_id, &model_key)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn bundle_vibe_documents(
+    state: tauri::State<'_, DesktopState>,
+    document_ids: Vec<String>,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .bundle_vibe_documents(&document_ids)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn import_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    bytes: Vec<u8>,
+    name: Option<String>,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .import_vibe_document(&bytes, AssetSource::Import { name })
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn import_png_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    image_id: String,
+) -> Result<Option<MediaAsset>, ApiError> {
+    with_media(state, move |media| {
+        media
+            .import_png_vibe_document(&image_id)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn export_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<tauri::ipc::Response, ApiError> {
+    with_media(state, move |media| {
+        Ok(tauri::ipc::Response::new(
+            media
+                .export_vibe_document(&id)
+                .map_err(persistence_error)?
+                .bytes,
+        ))
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn embed_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    document_id: String,
+    image_id: String,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .embed_vibe_document(&document_id, &image_id)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn write_png_text(
+    state: tauri::State<'_, DesktopState>,
+    image_id: String,
+    entries: Vec<(String, String)>,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        let entries = entries
+            .into_iter()
+            .map(|(keyword, text)| novelai_bridge::PngTextEntry::new(keyword, text))
+            .collect::<Vec<_>>();
+        media
+            .write_png_text(&image_id, &entries)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn import_document_image(
+    state: tauri::State<'_, DesktopState>,
+    document_id: String,
+    entry_index: usize,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .import_document_image(&document_id, entry_index)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn import_document_encoding(
+    state: tauri::State<'_, DesktopState>,
+    document_id: String,
+    entry_index: usize,
+    model_key: String,
+    parameter_key: String,
+) -> Result<MediaAsset, ApiError> {
+    with_media(state, move |media| {
+        media
+            .import_document_encoding(&document_id, entry_index, &model_key, &parameter_key)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
 pub(crate) async fn read_media_asset(
     state: tauri::State<'_, DesktopState>,
     id: String,

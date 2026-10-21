@@ -85,7 +85,7 @@ pub struct AccountSummary {
     pub subscription_active: bool,
     pub tier: i32,
     #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
-    pub expires_at_ms: Option<u64>,
+    pub expires_at_ms: Option<i64>,
     pub v5_usage: Option<AllowanceSummary>,
 }
 

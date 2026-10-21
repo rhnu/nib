@@ -37,6 +37,7 @@ impl AssetRow {
             kind: match self.kind.as_str() {
                 "image" => AssetKind::Image,
                 "vibe" => AssetKind::Vibe,
+                "vibeDocument" => AssetKind::VibeDocument,
                 _ => {
                     return Err(PersistenceError::InvalidData {
                         message: "未知媒体类型。".to_owned(),
@@ -58,6 +59,7 @@ fn insert_asset(connection: &Connection, asset: &MediaAsset) -> Result<(), Persi
     let kind = match asset.kind {
         AssetKind::Image => "image",
         AssetKind::Vibe => "vibe",
+        AssetKind::VibeDocument => "vibeDocument",
     };
     connection.execute("INSERT INTO media_assets (id, kind, mime_type, byte_length, width, height, created_at, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![asset.id, kind, asset.mime_type, asset.byte_length, asset.width, asset.height, asset.created_at, encode(&asset.source)?])
@@ -107,7 +109,7 @@ impl SqliteDatabase {
     ) -> Result<Vec<RetainedOutput>, PersistenceError> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
-            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, j.submission FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE (?1 IS NULL OR r.id = ?1) ORDER BY r.created_at DESC, r.sample_index",
+            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, j.submission, r.image_source FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE (?1 IS NULL OR r.id = ?1) ORDER BY r.created_at DESC, r.sample_index",
         ).map_err(|error| PersistenceError::failure("prepare retained operation outputs", error))?;
         let rows = statement
             .query_map([id], |row| {
@@ -119,14 +121,15 @@ impl SqliteDatabase {
                     row.get::<_, Option<i64>>(11)?,
                     row.get::<_, i64>(12)?,
                     row.get::<_, String>(13)?,
+                    row.get::<_, Option<String>>(14)?,
                 ))
             })
             .map_err(|error| {
                 PersistenceError::failure("query retained operation outputs", error)
             })?;
         rows.map(|row| {
-            let (asset, id, job_id, sample_index, seed, created_at, submission) =
-                row.map_err(|error| {
+            let (asset, id, job_id, sample_index, seed, created_at, submission, image_source) = row
+                .map_err(|error| {
                     PersistenceError::failure("read retained operation output", error)
                 })?;
             let asset = asset.decode()?;
@@ -137,6 +140,7 @@ impl SqliteDatabase {
                     sample_index,
                     asset_id: asset.id.clone(),
                     kind: asset.kind,
+                    image_source: image_source.as_deref().map(decode).transpose()?,
                     seed,
                     created_at,
                     mime_type: asset.mime_type.clone(),
@@ -173,8 +177,8 @@ impl SqliteDatabase {
         }
         for output in outputs {
             insert_asset(&transaction, &output.asset)?;
-            transaction.execute("INSERT INTO generation_results (id, job_id, sample_index, asset_id, seed, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![output.result.id, job_id, output.result.sample_index, output.asset.id, output.result.seed, output.result.created_at])
+            transaction.execute("INSERT INTO generation_results (id, job_id, sample_index, asset_id, seed, created_at, image_source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![output.result.id, job_id, output.result.sample_index, output.asset.id, output.result.seed, output.result.created_at, output.result.image_source.as_ref().map(encode).transpose()?])
                 .map_err(|error| PersistenceError::failure("retain a final operation output", error))?;
         }
         transaction.execute("UPDATE jobs SET status = 'completed', finished_at = ?2, error = NULL WHERE id = ?1", params![job_id, crate::jobs::timestamp()?])

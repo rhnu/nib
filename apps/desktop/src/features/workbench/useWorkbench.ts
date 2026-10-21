@@ -56,7 +56,12 @@ export function useWorkbench(
               kind: "linked",
               resourceId: resource.id,
               overrides: [],
-              outputOverrides: { characters: [], precise: [], vibes: [], vibeStrength: null },
+              outputOverrides: {
+                characters: [],
+                precise: [],
+                vibes: [],
+                normalizeVibeStrength: null,
+              },
             },
           },
         ],
