@@ -178,7 +178,7 @@ textarea:focus {
 }
 .modal-backdrop {
   position: fixed;
-  inset: 0;
+  inset: var(--titlebar-height) 0 0;
   background: #0008;
   z-index: 30;
   backdrop-filter: blur(3px);
@@ -186,11 +186,11 @@ textarea:focus {
 .modal {
   position: fixed;
   z-index: 31;
-  top: 50%;
+  top: calc(50% + var(--titlebar-height) / 2);
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(440px, calc(100vw - 32px));
-  max-height: calc(100dvh - 48px);
+  max-height: calc(100dvh - var(--titlebar-height) - 48px);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
@@ -213,7 +213,7 @@ textarea:focus {
 }
 .modal-wide {
   width: min(980px, calc(100vw - 48px));
-  height: min(690px, calc(100dvh - 48px));
+  height: min(690px, calc(100dvh - var(--titlebar-height) - 48px));
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -264,7 +264,7 @@ textarea:focus {
 @media (max-width: 760px) {
   .modal-wide {
     width: calc(100vw - 24px);
-    height: calc(100dvh - 24px);
+    height: calc(100dvh - var(--titlebar-height) - 24px);
     max-height: none;
   }
 }

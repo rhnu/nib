@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Draft, Resource, WorkspaceSnapshot } from "../../bindings/workbench";
-import { Moon, Sun } from "lucide-react";
-import { Button, IconButton, Notice } from "../../shared/ui";
+import { Button, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
@@ -17,15 +16,11 @@ export type WorkbenchExtension = {
 export function Workbench({
   workspace,
   initialResources,
-  theme,
-  toggleTheme,
   renderActions,
   renderResults,
 }: {
   workspace: WorkspaceSnapshot;
   initialResources: Map<string, Resource>;
-  theme: string;
-  toggleTheme: () => void;
   renderActions?: (context: WorkbenchExtension) => ReactNode;
   renderResults?: (context: WorkbenchExtension) => ReactNode;
 }) {
@@ -61,21 +56,7 @@ export function Workbench({
     resourceVersion,
   };
   return (
-    <div className="workbench flex h-dvh flex-col overflow-hidden">
-      <header className="app-toolbar">
-        <div className="app-brand">
-          nib
-          <span className="brand-divider" />
-        </div>
-        <span className="editor-label">当前创作</span>
-        <span className="spacer" />
-        <IconButton
-          label={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
-          onClick={toggleTheme}
-        >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-        </IconButton>
-      </header>
+    <div className="workbench">
       {renderActions && <div className="generation-actions-slot">{renderActions(extension)}</div>}
       {Boolean(error || written.error) && (
         <Notice

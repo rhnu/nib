@@ -1,7 +1,8 @@
 .startup {
   display: grid;
-  min-height: 100vh;
-  min-height: 100dvh;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 24px;
   place-items: center;
 }

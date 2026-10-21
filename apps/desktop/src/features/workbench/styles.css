@@ -1,29 +1,5 @@
 .workbench {
-  @apply flex h-dvh flex-col overflow-hidden;
-}
-.app-toolbar {
-  height: 51px;
-  min-height: 51px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 0 13px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
-.app-brand {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 0 4px;
-  font-size: 21px;
-  font-weight: 650;
-  letter-spacing: -0.8px;
-}
-.brand-divider {
-  height: 22px;
-  width: 1px;
-  background: var(--line);
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
 }
 .workspace-body {
   display: grid;
@@ -59,11 +35,6 @@
   padding: 0 15px;
   border-bottom: 1px solid var(--line-subtle);
   background: var(--surface);
-}
-.editor-label {
-  color: var(--muted);
-  font-size: 12px;
-  margin-left: 5px;
 }
 .editing-area {
   flex: 1;
@@ -107,16 +78,6 @@
   }
 }
 @media (max-width: 760px) {
-  .app-toolbar {
-    gap: 7px;
-    padding-inline: 10px;
-  }
-  .app-brand {
-    gap: 10px;
-  }
-  .editor-label {
-    display: none;
-  }
   .editor-toolbar {
     padding-inline: 10px;
   }
@@ -135,9 +96,6 @@
   }
   .workspace-body:not(.context-hidden) {
     grid-template-rows: auto minmax(0, 1fr);
-  }
-  .brand-divider {
-    display: none;
   }
 }
 
