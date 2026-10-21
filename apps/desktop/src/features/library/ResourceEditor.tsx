@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import type { Resource } from "../../bindings/workbench";
-import { ActionsMenu, Button, Field } from "../../shared/ui";
+import { ActionsMenu, Button, Field, HelpMarker } from "../../shared/ui";
 import { CompositionEditor } from "../prompt/CompositionEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { promptApi } from "../prompt/api";
@@ -87,7 +87,11 @@ export function ResourceEditor({
             />
             <details>
               <summary>配方默认设置</summary>
-              <p className="help-note">仅声明这个配方负责的设置，留空则继续继承。</p>
+              <div className="resource-settings-help">
+                <HelpMarker label="配方默认设置说明">
+                  仅填写配方负责的设置，留空则继续继承。
+                </HelpMarker>
+              </div>
               <SettingsEditor
                 value={editor.content.defaults}
                 models={models}

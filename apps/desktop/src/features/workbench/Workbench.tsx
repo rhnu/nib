@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { Draft, Resource, WorkspaceSnapshot } from "../../bindings/workbench";
+import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
 import { Button, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { ResourceLibrary } from "../library/ResourceLibrary";
@@ -12,17 +12,23 @@ export type WorkbenchExtension = {
   onRestore: (draft: Draft) => void;
   reportError: (message: string) => void;
   resourceVersion: number;
+  resolved: ResolvedDraft | null;
+  resolving: boolean;
 };
 export function Workbench({
   workspace,
   initialResources,
   renderActions,
   renderResults,
+  renderHeader,
+  settings,
 }: {
   workspace: WorkspaceSnapshot;
   initialResources: Map<string, Resource>;
   renderActions?: (context: WorkbenchExtension) => ReactNode;
   renderResults?: (context: WorkbenchExtension) => ReactNode;
+  renderHeader: (navigation: ReactNode) => ReactNode;
+  settings: ReactNode;
 }) {
   const state = useWorkbench(workspace, initialResources);
   const {
@@ -47,17 +53,43 @@ export function Workbench({
     refreshResources,
     resourceVersion,
   } = state;
-  const [contextOpen, setContextOpen] = useState(true);
+  const [page, setPage] = useState<"create" | "settings">("create");
   const extension = {
     draft,
     readCurrentDraft,
     onRestore: restore,
     reportError: setError,
     resourceVersion,
+    resolved,
+    resolving,
   };
   return (
     <div className="workbench">
-      {renderActions && <div className="generation-actions-slot">{renderActions(extension)}</div>}
+      {renderHeader(
+        <nav className="desktop-navigation" aria-label="主导航">
+          <Button
+            aria-current={!library && page === "create" ? "page" : undefined}
+            disabled={library}
+            onClick={() => setPage("create")}
+          >
+            创作
+          </Button>
+          <Button
+            aria-current={library ? "page" : undefined}
+            disabled={library}
+            onClick={() => openLibrary("positive")}
+          >
+            资源库
+          </Button>
+          <Button
+            aria-current={!library && page === "settings" ? "page" : undefined}
+            disabled={library}
+            onClick={() => setPage("settings")}
+          >
+            设置
+          </Button>
+        </nav>,
+      )}
       {Boolean(error || written.error) && (
         <Notice
           actions={
@@ -76,48 +108,41 @@ export function Workbench({
           {error || errorMessage(written.error)}
         </Notice>
       )}
-      <div className={`workspace-body ${contextOpen ? "" : "context-hidden"}`}>
-        <ContextRail
-          draft={draft}
-          resources={resources}
-          models={workspace.models}
-          resolved={resolved}
-          readCurrentDraft={readCurrentDraft}
-          edit={edit}
-          onAddPreset={() => openLibrary("preset")}
-          setError={setError}
-        />
+      <div className="workspace-body" hidden={page !== "create"}>
+        <aside className="generation-sidebar" aria-label="生成侧栏">
+          <div className="generation-sidebar-scroll">
+            <PromptWorkspace
+              draft={draft}
+              resources={resources}
+              models={workspace.models}
+              resolved={resolved}
+              resolving={resolving}
+              resolveError={resolveError}
+              openLibrary={openLibrary}
+              edit={edit}
+              setError={setError}
+            />
+            <ContextRail
+              draft={draft}
+              resources={resources}
+              models={workspace.models}
+              resolved={resolved}
+              readCurrentDraft={readCurrentDraft}
+              edit={edit}
+              onAddPreset={() => openLibrary("preset")}
+              setError={setError}
+            />
+          </div>
+          {renderActions && (
+            <div className="generation-actions-slot">{renderActions(extension)}</div>
+          )}
+        </aside>
         <main className="main-workspace flex min-h-0 min-w-0 flex-col">
-          <PromptWorkspace
-            draft={draft}
-            resources={resources}
-            resolved={resolved}
-            resolving={resolving}
-            resolveError={resolveError}
-            contextOpen={contextOpen}
-            toggleContext={() => setContextOpen((value) => !value)}
-            openLibrary={openLibrary}
-            edit={edit}
-            setError={setError}
-          />
           {renderResults?.(extension)}
-          <footer className="workspace-status">
-            <span>
-              {resolved?.issues.length
-                ? `${resolved.issues.length} 项引用问题`
-                : resolveError
-                  ? "解析失败"
-                  : resolving
-                    ? "正在解析组合…"
-                    : written.saving
-                      ? "正在保存创作…"
-                      : written.dirty
-                        ? "创作待保存"
-                        : "当前创作已保存"}
-            </span>
-            <span>{workspace.info.version}</span>
-          </footer>
         </main>
+      </div>
+      <div className="settings-page-slot" hidden={page !== "settings"}>
+        {settings}
       </div>
       <ResourceLibrary
         open={library}

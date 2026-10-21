@@ -6,7 +6,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   color-scheme: dark;
-  --titlebar-height: 44px;
+  --titlebar-height: 40px;
+  --control-height: 30px;
+  --radius: 4px;
+  --sidebar-width: clamp(340px, 27vw, 390px);
   --bg: #191b1e;
   --surface: #202226;
   --raised: #282b30;

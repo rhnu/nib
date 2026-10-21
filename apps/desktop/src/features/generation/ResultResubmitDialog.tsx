@@ -4,7 +4,7 @@ import type { GenerationQuote, GenerationResult } from "../../bindings/generatio
 import { Button, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
-import { useGeneration } from "./GenerationProvider";
+import { useGeneration } from "./generation-context";
 import { QuoteSummary } from "./QuoteSummary";
 import { SubmissionSummary } from "./SubmissionSummary";
 
@@ -75,10 +75,7 @@ export function ResultResubmitDialog({
         ) : (
           !error && <output>正在恢复内容并通过 SDK 估算费用…</output>
         )}
-        <p className="generation-muted">
-          这是按非订阅条件计算的估算，未读取账户订阅和余额；实际扣费由 NovelAI 决定。
-        </p>
-        {!account?.configured && <Notice>请先在工作台中配置账户凭据。</Notice>}
+        {!account?.configured && <Notice>请先在设置中配置账户凭据。</Notice>}
         {error && (
           <Notice
             actions={

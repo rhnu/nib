@@ -4,7 +4,7 @@ import type { JobRecord } from "../../bindings/generation";
 import { Button, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
-import { useGeneration } from "./GenerationProvider";
+import { useGeneration } from "./generation-context";
 import { JobRetryDialog } from "./JobRetryDialog";
 
 const statusText: Record<JobRecord["status"], string> = {
@@ -39,22 +39,26 @@ export function JobQueue() {
   const activeCount =
     jobs?.filter((job) => job.status === "queued" || job.status === "running").length ?? 0;
   return (
-    <section className="generation-queue" aria-label="生成任务队列">
-      <div className="generation-section-heading">
+    <details className="generation-queue" aria-label="生成任务队列">
+      <summary className="generation-section-heading">
         <h3>
           <ListOrdered size={15} />
           顺序任务
         </h3>
         <span className="generation-muted">
-          {activeCount ? `${activeCount} 个待完成` : "逐个执行"}
+          {activeCount
+            ? `${activeCount} 个待完成`
+            : jobs === null
+              ? "读取中"
+              : `${jobs.length} 个任务`}
         </span>
-      </div>
+      </summary>
       {jobs === null ? (
         <output className="generation-muted">
           {queryError ? "尚未读取任务，请重试查询。" : "正在读取任务…"}
         </output>
       ) : jobs.length === 0 ? (
-        <p className="generation-muted">尚无任务。提交后会保留当时确定的生成内容。</p>
+        <p className="generation-muted">尚无任务</p>
       ) : (
         <ol className="generation-job-list">
           {jobs.map((job) => {
@@ -98,6 +102,6 @@ export function JobQueue() {
       )}
       {error && <Notice>{error}</Notice>}
       {retryJob && <JobRetryDialog job={retryJob} onClose={() => setRetryJob(null)} />}
-    </section>
+    </details>
   );
 }

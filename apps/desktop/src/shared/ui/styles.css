@@ -12,10 +12,10 @@ summary {
 }
 button {
   @apply inline-flex items-center justify-center gap-1.5;
-  min-height: 32px;
-  padding: 5px 10px;
+  min-height: var(--control-height);
+  padding: 4px 9px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--raised);
   white-space: nowrap;
   line-height: 20px;
@@ -45,8 +45,8 @@ button.primary:hover:not(:disabled) {
 }
 .icon-button {
   flex-shrink: 0;
-  width: 32px;
-  padding: 5px;
+  width: var(--control-height);
+  padding: 4px;
   background: transparent;
   border-color: transparent;
 }
@@ -61,14 +61,14 @@ textarea {
   min-width: 0;
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--input);
   padding: 6px 9px;
   outline: none;
 }
 input,
 select {
-  height: 32px;
+  height: var(--control-height);
 }
 textarea {
   resize: vertical;
@@ -194,8 +194,8 @@ textarea:focus {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 6px;
+  padding: 16px;
   box-shadow: var(--shadow);
   overflow: auto;
 }
@@ -203,7 +203,7 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   gap: 10px;
 }
 .modal-header h2 {
@@ -240,7 +240,7 @@ textarea:focus {
 .menu-popup {
   min-width: 165px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px;
   background: var(--raised);
   box-shadow: var(--shadow);
@@ -260,6 +260,39 @@ textarea:focus {
 .menu-item.danger {
   border-top: 1px solid var(--line-subtle);
   margin-top: 3px;
+}
+.help-marker {
+  color: var(--muted);
+  width: 26px;
+  min-height: 26px;
+}
+.help-positioner {
+  z-index: 70;
+}
+.help-popup {
+  width: min(300px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.help-popup header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+.help-popup h2 {
+  color: var(--text);
+  font-size: 12px;
+}
+.help-popup p:last-child {
+  margin-bottom: 0;
 }
 @media (max-width: 760px) {
   .modal-wide {

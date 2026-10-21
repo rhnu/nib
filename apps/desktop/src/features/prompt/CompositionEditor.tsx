@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link2, Plus, Type } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Tabs } from "@base-ui/react/tabs";
+import { Link2, Plus } from "lucide-react";
 import type { Composition, PromptNode, Resource } from "../../bindings/workbench";
-import { Button } from "../../shared/ui";
+import { Button, IconButton } from "../../shared/ui";
 import { moveItem, textNode } from "./model";
 import { NodeEditor } from "./NodeEditor";
 import { ChunkPicker } from "./ChunkPicker";
@@ -14,6 +15,7 @@ export function CompositionEditor({
   expandChunk,
   compact = false,
   allowChunk = true,
+  toolbarActions,
 }: {
   value: Composition;
   onChange: (value: Composition) => void;
@@ -22,50 +24,50 @@ export function CompositionEditor({
   expandChunk: (node: PromptNode) => Promise<PromptNode>;
   compact?: boolean;
   allowChunk?: boolean;
+  toolbarActions?: ReactNode;
 }) {
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
+  const [activeScope, setActiveScope] = useState<"positive" | "negative">("positive");
   const update = (scope: "positive" | "negative", nodes: PromptNode[]) =>
     onChange({ ...value, [scope]: nodes });
   return (
-    <div className={`composition ${compact ? "compact-composition" : ""}`}>
+    <Tabs.Root
+      value={activeScope}
+      onValueChange={(scope) => {
+        if (scope === "positive" || scope === "negative") setActiveScope(scope);
+      }}
+      className={`composition ${compact ? "compact-composition" : ""}`}
+    >
+      <header className="composition-toolbar">
+        <Tabs.List className="prompt-tabs" aria-label="提示词作用域">
+          <Tabs.Tab value="positive">提示词</Tabs.Tab>
+          <Tabs.Tab value="negative">负面内容</Tabs.Tab>
+        </Tabs.List>
+        <div className="button-group">
+          {allowChunk && (
+            <IconButton
+              label="添加 Chunk"
+              onClick={() => (addChunk ? addChunk(activeScope) : setPickerScope(activeScope))}
+            >
+              <Link2 size={14} />
+            </IconButton>
+          )}
+          <IconButton
+            label="添加文本片段"
+            onClick={() => update(activeScope, [...value[activeScope], textNode()])}
+          >
+            <Plus size={14} />
+          </IconButton>
+          {toolbarActions}
+        </div>
+      </header>
       {(["positive", "negative"] as const).map((scope) => (
-        <section className="prompt-scope" key={scope}>
-          <header className="section-heading">
-            <h2>
-              {scope === "positive" ? "基础提示" : "负面提示"}
-              <span className="count">{value[scope].length}</span>
-            </h2>
-            <div className="button-group">
-              {allowChunk && (
-                <Button
-                  type="button"
-                  className="quiet"
-                  onClick={() => (addChunk ? addChunk(scope) : setPickerScope(scope))}
-                >
-                  <Link2 size={14} />
-                  添加 Chunk
-                </Button>
-              )}
-              <Button
-                type="button"
-                className="quiet"
-                onClick={() => update(scope, [...value[scope], textNode()])}
-              >
-                <Plus size={14} />
-                文本
-              </Button>
-            </div>
-          </header>
+        <Tabs.Panel className="prompt-scope" key={scope} value={scope} keepMounted>
           {value[scope].length === 0 && (
             <div className="scope-empty">
-              <Type size={19} />
-              <p>
-                {scope === "positive"
-                  ? "用文本描写画面，或添加可复用的 Chunk。"
-                  : "添加希望排除的内容。"}
-              </p>
-              <Button type="button" onClick={() => update(scope, [textNode()])}>
-                开始编写
+              <Button type="button" className="quiet" onClick={() => update(scope, [textNode()])}>
+                <Plus size={14} />
+                {scope === "positive" ? "编写正面提示词" : "编写负面提示词"}
               </Button>
             </div>
           )}
@@ -93,7 +95,7 @@ export function CompositionEditor({
               expand={expandChunk}
             />
           ))}
-        </section>
+        </Tabs.Panel>
       ))}
       {pickerScope && (
         <ChunkPicker
@@ -114,6 +116,6 @@ export function CompositionEditor({
           }}
         />
       )}
-    </div>
+    </Tabs.Root>
   );
 }

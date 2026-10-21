@@ -14,7 +14,6 @@ export function StartupScreen({
       <section className="startup-panel">
         <div className="brand-mark">n</div>
         <h1>nib</h1>
-        <p className="muted">本地创作工作台</p>
         {loading ? (
           <output className="startup-message">
             <LoaderCircle className="spin" size={17} />

@@ -77,12 +77,12 @@ export function ResultDetail({
                 setConfirmRestore(true);
                 setError(null);
               }}
-              disabled={restoring}
+              disabled={restoring || !result.available}
             >
               <ArrowUpLeft size={14} />
               恢复到当前创作
             </Button>
-            <Button onClick={() => setResubmitOpen(true)} disabled={restoring}>
+            <Button onClick={() => setResubmitOpen(true)} disabled={restoring || !result.available}>
               <RotateCw size={14} />
               再次生成
             </Button>

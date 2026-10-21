@@ -3,14 +3,10 @@ import type { Draft } from "../../bindings/workbench";
 import type { GenerationQuote } from "../../bindings/generation";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
+import { generationQuoteKey } from "./quote-state";
 
-// Saving a new revision does not change the content whose SDK estimate is displayed.
-export function draftContentKey(draft: Draft): string {
-  return JSON.stringify([draft.composition, draft.presets, draft.settings]);
-}
-
-export function useGenerationQuote(draft: Draft, refreshKey?: unknown) {
-  const key = `${draftContentKey(draft)}:${String(refreshKey ?? "")}`;
+export function useGenerationQuote(draft: Draft, refreshKey?: unknown, enabled = true) {
+  const key = generationQuoteKey(draft, refreshKey);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{
     key: string;
@@ -18,6 +14,7 @@ export function useGenerationQuote(draft: Draft, refreshKey?: unknown) {
     error: string | null;
   } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       void generationApi.quote(draft).then(
@@ -33,13 +30,13 @@ export function useGenerationQuote(draft: Draft, refreshKey?: unknown) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [key, draft, attempt]);
-  const current = state?.key === key ? state : null;
+  }, [key, draft, attempt, enabled]);
+  const current = enabled && state?.key === key ? state : null;
   return {
-    key: draftContentKey(draft),
+    key,
     quote: current?.quote ?? null,
     error: current?.error ?? null,
-    loading: !current,
+    loading: enabled && !current,
     retry: () => {
       setState(null);
       setAttempt((value) => value + 1);

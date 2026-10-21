@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, Link2, Type } from "lucide-react";
+import { Link2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "../../bindings/workbench";
-import { ActionsMenu, IconButton, Toggle } from "../../shared/ui";
+import { ActionsMenu, Toggle } from "../../shared/ui";
 
 export function NodeEditor({
   node,
@@ -106,17 +106,6 @@ export function NodeEditor({
           )
         }
       />
-      <footer className="node-footer">
-        <span>{node.kind === "chunk" ? "链接资源 · 这里的修改只用于当前实例" : "直接文本"}</span>
-        <div className="button-group">
-          <IconButton label="上移片段" disabled={!canUp} onClick={up}>
-            <ArrowUp size={13} />
-          </IconButton>
-          <IconButton label="下移片段" disabled={!canDown} onClick={down}>
-            <ArrowDown size={13} />
-          </IconButton>
-        </div>
-      </footer>
     </article>
   );
 }

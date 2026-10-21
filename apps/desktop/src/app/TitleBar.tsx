@@ -1,37 +1,20 @@
-import { Copy, Minus, Moon, Square, Sun, X } from "lucide-react";
+import type { ReactNode } from "react";
+import { Copy, Minus, Square, X } from "lucide-react";
 import { Button, IconButton, Notice } from "../shared/ui";
 import { useWindowControls } from "./useWindowControls";
 
 /** Application chrome stays available during workspace startup and failures. */
-export function TitleBar({
-  theme,
-  toggleTheme,
-  workspaceOpen,
-}: {
-  theme: string;
-  toggleTheme: () => void;
-  workspaceOpen: boolean;
-}) {
+export function TitleBar({ navigation }: { navigation?: ReactNode }) {
   const controls = useWindowControls();
   return (
     <>
       <header className="titlebar" aria-label="窗口标题栏">
+        <span className="titlebar-brand">nib</span>
+        {navigation}
         <div
           className="titlebar-drag-region"
           data-tauri-drag-region={controls.desktop || undefined}
-        >
-          <span className="titlebar-brand">nib</span>
-          <span className="titlebar-divider" />
-          <span className="titlebar-caption">{workspaceOpen ? "当前创作" : "本地创作工作台"}</span>
-        </div>
-        <div className="titlebar-tools">
-          <IconButton
-            label={theme === "dark" ? "切换浅色主题" : "切换深色主题"}
-            onClick={toggleTheme}
-          >
-            {theme === "dark" ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
-          </IconButton>
-        </div>
+        ></div>
         {controls.desktop && (
           <fieldset className="window-controls" aria-label="窗口控制">
             <IconButton

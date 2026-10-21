@@ -1,6 +1,6 @@
 import { Plus, Search } from "lucide-react";
 import type { Resource, ResourceKind, ResourceSummary } from "../../bindings/workbench";
-import { ActionsMenu, Button, Modal } from "../../shared/ui";
+import { ActionsMenu, Button, HelpMarker, Modal } from "../../shared/ui";
 import { ResourceEditor } from "./ResourceEditor";
 import { ResourceList } from "./ResourceList";
 import { useResourceSearch } from "./useResourceSearch";
@@ -87,6 +87,10 @@ export function ResourceLibrary({
             <Plus size={14} />
             新建
           </ActionsMenu>
+          <HelpMarker label="资源使用说明">
+            Chunk 添加到当前提示词作用域，Preset
+            添加到配方列表。编辑资源原件后需保存；在创作中修改链接只影响本次实例。
+          </HelpMarker>
         </div>
         {notice && (
           <div className="error-banner" role="alert">
@@ -127,11 +131,6 @@ export function ResourceLibrary({
             />
           )}
         </div>
-        <footer className="library-footer">
-          <span>
-            添加 Chunk → {target === "negative" ? "负面提示" : "基础提示"} · Preset → 配方列表
-          </span>
-        </footer>
       </Modal>
       <Modal open={confirm !== null} onClose={() => setConfirm(null)} title="确认操作">
         <p className="confirm-copy">{confirm?.title}</p>

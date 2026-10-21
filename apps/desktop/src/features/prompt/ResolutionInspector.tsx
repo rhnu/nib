@@ -45,10 +45,7 @@ export function ResolutionInspector({
   };
   return (
     <aside className="inspector" aria-label="解析与来源" aria-busy={pending}>
-      <header className="section-heading">
-        <h2>解析与来源</h2>
-        <span className="muted">{pending ? "正在更新…" : resolved ? "实时解析" : ""}</span>
-      </header>
+      {pending && <output className="muted">正在更新…</output>}
       {error && (
         <p role="alert" className="inline-warning">
           {error}

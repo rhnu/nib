@@ -1,19 +1,28 @@
 import { useState } from "react";
-import { ImageOff } from "lucide-react";
+import { Image, ImageOff, Info, Minus, Plus } from "lucide-react";
 import type { Draft } from "../../bindings/workbench";
 import type { GenerationResult } from "../../bindings/generation";
-import { Button } from "../../shared/ui";
+import { Button, IconButton } from "../../shared/ui";
 import { ResultDetail } from "./ResultDetail";
 import { useResultImage } from "./use-result-image";
 
-function ResultTile({ result, onOpen }: { result: GenerationResult; onOpen: () => void }) {
+function ResultTile({
+  result,
+  selected,
+  onSelect,
+}: {
+  result: GenerationResult;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   return (
     <div className="generation-result-tile">
       <Button
-        className="generation-result-open"
-        onClick={onOpen}
-        aria-label={`查看结果：${new Date(result.createdAt).toLocaleString()}，种子 ${result.seed}`}
+        className={`generation-result-open ${selected ? "selected" : ""}`}
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`选择结果：${new Date(result.createdAt).toLocaleString()}，种子 ${result.seed}`}
       >
         <span className="generation-result-preview">
           {!result.available ? (
@@ -32,10 +41,6 @@ function ResultTile({ result, onOpen }: { result: GenerationResult; onOpen: () =
             <span className="generation-muted">读取中…</span>
           )}
         </span>
-        <span className="generation-result-caption">
-          <span>种子 {result.seed}</span>
-          <small>{new Date(result.createdAt).toLocaleString()}</small>
-        </span>
       </Button>
       {image.error && (
         <Button className="quiet" onClick={image.retry}>
@@ -43,6 +48,81 @@ function ResultTile({ result, onOpen }: { result: GenerationResult; onOpen: () =
         </Button>
       )}
     </div>
+  );
+}
+
+function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: () => void }) {
+  const image = useResultImage(result.id, result.mimeType, result.available);
+  const [zoom, setZoom] = useState(1);
+  const canZoom = Boolean(image.url && !image.error);
+  return (
+    <>
+      <div className="generation-canvas-toolbar">
+        <span className="generation-canvas-metadata generation-muted">
+          种子 {result.seed} · {new Date(result.createdAt).toLocaleString()}
+        </span>
+        <div className="generation-view-tools" aria-label="图像查看">
+          <IconButton
+            className="quiet"
+            label="缩小图像"
+            disabled={!canZoom || zoom <= 0.25}
+            onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}
+          >
+            <Minus size={14} />
+          </IconButton>
+          <output className="generation-zoom-value" aria-label="相对适应画布的缩放比例">
+            {Math.round(zoom * 100)}%
+          </output>
+          <IconButton
+            className="quiet"
+            label="放大图像"
+            disabled={!canZoom || zoom >= 4}
+            onClick={() => setZoom((value) => Math.min(4, value + 0.25))}
+          >
+            <Plus size={14} />
+          </IconButton>
+          <Button className="quiet" disabled={!canZoom} onClick={() => setZoom(1)}>
+            适应
+          </Button>
+          <Button className="quiet" onClick={onOpen}>
+            <Info size={14} />
+            详情
+          </Button>
+        </div>
+      </div>
+      <div className={`generation-canvas ${canZoom ? "generation-canvas-viewer" : ""}`}>
+        {!result.available ? (
+          <div className="generation-canvas-status">
+            <ImageOff size={28} />
+            <p>图像不可用</p>
+            <small>文件缺失或不完整</small>
+          </div>
+        ) : image.error ? (
+          <div className="generation-canvas-status generation-danger">
+            <ImageOff size={28} />
+            <p>{image.error}</p>
+            <Button onClick={image.retry}>重试读取</Button>
+          </div>
+        ) : image.url ? (
+          <div
+            className="generation-canvas-image-stage"
+            style={{ width: `${Math.max(1, zoom) * 100}%`, height: `${Math.max(1, zoom) * 100}%` }}
+          >
+            <img
+              style={{
+                width: `${Math.min(1, zoom) * 100}%`,
+                height: `${Math.min(1, zoom) * 100}%`,
+              }}
+              src={image.url}
+              alt={`生成结果，种子 ${result.seed}`}
+              onError={image.failed}
+            />
+          </div>
+        ) : (
+          <output className="generation-muted">正在读取图像…</output>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -56,42 +136,61 @@ export function ResultGallery({
   queryFailed: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(12);
-  const selected = results?.find((result) => result.id === selectedId);
+  const selected = results?.find((result) => result.id === selectedId) ?? results?.[0];
+  const detail = results?.find((result) => result.id === detailId);
   return (
     <section className="generation-gallery" aria-label="已保存的生成结果">
-      <div className="generation-section-heading">
-        <h3>已保存结果</h3>
-        {results && <span className="generation-muted">{results.length} 张</span>}
-      </div>
       {results === null ? (
-        <output className="generation-muted">
+        <output className="generation-canvas generation-muted">
           {queryFailed ? "尚未读取结果，请重试查询。" : "正在读取结果…"}
         </output>
       ) : results.length === 0 ? (
-        <p className="generation-muted">完成后的最终图像会保留在这里，重新打开应用后仍可查看。</p>
+        <div className="generation-canvas generation-canvas-empty">
+          <Image size={32} />
+          <p>尚无生成结果</p>
+        </div>
       ) : (
         <>
-          <div className="generation-result-grid">
-            {results.slice(0, visibleCount).map((result) => (
-              <ResultTile key={result.id} result={result} onOpen={() => setSelectedId(result.id)} />
-            ))}
-          </div>
-          {results.length > visibleCount && (
-            <Button
-              className="generation-show-more"
-              onClick={() => setVisibleCount((value) => value + 12)}
-            >
-              显示更多结果（还有 {results.length - visibleCount} 张）
-            </Button>
+          {selected && (
+            <ResultCanvas
+              key={selected.id}
+              result={selected}
+              onOpen={() => setDetailId(selected.id)}
+            />
           )}
+          <div className="generation-filmstrip">
+            <div className="generation-section-heading">
+              <h3>生成记录</h3>
+              <span className="generation-muted">{results.length} 张</span>
+            </div>
+            <div className="generation-result-grid">
+              {results.slice(0, visibleCount).map((result) => (
+                <ResultTile
+                  key={result.id}
+                  result={result}
+                  selected={result.id === selected?.id}
+                  onSelect={() => setSelectedId(result.id)}
+                />
+              ))}
+              {results.length > visibleCount && (
+                <Button
+                  className="generation-show-more"
+                  onClick={() => setVisibleCount((value) => value + 12)}
+                >
+                  更多（{results.length - visibleCount}）
+                </Button>
+              )}
+            </div>
+          </div>
         </>
       )}
-      {selected && (
+      {detail && (
         <ResultDetail
-          key={selected.id}
-          result={selected}
-          onClose={() => setSelectedId(null)}
+          key={detail.id}
+          result={detail}
+          onClose={() => setDetailId(null)}
           onRestore={onRestore}
         />
       )}

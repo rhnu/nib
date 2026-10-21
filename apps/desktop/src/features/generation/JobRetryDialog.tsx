@@ -3,7 +3,7 @@ import type { JobRecord } from "../../bindings/generation";
 import { Button, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
-import { useGeneration } from "./GenerationProvider";
+import { useGeneration } from "./generation-context";
 import { SubmissionSummary } from "./SubmissionSummary";
 
 export function JobRetryDialog({ job, onClose }: { job: JobRecord; onClose: () => void }) {
@@ -41,7 +41,7 @@ export function JobRetryDialog({ job, onClose }: { job: JobRecord; onClose: () =
         <p className="generation-muted">
           再次提交会发起新的生成请求，可能再次扣除 Anlas。失败、中断或取消不代表之前未扣费。
         </p>
-        {!account?.configured && <Notice>请先在工作台中配置账户凭据。</Notice>}
+        {!account?.configured && <Notice>请先在设置中配置账户凭据。</Notice>}
         {error && <Notice>{error}</Notice>}
         <footer className="generation-dialog-actions">
           <Button onClick={onClose}>取消</Button>

@@ -1,7 +1,9 @@
 .library-toolbar {
   display: flex;
   gap: 8px;
-  padding: 12px 17px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--line-subtle);
 }
 .search-field {
@@ -9,6 +11,7 @@
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 140px;
 }
 .search-field > svg {
   position: absolute;
@@ -41,7 +44,7 @@
   display: flex;
   align-items: center;
   padding: 2px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 .resource-row.selected {
   background: var(--accent-soft);
@@ -56,7 +59,7 @@
   text-align: left;
   border: 0;
   background: transparent;
-  padding: 9px 7px;
+  padding: 6px 7px;
   gap: 10px;
 }
 .resource-select > svg {
@@ -77,7 +80,7 @@
 .resource-editor {
   border-left: 1px solid var(--line);
   overflow: auto;
-  padding: 12px 18px 0;
+  padding: 10px 14px 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -86,11 +89,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
 }
 .resource-editor fieldset {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   flex: 1;
   align-content: start;
 }
@@ -98,8 +101,8 @@
   min-height: 230px;
 }
 .resource-editor-footer {
-  padding: 14px 0;
-  margin-top: 20px;
+  padding: 10px 0;
+  margin-top: 14px;
   position: sticky;
   bottom: 0;
   background: var(--surface);
@@ -112,11 +115,10 @@
 .resource-editor-footer .muted {
   font-size: 11px;
 }
-.library-footer {
-  border-top: 1px solid var(--line-subtle);
-  padding: 9px 17px;
-  color: var(--muted);
-  font-size: 11px;
+.resource-settings-help {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
 }
 @media (max-width: 760px) {
   .library-body.has-editor {

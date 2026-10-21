@@ -3,7 +3,7 @@ import { KeyRound, Trash2 } from "lucide-react";
 import { Button, Field, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
-import { useGeneration } from "./GenerationProvider";
+import { useGeneration } from "./generation-context";
 
 export function AccountDialog({ onClose }: { onClose: () => void }) {
   const { account, accountChanged } = useGeneration();

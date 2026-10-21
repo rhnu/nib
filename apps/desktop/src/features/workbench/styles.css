@@ -3,104 +3,57 @@
 }
 .workspace-body {
   display: grid;
-  grid-template-columns: 274px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
-.workspace-body.context-hidden {
-  grid-template-columns: minmax(0, 1fr);
-}
-.context-hidden .context-rail {
-  display: none;
-}
-.context-rail {
-  overflow: auto;
+.generation-sidebar {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--line);
   background: var(--surface);
 }
+.generation-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+.context-rail {
+  min-width: 0;
+}
 .context-rail > section {
-  padding: 17px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line-subtle);
 }
 .main-workspace {
   @apply flex min-h-0 min-w-0 flex-col;
 }
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 52px;
-  min-height: 52px;
-  padding: 0 15px;
-  border-bottom: 1px solid var(--line-subtle);
-  background: var(--surface);
-}
-.editing-area {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-.editing-area.with-inspector {
-  grid-template-columns: minmax(0, 1fr) 292px;
-}
-.editor-scroll {
-  overflow: auto;
-  padding: 26px clamp(18px, 3vw, 38px) 40px;
-  min-width: 0;
-}
-.workspace-status {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 27px;
-  padding: 4px 16px;
-  font-size: 10px;
-  color: var(--muted);
+.generation-actions-slot {
+  flex-shrink: 0;
+  padding: 10px 14px;
   border-top: 1px solid var(--line-subtle);
   background: var(--surface);
 }
-@media (max-width: 1100px) {
-  .editing-area.with-inspector {
-    grid-template-columns: minmax(0, 1fr);
-    display: block;
-  }
-  .editing-area.with-inspector .editor-scroll {
-    overflow: visible;
-  }
-  .workspace-body {
-    grid-template-columns: 248px minmax(0, 1fr);
-  }
-  .editor-scroll {
-    padding-inline: 20px;
-  }
-}
 @media (max-width: 760px) {
-  .editor-toolbar {
-    padding-inline: 10px;
-  }
-  .editor-scroll {
-    padding: 22px 16px 30px;
-  }
-}
-@media (max-width: 580px) {
   .workspace-body {
     grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+    align-content: start;
   }
-  .context-rail {
-    max-height: 42vh;
+  .generation-sidebar {
+    min-height: min(640px, calc(100dvh - var(--titlebar-height)));
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
-  .workspace-body:not(.context-hidden) {
-    grid-template-rows: auto minmax(0, 1fr);
+  .generation-sidebar-scroll {
+    overflow: visible;
   }
-}
-
-.generation-actions-slot {
-  @apply shrink-0 border-b px-3 py-2;
-  border-color: var(--line-subtle);
-  background: var(--surface);
+  .main-workspace {
+    min-height: 440px;
+  }
 }

@@ -27,9 +27,7 @@ export function ResourceList({
       ) : queryError ? (
         <p className="empty-note">资源查询未完成，请重试。</p>
       ) : items.length === 0 ? (
-        <p className="empty-note">
-          {filtered ? "没有匹配的资源。" : "资源库还是空的。通过右上角菜单创建 Chunk 或 Preset。"}
-        </p>
+        <p className="empty-note">{filtered ? "没有匹配的资源" : "尚无资源"}</p>
       ) : (
         items.map((item) => (
           <div className={`resource-row ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
@@ -37,7 +35,7 @@ export function ResourceList({
               {item.kind === "chunk" ? <Link2 size={17} /> : <FileText size={17} />}
               <span>
                 {item.name}
-                <small>{item.kind === "chunk" ? "Chunk · 提示词片段" : "Preset · 创作配方"}</small>
+                <small>{item.kind === "chunk" ? "Chunk" : "Preset"}</small>
               </span>
             </Button>
             <Button

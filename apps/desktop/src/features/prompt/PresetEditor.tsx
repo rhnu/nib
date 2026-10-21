@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, FileText, Link2 } from "lucide-react";
+import { FileText, Link2 } from "lucide-react";
 import type { InstanceOverride, PresetInstance, Resource } from "../../bindings/workbench";
 import { CompositionEditor } from "./CompositionEditor";
 import { SettingsEditor } from "./SettingsEditor";
 import { PresetOverrides } from "./PresetOverrides";
 import { promptApi } from "./api";
 import { errorMessage } from "../../shared/host/error";
-import { ActionsMenu, IconButton, Toggle } from "../../shared/ui";
+import { ActionsMenu, Toggle } from "../../shared/ui";
 
 export function PresetEditor({
   instance,
@@ -105,16 +105,13 @@ export function PresetEditor({
           <summary>本次内容与设置</summary>
           <div className="preset-detail">
             {binding.kind === "linked" ? (
-              <>
-                <p className="help-note">局部修改只保存在本次实例中，原资源保持不变。</p>
-                <PresetOverrides
-                  composition={composition}
-                  overrides={binding.overrides}
-                  resources={resources}
-                  name={name}
-                  onChange={override}
-                />
-              </>
+              <PresetOverrides
+                composition={composition}
+                overrides={binding.overrides}
+                resources={resources}
+                name={name}
+                onChange={override}
+              />
             ) : (
               <>
                 <CompositionEditor
@@ -148,19 +145,6 @@ export function PresetEditor({
       ) : (
         <p className="inline-warning">引用的 Preset 已不存在。请移除引用或恢复资源。</p>
       )}
-      <footer className="preset-footer">
-        <span>
-          {binding.kind === "linked" ? "资源定义 → 本次实例" : "独立内容 · 不再跟随资源更新"}
-        </span>
-        <div className="button-group">
-          <IconButton label="上移配方" disabled={!canUp} onClick={up}>
-            <ArrowUp size={13} />
-          </IconButton>
-          <IconButton label="下移配方" disabled={!canDown} onClick={down}>
-            <ArrowDown size={13} />
-          </IconButton>
-        </div>
-      </footer>
     </article>
   );
 }

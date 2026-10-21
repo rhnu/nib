@@ -10,9 +10,8 @@
   width: min(430px, 100%);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 32px;
-  box-shadow: 0 12px 60px #0001;
+  border-radius: 6px;
+  padding: 24px;
 }
 .brand-mark {
   display: grid;

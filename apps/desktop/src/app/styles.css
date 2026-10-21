@@ -6,6 +6,7 @@
 @import "../shared/ui/styles.css";
 @import "./startup.css";
 @import "./titlebar.css";
+@import "./settings.css";
 @import "../features/workbench/styles.css";
 @import "../features/prompt/styles.css";
 @import "../features/library/styles.css";
