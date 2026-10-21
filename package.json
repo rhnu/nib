@@ -1,0 +1,37 @@
+{
+  "name": "nib-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @nib/desktop exec tauri dev",
+    "dev:web": "pnpm --filter @nib/desktop dev",
+    "build:web": "pnpm --filter @nib/desktop build",
+    "build:desktop": "pnpm --filter @nib/desktop exec tauri build --no-bundle -- --locked",
+    "types": "cargo xtask types",
+    "types:check": "cargo xtask types --check",
+    "rust:check": "cargo check --workspace --all-targets --locked",
+    "rust:lint": "cargo dev lint --locked",
+    "rust:test": "cargo test --workspace --lib --bins --locked",
+    "typecheck": "pnpm --filter @nib/desktop typecheck",
+    "lint:web": "oxlint apps/desktop --deny-warnings",
+    "lint": "pnpm rust:lint && pnpm lint:web",
+    "test:web": "pnpm --filter @nib/desktop test",
+    "test": "pnpm rust:test && pnpm test:web",
+    "docs:fix": "rumdl check --fix",
+    "docs:check": "rumdl check",
+    "fmt": "cargo dev format --locked && oxfmt . && pnpm docs:fix",
+    "fmt:check": "cargo dev format --check --diff --locked && oxfmt --check . && pnpm docs:check",
+    "check": "pnpm rust:check && pnpm fmt:check && pnpm lint && pnpm test && pnpm types:check && pnpm typecheck && pnpm build:web"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0"
+  },
+  "engines": {
+    "node": "24.x",
+    "pnpm": "12.14.0"
+  },
+  "packageManager": "pnpm@12.14.0"
+}

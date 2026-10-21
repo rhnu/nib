@@ -1,0 +1,17 @@
+[package]
+name = "nib-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+typegen = ["dep:ts-rs"]
+
+[dependencies]
+novelai-bridge.workspace = true
+serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

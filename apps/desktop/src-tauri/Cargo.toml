@@ -1,0 +1,22 @@
+[package]
+name = "nib-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies]
+anyhow.workspace = true
+nib-app.workspace = true
+tauri.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,124 @@
+:root {
+  font-family: system-ui, "Segoe UI", sans-serif;
+  color: #22252a;
+  background: #f5f6f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --surface: #ffffff;
+  --muted: #5a6270;
+  --border: #dce0e6;
+  --button: #eef0f4;
+  --button-hover: #e3e7ed;
+  --focus: #376ad1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 280px;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+.startup {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 32px 20px;
+}
+
+.startup-panel {
+  width: min(100%, 480px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 2rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 10px 0 28px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.error-state {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  background: var(--button);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--button-hover);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.app-info {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+}
+
+.app-info > div {
+  display: grid;
+  gap: 6px;
+}
+
+dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e5e7ec;
+    background: #17191d;
+    --surface: #202328;
+    --muted: #a8b0be;
+    --border: #3b414b;
+    --button: #303640;
+    --button-hover: #3b4451;
+    --focus: #8ab4ff;
+  }
+}
