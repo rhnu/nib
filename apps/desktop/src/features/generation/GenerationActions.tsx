@@ -8,7 +8,8 @@ import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { QuoteHelp } from "./QuoteSummary";
 import { useGenerationQuote } from "./use-generation-quote";
-import { generationQuoteKey, hasResolvedPrompt } from "./quote-state";
+import { generationQuoteKey, isQuoteEligible } from "./quote-state";
+import { ParameterDiagnostics } from "./ParameterDiagnostics";
 
 export function GenerationActions({
   draft,
@@ -24,7 +25,7 @@ export function GenerationActions({
   resolving?: boolean;
 }) {
   const { account, accountLoading, accountError, refreshAccount, acceptJob } = useGeneration();
-  const hasPrompt = hasResolvedPrompt(resolved);
+  const hasPrompt = isQuoteEligible(draft, resolved);
   const estimate = useGenerationQuote(draft, refreshKey, !resolving && hasPrompt);
   const [accountOpen, setAccountOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -104,6 +105,7 @@ export function GenerationActions({
         <QuoteHelp />
       </div>
       {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}
+      {estimate.quote && <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} />}
       {submitted && <output className="generation-muted">已加入顺序队列</output>}
       {error && (
         <div className="generation-action-error" role="alert">

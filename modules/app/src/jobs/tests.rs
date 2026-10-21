@@ -1,6 +1,6 @@
 use novelai_bridge::{ApiError, ApiErrorReason};
 
-use super::*;
+use super::{operations::prepare_submission, *};
 use crate::prompt::{
     Composition, PromptNode, Resource, ResourceContent, ResourceReader, resolve_draft,
 };
@@ -48,23 +48,74 @@ pub(crate) fn submission() -> FrozenSubmission {
         },
         ..Draft::default()
     };
-    prepare_submission(resolve_draft(&draft, &reader).unwrap()).unwrap()
+    prepare_submission(resolve_draft(&draft, &reader).unwrap(), &NoAssets).unwrap()
 }
 
 #[test]
 fn stored_input_roundtrip_keeps_seed_text_settings_and_sources() {
-    let submitted = submission();
+    let original = submission();
+    let mut resolved = original.resolved().unwrap().clone();
+    resolved.positive = request(&original).core.prompt.clone();
+    resolved.negative = request(&original).core.negative_prompt.clone().unwrap();
+    resolved.settings.model = novelai_bridge::Model::NaiDiffusion45Full;
+    resolved.characters = vec![
+        crate::prompt::ResolvedCharacter {
+            id: "disabled-character".to_owned(),
+            enabled: false,
+            positive: "unused prompt".to_owned(),
+            negative: "unused negative".to_owned(),
+            position: novelai_bridge::CharacterPosition::default(),
+            fragments: Vec::new(),
+            preset_instance_id: None,
+            resource_id: None,
+            expanded: true,
+            overridden: false,
+        },
+        crate::prompt::ResolvedCharacter {
+            id: "active-character".to_owned(),
+            enabled: true,
+            positive: "red hair".to_owned(),
+            negative: "blue hair".to_owned(),
+            position: novelai_bridge::CharacterPosition { x: 0.2, y: 0.8 },
+            fragments: resolved.fragments.clone(),
+            preset_instance_id: Some("recipe-instance".to_owned()),
+            resource_id: Some("recipe".to_owned()),
+            expanded: false,
+            overridden: true,
+        },
+    ];
+    let submitted = prepare_submission(resolved, &NoAssets).unwrap();
     let content = sqlite::encode_submission(&submitted).unwrap();
     let reopened = sqlite::decode_submission(&content).unwrap();
     assert_eq!(reopened, submitted);
-    assert_eq!(reopened.seed, reopened.request.core.seed);
-    assert_eq!(reopened.request.core.prompt, "a cat");
+    assert_eq!(reopened.seed(), Some(request(&reopened).core.seed));
+    assert_eq!(request(&reopened).core.prompt, "a cat");
+    let character = &reopened.resolved().unwrap().characters[1];
+    assert_eq!(character.id, "active-character");
+    assert_eq!(character.positive, "red hair");
+    assert_eq!(character.negative, "blue hair");
     assert_eq!(
-        reopened.resolved.fragments[0].resource_id.as_deref(),
+        character.preset_instance_id.as_deref(),
+        Some("recipe-instance")
+    );
+    assert!(character.overridden);
+    assert!(!reopened.resolved().unwrap().characters[0].enabled);
+    let retained: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let character_source = &retained["characters"][1];
+    assert!(character_source.get("positive").is_none());
+    assert!(character_source.get("negative").is_none());
+    assert!(character_source.get("position").is_none());
+    assert!(character_source.get("enabled").is_none());
+    assert_eq!(
+        reopened.resolved().unwrap().fragments[0]
+            .resource_id
+            .as_deref(),
         Some("chunk")
     );
     assert_eq!(
-        reopened.resolved.fragments[0].resource_name.as_deref(),
+        reopened.resolved().unwrap().fragments[0]
+            .resource_name
+            .as_deref(),
         Some("Original")
     );
 }
@@ -83,17 +134,17 @@ fn retained_data_and_ipc_each_have_one_effective_input_representation() {
 
 #[test]
 fn snapshot_reports_normalized_settings_used_by_the_sdk() {
-    let mut resolved = submission().resolved;
+    let mut resolved = submission().resolved().unwrap().clone();
     resolved.positive = "a cat".to_owned();
     resolved.negative = "blurry".to_owned();
     resolved.settings.steps = 0;
-    let prepared = prepare_submission(resolved).unwrap();
-    assert!(prepared.resolved.settings.steps > 0);
+    let prepared = prepare_submission(resolved, &NoAssets).unwrap();
+    assert!(prepared.resolved().unwrap().settings.steps > 0);
     assert_eq!(
-        prepared.resolved.settings.steps,
-        prepared.request.sampling.steps
+        prepared.resolved().unwrap().settings.steps,
+        request(&prepared).sampling.steps
     );
-    assert_eq!(prepared.seed, prepared.request.core.seed);
+    assert_eq!(prepared.seed(), Some(request(&prepared).core.seed));
 }
 
 #[test]
@@ -224,7 +275,7 @@ impl FinalOutputStore for NoOutput {
     fn retain(
         &self,
         _job: &JobRecord,
-        _output: novelai_bridge::GenerateImageResult,
+        _output: crate::media::JobOutput,
     ) -> Result<(), PersistenceError> {
         self.unexpected_call.store(true, Ordering::Release);
         Err(PersistenceError::InvalidData {
@@ -275,6 +326,9 @@ fn memory_queue(store: Arc<MemoryJobs>, configured: bool) -> (Arc<JobQueue>, Arc
             configured,
             unexpected_call: Arc::clone(&unexpected_call),
         }),
+        Arc::new(NoAssets),
+        Arc::new(NoClient),
+        Arc::new(Tokenizers::new()),
     )
     .unwrap();
     (queue, unexpected_call)
@@ -293,7 +347,7 @@ fn recovery_interrupts_pending_work_and_explicit_retry_keeps_frozen_input() {
     assert_ne!(retried.id, original.id);
     assert_eq!(retried.status, JobStatus::Queued);
     assert_eq!(retried.submission, original.submission);
-    assert_eq!(retried.submission.request.core.prompt, "a cat");
+    assert_eq!(request(&retried.submission).core.prompt, "a cat");
     assert_eq!(
         store.claimed.lock().unwrap().len(),
         0,
@@ -338,4 +392,244 @@ async fn credential_failures_release_the_queue_and_cancelled_jobs_are_skipped() 
     assert_eq!(store.get_job(&first.id).unwrap().status, JobStatus::Failed);
     assert_eq!(*store.claimed.lock().unwrap(), [first.id, second.id]);
     assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
+fn request(submission: &FrozenSubmission) -> &GenerateImageRequest {
+    let FrozenSubmission::Generation { request, .. } = submission else {
+        panic!("expected generation")
+    };
+    request
+}
+
+struct NoAssets;
+
+impl crate::media::AssetReader for NoAssets {
+    fn image(&self, id: &str) -> Result<novelai_bridge::EncodedImage, PersistenceError> {
+        Err(PersistenceError::NotFound {
+            kind: "image asset",
+            id: id.to_owned(),
+        })
+    }
+
+    fn vibe(&self, id: &str) -> Result<novelai_bridge::VibeEncoding, PersistenceError> {
+        Err(PersistenceError::NotFound {
+            kind: "vibe asset",
+            id: id.to_owned(),
+        })
+    }
+}
+
+struct NoClient;
+
+impl SdkClientProvider for NoClient {
+    fn client(&self) -> Result<SdkClient, JobError> { Err(JobError::MissingCredentials) }
+
+    fn cached_client(&self) -> Option<SdkClient> { None }
+}
+
+mod stream;
+
+struct ImageAssets;
+
+impl crate::media::AssetReader for ImageAssets {
+    fn image(&self, id: &str) -> Result<novelai_bridge::EncodedImage, PersistenceError> {
+        if id != "source" {
+            return Err(PersistenceError::NotFound {
+                kind: "image asset",
+                id: id.to_owned(),
+            });
+        }
+        novelai_bridge::EncodedImage::from_base64("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAC0lEQVR4nGNgQAcAABIAAXfx+gAAAAAASUVORK5CYII=")
+            .map_err(|error|PersistenceError::failure("decode unit test image",error))
+    }
+
+    fn vibe(&self, id: &str) -> Result<novelai_bridge::VibeEncoding, PersistenceError> {
+        Err(PersistenceError::NotFound {
+            kind: "vibe asset",
+            id: id.to_owned(),
+        })
+    }
+}
+
+#[test]
+fn director_ignores_unrelated_prompt_dependencies_and_keeps_sdk_adjustments() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Chunk {
+        id: "unrelated".to_owned(),
+        enabled: true,
+        resource_id: "absent".to_owned(),
+        override_text: None,
+    });
+    draft.inputs.operation = crate::session::CreationOperation::Director {
+        asset_id: "source".to_owned(),
+        command: novelai_bridge::DirectorCommand::Emotion {
+            prompt: "  happy  ".to_owned(),
+            defry: 255,
+        },
+    };
+    let frozen = queue.freeze(&draft).unwrap();
+    assert!(frozen.resolved().is_none());
+    assert!(frozen.seed().is_none());
+    assert_ne!(frozen.diagnostics(), &[]);
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    assert!(!encoded.contains("request"));
+    assert!(!encoded.contains("steps"));
+    assert_eq!(sqlite::decode_submission(&encoded).unwrap(), frozen);
+    let FrozenSubmission::Director { command, .. } = frozen else {
+        panic!("expected Director")
+    };
+    assert!(
+        matches!(command,novelai_bridge::DirectorCommand::Emotion {prompt,defry:5} if prompt=="happy")
+    );
+    let quote = queue.quote(&draft).unwrap();
+    assert!(quote.resolved.is_none());
+    assert!(quote.tokens.is_empty());
+    assert!(!quote.account_specific);
+}
+
+#[test]
+fn image_submission_stores_only_parameters_and_immutable_input_ids() {
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.inputs.operation = crate::session::CreationOperation::ImageToImage {
+        asset_id: "source".to_owned(),
+        strength: 4.0,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: Some(123),
+        add_original_image: true,
+    };
+    let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    assert!(!encoded.contains("iVBOR"));
+    assert!(encoded.contains("source"));
+    let reopened = sqlite::decode_submission(&encoded).unwrap();
+    assert_eq!(reopened, frozen);
+    let hydrated = operations::hydrate(
+        request(&reopened).clone(),
+        &reopened.resolved().unwrap().inputs,
+        &ImageAssets,
+    )
+    .unwrap();
+    let novelai_bridge::GenerationInput::ImageToImage(input) = hydrated.operation else {
+        panic!("expected image input")
+    };
+    assert!(input.strength < 1.0);
+    assert_eq!(input.extra_noise_seed, Some(123));
+    assert_ne!(frozen.diagnostics(), &[]);
+}
+
+#[test]
+fn account_summary_serialization_excludes_original_response() {
+    let info = novelai_bridge::SubscriptionInfo {
+        anlas_balance: 10,
+        subscription_active: true,
+        tier: 3,
+        expires_at_ms: None,
+        v5_usage: None,
+        raw_response: serde_json::json!({"private_payment_data":"secret"}),
+    };
+    let encoded = serde_json::to_string(&crate::settings::AccountSummary::from(&info)).unwrap();
+    assert!(!encoded.contains("secret"));
+    assert!(!encoded.contains("private_payment_data"));
+    assert!(!encoded.contains("raw_response"));
+}
+
+#[test]
+fn implicit_noise_seed_is_frozen_from_the_sdk_effective_payload() {
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.inputs.operation = crate::session::CreationOperation::ImageToImage {
+        asset_id: "source".to_owned(),
+        strength: 0.5,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: None,
+        add_original_image: true,
+    };
+    let raw = operations::hydrate(
+        resolved.generation_request(),
+        &resolved.inputs,
+        &ImageAssets,
+    )
+    .unwrap();
+    let prepared = raw.normalize().unwrap().prepare().unwrap();
+    let encoded = prepared
+        .encode(novelai_bridge::GenerationDelivery::Images)
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
+    resolved.settings.seed = prepared.resolved_seed();
+    let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
+    let crate::session::CreationOperation::ImageToImage {
+        extra_noise_seed, ..
+    } = &frozen.resolved().unwrap().inputs.operation
+    else {
+        panic!("expected image input")
+    };
+    assert_eq!(
+        *extra_noise_seed,
+        body["parameters"]["extra_noise_seed"].as_i64()
+    );
+    assert!(extra_noise_seed.is_some());
+}
+
+#[test]
+fn quote_without_credentials_counts_each_prompt_target_locally() {
+    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let draft = Draft {
+        composition: Composition {
+            positive: vec![PromptNode::Text {
+                id: "p".to_owned(),
+                enabled: true,
+                text: "a cat".to_owned(),
+            }],
+            negative: vec![PromptNode::Text {
+                id: "n".to_owned(),
+                enabled: true,
+                text: "blurry".to_owned(),
+            }],
+        },
+        ..Draft::default()
+    };
+    let quote = queue.quote(&draft).unwrap();
+    assert_eq!(quote.tokens.len(), 2);
+    assert!(
+        quote
+            .tokens
+            .iter()
+            .all(|count| count.used > 0 && count.limit > 0)
+    );
+    assert!(!quote.account_specific);
+    assert!(quote.account_sampled_at.is_none());
+    assert!(!unexpected_call.load(Ordering::Acquire));
+    assert!(queue.account().is_none());
+}
+
+#[test]
+fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let mut draft = Draft::default();
+    draft.inputs.operation = crate::session::CreationOperation::EncodeVibe {
+        asset_id: "source".to_owned(),
+        model: novelai_bridge::Model::NaiDiffusion45Full,
+        information_extracted: 9.0,
+    };
+    let frozen = queue.freeze(&draft).unwrap();
+    assert!(frozen.resolved().is_none());
+    assert!(frozen.seed().is_none());
+    assert_ne!(frozen.diagnostics(), &[]);
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    assert!(!encoded.contains("steps"));
+    assert!(!encoded.contains("iVBOR"));
+    assert_eq!(sqlite::decode_submission(&encoded).unwrap(), frozen);
+    let FrozenSubmission::EncodeVibe {
+        information_extracted,
+        ..
+    } = frozen
+    else {
+        panic!("expected Vibe encoding")
+    };
+    assert!((information_extracted - 1.0).abs() < f32::EPSILON);
 }

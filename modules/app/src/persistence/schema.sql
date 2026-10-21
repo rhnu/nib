@@ -12,7 +12,9 @@ CREATE TABLE current_creation (
     revision INTEGER NOT NULL CHECK (revision > 0),
     composition TEXT NOT NULL CHECK (json_valid(composition)),
     presets TEXT NOT NULL CHECK (json_valid(presets)),
-    settings TEXT NOT NULL CHECK (json_valid(settings))
+    settings TEXT NOT NULL CHECK (json_valid(settings)),
+    characters TEXT NOT NULL CHECK (json_valid(characters)),
+    inputs TEXT NOT NULL CHECK (json_valid(inputs))
 );
 
 CREATE TABLE jobs (
@@ -25,15 +27,25 @@ CREATE TABLE jobs (
 );
 CREATE INDEX jobs_status_id ON jobs(status, id);
 
+CREATE TABLE media_assets (
+    id TEXT PRIMARY KEY NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('image', 'vibe')),
+    mime_type TEXT NOT NULL,
+    byte_length INTEGER NOT NULL CHECK (byte_length > 0),
+    width INTEGER,
+    height INTEGER,
+    created_at INTEGER NOT NULL,
+    source TEXT NOT NULL CHECK (json_valid(source))
+);
+
 CREATE TABLE generation_results (
     id TEXT PRIMARY KEY NOT NULL,
     job_id INTEGER NOT NULL REFERENCES jobs(id),
     sample_index INTEGER NOT NULL CHECK (sample_index >= 0),
-    seed INTEGER NOT NULL,
+    asset_id TEXT NOT NULL REFERENCES media_assets(id),
+    seed INTEGER,
     created_at INTEGER NOT NULL,
-    format TEXT NOT NULL CHECK (json_valid(format)),
-    byte_length INTEGER NOT NULL CHECK (byte_length > 0),
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

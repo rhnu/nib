@@ -2,34 +2,21 @@
 //!
 //! `NovelAI` parameter semantics remain owned by novelai-bridge.
 
+mod overrides;
 mod resolution;
+mod settings;
+
+pub use overrides::*;
+pub use settings::*;
 mod sqlite;
 pub(crate) mod validation;
 
-use novelai_bridge::{ImageSize, Model, Sampler};
+use novelai_bridge::CharacterPosition;
 pub use resolution::*;
 use serde::{Deserialize, Serialize};
 pub use validation::{ValidationError, validate_resource};
 
-use crate::persistence::PersistenceError;
-
-/// Sparse application settings. Missing values inherit from earlier layers.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct GenerationSettings {
-    #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
-    pub model: Option<Model>,
-    #[cfg_attr(
-        feature = "typegen",
-        ts(type = "{ width: number; height: number } | null")
-    )]
-    pub size: Option<ImageSize>,
-    pub steps: Option<u32>,
-    pub scale: Option<f32>,
-    #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
-    pub sampler: Option<Sampler>,
-}
+use crate::{persistence::PersistenceError, session::ReferenceInputs};
 
 /// A stable entry in either scope of a composition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +62,18 @@ pub struct Composition {
     pub negative: Vec<PromptNode>,
 }
 
+/// An independently positioned prompt target with stable identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct CharacterComposition {
+    pub id: String,
+    pub enabled: bool,
+    pub composition: Composition,
+    #[cfg_attr(feature = "typegen", ts(type = "{ x: number; y: number }"))]
+    pub position: CharacterPosition,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
@@ -99,6 +98,10 @@ pub enum ResourceContent {
     Preset {
         composition: Composition,
         defaults: GenerationSettings,
+        #[serde(default)]
+        characters: Vec<CharacterComposition>,
+        #[serde(default)]
+        references: ReferenceInputs,
     },
 }
 
@@ -123,11 +126,17 @@ pub enum PresetBinding {
     Linked {
         resource_id: String,
         overrides: Vec<InstanceOverride>,
+        #[serde(default)]
+        output_overrides: PresetOutputOverrides,
     },
     Expanded {
         name: String,
         composition: Composition,
         defaults: GenerationSettings,
+        #[serde(default)]
+        characters: Vec<CharacterComposition>,
+        #[serde(default)]
+        references: ReferenceInputs,
     },
 }
 

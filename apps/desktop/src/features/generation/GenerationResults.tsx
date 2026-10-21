@@ -28,7 +28,11 @@ export function GenerationResults({ onRestore }: { onRestore: (draft: Draft) => 
         </Notice>
       )}
       <div className="generation-results-content">
-        <ResultGallery results={results} onRestore={onRestore} queryFailed={queryError !== null} />
+        <ResultGallery
+          results={results?.filter((result) => result.kind === "image") ?? null}
+          onRestore={onRestore}
+          queryFailed={queryError !== null}
+        />
         <JobQueue />
       </div>
     </section>

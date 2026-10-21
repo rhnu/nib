@@ -1,127 +1,30 @@
 //! Ordered prompt composition and explicit application setting precedence.
 
-use novelai_bridge::{ImageSize, Model, Sampler};
-use serde::{Deserialize, Serialize};
-
 use super::{
-    Composition, GenerationSettings, InstanceOverride, PresetBinding, PresetInstance, PromptNode,
-    Resource, ResourceContent, ResourceReader,
+    CharacterComposition, Composition, GenerationSettings, InstanceOverride, PresetBinding,
+    PresetInstance, PresetOutputOverrides, PromptNode, Resource, ResourceContent, ResourceReader,
 };
-use crate::{persistence::PersistenceError, session::Draft};
+use crate::{
+    persistence::PersistenceError,
+    session::{CreationInputs, Draft, ReferenceInputs},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub enum PromptScope {
-    Positive,
-    Negative,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub enum ResolutionIssueKind {
-    MissingResource,
-    TypeMismatch,
-    StaleOverride,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct ResolutionIssue {
-    pub kind: ResolutionIssueKind,
-    pub scope: Option<PromptScope>,
-    pub node_id: Option<String>,
-    pub preset_instance_id: Option<String>,
-    pub resource_id: Option<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct ResolvedFragment {
-    pub text: String,
-    pub scope: PromptScope,
-    pub node_id: String,
-    pub preset_instance_id: Option<String>,
-    pub resource_id: Option<String>,
-    pub resource_name: Option<String>,
-    pub overridden: bool,
-    pub expanded: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct ResolvedSettings {
-    #[cfg_attr(feature = "typegen", ts(type = "string"))]
-    pub model: Model,
-    #[cfg_attr(feature = "typegen", ts(type = "{ width: number; height: number }"))]
-    pub size: ImageSize,
-    pub steps: u32,
-    pub scale: f32,
-    #[cfg_attr(feature = "typegen", ts(type = "string"))]
-    pub sampler: Sampler,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub enum SettingSource {
-    #[default]
-    SdkDefault,
-    Preset {
-        preset_instance_id: String,
-        resource_id: Option<String>,
-        name: String,
-        expanded: bool,
-    },
-    Draft,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct SettingsProvenance {
-    pub model: SettingSource,
-    pub size: SettingSource,
-    pub steps: SettingSource,
-    pub scale: SettingSource,
-    pub sampler: SettingSource,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct ResolvedDraft {
-    pub positive: String,
-    pub negative: String,
-    pub fragments: Vec<ResolvedFragment>,
-    pub settings: ResolvedSettings,
-    pub provenance: SettingsProvenance,
-    pub issues: Vec<ResolutionIssue>,
-}
-
-/// Storage failures preserve their original cause; editable dependency failures retain locations.
-#[derive(Debug, thiserror::Error)]
-pub enum ExpansionError {
-    #[error(transparent)]
-    Persistence(#[from] PersistenceError),
-    #[error("cannot expand resource: unresolved dependencies")]
-    Unresolved { issues: Vec<ResolutionIssue> },
-}
+mod layers;
+mod outputs;
+mod types;
+use layers::ResolutionState;
+use outputs::{apply_output_overrides, resolve_outputs};
+pub use types::{
+    ExpansionError, InputProvenance, PromptScope, ResolutionIssue, ResolutionIssueKind,
+    ResolvedCharacter, ResolvedDraft, ResolvedFragment, SettingSource, SettingsProvenance,
+};
 
 #[derive(Clone, Copy, Default)]
 struct Context<'a> {
     instance_id: Option<&'a str>,
     resource: Option<&'a Resource>,
     expanded: bool,
+    character_id: Option<&'a str>,
 }
 
 fn issue(
@@ -134,6 +37,7 @@ fn issue(
 ) -> ResolutionIssue {
     ResolutionIssue {
         kind,
+        character_id: context.character_id.map(str::to_owned),
         scope,
         node_id: node_id.map(str::to_owned),
         preset_instance_id: context.instance_id.map(str::to_owned),
@@ -237,6 +141,55 @@ fn stale_overrides(
     }
 }
 
+fn stale_output_overrides(
+    composition: &Composition,
+    characters: &[CharacterComposition],
+    edits: &[InstanceOverride],
+    context: Context<'_>,
+    issues: &mut Vec<ResolutionIssue>,
+) {
+    let mut targets = composition.clone();
+    for character in characters {
+        targets
+            .positive
+            .extend(character.composition.positive.iter().cloned());
+        targets
+            .negative
+            .extend(character.composition.negative.iter().cloned());
+    }
+    stale_overrides(&targets, edits, context, issues);
+}
+
+fn inline_composition(
+    composition: &Composition,
+    overrides: &[InstanceOverride],
+    context: Context<'_>,
+    reader: &(impl ResourceReader + ?Sized),
+    issues: &mut Vec<ResolutionIssue>,
+) -> Result<Composition, PersistenceError> {
+    let mut result = Composition::default();
+    for (scope, nodes, output) in [
+        (
+            PromptScope::Positive,
+            &composition.positive,
+            &mut result.positive,
+        ),
+        (
+            PromptScope::Negative,
+            &composition.negative,
+            &mut result.negative,
+        ),
+    ] {
+        for node in nodes {
+            let (node, _) = apply_override(node, overrides);
+            if let Some(node) = inline_node(&node, Some(scope), context, reader, issues)? {
+                output.push(node);
+            }
+        }
+    }
+    Ok(result)
+}
+
 fn node_fragment(
     node: &PromptNode,
     scope: PromptScope,
@@ -323,27 +276,6 @@ fn resolve_composition(
     Ok(())
 }
 
-fn overlay(
-    target: &mut GenerationSettings,
-    sources: &mut SettingsProvenance,
-    values: &GenerationSettings,
-    source: &SettingSource,
-) {
-    macro_rules! field {
-        ($name:ident) => {
-            if values.$name.is_some() {
-                target.$name = values.$name;
-                sources.$name = source.clone();
-            }
-        };
-    }
-    field!(model);
-    field!(size);
-    field!(steps);
-    field!(scale);
-    field!(sampler);
-}
-
 /// Resolves enabled references in instance order, then appends draft-local nodes.
 /// Missing definitions are editable issues; a storage failure remains an error.
 ///
@@ -353,103 +285,48 @@ pub fn resolve_draft(
     draft: &Draft,
     reader: &(impl ResourceReader + ?Sized),
 ) -> Result<ResolvedDraft, PersistenceError> {
-    let mut fragments = Vec::new();
-    let mut issues = Vec::new();
-    let mut settings = GenerationSettings::default();
-    let mut provenance = SettingsProvenance::default();
+    let mut state = ResolutionState::default();
     for instance in draft.presets.iter().filter(|instance| instance.enabled) {
-        match &instance.binding {
-            PresetBinding::Linked {
-                resource_id,
-                overrides,
-            } => {
-                let context = Context {
-                    instance_id: Some(&instance.id),
-                    ..Context::default()
-                };
-                let Some(resource) =
-                    lookup(resource_id, true, None, None, context, reader, &mut issues)?
-                else {
-                    continue;
-                };
-                let ResourceContent::Preset {
-                    composition,
-                    defaults,
-                } = &resource.content
-                else {
-                    unreachable!("lookup checks resource kind")
-                };
-                let context = Context {
-                    resource: Some(&resource),
-                    ..context
-                };
-                stale_overrides(composition, overrides, context, &mut issues);
-                resolve_composition(
-                    composition,
-                    overrides,
-                    context,
-                    reader,
-                    &mut fragments,
-                    &mut issues,
-                )?;
-                overlay(
-                    &mut settings,
-                    &mut provenance,
-                    defaults,
-                    &SettingSource::Preset {
-                        preset_instance_id: instance.id.clone(),
-                        resource_id: Some(resource.id.clone()),
-                        name: resource.name.clone(),
-                        expanded: false,
-                    },
-                );
-            },
-            PresetBinding::Expanded {
-                name,
-                composition,
-                defaults,
-            } => {
-                resolve_composition(
-                    composition,
-                    &[],
-                    Context {
-                        instance_id: Some(&instance.id),
-                        expanded: true,
-                        resource: None,
-                    },
-                    reader,
-                    &mut fragments,
-                    &mut issues,
-                )?;
-                overlay(
-                    &mut settings,
-                    &mut provenance,
-                    defaults,
-                    &SettingSource::Preset {
-                        preset_instance_id: instance.id.clone(),
-                        resource_id: None,
-                        name: name.clone(),
-                        expanded: true,
-                    },
-                );
-            },
-        }
+        state.resolve_preset(instance, reader)?;
     }
+    resolve_outputs(
+        &draft.characters,
+        &draft.inputs.references,
+        &PresetOutputOverrides::default(),
+        &[],
+        Context::default(),
+        reader,
+        &mut state.characters,
+        &mut state.references,
+        &mut state.input_sources,
+        &mut state.issues,
+    )?;
     resolve_composition(
         &draft.composition,
         &[],
         Context::default(),
         reader,
-        &mut fragments,
-        &mut issues,
+        &mut state.fragments,
+        &mut state.issues,
     )?;
-    overlay(
-        &mut settings,
-        &mut provenance,
+    state.settings.overlay(
         &draft.settings,
+        &mut state.provenance,
         &SettingSource::Draft,
     );
-    Ok(finish_resolution(&settings, provenance, fragments, issues))
+    let mut resolved = finish_resolution(
+        &state.settings,
+        state.provenance,
+        state.fragments,
+        state.issues,
+    );
+    resolved.characters = state.characters;
+    resolved.inputs = CreationInputs {
+        references: state.references,
+        ..draft.inputs.clone()
+    };
+    resolved.input_sources = state.input_sources;
+    Ok(resolved)
 }
 
 fn finish_resolution(
@@ -458,16 +335,7 @@ fn finish_resolution(
     fragments: Vec<ResolvedFragment>,
     issues: Vec<ResolutionIssue>,
 ) -> ResolvedDraft {
-    // Resolve the final model first: all unspecified parameters inherit that model's SDK defaults.
-    let model = settings.model.unwrap_or_default();
-    let defaults = model.descriptor().defaults();
-    let settings = ResolvedSettings {
-        model,
-        size: settings.size.unwrap_or(defaults.size),
-        steps: settings.steps.unwrap_or(defaults.sampling.steps),
-        scale: settings.scale.unwrap_or(defaults.sampling.scale),
-        sampler: settings.sampler.unwrap_or(defaults.sampling.sampler),
-    };
+    let settings = settings.resolve();
     let join = |scope| {
         fragments
             .iter()
@@ -483,6 +351,9 @@ fn finish_resolution(
         settings,
         provenance,
         issues,
+        characters: Vec::new(),
+        inputs: CreationInputs::default(),
+        input_sources: Vec::new(),
     }
 }
 
@@ -544,6 +415,7 @@ pub fn expand_preset(
     let PresetBinding::Linked {
         resource_id,
         overrides,
+        output_overrides,
     } = &instance.binding
     else {
         return Ok(instance.clone());
@@ -560,6 +432,8 @@ pub fn expand_preset(
     let ResourceContent::Preset {
         composition,
         defaults,
+        characters,
+        references,
     } = &resource.content
     else {
         unreachable!("lookup checks resource kind")
@@ -568,26 +442,29 @@ pub fn expand_preset(
         resource: Some(&resource),
         ..context
     };
-    stale_overrides(composition, overrides, context, &mut issues);
-    let mut expanded = Composition::default();
-    for (scope, nodes, output) in [
-        (
-            PromptScope::Positive,
-            &composition.positive,
-            &mut expanded.positive,
-        ),
-        (
-            PromptScope::Negative,
-            &composition.negative,
-            &mut expanded.negative,
-        ),
-    ] {
-        for node in nodes {
-            let (node, _) = apply_override(node, overrides);
-            if let Some(node) = inline_node(&node, Some(scope), context, reader, &mut issues)? {
-                output.push(node);
-            }
-        }
+    let (characters, references) = apply_output_overrides(
+        characters,
+        references,
+        output_overrides,
+        context,
+        &mut issues,
+    );
+    stale_output_overrides(composition, &characters, overrides, context, &mut issues);
+    let expanded = inline_composition(composition, overrides, context, reader, &mut issues)?;
+    let mut expanded_characters = Vec::new();
+    for character in &characters {
+        let mut character = character.clone();
+        character.composition = inline_composition(
+            &character.composition,
+            overrides,
+            Context {
+                character_id: Some(&character.id),
+                ..context
+            },
+            reader,
+            &mut issues,
+        )?;
+        expanded_characters.push(character);
     }
     if !issues.is_empty() {
         return Err(ExpansionError::Unresolved { issues });
@@ -599,6 +476,8 @@ pub fn expand_preset(
             name: resource.name.clone(),
             composition: expanded,
             defaults: defaults.clone(),
+            characters: expanded_characters,
+            references,
         },
     })
 }

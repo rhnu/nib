@@ -1,13 +1,16 @@
 //! Automatically retained current creation. The frontend owns high-frequency edits.
 
+mod inputs;
+mod restore;
 mod sqlite;
-
+pub use inputs::*;
+pub use restore::*;
 use serde::{Deserialize, Serialize};
 
 pub use crate::prompt::validation::validate_draft;
 use crate::{
     persistence::PersistenceError,
-    prompt::{Composition, GenerationSettings, PresetInstance},
+    prompt::{CharacterComposition, Composition, GenerationSettings, PresetInstance},
 };
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -18,6 +21,10 @@ pub struct Draft {
     pub composition: Composition,
     pub presets: Vec<PresetInstance>,
     pub settings: GenerationSettings,
+    #[serde(default)]
+    pub characters: Vec<CharacterComposition>,
+    #[serde(default)]
+    pub inputs: CreationInputs,
 }
 
 pub trait DraftStore {

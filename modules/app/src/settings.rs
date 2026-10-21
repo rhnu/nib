@@ -72,3 +72,48 @@ pub fn validate_api_key(secret: &SecretString) -> Result<(), CredentialError> {
     .map(|_| ())
     .map_err(|_invalid_header| CredentialError::InvalidKey)
 }
+
+/// Deliberately selected account fields; original provider responses never cross IPC.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AccountSummary {
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub sampled_at: Option<i64>,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub anlas_balance: i64,
+    pub subscription_active: bool,
+    pub tier: i32,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub expires_at_ms: Option<u64>,
+    pub v5_usage: Option<AllowanceSummary>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AllowanceSummary {
+    pub is_negative: bool,
+    pub percent: u32,
+    pub purchased_percent: u32,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub seconds_until_next_percent: u64,
+}
+
+impl From<&novelai_bridge::SubscriptionInfo> for AccountSummary {
+    fn from(info: &novelai_bridge::SubscriptionInfo) -> Self {
+        Self {
+            sampled_at: None,
+            anlas_balance: info.anlas_balance,
+            subscription_active: info.subscription_active,
+            tier: info.tier,
+            expires_at_ms: info.expires_at_ms,
+            v5_usage: info.v5_usage.map(|usage| AllowanceSummary {
+                is_negative: usage.is_negative,
+                percent: usage.percent,
+                purchased_percent: usage.purchased_percent,
+                seconds_until_next_percent: usage.seconds_until_next_percent,
+            }),
+        }
+    }
+}

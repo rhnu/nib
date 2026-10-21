@@ -1,5 +1,8 @@
 //! Serializable types shared by the application and its host interfaces.
 
+mod models;
+pub use models::{ModelCapabilities, ReferenceStatus, model_capabilities};
+
 /// Application metadata displayed by the desktop client.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

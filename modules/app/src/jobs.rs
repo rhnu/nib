@@ -1,36 +1,112 @@
-//! Frozen submissions and sequential execution through novelai-bridge.
+//! Frozen submissions and one sequential queue for all `NovelAI` operations.
 
+mod execution;
+mod operations;
 mod sqlite;
+
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 
-use novelai_bridge::{
-    ApiKeySource, Client, ClientConfig, GenerateImageRequest, ReqwestOptions, ReqwestTransport,
-};
+use novelai_bridge::{Client, GenerateImageRequest, Tokenizers};
 use serde::{Deserialize, Serialize};
 pub(crate) use sqlite::{decode_submission, timestamp};
-use tokio::sync::Notify;
+use tokio::sync::{Notify, broadcast};
 
 use crate::{
-    media::FinalOutputStore,
+    media::{AssetReader, FinalOutputStore},
     persistence::PersistenceError,
     prompt::ResolvedDraft,
-    session::{Draft, validate_draft},
-    settings::{CredentialError, CredentialStore},
+    session::Draft,
+    settings::{AccountSummary, CredentialError, CredentialStore},
 };
 
-/// The effective SDK input and application sources are frozen once at submission.
+/// Only applicable operation data is frozen. Generation images remain immutable asset references.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum FrozenSubmission {
+    Generation {
+        resolved: Box<ResolvedDraft>,
+        diagnostics: Vec<ParameterDiagnostic>,
+        #[cfg_attr(feature = "typegen", ts(type = "number"))]
+        seed: i64,
+        #[serde(skip)]
+        request: Box<GenerateImageRequest>,
+    },
+    Director {
+        asset_id: String,
+        diagnostics: Vec<ParameterDiagnostic>,
+        #[cfg_attr(
+            feature = "typegen",
+            ts(
+                type = "\"lineart\" | \"sketch\" | \"bg_removal\" | \"declutter\" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }"
+            )
+        )]
+        command: novelai_bridge::DirectorCommand,
+    },
+    EncodeVibe {
+        asset_id: String,
+        diagnostics: Vec<ParameterDiagnostic>,
+        #[cfg_attr(feature = "typegen", ts(type = "string"))]
+        model: novelai_bridge::Model,
+        information_extracted: f32,
+    },
+}
+
+impl FrozenSubmission {
+    pub const fn seed(&self) -> Option<i64> {
+        match self {
+            Self::Generation { seed, .. } => Some(*seed),
+            _ => None,
+        }
+    }
+
+    pub fn resolved(&self) -> Option<&ResolvedDraft> {
+        match self {
+            Self::Generation { resolved, .. } => Some(resolved),
+            _ => None,
+        }
+    }
+
+    pub const fn operation(&self) -> OperationKind {
+        match self {
+            Self::Generation { .. } => OperationKind::Generation,
+            Self::Director { .. } => OperationKind::Director,
+            Self::EncodeVibe { .. } => OperationKind::EncodeVibe,
+        }
+    }
+
+    pub fn diagnostics(&self) -> &[ParameterDiagnostic] {
+        match self {
+            Self::Generation { diagnostics, .. }
+            | Self::Director { diagnostics, .. }
+            | Self::EncodeVibe { diagnostics, .. } => diagnostics,
+        }
+    }
+}
+
+/// Display projection of an SDK normalization decision, without request payloads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct FrozenSubmission {
-    pub resolved: ResolvedDraft,
-    #[cfg_attr(feature = "typegen", ts(type = "number"))]
-    pub seed: i64,
-    #[serde(skip)]
-    pub(crate) request: GenerateImageRequest,
+pub struct ParameterDiagnostic {
+    pub field: String,
+    pub change: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum OperationKind {
+    Generation,
+    Director,
+    EncodeVibe,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,21 +136,65 @@ pub struct JobRecord {
     pub submission: FrozenSubmission,
 }
 
-/// A local SDK estimate without subscription state, never a promised charge.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct TokenFieldUsage {
+    pub field: String,
+    pub used: u32,
+    pub limit: u32,
+    pub over_limit: bool,
+}
+
+/// Estimates use SDK account context only when it has previously been sampled explicitly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct GenerationQuote {
-    pub resolved: ResolvedDraft,
+    pub operation: OperationKind,
+    pub resolved: Option<ResolvedDraft>,
     pub estimated_anlas: u32,
     pub account_specific: bool,
     pub too_expensive: bool,
+    pub tokens: Vec<TokenFieldUsage>,
+    pub diagnostics: Vec<ParameterDiagnostic>,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub account_sampled_at: Option<i64>,
+}
+
+/// Transient feedback is bounded in memory and never becomes a final result.
+#[derive(Debug, Clone, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum JobFeedback {
+    Preview {
+        job_id: String,
+        sample_index: u32,
+        step_index: u32,
+        image_base64: String,
+    },
+    FinalReceived {
+        job_id: String,
+        sample_index: u32,
+    },
+    Finished {
+        job_id: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum JobError {
     #[error(transparent)]
     Persistence(#[from] PersistenceError),
+    #[error("无法读取输入素材：{source}")]
+    InputMedia {
+        #[source]
+        source: PersistenceError,
+    },
     #[error(transparent)]
     Bridge(#[from] novelai_bridge::BridgeError),
     #[error(transparent)]
@@ -92,8 +212,19 @@ pub enum JobError {
 }
 
 impl JobError {
-    /// Returns a diagnostic suitable for IPC and permanent task failure metadata.
     pub fn user_message(&self) -> String { public_failure(self) }
+}
+
+/// The host owns SDK construction, credential changes, shared account state and observation.
+pub type SdkClient = Client<dyn novelai_bridge::StreamingTransport>;
+
+pub trait SdkClientProvider: Send + Sync {
+    /// Resolves credentials and constructs or reuses a local SDK client, without network I/O.
+    /// # Errors
+    /// Returns credential or SDK transport configuration errors.
+    fn client(&self) -> Result<SdkClient, JobError>;
+
+    fn cached_client(&self) -> Option<SdkClient>;
 }
 
 struct ActiveJob {
@@ -101,127 +232,149 @@ struct ActiveJob {
     cancel: Arc<Notify>,
 }
 
-/// Retained task state belongs to scheduling, independently of its database backend.
 pub trait JobStore: Send + Sync {
     /// # Errors
-    /// Returns a backend failure while retaining the fixed input.
+    /// Returns a backend failure retaining fixed input.
     fn insert_job(&self, submission: &FrozenSubmission) -> Result<JobRecord, PersistenceError>;
 
     /// # Errors
-    /// Returns a missing task or a backend failure.
+    /// Returns missing task or backend failure.
     fn get_job(&self, id: &str) -> Result<JobRecord, PersistenceError>;
 
     /// # Errors
-    /// Returns a backend query or decoding failure.
+    /// Returns query or decoding failure.
     fn list_jobs(&self) -> Result<Vec<JobRecord>, PersistenceError>;
 
-    /// Interrupts all queued/running tasks without issuing another paid request.
-    ///
+    /// Interrupts retained unfinished jobs without issuing requests.
     /// # Errors
-    /// Returns a backend write failure.
+    /// Returns a backend failure.
     fn interrupt_jobs(&self) -> Result<(), PersistenceError>;
 
-    /// Atomically claims the oldest queued task.
-    ///
+    /// Claims the oldest queued task atomically.
     /// # Errors
-    /// Returns a backend transaction failure.
+    /// Returns a backend failure.
     fn claim_job(&self) -> Result<Option<JobRecord>, PersistenceError>;
 
-    /// Cancels only queued/running work; terminal states are preserved.
-    ///
     /// # Errors
-    /// Returns a missing task or a backend failure.
+    /// Returns missing task or backend failure.
     fn cancel_job(&self, id: &str) -> Result<JobRecord, PersistenceError>;
 
-    /// Marks failure only while the task is still running.
-    ///
     /// # Errors
-    /// Returns a backend write failure.
+    /// Returns a backend failure.
     fn fail_job(&self, id: &str, message: &str) -> Result<(), PersistenceError>;
 
     /// # Errors
-    /// Returns a missing task or a backend read failure.
+    /// Returns missing task or backend failure.
     fn job_running(&self, id: &str) -> Result<bool, PersistenceError> {
         Ok(self.get_job(id)?.status == JobStatus::Running)
     }
 }
 
-/// Submission resolves dependencies from one consistent resource snapshot.
 pub trait SubmissionResolver: Send + Sync {
     /// # Errors
     /// Returns an underlying resource read failure.
     fn resolve(&self, draft: &Draft) -> Result<ResolvedDraft, PersistenceError>;
 }
 
-/// One application queue. The host owns the worker task and its lifetime.
 pub struct JobQueue {
     store: Arc<dyn JobStore>,
     resolver: Arc<dyn SubmissionResolver>,
     media: Arc<dyn FinalOutputStore>,
     credentials: Arc<dyn CredentialStore>,
+    assets: Arc<dyn AssetReader>,
+    clients: Arc<dyn SdkClientProvider>,
+    tokenizers: Arc<Tokenizers>,
+    feedback: broadcast::Sender<JobFeedback>,
     wake: Notify,
     worker_started: AtomicBool,
     failed: AtomicBool,
     submission_gate: Mutex<()>,
     active: Mutex<Option<ActiveJob>>,
+    account_sampled_at: Mutex<Option<i64>>,
 }
 
 impl JobQueue {
-    /// Opens a queue, interrupting unfinished retained jobs without resending them.
-    ///
+    /// Interrupts unfinished retained jobs; opening never resends a request.
     /// # Errors
-    /// Returns failures recovering retained state.
+    /// Returns retained-state recovery failures.
     pub fn new(
         store: Arc<dyn JobStore>,
         resolver: Arc<dyn SubmissionResolver>,
         media: Arc<dyn FinalOutputStore>,
         credentials: Arc<dyn CredentialStore>,
+        assets: Arc<dyn AssetReader>,
+        clients: Arc<dyn SdkClientProvider>,
+        tokenizers: Arc<Tokenizers>,
     ) -> Result<Arc<Self>, JobError> {
         store.interrupt_jobs()?;
+        let (feedback, _) = broadcast::channel(16);
         Ok(Arc::new(Self {
             store,
             resolver,
             media,
             credentials,
+            assets,
+            clients,
+            tokenizers,
+            feedback,
             wake: Notify::new(),
             worker_started: AtomicBool::new(false),
             failed: AtomicBool::new(false),
             submission_gate: Mutex::new(()),
             active: Mutex::new(None),
+            account_sampled_at: Mutex::new(None),
         }))
     }
 
-    /// Resolves and validates locally without credentials or network access.
-    ///
-    /// # Errors
-    /// Returns resource, SDK validation, preparation or storage failures.
-    pub fn quote(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
-        let submission = self.freeze(draft)?;
-        let estimate = submission
-            .request
-            .estimate_anlas_cost(novelai_bridge::AnlasPricingContext::default())?;
-        Ok(GenerationQuote {
-            resolved: submission.resolved,
-            estimated_anlas: estimate.total,
-            account_specific: false,
-            too_expensive: estimate.status == novelai_bridge::AnlasEstimateStatus::TooExpensive,
-        })
+    pub fn subscribe(&self) -> broadcast::Receiver<JobFeedback> { self.feedback.subscribe() }
+
+    pub fn account(&self) -> Option<AccountSummary> {
+        self.clients
+            .cached_client()
+            .and_then(|client| client.last_subscription())
+            .as_ref()
+            .map(|info| {
+                let mut summary = AccountSummary::from(info);
+                summary.sampled_at = *self
+                    .account_sampled_at
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                summary
+            })
     }
 
-    /// Retains one fixed submission before notifying the sequential worker.
-    ///
+    /// Explicitly samples account information without submitting paid work.
     /// # Errors
-    /// Returns missing credentials, invalid content, SDK or storage failures.
+    /// Returns credential, service or transport failures.
+    pub async fn refresh_account(&self) -> Result<AccountSummary, JobError> {
+        let mut summary = AccountSummary::from(&self.clients.client()?.get_subscription().await?);
+        summary.sampled_at = Some(timestamp()?);
+        *self
+            .account_sampled_at
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)? = summary.sampled_at;
+        Ok(summary)
+    }
+
+    /// Local resolution, token counts and estimation require no credentials or network.
+    /// # Errors
+    /// Returns resource, SDK validation, image or tokenizer failures.
+    pub fn quote(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
+        self.quote_submission(self.freeze(draft)?)
+    }
+
+    /// Persists fixed inputs before waking the sole worker.
+    /// # Errors
+    /// Returns missing credentials, validation or storage failures.
     pub fn submit(&self, draft: &Draft) -> Result<JobRecord, JobError> {
         self.check_credentials()?;
         let submission = self.freeze(draft)?;
         self.enqueue(&submission)
     }
 
-    /// Explicitly resubmits a failed, cancelled or interrupted frozen input.
-    ///
+    /// Retries only terminal unsuccessful jobs, using their frozen inputs.
     /// # Errors
-    /// Returns missing credentials, invalid task state or storage failures.
+    /// Returns missing credentials, invalid state or storage failures.
     pub fn retry(&self, id: &str) -> Result<JobRecord, JobError> {
         self.check_credentials()?;
         let record = self.store.get_job(id)?;
@@ -259,16 +412,13 @@ impl JobQueue {
         Ok(record)
     }
 
-    /// Reads retained states, including interrupted jobs from earlier sessions.
-    ///
     /// # Errors
     /// Returns storage or decoding failures.
     pub fn list(&self) -> Result<Vec<JobRecord>, JobError> { Ok(self.store.list_jobs()?) }
 
-    /// Cancels queued or active work; remote cancellation cannot promise a refund.
-    ///
+    /// Cancels queued work immediately; active streams settle asynchronously through the SDK.
     /// # Errors
-    /// Returns missing-job or storage failures.
+    /// Returns missing task or storage failures.
     pub fn cancel(&self, id: &str) -> Result<JobRecord, JobError> {
         let record = self.store.cancel_job(id)?;
         if let Some(active) = self
@@ -283,16 +433,9 @@ impl JobQueue {
         Ok(record)
     }
 
-    fn freeze(&self, draft: &Draft) -> Result<FrozenSubmission, JobError> {
-        validate_draft(draft).map_err(|error| JobError::Invalid(error.to_string()))?;
-        let resolved = self.resolver.resolve(draft)?;
-        prepare_submission(resolved)
-    }
-
-    /// Runs the sole worker until the host drops its future or storage fails.
-    ///
+    /// Runs one sequential worker, rejecting future submissions after fatal storage failure.
     /// # Errors
-    /// Returns a fatal storage failure; submissions are then rejected until restart.
+    /// Returns fatal backend failures.
     pub async fn run(self: Arc<Self>) -> Result<(), JobError> {
         if self.worker_started.swap(true, Ordering::AcqRel) {
             return Ok(());
@@ -307,129 +450,12 @@ impl JobQueue {
             .map_err(|_poisoned| PersistenceError::Locked)?;
         self.failed.store(true, Ordering::Release);
         if let Err(error) = self.store.interrupt_jobs() {
-            tracing::error!(error = %error, "cannot interrupt retained jobs after queue failure");
+            tracing::error!(error=%error,"cannot interrupt retained jobs after queue failure");
         }
         result
     }
-
-    async fn run_inner(self: &Arc<Self>) -> Result<(), JobError> {
-        loop {
-            let store = Arc::clone(&self.store);
-            let Some(next) = tokio::task::spawn_blocking(move || store.claim_job()).await?? else {
-                self.wake.notified().await;
-                continue;
-            };
-            let id = next.id.clone();
-            let cancel = Arc::new(Notify::new());
-            *self
-                .active
-                .lock()
-                .map_err(|_poisoned| PersistenceError::Locked)? = Some(ActiveJob {
-                id: id.clone(),
-                cancel: Arc::clone(&cancel),
-            });
-            let queue = Arc::clone(self);
-            // Joining each child makes panic a failed job instead of a stuck queue.
-            // JoinSet aborts its child when the host drops the worker future.
-            let mut task = tokio::task::JoinSet::new();
-            task.spawn(async move { queue.execute(&next).await });
-            tokio::select! {
-                outcome = task.join_next() => {
-                    let message = match outcome {
-                        Some(Ok(Ok(()))) => None,
-                        Some(Ok(Err(error))) => {
-                            report_failure(&id, &error);
-                            Some(public_failure(&error))
-                        },
-                        Some(Err(_)) | None => Some("生成执行过程已中断。".to_owned()),
-                    };
-                    if let Some(message) = message {
-                        let store = Arc::clone(&self.store);
-                        let failed_id = id.clone();
-                        tokio::task::spawn_blocking(move || store.fail_job(&failed_id, &message)).await??;
-                    }
-                },
-                () = cancel.notified() => {
-                    task.abort_all();
-                    while task.join_next().await.is_some() {}
-                },
-            }
-            *self
-                .active
-                .lock()
-                .map_err(|_poisoned| PersistenceError::Locked)? = None;
-        }
-    }
-
-    async fn execute(self: &Arc<Self>, record: &JobRecord) -> Result<(), JobError> {
-        let queue = Arc::clone(self);
-        let id = record.id.clone();
-        let transport = tokio::task::spawn_blocking(move || -> Result<_, JobError> {
-            if !queue.store.job_running(&id)? {
-                return Ok(None);
-            }
-            let value = queue
-                .credentials
-                .load()?
-                .ok_or(JobError::MissingCredentials)?;
-            Ok(Some(
-                ReqwestTransport::new(ReqwestOptions {
-                    api_key_source: ApiKeySource::Inline { value },
-                    ..ReqwestOptions::default()
-                })
-                .map_err(novelai_bridge::BridgeError::from)?,
-            ))
-        })
-        .await??;
-        let Some(transport) = transport else {
-            return Ok(());
-        };
-        let client = Client::new(Arc::new(transport), ClientConfig::default());
-        let generated = client.generate(record.submission.request.clone()).await?;
-        let media = Arc::clone(&self.media);
-        let record = record.clone();
-        tokio::task::spawn_blocking(move || media.retain(&record, generated)).await??;
-        Ok(())
-    }
 }
 
-pub(crate) fn prepare_submission(
-    mut resolved: ResolvedDraft,
-) -> Result<FrozenSubmission, JobError> {
-    if !resolved.issues.is_empty() {
-        return Err(JobError::Unresolved);
-    }
-    let settings = &resolved.settings;
-    let prepared = GenerateImageRequest::builder(&resolved.positive, settings.model)
-        .negative_prompt(&resolved.negative)
-        .size(settings.size)
-        .steps(settings.steps)
-        .scale(settings.scale)
-        .sampler(settings.sampler)
-        .n_samples(1)
-        .build()
-        .normalize()?
-        .prepare()?;
-    let mut request = prepared.normalized().request().clone();
-    request.core.seed = prepared.resolved_seed();
-    resolved
-        .positive
-        .clone_from(&prepared.normalized().resolved_prompts().prompt);
-    resolved
-        .negative
-        .clone_from(&prepared.normalized().resolved_prompts().negative_prompt);
-    resolved.settings.size = request.core.size;
-    resolved.settings.steps = request.sampling.steps;
-    resolved.settings.scale = request.sampling.scale;
-    resolved.settings.sampler = request.sampling.sampler;
-    Ok(FrozenSubmission {
-        resolved,
-        seed: request.core.seed,
-        request,
-    })
-}
-
-// Provider response bodies and credential errors are never retained as public diagnostics.
 fn public_failure(error: &JobError) -> String {
     match error {
         JobError::Bridge(novelai_bridge::BridgeError::Api(error)) => {
@@ -438,13 +464,15 @@ fn public_failure(error: &JobError) -> String {
         JobError::Bridge(novelai_bridge::BridgeError::Transport(_)) => {
             "无法连接 NovelAI，请求可能已被服务端处理并扣费。".to_owned()
         },
+        JobError::Bridge(novelai_bridge::BridgeError::Stream(_)) => {
+            "NovelAI 流式响应未完整结束，未保留最终结果；请求可能已被扣费。".to_owned()
+        },
         JobError::Credential(_) => "无法读取系统凭据。".to_owned(),
         _ => error.to_string(),
     }
 }
 
 fn report_failure(id: &str, error: &JobError) {
-    // Native credential errors and provider responses are deliberately not formatted.
     if let JobError::Persistence(error) = error {
         let mut causes = Vec::new();
         let mut source = std::error::Error::source(error);
@@ -452,9 +480,9 @@ fn report_failure(id: &str, error: &JobError) {
             causes.push(cause.to_string());
             source = cause.source();
         }
-        tracing::error!(job_id = id, error = %error, causes = ?causes, "generation output persistence failed");
+        tracing::error!(job_id=id,error=%error,causes=?causes,"operation persistence failed");
     } else {
-        tracing::warn!(job_id = id, message = %public_failure(error), "generation failed");
+        tracing::warn!(job_id=id,message=%public_failure(error),"operation failed");
     }
 }
 

@@ -6,7 +6,22 @@ export const emptySettings = (): GenerationSettings => ({
   steps: null,
   scale: null,
   sampler: null,
+  seed: null,
+  nSamples: null,
+  quality: null,
+  ucPreset: null,
+  transparentBackground: null,
+  furryMode: null,
+  noiseSchedule: null,
+  cfgRescale: null,
+  varietyBoost: null,
+  decrisp: null,
+  smea: null,
+  smeaDyn: null,
+  imageFormat: null,
+  useCoords: null,
 });
+export const emptyReferences = () => ({ precise: [], vibes: [], vibeStrength: null });
 export const emptyComposition = (): Composition => ({ positive: [], negative: [] });
 export const textNode = (): PromptNode => ({
   kind: "text",

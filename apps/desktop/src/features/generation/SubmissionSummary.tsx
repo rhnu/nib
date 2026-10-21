@@ -1,10 +1,35 @@
 import type { JobRecord } from "../../bindings/generation";
 import { ContentSources, SettingsSources } from "../prompt/ResolutionSources";
+import { submissionLabel } from "./operation";
+import { ParameterDiagnostics } from "./ParameterDiagnostics";
 
 export function SubmissionSummary({ submission }: { submission: JobRecord["submission"] }) {
+  if (submission.kind !== "generation")
+    return (
+      <div>
+        <dl className="generation-metadata">
+          <div>
+            <dt>操作</dt>
+            <dd>{submissionLabel(submission)}</dd>
+          </div>
+          <div>
+            <dt>输入媒体</dt>
+            <dd>{submission.assetId}</dd>
+          </div>
+          {submission.kind === "encodeVibe" && (
+            <div>
+              <dt>信息提取</dt>
+              <dd>{submission.informationExtracted}</dd>
+            </div>
+          )}
+        </dl>
+        <ParameterDiagnostics diagnostics={submission.diagnostics} />
+      </div>
+    );
   const { resolved, seed } = submission;
   return (
     <div className="generation-submission">
+      <ParameterDiagnostics diagnostics={submission.diagnostics} />
       <dl className="generation-metadata">
         <div>
           <dt>模型</dt>
@@ -24,7 +49,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           </dd>
         </div>
         <div>
-          <dt>种子</dt>
+          <dt>提交种子</dt>
           <dd>{seed}</dd>
         </div>
       </dl>

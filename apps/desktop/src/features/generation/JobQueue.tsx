@@ -6,6 +6,7 @@ import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { JobRetryDialog } from "./JobRetryDialog";
+import { submissionLabel } from "./operation";
 
 const statusText: Record<JobRecord["status"], string> = {
   queued: "排队中",
@@ -72,7 +73,7 @@ export function JobQueue() {
                   <time dateTime={new Date(job.submittedAt).toISOString()}>
                     {new Date(job.submittedAt).toLocaleString()}
                   </time>
-                  <span>{job.submission.resolved.settings.model}</span>
+                  <span>{submissionLabel(job.submission)}</span>
                   {job.error && <span className="generation-danger">{job.error}</span>}
                   {job.status === "interrupted" && (
                     <small>应用中断后已停止，需手动再次提交。</small>

@@ -22,7 +22,7 @@ function ResultTile({
         className={`generation-result-open ${selected ? "selected" : ""}`}
         onClick={onSelect}
         aria-pressed={selected}
-        aria-label={`选择结果：${new Date(result.createdAt).toLocaleString()}，种子 ${result.seed}`}
+        aria-label={`选择结果：${new Date(result.createdAt).toLocaleString()}${result.seed === null ? "" : `，样本种子 ${result.seed}`}`}
       >
         <span className="generation-result-preview">
           {!result.available ? (
@@ -59,7 +59,8 @@ function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: ()
     <>
       <div className="generation-canvas-toolbar">
         <span className="generation-canvas-metadata generation-muted">
-          种子 {result.seed} · {new Date(result.createdAt).toLocaleString()}
+          {result.seed === null ? "样本种子未记录" : `样本种子 ${result.seed}`} ·{" "}
+          {new Date(result.createdAt).toLocaleString()}
         </span>
         <div className="generation-view-tools" aria-label="图像查看">
           <IconButton
@@ -114,7 +115,7 @@ function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: ()
                 height: `${Math.min(1, zoom) * 100}%`,
               }}
               src={image.url}
-              alt={`生成结果，种子 ${result.seed}`}
+              alt={result.seed === null ? "生成结果" : `生成结果，样本种子 ${result.seed}`}
               onError={image.failed}
             />
           </div>

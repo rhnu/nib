@@ -52,7 +52,12 @@ export function useWorkbench(
           {
             id: crypto.randomUUID(),
             enabled: true,
-            binding: { kind: "linked", resourceId: resource.id, overrides: [] },
+            binding: {
+              kind: "linked",
+              resourceId: resource.id,
+              overrides: [],
+              outputOverrides: { characters: [], precise: [], vibes: [], vibeStrength: null },
+            },
           },
         ],
       });

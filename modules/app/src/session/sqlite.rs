@@ -7,18 +7,20 @@ impl DraftStore for SqliteDatabase {
     fn get_draft(&self) -> Result<Draft, PersistenceError> {
         let connection = self.connection()?;
         let row = connection.query_row(
-            "SELECT revision, composition, presets, settings FROM current_creation WHERE id = 1",
+            "SELECT revision, composition, presets, settings, characters, inputs FROM current_creation WHERE id = 1",
             [],
-            |row| Ok((row.get::<_, u32>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?)),
+            |row| Ok((row.get::<_, u32>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, String>(5)?)),
         ).optional().map_err(|error| PersistenceError::failure("read the current creation", error))?;
         row.map_or_else(
             || Ok(Draft::default()),
-            |(revision, composition, presets, settings)| {
+            |(revision, composition, presets, settings, characters, inputs)| {
                 Ok(Draft {
                     revision,
                     composition: decode(&composition)?,
                     presets: decode(&presets)?,
                     settings: decode(&settings)?,
+                    characters: decode(&characters)?,
+                    inputs: decode(&inputs)?,
                 })
             },
         )
@@ -32,16 +34,18 @@ impl DraftStore for SqliteDatabase {
         let composition = encode(&draft.composition)?;
         let presets = encode(&draft.presets)?;
         let settings = encode(&draft.settings)?;
+        let characters = encode(&draft.characters)?;
+        let inputs = encode(&draft.inputs)?;
         let connection = self.connection()?;
         let count = if draft.revision == 0 {
             connection.execute(
-                "INSERT INTO current_creation(id, revision, composition, presets, settings) VALUES (1, ?1, ?2, ?3, ?4) ON CONFLICT(id) DO NOTHING",
-                params![revision, composition, presets, settings],
+                "INSERT INTO current_creation(id, revision, composition, presets, settings, characters, inputs) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(id) DO NOTHING",
+                params![revision, composition, presets, settings, characters, inputs],
             )
         } else {
             connection.execute(
-                "UPDATE current_creation SET revision = ?1, composition = ?2, presets = ?3, settings = ?4 WHERE id = 1 AND revision = ?5",
-                params![revision, composition, presets, settings, draft.revision],
+                "UPDATE current_creation SET revision = ?1, composition = ?2, presets = ?3, settings = ?4, characters = ?5, inputs = ?6 WHERE id = 1 AND revision = ?7",
+                params![revision, composition, presets, settings, characters, inputs, draft.revision],
             )
         }.map_err(|error| PersistenceError::failure("save the current creation", error))?;
         if count == 0 {

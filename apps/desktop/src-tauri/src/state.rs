@@ -1,6 +1,7 @@
 //! Host-owned assembly and lifetime of local application capabilities.
 
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -11,18 +12,20 @@ use nib_app::{
     persistence::{PersistenceError, SqliteDatabase},
 };
 
-use crate::credentials::NativeCredentials;
+use crate::{credentials::NativeCredentials, sdk::SdkClients};
 
 pub(crate) struct GenerationRuntime {
     pub(crate) queue: Arc<JobQueue>,
-    pub(crate) media: Arc<MediaLibrary>,
+    pub(crate) clients: Arc<SdkClients>,
 }
 
 #[derive(Clone)]
 pub(crate) struct DesktopState {
     data_dir: PathBuf,
     database: Arc<Mutex<Option<Arc<SqliteDatabase>>>>,
+    media: Arc<Mutex<Option<Arc<MediaLibrary>>>>,
     generation: Arc<Mutex<Option<Arc<GenerationRuntime>>>>,
+    feedback: Arc<Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>>,
     pub(crate) credentials: Arc<NativeCredentials>,
 }
 
@@ -31,7 +34,9 @@ impl DesktopState {
         Self {
             data_dir,
             database: Arc::new(Mutex::new(None)),
+            media: Arc::new(Mutex::new(None)),
             generation: Arc::new(Mutex::new(None)),
+            feedback: Arc::new(Mutex::new(HashMap::new())),
             credentials: Arc::new(NativeCredentials::default()),
         }
     }
@@ -53,6 +58,61 @@ impl DesktopState {
         Ok(database)
     }
 
+    pub(crate) fn media(&self) -> Result<Arc<MediaLibrary>, PersistenceError> {
+        let mut slot = self
+            .media
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if let Some(media) = slot.as_ref() {
+            return Ok(Arc::clone(media));
+        }
+        let media = Arc::new(MediaLibrary::new(
+            self.database()?,
+            self.data_dir.join("media"),
+        )?);
+        *slot = Some(Arc::clone(&media));
+        Ok(media)
+    }
+
+    pub(crate) fn invalidate_sdk(&self) -> Result<(), JobError> {
+        if let Some(runtime) = self
+            .generation
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?
+            .as_ref()
+        {
+            runtime.clients.invalidate()?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn replace_feedback(
+        &self,
+        label: String,
+        worker: tauri::async_runtime::JoinHandle<()>,
+    ) -> Result<(), PersistenceError> {
+        let Ok(mut feedback) = self.feedback.lock() else {
+            worker.abort();
+            return Err(PersistenceError::Locked);
+        };
+        if let Some(previous) = feedback.insert(label, worker) {
+            previous.abort();
+        }
+        Ok(())
+    }
+
+    pub(crate) fn stop_feedback(&self, label: &str) -> Result<(), PersistenceError> {
+        if let Some(worker) = self
+            .feedback
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?
+            .remove(label)
+        {
+            worker.abort();
+        }
+        Ok(())
+    }
+
     pub(crate) fn generation(&self) -> Result<Arc<GenerationRuntime>, JobError> {
         let mut slot = self
             .generation
@@ -62,15 +122,22 @@ impl DesktopState {
             return Ok(Arc::clone(runtime));
         }
         let database = self.database()?;
-        let media = Arc::new(MediaLibrary::new(
-            Arc::clone(&database),
-            self.data_dir.join("media"),
-        )?);
+        let media = self.media()?;
+        let tokenizers = Arc::new(
+            novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
+        );
+        let clients = Arc::new(SdkClients::new(
+            Arc::clone(&self.credentials),
+            Arc::clone(&tokenizers),
+        ));
         let queue = JobQueue::new(
             Arc::<SqliteDatabase>::clone(&database),
             database,
             Arc::<MediaLibrary>::clone(&media),
             Arc::<NativeCredentials>::clone(&self.credentials),
+            Arc::<MediaLibrary>::clone(&media),
+            Arc::<SdkClients>::clone(&clients),
+            tokenizers,
         )?;
         let worker = Arc::clone(&queue);
         tauri::async_runtime::spawn(async move {
@@ -82,7 +149,7 @@ impl DesktopState {
                 }
             }
         });
-        let runtime = Arc::new(GenerationRuntime { queue, media });
+        let runtime = Arc::new(GenerationRuntime { queue, clients });
         *slot = Some(Arc::clone(&runtime));
         Ok(runtime)
     }

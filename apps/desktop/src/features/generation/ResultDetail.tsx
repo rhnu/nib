@@ -59,7 +59,15 @@ export function ResultDetail({
           ) : image.error ? (
             <Notice actions={<Button onClick={image.retry}>重试读取</Button>}>{image.error}</Notice>
           ) : image.url ? (
-            <img src={image.url} alt={`生成结果，种子 ${result.seed}`} onError={image.failed} />
+            <img
+              src={image.url}
+              alt={
+                result.seed === null
+                  ? "生成结果，样本种子未记录"
+                  : `生成结果，样本种子 ${result.seed}`
+              }
+              onError={image.failed}
+            />
           ) : (
             <output>正在读取结果图像…</output>
           )}
@@ -70,7 +78,14 @@ export function ResultDetail({
               {new Date(result.createdAt).toLocaleString()}
             </time>
           </p>
-          <SubmissionSummary submission={{ ...result.submission, seed: result.seed }} />
+          <SubmissionSummary submission={result.submission} />
+          {result.submission.kind === "generation" && (
+            <p className="generation-muted">
+              {result.seed === null
+                ? "图片未记录样本种子；恢复时使用原提交种子，无法据此精确重现此样本。"
+                : `样本种子：${result.seed}`}
+            </p>
+          )}
           <div className="generation-detail-actions">
             <Button
               onClick={() => {

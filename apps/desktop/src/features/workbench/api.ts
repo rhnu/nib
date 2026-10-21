@@ -1,6 +1,8 @@
 import { invokeHost } from "../../shared/host/invoke";
-import type { Draft, WorkspaceSnapshot } from "../../bindings/workbench";
+import type { Draft, ModelCapabilities, WorkspaceSnapshot } from "../../bindings/workbench";
 export const workbenchApi = {
   workspace: () => invokeHost<WorkspaceSnapshot>("get_workspace"),
   saveDraft: (draft: Draft) => invokeHost<Draft>("save_draft", { draft }),
+  capabilities: (draft: Draft) =>
+    invokeHost<ModelCapabilities | null>("get_model_capabilities", { draft }),
 };

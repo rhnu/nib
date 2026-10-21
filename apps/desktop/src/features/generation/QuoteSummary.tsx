@@ -4,7 +4,7 @@ import { HelpMarker } from "../../shared/ui";
 export function QuoteHelp() {
   return (
     <HelpMarker label="费用估算说明">
-      SDK 按非订阅条件估算，未读取账户订阅和余额；实际扣费由 NovelAI 决定。
+      SDK 使用最近显式读取的账户信息估算；没有账户快照时使用非订阅条件。估算不代表实际扣费。
     </HelpMarker>
   );
 }

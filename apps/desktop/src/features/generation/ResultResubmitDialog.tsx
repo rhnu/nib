@@ -68,7 +68,7 @@ export function ResultResubmitDialog({
   return (
     <Modal open onClose={onClose} title="使用结果内容再次生成">
       <div className="generation-dialog-body">
-        <p>用结果保存的内容与设置创建新任务，不替换当前创作。新任务会重新选择种子。</p>
+        <p>用结果保存的内容、材料与有效设置创建新任务，不替换当前创作。</p>
         <SubmissionSummary submission={result.submission} />
         {prepared ? (
           <QuoteSummary quote={prepared.quote} />

@@ -2,51 +2,202 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::{FrozenSubmission, JobRecord, JobStore, SubmissionResolver};
+use super::{FrozenSubmission, JobRecord, JobStore, ParameterDiagnostic, SubmissionResolver};
 use crate::persistence::{PersistenceError, SqliteDatabase, decode, encode};
 
-/// Only one effective SDK input is retained; the IPC read model is derived from it.
+/// Only one SDK parameter set is retained, with immutable media identities and source metadata.
 #[derive(serde::Serialize, serde::Deserialize)]
-struct StoredSubmission {
-    request: novelai_bridge::GenerateImageRequest,
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum StoredSubmission {
+    Generation {
+        request: Box<novelai_bridge::GenerateImageRequest>,
+        diagnostics: Vec<ParameterDiagnostic>,
+        fragments: Vec<crate::prompt::ResolvedFragment>,
+        provenance: Box<crate::prompt::SettingsProvenance>,
+        characters: Vec<StoredCharacterSource>,
+        inputs: Box<crate::session::CreationInputs>,
+        input_sources: Vec<crate::prompt::InputProvenance>,
+    },
+    Director {
+        asset_id: String,
+        command: novelai_bridge::DirectorCommand,
+        diagnostics: Vec<ParameterDiagnostic>,
+    },
+    EncodeVibe {
+        asset_id: String,
+        model: novelai_bridge::Model,
+        information_extracted: f32,
+        diagnostics: Vec<ParameterDiagnostic>,
+    },
+}
+
+/// Character values belong only to the SDK request; retained application data
+/// connects each original SDK index to its composition identity and sources.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct StoredCharacterSource {
+    index: usize,
+    id: String,
     fragments: Vec<crate::prompt::ResolvedFragment>,
-    provenance: crate::prompt::SettingsProvenance,
+    preset_instance_id: Option<String>,
+    resource_id: Option<String>,
+    expanded: bool,
+    overridden: bool,
 }
 
 pub(crate) fn encode_submission(submission: &FrozenSubmission) -> Result<String, PersistenceError> {
-    encode(&StoredSubmission {
-        request: submission.request.clone(),
-        fragments: submission.resolved.fragments.clone(),
-        provenance: submission.resolved.provenance.clone(),
+    encode(&match submission {
+        FrozenSubmission::Generation {
+            request,
+            resolved,
+            diagnostics,
+            ..
+        } => StoredSubmission::Generation {
+            request: request.clone(),
+            diagnostics: diagnostics.clone(),
+            fragments: resolved.fragments.clone(),
+            provenance: Box::new(resolved.provenance.clone()),
+            characters: resolved
+                .characters
+                .iter()
+                .enumerate()
+                .map(|(index, character)| StoredCharacterSource {
+                    index,
+                    id: character.id.clone(),
+                    fragments: character.fragments.clone(),
+                    preset_instance_id: character.preset_instance_id.clone(),
+                    resource_id: character.resource_id.clone(),
+                    expanded: character.expanded,
+                    overridden: character.overridden,
+                })
+                .collect(),
+            inputs: Box::new(resolved.inputs.clone()),
+            input_sources: resolved.input_sources.clone(),
+        },
+        FrozenSubmission::Director {
+            asset_id,
+            command,
+            diagnostics,
+        } => StoredSubmission::Director {
+            asset_id: asset_id.clone(),
+            command: command.clone(),
+            diagnostics: diagnostics.clone(),
+        },
+        FrozenSubmission::EncodeVibe {
+            asset_id,
+            model,
+            information_extracted,
+            diagnostics,
+        } => StoredSubmission::EncodeVibe {
+            asset_id: asset_id.clone(),
+            model: *model,
+            information_extracted: *information_extracted,
+            diagnostics: diagnostics.clone(),
+        },
     })
 }
 
 pub(crate) fn decode_submission(content: &str) -> Result<FrozenSubmission, PersistenceError> {
-    let stored: StoredSubmission = decode(content)?;
-    let normalized = stored.request.clone().normalize().map_err(|error| {
-        PersistenceError::failure("validate retained generation settings", error)
-    })?;
-    let prompts = normalized.resolved_prompts();
-    let request = normalized.request();
-    let resolved = crate::prompt::ResolvedDraft {
-        positive: prompts.prompt.clone(),
-        negative: prompts.negative_prompt.clone(),
-        fragments: stored.fragments,
-        provenance: stored.provenance,
-        issues: Vec::new(),
-        settings: crate::prompt::ResolvedSettings {
-            model: request.core.model,
-            size: request.core.size,
-            steps: request.sampling.steps,
-            scale: request.sampling.scale,
-            sampler: request.sampling.sampler,
+    Ok(match decode(content)? {
+        StoredSubmission::Generation {
+            request,
+            fragments,
+            provenance,
+            characters,
+            inputs,
+            input_sources,
+            diagnostics,
+        } => {
+            // Media is deliberately absent here. Its immutable IDs are resolved only by
+            // local quote/preparation; reopening retained metadata needs no image decoding.
+            let prompts = request.resolve_prompts().map_err(|error| {
+                PersistenceError::failure("resolve retained generation prompts", error)
+            })?;
+            let characters = restore_character_sources(&request, &prompts, characters)?;
+            let resolved = crate::prompt::ResolvedDraft {
+                positive: prompts.prompt,
+                negative: prompts.negative_prompt,
+                fragments,
+                provenance: *provenance,
+                issues: Vec::new(),
+                settings: crate::prompt::ResolvedSettings::from_request(&request),
+                characters,
+                inputs: *inputs,
+                input_sources,
+            };
+            FrozenSubmission::Generation {
+                seed: request.core.seed,
+                resolved: Box::new(resolved),
+                request,
+                diagnostics,
+            }
         },
-    };
-    Ok(FrozenSubmission {
-        resolved,
-        seed: request.core.seed,
-        request: stored.request,
+        StoredSubmission::Director {
+            asset_id,
+            command,
+            diagnostics,
+        } => FrozenSubmission::Director {
+            asset_id,
+            command,
+            diagnostics,
+        },
+        StoredSubmission::EncodeVibe {
+            asset_id,
+            model,
+            information_extracted,
+            diagnostics,
+        } => FrozenSubmission::EncodeVibe {
+            asset_id,
+            model,
+            information_extracted,
+            diagnostics,
+        },
     })
+}
+
+fn restore_character_sources(
+    request: &novelai_bridge::GenerateImageRequest,
+    prompts: &novelai_bridge::ResolvedPrompts,
+    sources: Vec<StoredCharacterSource>,
+) -> Result<Vec<crate::prompt::ResolvedCharacter>, PersistenceError> {
+    let characters = request
+        .characters
+        .as_ref()
+        .map_or(&[][..], |set| set.characters.as_slice());
+    if sources.len() != characters.len() {
+        return Err(PersistenceError::InvalidData {
+            message: "保留角色的来源与请求不匹配。".to_owned(),
+        });
+    }
+    sources
+        .into_iter()
+        .enumerate()
+        .map(|(index, source)| {
+            if source.index != index {
+                return Err(PersistenceError::InvalidData {
+                    message: "保留角色的来源索引与请求不匹配。".to_owned(),
+                });
+            }
+            let character = &characters[index];
+            // Effective prompts contain enabled entries only and preserve their original indices.
+            let effective = prompts.characters.iter().find(|entry| entry.index == index);
+            Ok(crate::prompt::ResolvedCharacter {
+                id: source.id,
+                enabled: character.enabled,
+                positive: effective
+                    .map_or_else(|| character.prompt.clone(), |entry| entry.prompt.clone()),
+                negative: effective.map_or_else(
+                    || character.negative_prompt.clone().unwrap_or_default(),
+                    |entry| entry.negative_prompt.clone(),
+                ),
+                position: character.position,
+                fragments: source.fragments,
+                preset_instance_id: source.preset_instance_id,
+                resource_id: source.resource_id,
+                expanded: source.expanded,
+                overridden: source.overridden,
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn timestamp() -> Result<i64, PersistenceError> {

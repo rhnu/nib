@@ -1,22 +1,22 @@
-//! Durable final output files and their shared generation records.
+//! Durable immutable media assets, operation outputs and independent result reuse.
 
+mod assets;
+mod metadata;
 mod sqlite;
 
-use std::{
-    fs::{self, OpenOptions},
-    io::{Read, Write},
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{fs, path::PathBuf, sync::Arc};
 
-use novelai_bridge::{GenerateImageResult, ImageMediaFormat};
+pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
+pub use metadata::{
+    ImageMetadataReport, ImageMetadataStatus, KnownCharacterMetadata, KnownImageMetadata,
+};
+use novelai_bridge::{GenerateImageResult, GeneratedImage, VibeEncoding};
 use serde::Serialize;
 
 use crate::{
     jobs::{FrozenSubmission, JobRecord},
     persistence::{PersistenceError, SqliteDatabase},
-    prompt::{Composition, GenerationSettings, PromptNode},
-    session::Draft,
+    session::{CreationInputs, CreationOperation, Draft},
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -26,8 +26,10 @@ pub struct GenerationResult {
     pub id: String,
     pub job_id: String,
     pub sample_index: u32,
-    #[cfg_attr(feature = "typegen", ts(type = "number"))]
-    pub seed: i64,
+    pub asset_id: String,
+    pub kind: AssetKind,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub seed: Option<i64>,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
     pub created_at: i64,
     pub mime_type: String,
@@ -35,24 +37,57 @@ pub struct GenerationResult {
     pub submission: FrozenSubmission,
 }
 
-/// Binary delivery stays separate from serializable result metadata.
+/// Binary delivery stays separate from serializable asset and result metadata.
 pub struct MediaContent {
     pub mime_type: String,
     pub bytes: Vec<u8>,
 }
 
-/// Commits final SDK output only after its bytes are durable. Implementations must
-/// atomically retain records and complete the still-running task, preserving cancellation.
+/// SDK outputs preserve the distinction between images and opaque Vibe material.
+pub enum JobOutput {
+    Generation(GenerateImageResult),
+    Director(GeneratedImage),
+    Vibe(VibeEncoding),
+}
+
+/// Commits outputs only after their bytes are durable, while preserving cancellation.
 pub trait FinalOutputStore: Send + Sync {
     /// # Errors
     /// Returns output validation, file write or record transaction failures.
-    fn retain(&self, job: &JobRecord, output: GenerateImageResult) -> Result<(), PersistenceError>;
+    fn retain(&self, job: &JobRecord, output: JobOutput) -> Result<(), PersistenceError>;
 }
 
-struct RetainedImage {
+struct RetainedOutput {
     result: GenerationResult,
-    format: ImageMediaFormat,
-    byte_length: i64,
+    asset: MediaAsset,
+}
+
+struct GenerationSample {
+    index: u32,
+    image: GeneratedImage,
+    seed: Option<i64>,
+}
+
+fn generation_samples(
+    output: GenerateImageResult,
+) -> Result<Vec<GenerationSample>, PersistenceError> {
+    if output.images.is_empty() {
+        return Err(PersistenceError::InvalidData {
+            message: "NovelAI 未返回最终图像。".to_owned(),
+        });
+    }
+    output
+        .images
+        .into_iter()
+        .enumerate()
+        .map(|(index, image)| {
+            let index = u32::try_from(index)
+                .map_err(|error| PersistenceError::failure("represent a sample index", error))?;
+            // A request seed does not establish an individual sample's actual seed.
+            let seed = image.seed();
+            Ok(GenerationSample { index, image, seed })
+        })
+        .collect()
 }
 
 /// A file directory and SQLite records form one application media backend.
@@ -61,8 +96,17 @@ pub struct MediaLibrary {
     directory: PathBuf,
 }
 
+/// Metadata import reports its partial nature alongside the usable editing fields.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct MetadataRestore {
+    pub draft: Draft,
+    pub notices: Vec<String>,
+}
+
 impl MediaLibrary {
-    /// Creates the durable output directory.
+    /// Creates the immutable content directory.
     ///
     /// # Errors
     /// Returns an underlying directory creation failure.
@@ -78,7 +122,7 @@ impl MediaLibrary {
         })
     }
 
-    /// Reads shared result records and checks their files before reporting availability.
+    /// Lists final operation outputs and checks their immutable content availability.
     ///
     /// # Errors
     /// Returns record decoding or file inspection failures.
@@ -86,51 +130,125 @@ impl MediaLibrary {
         self.database
             .read_results(None)?
             .into_iter()
-            .map(|mut image| {
-                image.result.available = self.file_available(&image)?;
-                Ok(image.result)
+            .map(|mut output| {
+                output.result.available = self.asset_available(&output.asset)?;
+                Ok(output.result)
             })
             .collect()
     }
 
-    /// Reads a retained final image; missing or truncated files are errors.
+    /// Reads a final image or Vibe result by identity.
     ///
     /// # Errors
-    /// Returns missing records, unavailable files or backend failures.
+    /// Returns unknown records, missing/truncated files or backend failures.
     pub fn read(&self, id: &str) -> Result<MediaContent, PersistenceError> {
-        let image = self.get(id)?;
-        let mut file = fs::File::open(self.path(&image))
-            .map_err(|error| PersistenceError::failure("open the final image file", error))?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)
-            .map_err(|error| PersistenceError::failure("read the final image file", error))?;
-        if i64::try_from(bytes.len()).ok() != Some(image.byte_length) {
-            return Err(PersistenceError::InvalidData {
-                message: "最终图像文件不完整。".to_owned(),
-            });
-        }
-        Ok(MediaContent {
-            mime_type: image.result.mime_type,
-            bytes,
-        })
+        self.content(&self.get(id)?.asset)
     }
 
-    /// Restores independent prompt text and effective settings without resource lookups.
+    /// Restores effective editing content without consulting old resource definitions.
     ///
     /// # Errors
-    /// Returns missing records, unavailable files or backend failures.
+    /// Returns unavailable output or required input material, or backend failures.
     pub fn restore(&self, id: &str) -> Result<Draft, PersistenceError> {
-        let image = self.get(id)?;
-        if !self.file_available(&image)? {
+        let output = self.get(id)?;
+        if !self.asset_available(&output.asset)? {
             return Err(PersistenceError::NotFound {
-                kind: "final image",
+                kind: "output media",
                 id: id.to_owned(),
             });
         }
-        Ok(restore_submission(&image.result.submission))
+        let draft = restore_submission(&output.result.submission, output.result.seed);
+        self.validate_inputs(&draft.inputs)?;
+        Ok(draft)
     }
 
-    fn get(&self, id: &str) -> Result<RetainedImage, PersistenceError> {
+    /// Restores fields recognized by the SDK, with explicit notes about missing inputs.
+    ///
+    /// # Errors
+    /// Returns an unavailable/non-image asset or absent generation metadata.
+    pub fn restore_metadata(&self, id: &str) -> Result<MetadataRestore, PersistenceError> {
+        let asset = self.asset(id)?;
+        if asset.kind != AssetKind::Image {
+            return Err(PersistenceError::InvalidData {
+                message: "Vibe 编码不是可读取生成信息的图片。".to_owned(),
+            });
+        }
+        let inspection = self.inspect_sdk_metadata(id)?;
+        let metadata = inspection
+            .parsed()
+            .filter(|metadata| metadata.has_generation_data())
+            .ok_or_else(|| PersistenceError::InvalidData {
+                message: "图片没有可恢复的生成信息。".to_owned(),
+            })?;
+        let mut notices =
+            vec!["仅恢复图片中已知的字段；未包含的设置、参考材料和遮罩无法还原。".to_owned()];
+        if !metadata.characters.is_empty() {
+            notices.push("角色信息缺少位置，未补造角色位置。".to_owned());
+        }
+        if !metadata.vibe_entries.is_empty() {
+            notices.push("嵌入 Vibe 材料可单独导入；生成信息不代表完整参考配置。".to_owned());
+        }
+        if !metadata.warnings.is_empty() {
+            notices.push("SDK 在元信息中发现无法解释的字段，请检查导入内容。".to_owned());
+        }
+        let draft = crate::session::draft_from_metadata(metadata);
+        if metadata.model.is_some() && draft.settings.model.is_none() {
+            notices.push("图片中的模型标识不受当前 SDK 识别，未据此选择模型。".to_owned());
+        }
+        if metadata.sampler.is_some() && draft.settings.sampler.is_none() {
+            notices.push("图片中的采样器标识不受当前 SDK 识别，未据此选择采样器。".to_owned());
+        }
+        if metadata.noise_schedule.is_some() && draft.settings.noise_schedule.is_none() {
+            notices.push("图片中的噪声调度标识不受当前 SDK 识别，未据此选择噪声调度。".to_owned());
+        }
+        if metadata.prompt.is_some() || metadata.negative_prompt.is_some() {
+            notices.push(
+                "提示词按图片记录的实际文字恢复，自动质量与负面预设不会重复追加。".to_owned(),
+            );
+        }
+        Ok(MetadataRestore { draft, notices })
+    }
+
+    fn validate_inputs(&self, inputs: &CreationInputs) -> Result<(), PersistenceError> {
+        // Hydration uses the same immutable identity validation as submission; it does not
+        // validate NAI parameter semantics or create a second request representation.
+        let image_ids: Vec<&str> = match &inputs.operation {
+            CreationOperation::TextToImage => Vec::new(),
+            CreationOperation::ImageToImage { asset_id, .. }
+            | CreationOperation::Director { asset_id, .. }
+            | CreationOperation::EncodeVibe { asset_id, .. } => vec![asset_id],
+            CreationOperation::Inpainting {
+                asset_id,
+                mask_asset_id,
+                ..
+            } => vec![asset_id, mask_asset_id],
+        };
+        for id in image_ids.into_iter().chain(
+            inputs
+                .references
+                .precise
+                .iter()
+                .map(|reference| reference.asset_id.as_str()),
+        ) {
+            self.require_asset(id, AssetKind::Image)?;
+        }
+        for reference in &inputs.references.vibes {
+            self.require_asset(&reference.asset_id, AssetKind::Vibe)?;
+        }
+        Ok(())
+    }
+
+    fn require_asset(&self, id: &str, kind: AssetKind) -> Result<(), PersistenceError> {
+        let asset = self.asset(id)?;
+        if asset.kind != kind || !asset.available {
+            return Err(PersistenceError::InvalidData {
+                message: format!("所需媒体 {id} 不可用或类型不匹配。"),
+            });
+        }
+        Ok(())
+    }
+
+    fn get(&self, id: &str) -> Result<RetainedOutput, PersistenceError> {
         self.database
             .read_results(Some(id))?
             .into_iter()
@@ -141,100 +259,120 @@ impl MediaLibrary {
             })
     }
 
-    fn path(&self, image: &RetainedImage) -> PathBuf {
-        // Numeric database identities and the SDK format are the only path components.
-        self.directory.join(format!(
-            "{}-{}.{}",
-            image.result.job_id,
-            image.result.sample_index,
-            image.format.extension()
-        ))
-    }
-
-    fn file_available(&self, image: &RetainedImage) -> Result<bool, PersistenceError> {
-        match fs::metadata(self.path(image)) {
-            Ok(metadata) => {
-                Ok(metadata.is_file()
-                    && i64::try_from(metadata.len()).ok() == Some(image.byte_length))
+    fn stage_image(
+        &self,
+        job: &JobRecord,
+        sample_index: u32,
+        image: GeneratedImage,
+        seed: Option<i64>,
+    ) -> Result<RetainedOutput, PersistenceError> {
+        let format = image.format();
+        // GeneratedImage has no decoded-size accessor. Move its payload into the SDK
+        // image boundary to obtain actual dimensions without trusting embedded metadata.
+        let image = novelai_bridge::EncodedImage::from_bytes(image.into_bytes())
+            .map_err(|error| PersistenceError::failure("inspect final image dimensions", error))?;
+        let size = image.size();
+        let asset = self.stage_asset(
+            AssetKind::Image,
+            format.mime_type(),
+            image.as_bytes(),
+            Some((size.width, size.height)),
+            AssetSource::Job {
+                job_id: job.id.clone(),
             },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(error) => Err(PersistenceError::failure(
-                "inspect the final image file",
-                error,
-            )),
-        }
+        )?;
+        Ok(retained(job, sample_index, seed, asset))
     }
 }
 
 impl FinalOutputStore for MediaLibrary {
-    fn retain(&self, job: &JobRecord, output: GenerateImageResult) -> Result<(), PersistenceError> {
-        if output.images.is_empty() {
-            return Err(PersistenceError::InvalidData {
-                message: "NovelAI 未返回最终图像。".to_owned(),
-            });
-        }
-        let now = crate::jobs::timestamp()?;
-        let mut images = Vec::new();
-        for (index, generated) in output.images.into_iter().enumerate() {
-            let sample_index = u32::try_from(index).map_err(|error| {
-                PersistenceError::failure("represent a result sample index", error)
-            })?;
-            let image = RetainedImage {
-                result: GenerationResult {
-                    id: format!("{}-{sample_index}", job.id),
-                    job_id: job.id.clone(),
-                    sample_index,
-                    seed: generated.seed().unwrap_or(output.resolved_seed),
-                    created_at: now,
-                    mime_type: generated.mime_type().to_owned(),
-                    available: true,
-                    submission: job.submission.clone(),
-                },
-                format: generated.format(),
-                byte_length: i64::try_from(generated.bytes().len()).map_err(|error| {
-                    PersistenceError::failure("represent the final image size", error)
-                })?,
-            };
-            // Uncommitted files are never visible through result queries. A failed write
-            // may leave an orphan, but can never make a partial image a usable result.
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(self.path(&image))
-                .map_err(|error| PersistenceError::failure("create the final image file", error))?;
-            file.write_all(generated.bytes())
-                .map_err(|error| PersistenceError::failure("write the final image file", error))?;
-            file.sync_all()
-                .map_err(|error| PersistenceError::failure("flush the final image file", error))?;
-            images.push(image);
-        }
-        self.database.commit_results(&job.id, &images)
+    fn retain(&self, job: &JobRecord, output: JobOutput) -> Result<(), PersistenceError> {
+        let retained = match output {
+            JobOutput::Generation(output) => generation_samples(output)?
+                .into_iter()
+                .map(|sample| self.stage_image(job, sample.index, sample.image, sample.seed))
+                .collect::<Result<Vec<_>, _>>()?,
+            JobOutput::Director(image) => vec![self.stage_image(job, 0, image, None)?],
+            JobOutput::Vibe(encoding) => {
+                let asset = self.stage_asset(
+                    AssetKind::Vibe,
+                    "application/octet-stream",
+                    encoding.as_bytes(),
+                    None,
+                    AssetSource::Job {
+                        job_id: job.id.clone(),
+                    },
+                )?;
+                vec![retained(job, 0, None, asset)]
+            },
+        };
+        // Every staged file has been completely written and synchronized. The single
+        // transaction keeps both assets and outputs invisible if cancellation won.
+        self.database.commit_results(&job.id, &retained)
     }
 }
 
-fn restore_submission(submission: &FrozenSubmission) -> Draft {
-    let request = &submission.request;
-    Draft {
-        revision: 0,
-        composition: Composition {
-            positive: vec![PromptNode::Text {
-                id: "restored-positive".to_owned(),
-                enabled: true,
-                text: request.core.prompt.clone(),
-            }],
-            negative: vec![PromptNode::Text {
-                id: "restored-negative".to_owned(),
-                enabled: true,
-                text: request.core.negative_prompt.clone().unwrap_or_default(),
-            }],
+fn retained(
+    job: &JobRecord,
+    sample_index: u32,
+    seed: Option<i64>,
+    asset: MediaAsset,
+) -> RetainedOutput {
+    RetainedOutput {
+        result: GenerationResult {
+            id: format!("{}-{sample_index}", job.id),
+            job_id: job.id.clone(),
+            sample_index,
+            asset_id: asset.id.clone(),
+            kind: asset.kind,
+            seed,
+            created_at: asset.created_at,
+            mime_type: asset.mime_type.clone(),
+            available: true,
+            submission: job.submission.clone(),
         },
-        presets: Vec::new(),
-        settings: GenerationSettings {
-            model: Some(request.core.model),
-            size: Some(request.core.size),
-            steps: Some(request.sampling.steps),
-            scale: Some(request.sampling.scale),
-            sampler: Some(request.sampling.sampler),
+        asset,
+    }
+}
+
+fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft {
+    match submission {
+        FrozenSubmission::Generation {
+            request, resolved, ..
+        } => {
+            let mut draft = crate::session::restore_generation(request, resolved.inputs.clone());
+            // Without a known sample seed this restores the original submission's seed;
+            // it does not claim to reproduce the selected sample.
+            draft.settings.seed = seed.or(Some(request.core.seed));
+            draft
+        },
+        FrozenSubmission::Director {
+            asset_id, command, ..
+        } => Draft {
+            inputs: CreationInputs {
+                operation: CreationOperation::Director {
+                    asset_id: asset_id.clone(),
+                    command: command.clone(),
+                },
+                ..CreationInputs::default()
+            },
+            ..Draft::default()
+        },
+        FrozenSubmission::EncodeVibe {
+            asset_id,
+            model,
+            information_extracted,
+            ..
+        } => Draft {
+            inputs: CreationInputs {
+                operation: CreationOperation::EncodeVibe {
+                    asset_id: asset_id.clone(),
+                    model: *model,
+                    information_extracted: *information_extracted,
+                },
+                ..CreationInputs::default()
+            },
+            ..Draft::default()
         },
     }
 }

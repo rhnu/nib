@@ -1,0 +1,129 @@
+use novelai_bridge::{GeneratedImageMetadata, ImageSize};
+use serde::Serialize;
+
+use super::MediaLibrary;
+use crate::persistence::PersistenceError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ImageMetadataStatus {
+    Parsed,
+    NotPresent,
+    UnsupportedFormat,
+    Invalid,
+}
+
+/// The known metadata fields useful for editing, without raw chunks or embedded bytes.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct KnownImageMetadata {
+    pub prompt: Option<String>,
+    pub negative_prompt: Option<String>,
+    pub model: Option<String>,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub seed: Option<i64>,
+    #[cfg_attr(
+        feature = "typegen",
+        ts(type = "{ width: number; height: number } | null")
+    )]
+    pub size: Option<ImageSize>,
+    pub steps: Option<u32>,
+    pub sampler: Option<String>,
+    pub scale: Option<f32>,
+    pub noise_schedule: Option<String>,
+    pub cfg_rescale: Option<f32>,
+    pub uc_preset: Option<i32>,
+    pub quality_toggle: Option<bool>,
+    pub source: Option<String>,
+    pub software: Option<String>,
+    pub characters: Vec<KnownCharacterMetadata>,
+    pub embedded_vibe_count: usize,
+}
+
+/// Recognized text does not imply that missing character positions can be restored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct KnownCharacterMetadata {
+    pub source_index: usize,
+    pub prompt: Option<String>,
+    pub negative_prompt: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct ImageMetadataReport {
+    pub status: ImageMetadataStatus,
+    pub generation: Option<KnownImageMetadata>,
+    pub warnings: Vec<String>,
+}
+
+impl MediaLibrary {
+    /// Projects SDK metadata into a bounded application view; unknown values stay absent.
+    ///
+    /// # Errors
+    /// Returns an unavailable asset, an incompatible kind or a file read failure.
+    pub fn inspect_metadata(&self, id: &str) -> Result<ImageMetadataReport, PersistenceError> {
+        Ok(metadata_report(&self.inspect_sdk_metadata(id)?))
+    }
+}
+
+pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetadataReport {
+    match inspection {
+        GeneratedImageMetadata::Parsed(metadata) => ImageMetadataReport {
+            status: ImageMetadataStatus::Parsed,
+            generation: Some(KnownImageMetadata {
+                prompt: metadata.prompt.clone(),
+                negative_prompt: metadata.negative_prompt.clone(),
+                model: metadata.model.clone(),
+                seed: metadata.seed,
+                size: metadata
+                    .width
+                    .zip(metadata.height)
+                    .map(|(width, height)| ImageSize { width, height }),
+                steps: metadata.steps,
+                sampler: metadata.sampler.clone(),
+                scale: metadata.scale,
+                noise_schedule: metadata.noise_schedule.clone(),
+                cfg_rescale: metadata.cfg_rescale,
+                uc_preset: metadata.uc_preset,
+                quality_toggle: metadata.quality_toggle,
+                source: metadata.source.clone(),
+                software: metadata.software.clone(),
+                characters: metadata
+                    .characters
+                    .iter()
+                    .map(|character| KnownCharacterMetadata {
+                        source_index: character.source_index,
+                        prompt: character.prompt.clone(),
+                        negative_prompt: character.negative_prompt.clone(),
+                    })
+                    .collect(),
+                embedded_vibe_count: metadata.vibe_entries.len(),
+            }),
+            warnings: metadata
+                .warnings
+                .iter()
+                .map(|warning| format!("{warning:?}"))
+                .collect(),
+        },
+        GeneratedImageMetadata::NotPresent => ImageMetadataReport {
+            status: ImageMetadataStatus::NotPresent,
+            generation: None,
+            warnings: Vec::new(),
+        },
+        GeneratedImageMetadata::UnsupportedFormat => ImageMetadataReport {
+            status: ImageMetadataStatus::UnsupportedFormat,
+            generation: None,
+            warnings: Vec::new(),
+        },
+        GeneratedImageMetadata::Invalid { message } => ImageMetadataReport {
+            status: ImageMetadataStatus::Invalid,
+            generation: None,
+            warnings: vec![message.clone()],
+        },
+    }
+}

@@ -4,8 +4,11 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Composition, PresetBinding, PromptNode, Resource, ResourceContent};
-use crate::session::Draft;
+use super::{
+    CharacterComposition, Composition, PresetBinding, PresetOutputOverrides, PromptNode, Resource,
+    ResourceContent,
+};
+use crate::session::{CreationOperation, Draft, ReferenceInputs};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "camelCase")]
@@ -53,6 +56,61 @@ fn composition(value: &Composition, expanded: bool) -> Result<(), ValidationErro
     Ok(())
 }
 
+fn outputs(
+    base: &Composition,
+    characters: &[CharacterComposition],
+    references: &ReferenceInputs,
+    expanded: bool,
+) -> Result<(), ValidationError> {
+    composition(base, expanded)?;
+    let mut character_ids = HashSet::new();
+    let mut node_ids: HashSet<&str> = base
+        .positive
+        .iter()
+        .chain(&base.negative)
+        .map(PromptNode::id)
+        .collect();
+    for character in characters {
+        nonempty(&character.id, "characters.id")?;
+        if !character_ids.insert(&character.id) {
+            return Err(invalid("characters.id", "duplicate character identity"));
+        }
+        composition(&character.composition, expanded)?;
+        for node in character
+            .composition
+            .positive
+            .iter()
+            .chain(&character.composition.negative)
+        {
+            if !node_ids.insert(node.id()) {
+                return Err(invalid(
+                    "composition.node.id",
+                    "duplicate node identity across prompt targets",
+                ));
+            }
+        }
+    }
+    let mut reference_ids = HashSet::new();
+    for (id, asset_id) in references
+        .precise
+        .iter()
+        .map(|value| (&value.id, &value.asset_id))
+        .chain(
+            references
+                .vibes
+                .iter()
+                .map(|value| (&value.id, &value.asset_id)),
+        )
+    {
+        nonempty(id, "references.id")?;
+        nonempty(asset_id, "references.assetId")?;
+        if !reference_ids.insert(id) {
+            return Err(invalid("references.id", "duplicate reference identity"));
+        }
+    }
+    Ok(())
+}
+
 /// Checks resource identity, name and unambiguous composition entry identities.
 ///
 /// # Errors
@@ -61,10 +119,13 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
     nonempty(&resource.id, "id")?;
     nonempty(&resource.name, "name")?;
     if let ResourceContent::Preset {
-        composition: nodes, ..
+        composition: nodes,
+        characters,
+        references,
+        ..
     } = &resource.content
     {
-        composition(nodes, false)?;
+        outputs(nodes, characters, references, false)?;
     }
     Ok(())
 }
@@ -74,7 +135,28 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
 /// # Errors
 /// Returns the field and reason for the first structural violation.
 pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
-    composition(&draft.composition, false)?;
+    outputs(
+        &draft.composition,
+        &draft.characters,
+        &draft.inputs.references,
+        false,
+    )?;
+    match &draft.inputs.operation {
+        CreationOperation::TextToImage => {},
+        CreationOperation::ImageToImage { asset_id, .. }
+        | CreationOperation::Director { asset_id, .. }
+        | CreationOperation::EncodeVibe { asset_id, .. } => {
+            nonempty(asset_id, "inputs.operation.assetId")?;
+        },
+        CreationOperation::Inpainting {
+            asset_id,
+            mask_asset_id,
+            ..
+        } => {
+            nonempty(asset_id, "inputs.operation.assetId")?;
+            nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;
+        },
+    }
     let mut ids = HashSet::new();
     for instance in &draft.presets {
         nonempty(&instance.id, "presets.id")?;
@@ -85,6 +167,7 @@ pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
             PresetBinding::Linked {
                 resource_id,
                 overrides,
+                output_overrides,
             } => {
                 nonempty(resource_id, "presets.resourceId")?;
                 let mut targets = HashSet::new();
@@ -97,16 +180,72 @@ pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
                         ));
                     }
                 }
+                validate_output_overrides(output_overrides)?;
             },
             PresetBinding::Expanded {
                 name,
                 composition: nodes,
+                characters,
+                references,
                 ..
             } => {
                 nonempty(name, "presets.name")?;
-                composition(nodes, true)?;
+                outputs(nodes, characters, references, true)?;
             },
         }
+    }
+    Ok(())
+}
+
+fn validate_output_overrides(
+    output_overrides: &PresetOutputOverrides,
+) -> Result<(), ValidationError> {
+    for (field, values) in [
+        (
+            "presets.outputOverrides.characters",
+            output_overrides
+                .characters
+                .iter()
+                .map(|edit| edit.character_id.as_str())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "presets.outputOverrides.precise",
+            output_overrides
+                .precise
+                .iter()
+                .map(|edit| edit.id.as_str())
+                .collect(),
+        ),
+        (
+            "presets.outputOverrides.vibes",
+            output_overrides
+                .vibes
+                .iter()
+                .map(|edit| edit.id.as_str())
+                .collect(),
+        ),
+    ] {
+        let mut targets = HashSet::new();
+        for id in values {
+            nonempty(id, field)?;
+            if !targets.insert(id) {
+                return Err(invalid(field, "duplicate output override target"));
+            }
+        }
+    }
+    for asset_id in output_overrides
+        .precise
+        .iter()
+        .filter_map(|edit| edit.asset_id.as_deref())
+        .chain(
+            output_overrides
+                .vibes
+                .iter()
+                .filter_map(|edit| edit.asset_id.as_deref()),
+        )
+    {
+        nonempty(asset_id, "presets.outputOverrides.assetId")?;
     }
     Ok(())
 }

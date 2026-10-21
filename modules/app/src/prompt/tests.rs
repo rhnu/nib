@@ -5,7 +5,7 @@ use novelai_bridge::{ImageSize, Model, Sampler};
 use super::*;
 use crate::{
     persistence::PersistenceError,
-    session::{Draft, validate_draft},
+    session::{Draft, ReferenceInputs, validate_draft},
 };
 
 #[derive(Default)]
@@ -72,6 +72,8 @@ fn preset(
         content: ResourceContent::Preset {
             composition: Composition { positive, negative },
             defaults,
+            characters: Vec::new(),
+            references: ReferenceInputs::default(),
         },
     }
 }
@@ -83,6 +85,7 @@ fn instance(id: &str, resource_id: &str, overrides: Vec<InstanceOverride>) -> Pr
         binding: PresetBinding::Linked {
             resource_id: resource_id.into(),
             overrides,
+            output_overrides: PresetOutputOverrides::default(),
         },
     }
 }
@@ -362,6 +365,7 @@ fn expansion_keeps_text_settings_identity_and_group_but_detaches_all_dependencie
         name,
         composition,
         defaults,
+        ..
     } = &expanded.binding
     else {
         panic!("must detach recipe")
@@ -546,6 +550,8 @@ fn malformed_expanded_groups_and_duplicate_overrides_cannot_be_saved() {
                 negative: vec![],
             },
             defaults: GenerationSettings::default(),
+            characters: Vec::new(),
+            references: ReferenceInputs::default(),
         },
     });
     assert_eq!(validate_draft(&draft).unwrap_err().field, "composition");
@@ -598,3 +604,5 @@ fn backend_failures_remain_errors_in_resolution_and_expansion() {
         Err(ExpansionError::Persistence(PersistenceError::Locked))
     ));
 }
+
+mod outputs;

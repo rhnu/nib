@@ -182,6 +182,20 @@ pub(crate) async fn resolve_draft(
 }
 
 #[tauri::command]
+pub(crate) async fn get_model_capabilities(
+    state: tauri::State<'_, DesktopState>,
+    draft: Draft,
+) -> Result<Option<nib_app::api::ModelCapabilities>, ApiError> {
+    with_database(state, move |database| {
+        let resolved = database
+            .read_resources(|reader| prompt::resolve_draft(&draft, reader))
+            .map_err(persistence_error)?;
+        Ok(nib_app::api::model_capabilities(&resolved))
+    })
+    .await
+}
+
+#[tauri::command]
 pub(crate) async fn expand_chunk(
     state: tauri::State<'_, DesktopState>,
     node: PromptNode,

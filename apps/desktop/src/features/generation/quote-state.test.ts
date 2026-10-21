@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Draft } from "../../bindings/workbench";
-import { generationQuoteKey, hasResolvedPrompt } from "./quote-state";
+import { emptyReferences, emptySettings } from "../prompt/model";
+import { generationQuoteKey, hasResolvedPrompt, isQuoteEligible } from "./quote-state";
 
 const draft: Draft = {
   revision: 1,
   composition: { positive: [], negative: [] },
   presets: [],
-  settings: { model: null, size: null, steps: null, scale: null, sampler: null },
+  settings: emptySettings(),
+  characters: [],
+  inputs: { operation: { kind: "textToImage" }, references: emptyReferences(), stream: null },
 };
 
 describe("generation quote eligibility", () => {
@@ -18,6 +21,22 @@ describe("generation quote eligibility", () => {
 
   it("leaves nonempty NAI syntax to the SDK", () => {
     expect(hasResolvedPrompt({ positive: "{}[]" })).toBe(true);
+  });
+
+  it("allows image tools to be quoted without an unrelated generation prompt", () => {
+    expect(
+      isQuoteEligible(
+        {
+          ...draft,
+          inputs: {
+            ...draft.inputs,
+            operation: { kind: "director", assetId: "image", command: "lineart" },
+          },
+        },
+        null,
+      ),
+    ).toBe(true);
+    expect(isQuoteEligible(draft, null)).toBe(false);
   });
 });
 
@@ -40,5 +59,37 @@ describe("generation quote identity", () => {
     expect(generationQuoteKey({ ...draft, settings: { ...draft.settings, steps: 20 } })).not.toBe(
       generationQuoteKey(draft),
     );
+  });
+
+  it("invalidates a quote when an image operation or character changes", () => {
+    expect(
+      generationQuoteKey({
+        ...draft,
+        inputs: {
+          ...draft.inputs,
+          operation: {
+            kind: "inpainting",
+            assetId: "source",
+            maskAssetId: "mask",
+            strength: 0.5,
+            noise: 0,
+            addOriginalImage: true,
+          },
+        },
+      }),
+    ).not.toBe(generationQuoteKey(draft));
+    expect(
+      generationQuoteKey({
+        ...draft,
+        characters: [
+          {
+            id: "character",
+            enabled: true,
+            composition: { positive: [], negative: [] },
+            position: { x: 0.3, y: 0.5 },
+          },
+        ],
+      }),
+    ).not.toBe(generationQuoteKey(draft));
   });
 });

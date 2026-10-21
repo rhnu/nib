@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import type { Resource, ResourceKind } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
-import { emptyComposition, emptySettings } from "../prompt/model";
+import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
 import { libraryApi } from "./api";
 export function useResourceEditor(
   onChanged: () => Promise<void>,
@@ -38,7 +38,13 @@ export function useResourceEditor(
         content:
           nextKind === "chunk"
             ? { kind: "chunk", text: "" }
-            : { kind: "preset", composition: emptyComposition(), defaults: emptySettings() },
+            : {
+                kind: "preset",
+                composition: emptyComposition(),
+                defaults: emptySettings(),
+                characters: [],
+                references: emptyReferences(),
+              },
       });
       setDirty(false);
       setError("");

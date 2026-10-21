@@ -5,7 +5,6 @@ use std::sync::Arc;
 use nib_app::{
     api::{ApiError, ErrorCode},
     jobs::{GenerationQuote, JobError, JobRecord},
-    media::GenerationResult,
     session::Draft,
     settings::{AccountStatus, CredentialError, CredentialStore as _},
 };
@@ -30,7 +29,7 @@ fn credential_error(error: &CredentialError) -> ApiError {
     }
 }
 
-fn generation_error(error: JobError) -> ApiError {
+pub(crate) fn generation_error(error: JobError) -> ApiError {
     match error {
         JobError::Persistence(error) => crate::commands::persistence_error(error),
         JobError::Credential(error) => credential_error(&error),
@@ -65,7 +64,7 @@ fn generation_error(error: JobError) -> ApiError {
     }
 }
 
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     action: impl FnOnce() -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     tauri::async_runtime::spawn_blocking(action)
@@ -76,7 +75,7 @@ async fn blocking<T: Send + 'static>(
         })?
 }
 
-async fn with_generation<T: Send + 'static>(
+pub(crate) async fn with_generation<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<GenerationRuntime>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
@@ -109,7 +108,8 @@ pub(crate) async fn save_account_key(
     state: tauri::State<'_, DesktopState>,
     key: String,
 ) -> Result<AccountStatus, ApiError> {
-    let credentials = Arc::clone(&state.credentials);
+    let desktop = state.inner().clone();
+    let credentials = Arc::clone(&desktop.credentials);
     let key = SecretString::from(key);
     blocking(move || {
         use secrecy::ExposeSecret as _;
@@ -125,6 +125,7 @@ pub(crate) async fn save_account_key(
         credentials
             .save(SecretString::from(trimmed.to_owned()))
             .map_err(|error| credential_error(&error))?;
+        desktop.invalidate_sdk().map_err(generation_error)?;
         Ok(AccountStatus { configured: true })
     })
     .await
@@ -134,11 +135,13 @@ pub(crate) async fn save_account_key(
 pub(crate) async fn delete_account_key(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<AccountStatus, ApiError> {
-    let credentials = Arc::clone(&state.credentials);
+    let desktop = state.inner().clone();
+    let credentials = Arc::clone(&desktop.credentials);
     blocking(move || {
         credentials
             .delete()
             .map_err(|error| credential_error(&error))?;
+        desktop.invalidate_sdk().map_err(generation_error)?;
         Ok(AccountStatus { configured: false })
     })
     .await
@@ -199,43 +202,62 @@ pub(crate) async fn retry_job(
 }
 
 #[tauri::command]
-pub(crate) async fn list_results(
+pub(crate) async fn get_account_summary(
     state: tauri::State<'_, DesktopState>,
-) -> Result<Vec<GenerationResult>, ApiError> {
-    with_generation(state, |runtime| {
-        runtime
-            .media
-            .list()
-            .map_err(|error| generation_error(error.into()))
-    })
-    .await
+) -> Result<Option<nib_app::settings::AccountSummary>, ApiError> {
+    with_generation(state, |runtime| Ok(runtime.queue.account())).await
 }
 
 #[tauri::command]
-pub(crate) async fn read_result_image(
+pub(crate) async fn refresh_account_summary(
     state: tauri::State<'_, DesktopState>,
-    id: String,
-) -> Result<tauri::ipc::Response, ApiError> {
-    with_generation(state, move |runtime| {
-        let content = runtime
-            .media
-            .read(&id)
-            .map_err(|error| generation_error(error.into()))?;
-        Ok(tauri::ipc::Response::new(content.bytes))
-    })
-    .await
+) -> Result<nib_app::settings::AccountSummary, ApiError> {
+    let desktop = state.inner().clone();
+    let runtime = blocking(move || desktop.generation().map_err(generation_error)).await?;
+    runtime
+        .queue
+        .refresh_account()
+        .await
+        .map_err(generation_error)
 }
 
 #[tauri::command]
-pub(crate) async fn restore_result(
+pub(crate) async fn subscribe_job_feedback(
     state: tauri::State<'_, DesktopState>,
-    id: String,
-) -> Result<Draft, ApiError> {
-    with_generation(state, move |runtime| {
-        runtime
-            .media
-            .restore(&id)
-            .map_err(|error| generation_error(error.into()))
-    })
-    .await
+    window: tauri::WebviewWindow,
+    on_event: tauri::ipc::Channel<nib_app::jobs::JobFeedback>,
+) -> Result<(), ApiError> {
+    let desktop = state.inner().clone();
+    let runtime = with_generation(state, Ok).await?;
+    let mut feedback = runtime.queue.subscribe();
+    let worker = tauri::async_runtime::spawn(async move {
+        loop {
+            match feedback.recv().await {
+                Ok(event) => {
+                    if on_event.send(event).is_err() {
+                        break;
+                    }
+                },
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {},
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
+    desktop
+        .replace_feedback(window.label().to_owned(), worker)
+        .map_err(crate::commands::persistence_error)
+}
+
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri injects owned command arguments"
+)]
+pub(crate) fn unsubscribe_job_feedback(
+    state: tauri::State<'_, DesktopState>,
+    window: tauri::WebviewWindow,
+) -> Result<(), ApiError> {
+    state
+        .stop_feedback(window.label())
+        .map_err(crate::commands::persistence_error)
 }
