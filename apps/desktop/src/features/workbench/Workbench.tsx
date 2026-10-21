@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
 import { Button, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
+import type { CloseWriter } from "../../shared/host/useCloseGuard";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
 import { PromptWorkspace } from "./PromptWorkspace";
@@ -22,6 +23,8 @@ export function Workbench({
   renderResults,
   renderHeader,
   settings,
+  settingsWriter,
+  initialPage = "create",
 }: {
   workspace: WorkspaceSnapshot;
   initialResources: Map<string, Resource>;
@@ -29,8 +32,10 @@ export function Workbench({
   renderResults?: (context: WorkbenchExtension) => ReactNode;
   renderHeader: (navigation: ReactNode) => ReactNode;
   settings: ReactNode;
+  settingsWriter: CloseWriter;
+  initialPage?: "create" | "settings";
 }) {
-  const state = useWorkbench(workspace, initialResources);
+  const state = useWorkbench(workspace, initialResources, settingsWriter);
   const {
     writer,
     written,
@@ -53,7 +58,7 @@ export function Workbench({
     refreshResources,
     resourceVersion,
   } = state;
-  const [page, setPage] = useState<"create" | "settings">("create");
+  const [page, setPage] = useState<"create" | "settings">(initialPage);
   const extension = {
     draft,
     readCurrentDraft,

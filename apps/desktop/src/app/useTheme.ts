@@ -1,11 +1,7 @@
-import { useEffect, useState } from "react";
-export function useTheme() {
-  const [theme, setTheme] = useState(() =>
-    localStorage.getItem("nib-theme") === "light" ? "light" : "dark",
-  );
+import { useEffect } from "react";
+import type { Theme } from "../bindings/settings";
+export function useTheme(theme: Theme | undefined) {
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("nib-theme", theme);
+    document.documentElement.dataset.theme = theme ?? "dark";
   }, [theme]);
-  return { theme, toggleTheme: () => setTheme((value) => (value === "dark" ? "light" : "dark")) };
 }

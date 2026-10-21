@@ -7,12 +7,19 @@ use novelai_bridge::SecretString;
 use secrecy::ExposeSecret as _;
 
 /// Serializes access to the one `NovelAI` API key in the OS credential store.
-#[derive(Default)]
 pub(crate) struct NativeCredentials {
     entry: Mutex<Option<keyring_core::Entry>>,
+    development: bool,
 }
 
 impl NativeCredentials {
+    pub(crate) fn new(development: bool) -> Self {
+        Self {
+            entry: Mutex::new(None),
+            development,
+        }
+    }
+
     fn with_entry<T>(
         &self,
         action: impl FnOnce(&keyring_core::Entry) -> Result<T, keyring_core::Error>,
@@ -22,7 +29,7 @@ impl NativeCredentials {
             .lock()
             .map_err(|_poisoned| CredentialError::Locked)?;
         if slot.is_none() {
-            *slot = Some(create_entry().map_err(|error| {
+            *slot = Some(create_entry(self.development).map_err(|error| {
                 CredentialError::failure("open the native credential store", error)
             })?);
         }
@@ -60,17 +67,21 @@ impl CredentialStore for NativeCredentials {
 }
 
 #[cfg(windows)]
-fn create_entry() -> Result<keyring_core::Entry, keyring_core::Error> {
+fn create_entry(development: bool) -> Result<keyring_core::Entry, keyring_core::Error> {
     use keyring_core::api::CredentialStoreApi as _;
     // Keep credentials local to this machine rather than roaming with a Windows account.
     windows_native_keyring_store::Store::new()?.build(
-        "dev.rhynia.nib",
+        if development {
+            "dev.rhynia.nib.development"
+        } else {
+            "dev.rhynia.nib"
+        },
         "novelai-api-key",
         Some(&std::collections::HashMap::from([("persistence", "Local")])),
     )
 }
 
 #[cfg(not(windows))]
-fn create_entry() -> Result<keyring_core::Entry, keyring_core::Error> {
+fn create_entry(_development: bool) -> Result<keyring_core::Entry, keyring_core::Error> {
     Err(keyring_core::Error::NoDefaultStore)
 }

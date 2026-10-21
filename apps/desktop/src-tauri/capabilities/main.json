@@ -4,6 +4,9 @@
   "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
+    "allow-get-application-settings",
+    "allow-save-application-preferences",
+    "allow-set-data-directory",
     "allow-get-workspace",
     "allow-search-resources",
     "allow-get-resource",

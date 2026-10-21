@@ -1,9 +1,51 @@
-//! Account credentials stay in a host-owned secret backend.
+//! Global application preferences and host-owned account credentials.
+
+mod sqlite;
 
 use std::error::Error;
 
 use novelai_bridge::SecretString;
 use serde::{Deserialize, Serialize};
+pub use sqlite::{DataDirectories, GlobalSettingsStore};
+
+/// The application-wide appearance, synchronized with the desktop host.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum Theme {
+    #[default]
+    Dark,
+    Light,
+}
+
+/// Global preferences remain independent of the selected data directory.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct ApplicationPreferences {
+    pub theme: Theme,
+}
+
+/// Resolved host directories displayed by the storage settings screen.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct StorageLocations {
+    pub config_directory: String,
+    pub data_directory: String,
+    pub pending_data_directory: Option<String>,
+    pub default_data_directory: String,
+    pub development: bool,
+}
+
+/// Global preferences and storage locations synchronized at application startup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct ApplicationSettingsSnapshot {
+    pub preferences: ApplicationPreferences,
+    pub storage: StorageLocations,
+}
 
 /// Only credential presence crosses the application boundary.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

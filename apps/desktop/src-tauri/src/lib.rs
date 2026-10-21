@@ -9,7 +9,9 @@ mod credentials;
 mod generation;
 mod media;
 mod sdk;
+mod settings;
 mod state;
+mod storage;
 
 /// Initializes host diagnostics and runs the native desktop event loop.
 ///
@@ -30,10 +32,23 @@ pub fn run() -> anyhow::Result<()> {
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
         .setup(|app| {
-            app.manage(state::DesktopState::new(app.path().app_data_dir()?));
+            let development = tauri::is_dev();
+            let base = if development {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .ancestors()
+                    .nth(3)
+                    .context("the desktop host must be inside the nib workspace")?
+                    .join(".dev")
+            } else {
+                app.path().app_data_dir()?
+            };
+            app.manage(state::DesktopState::new(&base, development)?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            settings::get_application_settings,
+            settings::save_application_preferences,
+            settings::set_data_directory,
             commands::get_workspace,
             commands::search_resources,
             commands::get_resource,

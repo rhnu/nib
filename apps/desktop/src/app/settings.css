@@ -38,3 +38,36 @@
   justify-content: space-between;
   gap: 12px;
 }
+.storage-settings {
+  display: grid;
+  gap: 12px;
+}
+.storage-settings .section-heading,
+.storage-settings h2 {
+  margin-bottom: 0;
+}
+.settings-description {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+.settings-pending {
+  margin: 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--accent);
+}
+.settings-pending span {
+  display: block;
+}
+.storage-settings form {
+  display: grid;
+  gap: 10px;
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -2377,6 +2377,7 @@ dependencies = [
  "nib-app",
  "novelai-bridge",
  "secrecy",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tokio",

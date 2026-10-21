@@ -2,23 +2,27 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hasDesktopHost } from "./invoke";
 import { errorMessage } from "./error";
+export type CloseWriter = { getSnapshot: () => { dirty: boolean }; flush: () => Promise<void> };
 /** Resource editing blocks close; live draft writes must finish before native destruction. */
 export function useCloseGuard({
   writer,
   resourceDirty,
   onResourceBlocked,
   onError,
+  enabled = true,
 }: {
-  writer: { getSnapshot: () => { dirty: boolean }; flush: () => Promise<void> };
+  writer: CloseWriter;
   resourceDirty: boolean;
   onResourceBlocked: () => void;
   onError: (message: string) => void;
+  enabled?: boolean;
 }) {
   const latest = useRef({ resourceDirty, onResourceBlocked, onError });
   useLayoutEffect(() => {
     latest.current = { resourceDirty, onResourceBlocked, onError };
   });
   useEffect(() => {
+    if (!enabled) return;
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (writer.getSnapshot().dirty || latest.current.resourceDirty) event.preventDefault();
     };
@@ -44,7 +48,7 @@ export function useCloseGuard({
           }
           await getCurrentWindow().destroy();
         } catch (cause) {
-          latest.current.onError(`窗口未关闭，当前创作仍保留在编辑器中：${errorMessage(cause)}`);
+          latest.current.onError(`窗口未关闭，仍有内容或设置未保存：${errorMessage(cause)}`);
         } finally {
           closing = false;
         }
@@ -61,5 +65,5 @@ export function useCloseGuard({
       unlisten?.();
       window.removeEventListener("beforeunload", beforeUnload);
     };
-  }, [writer]);
+  }, [writer, enabled]);
 }

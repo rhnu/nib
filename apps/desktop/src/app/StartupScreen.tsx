@@ -4,10 +4,12 @@ export function StartupScreen({
   loading,
   error,
   retry,
+  loadingLabel = "正在打开创作数据…",
 }: {
   loading: boolean;
   error: string;
   retry: () => void;
+  loadingLabel?: string;
 }) {
   return (
     <main className="startup">
@@ -17,7 +19,7 @@ export function StartupScreen({
         {loading ? (
           <output className="startup-message">
             <LoaderCircle className="spin" size={17} />
-            正在打开工作区…
+            {loadingLabel}
           </output>
         ) : (
           <>

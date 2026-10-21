@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashMap,
-    path::PathBuf,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
@@ -12,7 +12,7 @@ use nib_app::{
     persistence::{PersistenceError, SqliteDatabase},
 };
 
-use crate::{credentials::NativeCredentials, sdk::SdkClients};
+use crate::{credentials::NativeCredentials, sdk::SdkClients, storage::StorageManager};
 
 pub(crate) struct GenerationRuntime {
     pub(crate) queue: Arc<JobQueue>,
@@ -20,7 +20,7 @@ pub(crate) struct GenerationRuntime {
 
 #[derive(Clone)]
 pub(crate) struct DesktopState {
-    data_dir: PathBuf,
+    pub(crate) storage: Arc<StorageManager>,
     database: Arc<Mutex<Option<Arc<SqliteDatabase>>>>,
     media: Arc<Mutex<Option<Arc<MediaLibrary>>>>,
     sdk: Arc<Mutex<Option<Arc<SdkClients>>>>,
@@ -30,16 +30,16 @@ pub(crate) struct DesktopState {
 }
 
 impl DesktopState {
-    pub(crate) fn new(data_dir: PathBuf) -> Self {
-        Self {
-            data_dir,
+    pub(crate) fn new(base: &Path, development: bool) -> Result<Self, PersistenceError> {
+        Ok(Self {
+            storage: Arc::new(StorageManager::open(base, development)?),
             database: Arc::new(Mutex::new(None)),
             media: Arc::new(Mutex::new(None)),
             sdk: Arc::new(Mutex::new(None)),
             generation: Arc::new(Mutex::new(None)),
             feedback: Arc::new(Mutex::new(HashMap::new())),
-            credentials: Arc::new(NativeCredentials::default()),
-        }
+            credentials: Arc::new(NativeCredentials::new(development)),
+        })
     }
 
     pub(crate) fn database(&self) -> Result<Arc<SqliteDatabase>, PersistenceError> {
@@ -50,10 +50,8 @@ impl DesktopState {
         if let Some(database) = slot.as_ref() {
             return Ok(Arc::clone(database));
         }
-        std::fs::create_dir_all(&self.data_dir).map_err(|error| {
-            PersistenceError::failure("create the application data directory", error)
-        })?;
-        let database = Arc::new(SqliteDatabase::open(&self.data_dir.join("nib.sqlite3"))?);
+        let data_dir = self.storage.data_directory()?;
+        let database = Arc::new(SqliteDatabase::open(&data_dir.join("nib.sqlite3"))?);
         *slot = Some(Arc::clone(&database));
         tracing::info!("opened the local creation database");
         Ok(database)
@@ -67,9 +65,10 @@ impl DesktopState {
         if let Some(media) = slot.as_ref() {
             return Ok(Arc::clone(media));
         }
+        let database = self.database()?;
         let media = Arc::new(MediaLibrary::new(
-            self.database()?,
-            self.data_dir.join("media"),
+            database,
+            self.storage.data_directory()?.join("media"),
         )?);
         *slot = Some(Arc::clone(&media));
         Ok(media)

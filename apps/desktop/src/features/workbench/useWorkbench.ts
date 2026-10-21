@@ -1,6 +1,6 @@
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "../../bindings/workbench";
-import { useCloseGuard } from "../../shared/host/useCloseGuard";
+import { useCloseGuard, type CloseWriter } from "../../shared/host/useCloseGuard";
 import { errorMessage } from "../../shared/host/error";
 import { useResourceCache } from "../library/useResourceCache";
 import type { InsertTarget } from "../library/ResourceLibrary";
@@ -10,6 +10,7 @@ import { workbenchApi } from "./api";
 export function useWorkbench(
   workspace: WorkspaceSnapshot,
   initialResources: Map<string, Resource>,
+  settingsWriter: CloseWriter,
 ) {
   const [writer] = useState(() => {
     const value = new DraftWriter<Draft>(workbenchApi.saveDraft);
@@ -25,8 +26,22 @@ export function useWorkbench(
   const [library, setLibrary] = useState(false);
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
   const [resourceDirty, setResourceDirty] = useState(false);
+  const closeWriter = useMemo(
+    () => ({
+      getSnapshot: () => ({
+        dirty: writer.getSnapshot().dirty || settingsWriter.getSnapshot().dirty,
+      }),
+      flush: async () => {
+        do {
+          await settingsWriter.flush();
+          await writer.flush();
+        } while (settingsWriter.getSnapshot().dirty || writer.getSnapshot().dirty);
+      },
+    }),
+    [writer, settingsWriter],
+  );
   useCloseGuard({
-    writer,
+    writer: closeWriter,
     resourceDirty,
     onResourceBlocked: () => {
       setError("资源中有未保存的修改。请先保存资源，再关闭窗口。");

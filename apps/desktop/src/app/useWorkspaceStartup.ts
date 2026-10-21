@@ -5,13 +5,13 @@ import { errorMessage } from "../shared/host/error";
 import { workbenchApi } from "../features/workbench/api";
 import { libraryApi } from "../features/library/api";
 type OpenWorkspace = { snapshot: WorkspaceSnapshot; resources: Map<string, Resource> };
-export function useWorkspaceStartup() {
+export function useWorkspaceStartup(enabled = true) {
   const [workspace, setWorkspace] = useState<OpenWorkspace | null>(null);
   const [loading, setLoading] = useState(hasDesktopHost);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!hasDesktopHost()) return;
+    if (!hasDesktopHost() || !enabled) return;
     let active = true;
     void workbenchApi
       .workspace()
@@ -33,7 +33,7 @@ export function useWorkspaceStartup() {
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, [attempt, enabled]);
   return {
     workspace,
     loading,
