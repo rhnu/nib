@@ -4,6 +4,7 @@ pub mod api;
 pub mod jobs;
 pub mod library;
 pub mod media;
+pub mod persistence;
 pub mod prompt;
 pub mod session;
 pub mod settings;

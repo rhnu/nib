@@ -13,12 +13,16 @@ nib-app = { path = "modules/app" }
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
 novelai-bridge = { version = "0.6.0", default-features = false }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 tauri = "2.12.4"
 tauri-build = "2.7.3"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 ts-rs = "12.0.1"
+thiserror = "2.0.21"
+uuid = { version = "1.28.0", features = ["v4", "serde"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
