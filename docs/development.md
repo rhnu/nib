@@ -83,6 +83,8 @@ SQLite 使用 rusqlite 的 bundled 后端。全局配置与创作数据使用独
 
 Rust 边界类型通过 serde 定义 JSON 命名，通过可选 `typegen` feature 派生 ts-rs 类型。前端引用已生成的声明，不手写平行类型；业务模块不依赖生成文件。
 
+新增前端命令时同时更新宿主 handler、构建命令清单和主窗口 capability；注册 handler 不会自动授予调用权限。模型编辑选项与范围投影 SDK 描述符，严格拒绝返回 SDK 类型化字段位置，前端不解析错误文案来推断字段。
+
 ```sh
 pnpm types
 pnpm types:check

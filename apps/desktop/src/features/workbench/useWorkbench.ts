@@ -5,6 +5,7 @@ import { errorMessage } from "../../shared/host/error";
 import { useResourceCache } from "../library/useResourceCache";
 import type { InsertTarget } from "../library/ResourceLibrary";
 import { useResolution } from "../prompt/useResolution";
+import { emptySettings } from "../prompt/model";
 import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
 export function useWorkbench(
@@ -71,6 +72,7 @@ export function useWorkbench(
               kind: "linked",
               resourceId: resource.id,
               overrides: [],
+              settingsOverrides: emptySettings(),
               outputOverrides: {
                 characters: [],
                 precise: [],

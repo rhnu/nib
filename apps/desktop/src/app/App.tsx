@@ -111,16 +111,24 @@ export default function App() {
               </>
             )}
             settings={<SettingsPage settings={settings} />}
-            renderActions={({ draft, readCurrentDraft, resourceVersion, resolved, resolving }) => (
+            renderActions={({ draft, readCurrentDraft, quoteRefreshKey, resolved, estimate }) => (
               <GenerationActions
                 draft={draft}
                 readCurrentDraft={readCurrentDraft}
-                refreshKey={resourceVersion}
+                refreshKey={quoteRefreshKey}
                 resolved={resolved}
-                resolving={resolving}
+                estimate={estimate}
               />
             )}
-            renderResults={({ onRestore }) => <GenerationResults onRestore={onRestore} />}
+            renderResults={({ onRestore, readCurrentDraft }) => (
+              <GenerationResults
+                onRestore={onRestore}
+                onUseSeed={(seed) => {
+                  const current = readCurrentDraft();
+                  onRestore({ ...current, settings: { ...current.settings, seed } });
+                }}
+              />
+            )}
           />
         </GenerationProvider>
       )}

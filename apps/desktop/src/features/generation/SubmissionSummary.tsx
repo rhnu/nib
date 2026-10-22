@@ -52,6 +52,14 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           <dt>提交种子</dt>
           <dd>{seed}</dd>
         </div>
+        <div>
+          <dt>样本数</dt>
+          <dd>{resolved.settings.nSamples}</dd>
+        </div>
+        <div>
+          <dt>参数校验</dt>
+          <dd>{resolved.inputs.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
+        </div>
       </dl>
       <details className="generation-prompts">
         <summary>查看提交时的提示词</summary>
@@ -61,7 +69,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
         <pre>{resolved.negative || "（空）"}</pre>
       </details>
       <details className="generation-sources">
-        <summary>查看提交时的内容与设置来源</summary>
+        <summary>完整有效设置与内容来源</summary>
         <div className="generation-source-details">
           <section>
             <h4>内容来源</h4>

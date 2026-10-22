@@ -1,12 +1,14 @@
 import { useState } from "react";
-import type { Draft, Resource, ResolvedDraft } from "../../bindings/workbench";
+import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
+import type { ParameterDiagnostic, TokenFieldUsage } from "../../bindings/generation";
 import { ScanText } from "lucide-react";
 import { HelpMarker, IconButton, Modal } from "../../shared/ui";
 import { CompositionEditor } from "../prompt/CompositionEditor";
-import { SettingsEditor } from "../prompt/SettingsEditor";
+import { SettingsEditor, focusSetting } from "../prompt/SettingsEditor";
 import { ResolutionInspector } from "../prompt/ResolutionInspector";
 import { promptApi } from "../prompt/api";
 import { errorMessage } from "../../shared/host/error";
+import { TokenUsageSummary } from "../generation/TokenUsageSummary";
 import type { InsertTarget } from "../library/ResourceLibrary";
 export function PromptWorkspace({
   draft,
@@ -15,6 +17,10 @@ export function PromptWorkspace({
   resolving,
   resolveError,
   models,
+  capabilities,
+  diagnostics,
+  tokens,
+  errorFields,
   openLibrary,
   edit,
   setError,
@@ -25,6 +31,10 @@ export function PromptWorkspace({
   resolving: boolean;
   resolveError: string;
   models: string[];
+  capabilities: ModelCapabilities | null;
+  diagnostics: ParameterDiagnostic[];
+  tokens: TokenFieldUsage[];
+  errorFields: string[];
   openLibrary: (target: InsertTarget) => void;
   edit: (draft: Draft) => void;
   setError: (message: string) => void;
@@ -37,12 +47,17 @@ export function PromptWorkspace({
         fields="model"
         value={draft.settings}
         models={models}
+        capabilities={capabilities}
+        diagnostics={diagnostics}
+        errorFields={errorFields}
         resolved={resolved?.settings}
         onChange={(settings) => edit({ ...draft, settings })}
       />
       <CompositionEditor
         value={draft.composition}
         resources={resources}
+        models={models}
+        model={resolved?.settings.model ?? draft.settings.model ?? undefined}
         onChange={(composition) => edit({ ...draft, composition })}
         addChunk={openLibrary}
         toolbarActions={
@@ -78,6 +93,22 @@ export function PromptWorkspace({
           }
         }}
       />
+      <SettingsEditor
+        fields="prompt"
+        value={draft.settings}
+        models={models}
+        capabilities={capabilities}
+        diagnostics={diagnostics}
+        errorFields={errorFields}
+        resolved={resolved?.settings}
+        onChange={(settings) => edit({ ...draft, settings })}
+      />
+      <TokenUsageSummary tokens={tokens} />
+      {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
+        <output className="inline-warning">
+          此模型不接受自定义负面提示；编辑内容已保留，实际处理结果见 SDK 诊断。
+        </output>
+      )}
       {resolveError && (
         <p className="inline-warning" role="alert">
           {resolveError}
@@ -90,6 +121,11 @@ export function PromptWorkspace({
           error={resolveError}
           draft={draft}
           resources={resources}
+          diagnostics={diagnostics}
+          onFocusField={(field) => {
+            setInspector(false);
+            requestAnimationFrame(() => focusSetting(field));
+          }}
         />
       </Modal>
     </section>

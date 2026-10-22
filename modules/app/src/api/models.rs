@@ -1,11 +1,15 @@
 //! IPC views read SDK descriptors; they never decide request validity.
 
 use novelai_bridge::{
-    GenerationMode, QualityPreset, ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
+    AlphaMode, GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule,
+    QualityPreset, ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
 };
 use serde::Serialize;
 
-use crate::{prompt::ResolvedDraft, session::CreationOperation};
+use crate::{
+    prompt::{GenerationSettings, ResolvedDraft, ResolvedSettings},
+    session::CreationOperation,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +38,20 @@ pub struct ModelCapabilities {
     pub uc_presets: Vec<UcPreset>,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
     pub fixed_sampler: Option<Sampler>,
+    #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
+    pub fixed_noise_schedule: Option<NoiseSchedule>,
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub samplers: Vec<Sampler>,
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub noise_schedules: Vec<NoiseSchedule>,
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub image_formats: Vec<ImageFormat>,
+    #[cfg_attr(feature = "typegen", ts(type = "(\"straight\" | \"premultiplied\")[]"))]
+    pub alpha_modes: Vec<AlphaMode>,
+    #[cfg_attr(feature = "typegen", ts(type = "(\"zip\" | \"json\")[]"))]
+    pub response_formats: Vec<ImageResponseFormat>,
+    pub defaults: ResolvedSettings,
+    pub ranges: GenerationRanges,
     pub transparent_background: bool,
     pub furry_mode: bool,
     pub smea: bool,
@@ -43,6 +61,37 @@ pub struct ModelCapabilities {
     pub can_add_vibe_reference: bool,
     pub precise_reference: ReferenceStatus,
     pub vibe_reference: ReferenceStatus,
+}
+
+/// Numeric editor hints copied from SDK descriptors; validation stays in the SDK.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct GenerationRanges {
+    pub dimension: NumericRange,
+    pub dimension_multiple: u32,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub max_pixels: u64,
+    pub steps: NumericRange,
+    pub scale: NumericRange,
+    pub n_samples: NumericRange,
+    pub cfg_rescale: NumericRange,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct NumericRange {
+    pub min: f64,
+    pub max: f64,
+}
+
+impl<T: Into<f64>> From<novelai_bridge::ParameterRange<T>> for NumericRange {
+    fn from(value: novelai_bridge::ParameterRange<T>) -> Self {
+        Self {
+            min: value.min.into(),
+            max: value.max.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,8 +123,6 @@ impl From<ReferenceAvailability> for ReferenceStatus {
 
 /// Projects capabilities for the resolved model and actual input intent.
 pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities> {
-    let model = resolved.settings.model;
-    let descriptor = model.descriptor();
     let mode = match resolved.inputs.operation {
         CreationOperation::ImageToImage { .. } => GenerationMode::ImageToImage,
         CreationOperation::Inpainting { .. } => GenerationMode::Inpainting,
@@ -84,7 +131,8 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
         | CreationOperation::EncodeVibe { .. }
         | CreationOperation::Upscale { .. } => return None,
     };
-    let references = descriptor.resolve_references(
+    Some(project_capabilities(
+        &resolved.settings,
         mode,
         ReferenceIntent {
             vibe: resolved
@@ -100,8 +148,39 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
                 .iter()
                 .any(|reference| reference.enabled),
         },
-    );
-    Some(ModelCapabilities {
+    ))
+}
+
+/// Returns standalone text-to-image editor hints without reading a creation or resources.
+#[must_use]
+pub fn model_defaults_capabilities(
+    model: Model,
+    settings: Option<GenerationSettings>,
+) -> ModelCapabilities {
+    let settings = GenerationSettings {
+        model: Some(model),
+        ..settings.unwrap_or_default()
+    }
+    .resolve();
+    project_capabilities(
+        &settings,
+        GenerationMode::TextToImage,
+        ReferenceIntent::default(),
+    )
+}
+
+fn project_capabilities(
+    settings: &ResolvedSettings,
+    mode: GenerationMode,
+    intent: ReferenceIntent,
+) -> ModelCapabilities {
+    let model = settings.model;
+    let descriptor = model.descriptor();
+    let references = descriptor.resolve_references(mode, intent);
+    let profile = descriptor.sampling();
+    let (sampler, samplers, noise_schedules) = sampling_options(settings, mode);
+    let constraints = descriptor.constraints();
+    ModelCapabilities {
         model: model.as_str().to_owned(),
         tokenizer: descriptor.prompt().tokenizer.as_str().to_owned(),
         token_limit: descriptor.prompt().token_limit,
@@ -145,9 +224,30 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
             .map(|definition| definition.preset)
             .collect(),
         fixed_sampler: descriptor.sampling().fixed_sampler,
+        fixed_noise_schedule: (noise_schedules.len() == 1).then(|| noise_schedules[0]),
+        samplers,
+        noise_schedules,
+        image_formats: vec![ImageFormat::Png, ImageFormat::Webp],
+        alpha_modes: vec![AlphaMode::Straight, AlphaMode::Premultiplied],
+        response_formats: vec![ImageResponseFormat::Zip, ImageResponseFormat::Json],
+        defaults: ResolvedSettings::from_request(
+            &novelai_bridge::GenerateImageRequest::builder("", model).build(),
+        ),
+        ranges: GenerationRanges {
+            dimension: constraints.canvas.dimension.into(),
+            dimension_multiple: constraints.canvas.multiple,
+            max_pixels: constraints.canvas.max_pixels,
+            steps: constraints.steps.into(),
+            scale: constraints.scale.into(),
+            n_samples: NumericRange {
+                min: f64::from(constraints.samples.min),
+                max: f64::from(descriptor.sample_limit(settings.size)),
+            },
+            cfg_rescale: constraints.cfg_rescale.into(),
+        },
         transparent_background: descriptor.prompt().transparent_background,
         furry_mode: descriptor.prompt().furry_mode,
-        smea: descriptor.sampling().smea,
+        smea: profile.supports_smea(mode, sampler),
         decrisp: descriptor.sampling().dynamic_thresholding,
         variety_boost: descriptor.sampling().variety.is_some(),
         can_add_precise_reference: descriptor
@@ -172,5 +272,48 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
             .is_available(),
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
-    })
+    }
 }
+
+/// Enumerates presentation choices through SDK sampling resolution for this context.
+fn sampling_options(
+    settings: &ResolvedSettings,
+    mode: GenerationMode,
+) -> (Sampler, Vec<Sampler>, Vec<NoiseSchedule>) {
+    let steps = settings.steps;
+    let profile = settings.model.descriptor().sampling();
+    let sampler = profile.resolve_sampler_for_steps(mode, settings.sampler, steps);
+    let samplers = [
+        Sampler::KEuler,
+        Sampler::KEulerAncestral,
+        Sampler::KDpm2,
+        Sampler::KDpm2Ancestral,
+        Sampler::KDpmpp2m,
+        Sampler::KDpmpp2mSde,
+        Sampler::KDpmpp2sAncestral,
+        Sampler::KDpmppSde,
+        Sampler::Ddim,
+        Sampler::DdimV3,
+    ]
+    .into_iter()
+    .filter(|value| profile.resolve_sampler_for_steps(mode, *value, steps) == *value)
+    .collect();
+    let noise_schedules: Vec<_> = [
+        NoiseSchedule::Native,
+        NoiseSchedule::Karras,
+        NoiseSchedule::Exponential,
+        NoiseSchedule::Polyexponential,
+    ]
+    .into_iter()
+    .filter(|value| {
+        profile
+            .resolve_noise_schedule_for(sampler, *value)
+            .unwrap_or(NoiseSchedule::Native)
+            == *value
+    })
+    .collect();
+    (sampler, samplers, noise_schedules)
+}
+
+#[cfg(test)]
+mod tests;

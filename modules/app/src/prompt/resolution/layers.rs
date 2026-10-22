@@ -45,6 +45,7 @@ impl ResolutionState {
                 resource_id,
                 overrides,
                 output_overrides,
+                settings_overrides,
             } => {
                 let Some(resource) = lookup(
                     resource_id,
@@ -83,6 +84,14 @@ impl ResolutionState {
                     },
                     reader,
                 )?;
+                self.settings.overlay(
+                    settings_overrides,
+                    &mut self.provenance,
+                    &SettingSource::PresetOverride {
+                        instance_id: instance.id.clone(),
+                        resource_id: resource_id.clone(),
+                    },
+                );
             },
             PresetBinding::Expanded {
                 name,

@@ -16,6 +16,8 @@ export function CompositionEditor({
   compact = false,
   allowChunk = true,
   toolbarActions,
+  models,
+  model,
 }: {
   value: Composition;
   onChange: (value: Composition) => void;
@@ -25,6 +27,8 @@ export function CompositionEditor({
   compact?: boolean;
   allowChunk?: boolean;
   toolbarActions?: ReactNode;
+  models?: string[];
+  model?: string;
 }) {
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
   const [activeScope, setActiveScope] = useState<"positive" | "negative">("positive");
@@ -40,8 +44,12 @@ export function CompositionEditor({
     >
       <header className="composition-toolbar">
         <Tabs.List className="prompt-tabs" aria-label="提示词作用域">
-          <Tabs.Tab value="positive">提示词</Tabs.Tab>
-          <Tabs.Tab value="negative">负面内容</Tabs.Tab>
+          <Tabs.Tab value="positive" data-prompt-tab="positive">
+            提示词
+          </Tabs.Tab>
+          <Tabs.Tab value="negative" data-prompt-tab="negative">
+            负面内容
+          </Tabs.Tab>
         </Tabs.List>
         <div className="button-group">
           {allowChunk && (
@@ -62,7 +70,13 @@ export function CompositionEditor({
         </div>
       </header>
       {(["positive", "negative"] as const).map((scope) => (
-        <Tabs.Panel className="prompt-scope" key={scope} value={scope} keepMounted>
+        <Tabs.Panel
+          className="prompt-scope"
+          key={scope}
+          value={scope}
+          data-prompt-scope={scope}
+          keepMounted
+        >
           {value[scope].length === 0 && (
             <div className="scope-empty">
               <Button type="button" className="quiet" onClick={() => update(scope, [textNode()])}>
@@ -75,6 +89,8 @@ export function CompositionEditor({
             <NodeEditor
               key={node.id}
               node={node}
+              models={models}
+              model={model}
               resource={node.kind === "chunk" ? resources.get(node.resourceId) : undefined}
               onChange={(next) =>
                 update(

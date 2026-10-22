@@ -648,3 +648,5 @@ fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
     assert_eq!(focus_seed, Some(123));
     assert_eq!(info_extract_seed, Some(456));
 }
+
+mod policy;

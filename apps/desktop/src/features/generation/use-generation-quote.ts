@@ -12,6 +12,7 @@ export function useGenerationQuote(draft: Draft, refreshKey?: unknown, enabled =
     key: string;
     quote: GenerationQuote | null;
     error: string | null;
+    fields: string[];
   } | null>(null);
   useEffect(() => {
     if (!enabled) return;
@@ -19,10 +20,16 @@ export function useGenerationQuote(draft: Draft, refreshKey?: unknown, enabled =
     const timer = setTimeout(() => {
       void generationApi.quote(draft).then(
         (quote) => {
-          if (!cancelled) setState({ key, quote, error: null });
+          if (!cancelled) setState({ key, quote, error: null, fields: [] });
         },
         (error: unknown) => {
-          if (!cancelled) setState({ key, quote: null, error: errorMessage(error) });
+          if (!cancelled)
+            setState({
+              key,
+              quote: null,
+              error: errorMessage(error),
+              fields: validationFields(error),
+            });
         },
       );
     }, 350);
@@ -36,10 +43,18 @@ export function useGenerationQuote(draft: Draft, refreshKey?: unknown, enabled =
     key,
     quote: current?.quote ?? null,
     error: current?.error ?? null,
+    fields: current?.fields ?? [],
     loading: enabled && !current,
     retry: () => {
       setState(null);
       setAttempt((value) => value + 1);
     },
   };
+}
+
+export function validationFields(error: unknown): string[] {
+  if (typeof error !== "object" || error === null || !("validationFields" in error)) return [];
+  return Array.isArray(error.validationFields)
+    ? error.validationFields.filter((field): field is string => typeof field === "string")
+    : [];
 }

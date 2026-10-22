@@ -84,6 +84,7 @@ fn instance(id: &str, resource_id: &str, overrides: Vec<InstanceOverride>) -> Pr
         enabled: true,
         binding: PresetBinding::Linked {
             resource_id: resource_id.into(),
+            settings_overrides: crate::prompt::GenerationSettings::default(),
             overrides,
             output_overrides: PresetOutputOverrides::default(),
         },
@@ -606,3 +607,69 @@ fn backend_failures_remain_errors_in_resolution_and_expansion() {
 }
 
 mod outputs;
+
+#[test]
+fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {
+    let resources = Resources::new(vec![preset(
+        "recipe",
+        vec![text("base", "cat")],
+        vec![],
+        GenerationSettings {
+            seed: Some(99),
+            furry_mode: Some(true),
+            steps: Some(20),
+            ..GenerationSettings::default()
+        },
+    )]);
+    let mut linked = instance("instance", "recipe", vec![]);
+    let PresetBinding::Linked {
+        settings_overrides, ..
+    } = &mut linked.binding
+    else {
+        unreachable!()
+    };
+    *settings_overrides = GenerationSettings {
+        seed: Some(0),
+        furry_mode: Some(false),
+        ..GenerationSettings::default()
+    };
+    let draft = Draft {
+        presets: vec![linked.clone()],
+        ..Draft::default()
+    };
+    let value = serde_json::to_value(&draft).unwrap();
+    let reopened: Draft = serde_json::from_value(value).unwrap();
+    let resolved = resolve_draft(&reopened, &resources).unwrap();
+    assert_eq!(resolved.settings.seed, 0);
+    assert!(!resolved.settings.furry_mode);
+    assert_eq!(resolved.settings.steps, 20);
+    assert!(
+        matches!(&resolved.provenance.seed, SettingSource::PresetOverride { instance_id, resource_id } if instance_id == "instance" && resource_id == "recipe")
+    );
+    let expanded = expand_preset(&linked, &resources).unwrap();
+    let expanded_resolved = resolve_draft(
+        &Draft {
+            presets: vec![expanded],
+            ..Draft::default()
+        },
+        &Resources::default(),
+    )
+    .unwrap();
+    assert_eq!(expanded_resolved.settings, resolved.settings);
+    let mut inherited = reopened;
+    let PresetBinding::Linked {
+        settings_overrides, ..
+    } = &mut inherited.presets[0].binding
+    else {
+        unreachable!()
+    };
+    settings_overrides.seed = None;
+    settings_overrides.furry_mode = None;
+    let inherited = resolve_draft(&inherited, &resources).unwrap();
+    assert_eq!(inherited.settings.seed, 99);
+    assert!(inherited.settings.furry_mode);
+    assert!(matches!(
+        inherited.provenance.seed,
+        SettingSource::Preset { .. }
+    ));
+}

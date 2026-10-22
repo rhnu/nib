@@ -41,6 +41,8 @@ pub enum FrozenSubmission {
     },
     Director {
         asset_id: String,
+        #[cfg_attr(feature = "typegen", ts(type = "\"normalize\" | \"reject\""))]
+        policy: novelai_bridge::ValidationPolicy,
         diagnostics: Vec<ParameterDiagnostic>,
         #[cfg_attr(
             feature = "typegen",
@@ -52,6 +54,8 @@ pub enum FrozenSubmission {
     },
     EncodeVibe {
         asset_id: String,
+        #[cfg_attr(feature = "typegen", ts(type = "\"normalize\" | \"reject\""))]
+        policy: novelai_bridge::ValidationPolicy,
         diagnostics: Vec<ParameterDiagnostic>,
         #[cfg_attr(feature = "typegen", ts(type = "string"))]
         model: novelai_bridge::Model,

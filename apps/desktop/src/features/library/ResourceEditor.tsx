@@ -5,6 +5,8 @@ import { CompositionEditor } from "../prompt/CompositionEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { promptApi } from "../prompt/api";
 import { errorMessage } from "../../shared/host/error";
+import { useModelCapabilities } from "../workbench/useModelCapabilities";
+import { PromptTextEditor } from "../prompt/PromptTextEditor";
 export function ResourceEditor({
   editor,
   dirty,
@@ -30,6 +32,10 @@ export function ResourceEditor({
   save: () => Promise<void>;
   setError: (message: string) => void;
 }) {
+  const model = useModelCapabilities(
+    editor.content.kind === "preset" ? (editor.content.defaults.model ?? undefined) : undefined,
+    editor.content.kind === "preset" ? editor.content.defaults : null,
+  );
   return (
     <section className="resource-editor">
       <header className="resource-editor-heading">
@@ -55,23 +61,25 @@ export function ResourceEditor({
           />
         </Field>
         {editor.content.kind === "chunk" ? (
-          <label className="field resource-text">
-            <span>提示词内容</span>
-            <textarea
-              spellCheck={false}
+          <div className="resource-text">
+            <PromptTextEditor
+              label="提示词内容"
               value={editor.content.text}
+              models={models}
+              model={model.capabilities?.model}
+              disabled={busy}
               placeholder="输入可复用的提示词…"
-              onChange={(event) =>
-                change({ ...editor, content: { kind: "chunk", text: event.target.value } })
-              }
+              onChange={(text) => change({ ...editor, content: { kind: "chunk", text } })}
             />
-          </label>
+          </div>
         ) : (
           <>
             <CompositionEditor
               compact
               value={editor.content.composition}
               resources={resources}
+              models={models}
+              model={model.capabilities?.model}
               onChange={(composition) => {
                 if (editor.content.kind === "preset")
                   change({ ...editor, content: { ...editor.content, composition } });
@@ -95,11 +103,19 @@ export function ResourceEditor({
               <SettingsEditor
                 value={editor.content.defaults}
                 models={models}
+                mode="preset"
+                capabilities={model.capabilities}
                 onChange={(defaults) => {
                   if (editor.content.kind === "preset")
                     change({ ...editor, content: { ...editor.content, defaults } });
                 }}
               />
+              {model.error && (
+                <p className="inline-warning" role="alert">
+                  {model.error}
+                  <Button onClick={model.retry}>重试模型查询</Button>
+                </p>
+              )}
             </details>
           </>
         )}

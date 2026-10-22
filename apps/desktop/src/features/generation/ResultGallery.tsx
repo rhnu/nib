@@ -5,6 +5,7 @@ import type { GenerationResult } from "../../bindings/generation";
 import { Button, IconButton } from "../../shared/ui";
 import { ResultDetail } from "./ResultDetail";
 import { useResultImage } from "./use-result-image";
+import { resultFilename } from "./result-file";
 
 function ResultTile({
   result,
@@ -51,7 +52,15 @@ function ResultTile({
   );
 }
 
-function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: () => void }) {
+function ResultCanvas({
+  result,
+  onOpen,
+  onUseSeed,
+}: {
+  result: GenerationResult;
+  onOpen: () => void;
+  onUseSeed: (seed: number) => void;
+}) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [zoom, setZoom] = useState(1);
   const canZoom = Boolean(image.url && !image.error);
@@ -63,6 +72,16 @@ function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: ()
           {new Date(result.createdAt).toLocaleString()}
         </span>
         <div className="generation-view-tools" aria-label="图像查看">
+          {result.seed !== null && result.available && (
+            <Button className="quiet" onClick={() => onUseSeed(result.seed!)}>
+              使用样本种子
+            </Button>
+          )}
+          {image.url && (
+            <a className="result-download" href={image.url} download={resultFilename(result)}>
+              下载
+            </a>
+          )}
           <IconButton
             className="quiet"
             label="缩小图像"
@@ -130,10 +149,12 @@ function ResultCanvas({ result, onOpen }: { result: GenerationResult; onOpen: ()
 export function ResultGallery({
   results,
   onRestore,
+  onUseSeed,
   queryFailed,
 }: {
   results: GenerationResult[] | null;
   onRestore: (draft: Draft) => void;
+  onUseSeed: (seed: number) => void;
   queryFailed: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -159,6 +180,7 @@ export function ResultGallery({
               key={selected.id}
               result={selected}
               onOpen={() => setDetailId(selected.id)}
+              onUseSeed={onUseSeed}
             />
           )}
           <div className="generation-filmstrip">
@@ -193,6 +215,7 @@ export function ResultGallery({
           result={detail}
           onClose={() => setDetailId(null)}
           onRestore={onRestore}
+          onUseSeed={onUseSeed}
         />
       )}
     </section>

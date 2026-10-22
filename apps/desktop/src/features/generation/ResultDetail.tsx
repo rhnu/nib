@@ -8,15 +8,18 @@ import { generationApi } from "./api";
 import { ResultResubmitDialog } from "./ResultResubmitDialog";
 import { SubmissionSummary } from "./SubmissionSummary";
 import { useResultImage } from "./use-result-image";
+import { resultFilename } from "./result-file";
 
 export function ResultDetail({
   result,
   onClose,
   onRestore,
+  onUseSeed,
 }: {
   result: GenerationResult;
   onClose: () => void;
   onRestore: (draft: Draft) => void;
+  onUseSeed: (seed: number) => void;
 }) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [confirmRestore, setConfirmRestore] = useState(false);
@@ -87,6 +90,21 @@ export function ResultDetail({
             </p>
           )}
           <div className="generation-detail-actions">
+            {image.url && (
+              <a className="result-download" href={image.url} download={resultFilename(result)}>
+                下载原图
+              </a>
+            )}
+            {result.seed !== null && result.available && (
+              <Button
+                onClick={() => {
+                  onUseSeed(result.seed!);
+                  onClose();
+                }}
+              >
+                仅使用样本种子
+              </Button>
+            )}
             <Button
               onClick={() => {
                 setConfirmRestore(true);

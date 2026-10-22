@@ -1,5 +1,8 @@
 import type { Draft, ResolutionIssue, Resource, ResolvedDraft } from "../../bindings/workbench";
 import { ContentSources, SettingsSources } from "./ResolutionSources";
+import type { ParameterDiagnostic } from "../../bindings/generation";
+import { Button } from "../../shared/ui";
+import { diagnosticSetting, settingLabels } from "./settings";
 
 export function ResolutionInspector({
   resolved,
@@ -7,12 +10,16 @@ export function ResolutionInspector({
   error,
   draft,
   resources,
+  diagnostics = [],
+  onFocusField,
 }: {
   resolved: ResolvedDraft | null;
   pending: boolean;
   error: string;
   draft: Draft;
   resources: Map<string, Resource>;
+  diagnostics?: ParameterDiagnostic[];
+  onFocusField?: (field: string) => void;
 }) {
   const issueContext = (issue: ResolutionIssue): string => {
     const labels: string[] = [];
@@ -69,6 +76,25 @@ export function ResolutionInspector({
             <h3>生效设置</h3>
             <SettingsSources settings={resolved.settings} provenance={resolved.provenance} />
           </section>
+          {diagnostics.length > 0 && (
+            <section className="resolution-diagnostics">
+              <h3>SDK 参数调整</h3>
+              {diagnostics.map((diagnostic, index) => {
+                const key = diagnosticSetting(diagnostic.field);
+                return (
+                  <div key={index}>
+                    <strong>{key ? settingLabels[key] : diagnostic.field}</strong>
+                    <p>{diagnostic.change}</p>
+                    {key && onFocusField && (
+                      <Button className="quiet" onClick={() => onFocusField(diagnostic.field)}>
+                        定位设置
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          )}
           {resolved.issues.length > 0 && (
             <section className="resolution-issues">
               <h3>需要处理</h3>

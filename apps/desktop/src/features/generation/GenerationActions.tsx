@@ -7,30 +7,39 @@ import { AccountDialog } from "./AccountDialog";
 import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { QuoteHelp } from "./QuoteSummary";
-import { useGenerationQuote } from "./use-generation-quote";
+import { useGenerationQuote, validationFields } from "./use-generation-quote";
 import { generationQuoteKey, isQuoteEligible } from "./quote-state";
 import { ParameterDiagnostics } from "./ParameterDiagnostics";
+import { AccountSnapshot } from "./AccountSnapshot";
+import { focusSetting } from "../prompt/SettingsEditor";
 
 export function GenerationActions({
   draft,
   readCurrentDraft,
   refreshKey,
   resolved,
-  resolving = false,
+  estimate,
 }: {
   draft: Draft;
   readCurrentDraft: () => Draft;
   refreshKey?: unknown;
   resolved?: ResolvedDraft | null;
-  resolving?: boolean;
+  estimate: ReturnType<typeof useGenerationQuote>;
 }) {
-  const { account, accountLoading, accountError, refreshAccount, acceptJob } = useGeneration();
+  const {
+    account,
+    accountLoading,
+    accountError,
+    refreshAccount,
+    acceptJob,
+    accountSummaryLoading,
+  } = useGeneration();
   const hasPrompt = isQuoteEligible(draft, resolved);
-  const estimate = useGenerationQuote(draft, refreshKey, !resolving && hasPrompt);
   const [accountOpen, setAccountOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<{ key: string; message: string } | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submitFields, setSubmitFields] = useState<string[]>([]);
   const submittingRef = useRef(false);
   if (submitError && (!hasPrompt || submitError.key !== estimate.key)) setSubmitError(null);
   useEffect(() => {
@@ -44,7 +53,9 @@ export function GenerationActions({
       submittingRef.current ||
       !account?.configured ||
       !estimate.quote ||
-      estimate.quote.tooExpensive
+      estimate.quote.tooExpensive ||
+      estimate.quote.tokens.some((token) => token.overLimit) ||
+      accountSummaryLoading
     )
       return;
     const snapshot = structuredClone(readCurrentDraft());
@@ -62,6 +73,7 @@ export function GenerationActions({
       setSubmitted(true);
     } catch (cause) {
       setSubmitError({ key: estimate.key, message: errorMessage(cause) });
+      setSubmitFields(validationFields(cause));
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -79,7 +91,11 @@ export function GenerationActions({
           disabled={
             submitting ||
             accountLoading ||
-            (Boolean(account?.configured) && (!estimate.quote || estimate.quote.tooExpensive))
+            accountSummaryLoading ||
+            (Boolean(account?.configured) &&
+              (!estimate.quote ||
+                estimate.quote.tooExpensive ||
+                estimate.quote.tokens.some((token) => token.overLimit)))
           }
           onClick={() => {
             if (!account?.configured) setAccountOpen(true);
@@ -108,12 +124,20 @@ export function GenerationActions({
         </Button>
         <QuoteHelp />
       </div>
+      <AccountSnapshot compact />
       {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}
-      {estimate.quote && <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} />}
+      {estimate.quote && (
+        <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={focusSetting} />
+      )}
       {submitted && <output className="generation-muted">已加入顺序队列</output>}
       {error && (
         <div className="generation-action-error" role="alert">
           <span>{error}</span>
+          {(currentSubmitError ? submitFields : estimate.fields).map((field) => (
+            <Button key={field} className="quiet" onClick={() => focusSetting(field)}>
+              定位参数
+            </Button>
+          ))}
           <Button
             className="quiet"
             onClick={() => {

@@ -7,6 +7,7 @@ import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { QuoteSummary } from "./QuoteSummary";
 import { SubmissionSummary } from "./SubmissionSummary";
+import { TokenUsageSummary } from "./TokenUsageSummary";
 
 export function ResultResubmitDialog({
   result,
@@ -15,8 +16,13 @@ export function ResultResubmitDialog({
   result: GenerationResult;
   onClose: () => void;
 }) {
-  const { account, acceptJob } = useGeneration();
-  const [prepared, setPrepared] = useState<{ draft: Draft; quote: GenerationQuote } | null>(null);
+  const { account, acceptJob, accountVersion, accountSummaryLoading } = useGeneration();
+  const [response, setPrepared] = useState<{
+    draft: Draft;
+    quote: GenerationQuote;
+    version: number;
+  } | null>(null);
+  const prepared = response?.version === accountVersion ? response : null;
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
@@ -38,7 +44,7 @@ export function ResultResubmitDialog({
       .then(
         (value) => {
           if (!cancelled && value) {
-            setPrepared(value);
+            setPrepared({ ...value, version: accountVersion });
             setError(null);
           }
         },
@@ -49,9 +55,17 @@ export function ResultResubmitDialog({
     return () => {
       cancelled = true;
     };
-  }, [result.id, attempt]);
+  }, [result.id, attempt, accountVersion]);
   async function submit() {
-    if (lock.current || !prepared || prepared.quote.tooExpensive || !account?.configured) return;
+    if (
+      lock.current ||
+      !prepared ||
+      prepared.quote.tooExpensive ||
+      prepared.quote.tokens.some((token) => token.overLimit) ||
+      !account?.configured ||
+      accountSummaryLoading
+    )
+      return;
     lock.current = true;
     setPending(true);
     setError(null);
@@ -71,7 +85,10 @@ export function ResultResubmitDialog({
         <p>用结果保存的内容、材料与有效设置创建新任务，不替换当前创作。</p>
         <SubmissionSummary submission={result.submission} />
         {prepared ? (
-          <QuoteSummary quote={prepared.quote} />
+          <>
+            <QuoteSummary quote={prepared.quote} />
+            <TokenUsageSummary tokens={prepared.quote.tokens} />
+          </>
         ) : (
           !error && <output>正在恢复内容并通过 SDK 估算费用…</output>
         )}
@@ -98,7 +115,14 @@ export function ResultResubmitDialog({
           <Button onClick={onClose}>取消</Button>
           <Button
             className="primary"
-            disabled={pending || !prepared || prepared.quote.tooExpensive || !account?.configured}
+            disabled={
+              pending ||
+              !prepared ||
+              prepared.quote.tooExpensive ||
+              prepared.quote.tokens.some((token) => token.overLimit) ||
+              !account?.configured ||
+              accountSummaryLoading
+            }
             onClick={() => void submit()}
           >
             {pending ? "正在提交…" : "确认生成"}

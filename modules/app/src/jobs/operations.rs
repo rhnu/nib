@@ -2,8 +2,7 @@
 use novelai_bridge::{
     AnlasPricingContext, CharacterReference, EncodeVibeRequest, GenerateImageRequest,
     GenerationDelivery, GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet,
-    RunDirectorToolRequest, UpscaleImageRequest, ValidationPolicy, VibeReference,
-    VibeTransferConfig,
+    RunDirectorToolRequest, UpscaleImageRequest, VibeReference, VibeTransferConfig,
 };
 
 use super::{
@@ -22,11 +21,12 @@ impl JobQueue {
                 let prepared = RunDirectorToolRequest {
                     image: image(self.assets.as_ref(), asset_id)?,
                     command: command.clone(),
-                    policy: ValidationPolicy::Normalize,
+                    policy: draft.inputs.policy,
                 }
                 .prepare()?;
                 Ok(FrozenSubmission::Director {
                     asset_id: asset_id.clone(),
+                    policy: draft.inputs.policy,
                     command: prepared.command().clone(),
                     diagnostics: adjustments(prepared.adjustments()),
                 })
@@ -51,11 +51,12 @@ impl JobQueue {
                     crop_to_mask: *crop_to_mask,
                     focus_seed: *focus_seed,
                     info_extract_seed: *info_extract_seed,
-                    policy: ValidationPolicy::Normalize,
+                    policy: draft.inputs.policy,
                 }
                 .prepare()?;
                 Ok(FrozenSubmission::EncodeVibe {
                     asset_id: asset_id.clone(),
+                    policy: draft.inputs.policy,
                     model: prepared.model(),
                     information_extracted: prepared.information_extracted(),
                     mask_asset_id: mask_asset_id.clone(),
@@ -117,20 +118,7 @@ impl JobQueue {
                 let usage = plan
                     .count_tokens(&self.tokenizers)
                     .map_err(novelai_bridge::BridgeError::from)?;
-                let mut tokens = vec![
-                    token_field("prompt".to_owned(), usage.prompt),
-                    token_field("negativePrompt".to_owned(), usage.negative_prompt),
-                ];
-                for character in usage.characters {
-                    tokens.push(token_field(
-                        format!("characters[{}].prompt", character.index),
-                        character.prompt,
-                    ));
-                    tokens.push(token_field(
-                        format!("characters[{}].negativePrompt", character.index),
-                        character.negative_prompt,
-                    ));
-                }
+                let tokens = token_usage_fields(usage);
                 (
                     Some(*resolved),
                     Some(estimate.total),
@@ -139,14 +127,17 @@ impl JobQueue {
                 )
             },
             FrozenSubmission::Director {
-                asset_id, command, ..
+                asset_id,
+                command,
+                policy,
+                ..
             } => (
                 None,
                 Some(
                     RunDirectorToolRequest {
                         image: image(self.assets.as_ref(), &asset_id)?,
                         command,
-                        policy: ValidationPolicy::Normalize,
+                        policy,
                     }
                     .prepare()?
                     .estimate_anlas_cost(context),
@@ -195,6 +186,25 @@ impl JobQueue {
             account_sampled_at,
         })
     }
+}
+
+/// Projects per-conditioning usage without combining independent SDK prompt budgets.
+fn token_usage_fields(usage: novelai_bridge::PromptTokenUsage) -> Vec<TokenFieldUsage> {
+    let mut tokens = vec![
+        token_field("prompt".to_owned(), usage.prompt),
+        token_field("negativePrompt".to_owned(), usage.negative_prompt),
+    ];
+    for character in usage.characters {
+        tokens.push(token_field(
+            format!("characters[{}].prompt", character.index),
+            character.prompt,
+        ));
+        tokens.push(token_field(
+            format!("characters[{}].negativePrompt", character.index),
+            character.negative_prompt,
+        ));
+    }
+    tokens
 }
 
 fn token_field(field: String, count: novelai_bridge::TokenCount) -> TokenFieldUsage {

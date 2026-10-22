@@ -1,17 +1,25 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { FileText, Link2 } from "lucide-react";
-import type { InstanceOverride, PresetInstance, Resource } from "../../bindings/workbench";
+import type {
+  InstanceOverride,
+  ModelCapabilities,
+  PresetInstance,
+  Resource,
+} from "../../bindings/workbench";
 import { CompositionEditor } from "./CompositionEditor";
 import { SettingsEditor } from "./SettingsEditor";
 import { PresetOverrides } from "./PresetOverrides";
 import { promptApi } from "./api";
 import { errorMessage } from "../../shared/host/error";
-import { ActionsMenu, Toggle } from "../../shared/ui";
+import { ActionsMenu, Button, Toggle } from "../../shared/ui";
+import { useModelCapabilities } from "../workbench/useModelCapabilities";
+import { settingsWithDefaults } from "./settings";
 
 export function PresetEditor({
   instance,
   resources,
   models,
+  capabilities,
   onChange,
   onRemove,
   up,
@@ -23,6 +31,7 @@ export function PresetEditor({
   instance: PresetInstance;
   resources: Map<string, Resource>;
   models: string[];
+  capabilities?: ModelCapabilities | null;
   onChange: (instance: PresetInstance) => void;
   onRemove: () => void;
   up: () => void;
@@ -52,6 +61,24 @@ export function PresetEditor({
         ? resource.content.composition
         : null;
   const name = binding.kind === "expanded" ? binding.name : (resource?.name ?? "资源缺失");
+  const defaults =
+    binding.kind === "expanded"
+      ? binding.defaults
+      : resource?.content.kind === "preset"
+        ? resource.content.defaults
+        : null;
+  const settings = binding.kind === "linked" ? binding.settingsOverrides : binding.defaults;
+  const model = settings.model ?? defaults?.model ?? capabilities?.model;
+  const hintSettings = useMemo(
+    () => (defaults ? settingsWithDefaults(defaults, settings) : settings),
+    [defaults, settings],
+  );
+  const capabilityState = useModelCapabilities(model, hintSettings);
+  const effectiveCapabilities = capabilityState.capabilities;
+  const inherited =
+    effectiveCapabilities && defaults
+      ? settingsWithDefaults(effectiveCapabilities.defaults, defaults)
+      : undefined;
   const override = (value: InstanceOverride) => {
     if (binding.kind !== "linked") return;
     const overrides = binding.overrides.filter((item) => item.nodeId !== value.nodeId);
@@ -110,6 +137,8 @@ export function PresetEditor({
                 overrides={binding.overrides}
                 resources={resources}
                 name={name}
+                models={models}
+                model={model}
                 onChange={override}
               />
             ) : (
@@ -119,6 +148,8 @@ export function PresetEditor({
                   allowChunk={false}
                   value={binding.composition}
                   resources={resources}
+                  models={models}
+                  model={model}
                   onChange={(next) =>
                     onChange({ ...instance, binding: { ...binding, composition: next } })
                   }
@@ -131,15 +162,41 @@ export function PresetEditor({
                     }
                   }}
                 />
-                <SettingsEditor
-                  value={binding.defaults}
-                  models={models}
-                  onChange={(defaults) =>
-                    onChange({ ...instance, binding: { ...binding, defaults } })
-                  }
-                />
               </>
             )}
+            <section className="preset-settings">
+              <h3>{binding.kind === "linked" ? "本次设置覆盖" : "配方默认设置"}</h3>
+              <p className="setting-note">
+                {binding.kind === "linked"
+                  ? "留空继续使用原配方的声明；修改只影响本次实例。"
+                  : "仅声明配方负责的设置，其余继续继承。"}
+              </p>
+              {capabilityState.loading && <output className="muted">正在读取模型选项…</output>}
+              {capabilityState.error && (
+                <div className="inline-warning" role="alert">
+                  {capabilityState.error}
+                  <Button className="quiet" onClick={capabilityState.retry}>
+                    重试
+                  </Button>
+                </div>
+              )}
+              <SettingsEditor
+                value={settings}
+                models={models}
+                capabilities={effectiveCapabilities}
+                resolved={binding.kind === "linked" ? inherited : undefined}
+                mode={binding.kind === "linked" ? "instance" : "preset"}
+                onChange={(next) =>
+                  onChange({
+                    ...instance,
+                    binding:
+                      binding.kind === "linked"
+                        ? { ...binding, settingsOverrides: next }
+                        : { ...binding, defaults: next },
+                  })
+                }
+              />
+            </section>
           </div>
         </details>
       ) : (

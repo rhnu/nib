@@ -1,0 +1,103 @@
+.prompt-text-editor {
+  min-width: 0;
+}
+.prompt-text-editor > textarea {
+  display: block;
+  width: 100%;
+}
+.prompt-assist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px 5px;
+  border-top: 1px solid var(--line-subtle);
+}
+.prompt-assist-toolbar .ui-button {
+  min-height: 27px;
+  font-size: 11px;
+}
+.tag-assistance {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border-top: 1px solid var(--line-subtle);
+}
+.tag-assistance .field,
+.token-inspector .field {
+  min-width: 0;
+}
+.tag-assistance select,
+.token-inspector select {
+  width: 100%;
+}
+.tag-query-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag-query-field {
+  flex: 1 1 130px;
+}
+.tag-assist-help {
+  margin: 0;
+  font-size: 11px;
+}
+.tag-query-status:empty {
+  display: none;
+}
+.tag-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.tag-suggestions button {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 7px 9px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line-subtle);
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.tag-suggestions button:hover,
+.tag-suggestions button:focus-visible {
+  background: var(--accent-soft);
+}
+.tag-suggestions small {
+  color: var(--muted);
+}
+.token-inspector {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  min-height: 0;
+  overflow: auto;
+}
+.token-inspector > p {
+  margin: 0;
+}
+.token-inspector textarea {
+  width: 100%;
+  min-height: 90px;
+  font-family: ui-monospace, monospace;
+}
+.token-inspection-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 14px;
+  margin: 0;
+}
+.token-inspection-summary dt {
+  color: var(--muted);
+}
+.token-inspection-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use futures_util::StreamExt;
 use novelai_bridge::{
     EncodeVibeRequest, GenerateImageResult, ImageStreamEvent, RunDirectorToolRequest,
-    UpscaleImageRequest, ValidationPolicy,
+    UpscaleImageRequest,
 };
 use tokio::sync::Notify;
 
@@ -167,12 +167,15 @@ fn prepare_operation(
             stream: resolved.inputs.stream,
         }),
         FrozenSubmission::Director {
-            asset_id, command, ..
+            asset_id,
+            command,
+            policy,
+            ..
         } => Ok(PreparedOperation::Director(
             RunDirectorToolRequest {
                 image: super::operations::image(assets, &asset_id)?,
                 command,
-                policy: ValidationPolicy::Normalize,
+                policy,
             }
             .prepare()?,
         )),
@@ -184,6 +187,7 @@ fn prepare_operation(
             crop_to_mask,
             focus_seed,
             info_extract_seed,
+            policy,
             ..
         } => Ok(PreparedOperation::Vibe(
             EncodeVibeRequest {
@@ -197,7 +201,7 @@ fn prepare_operation(
                 crop_to_mask,
                 focus_seed,
                 info_extract_seed,
-                policy: ValidationPolicy::Normalize,
+                policy,
             }
             .prepare()?,
         )),

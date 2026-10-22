@@ -47,6 +47,7 @@ fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt
 #[test]
 fn non_generation_restore_preserves_the_applicable_operation_and_source() {
     let director = FrozenSubmission::Director {
+        policy: novelai_bridge::ValidationPolicy::Reject,
         asset_id: "original".into(),
         diagnostics: Vec::new(),
         command: DirectorCommand::Emotion {
@@ -61,6 +62,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
         CreationOperation::Director { asset_id, command: DirectorCommand::Emotion { prompt, defry: 2 } }
         if asset_id == "original" && prompt == "happy"));
     let vibe = FrozenSubmission::EncodeVibe {
+        policy: novelai_bridge::ValidationPolicy::Reject,
         asset_id: "source".into(),
         diagnostics: Vec::new(),
         model: Model::default(),

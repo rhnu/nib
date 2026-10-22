@@ -178,6 +178,7 @@ pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
                 resource_id,
                 overrides,
                 output_overrides,
+                ..
             } => {
                 nonempty(resource_id, "presets.resourceId")?;
                 let mut targets = HashSet::new();

@@ -1,7 +1,10 @@
 //! Serializable types shared by the application and its host interfaces.
 
 mod models;
-pub use models::{ModelCapabilities, ReferenceStatus, model_capabilities};
+pub use models::{
+    GenerationRanges, ModelCapabilities, NumericRange, ReferenceStatus, model_capabilities,
+    model_defaults_capabilities,
+};
 
 /// Application metadata displayed by the desktop client.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -42,4 +45,31 @@ pub enum ErrorCode {
 pub struct ApiError {
     pub code: ErrorCode,
     pub message: String,
+    pub validation_fields: Vec<String>,
+}
+
+/// Preserves typed SDK locations for editor focus without parsing human error messages.
+#[must_use]
+pub fn request_error_fields(error: &novelai_bridge::InvalidRequest) -> Vec<String> {
+    use novelai_bridge::InvalidRequest;
+    match error {
+        InvalidRequest::PromptTokenLimitExceeded { field, .. }
+        | InvalidRequest::EmptyField { field }
+        | InvalidRequest::NumericOutOfRange { field, .. }
+        | InvalidRequest::InvalidImageDimension { field, .. }
+        | InvalidRequest::NonFiniteNumber { field, .. }
+        | InvalidRequest::InvalidDataUrl { field, .. }
+        | InvalidRequest::InvalidBase64 { field, .. }
+        | InvalidRequest::UndecodableImage { field, .. }
+        | InvalidRequest::RequiredFieldForContext { field, .. }
+        | InvalidRequest::ZeroImageDimension { field } => vec![field.to_string()],
+        InvalidRequest::UnsupportedModelFeature { feature, .. } => vec![feature.to_string()],
+        InvalidRequest::UnsupportedFieldCombination { left, right } => {
+            vec![left.to_string(), right.to_string()]
+        },
+        InvalidRequest::InvalidEnhanceDimensions { .. } => {
+            vec![novelai_bridge::GenerationField::Size.to_string()]
+        },
+        _ => Vec::new(),
+    }
 }

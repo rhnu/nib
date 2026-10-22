@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { Link2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "../../bindings/workbench";
 import { ActionsMenu, Toggle } from "../../shared/ui";
+import { PromptTextEditor } from "./PromptTextEditor";
 
 export function NodeEditor({
   node,
@@ -13,6 +14,8 @@ export function NodeEditor({
   canDown,
   remove,
   expand,
+  models,
+  model,
 }: {
   node: PromptNode;
   resource?: Resource;
@@ -23,6 +26,8 @@ export function NodeEditor({
   canDown: boolean;
   remove: () => void;
   expand: (node: PromptNode) => Promise<PromptNode>;
+  models?: string[];
+  model?: string;
 }) {
   const latest = useRef({ node, onChange, active: true });
   useLayoutEffect(() => {
@@ -85,11 +90,10 @@ export function NodeEditor({
           />
         </div>
       </header>
-      <textarea
-        aria-label={
-          node.kind === "text" ? "提示词文本" : `${resource?.name ?? "缺失 Chunk"} 的本次内容`
-        }
-        spellCheck={false}
+      <PromptTextEditor
+        label={node.kind === "text" ? "提示词文本" : `${resource?.name ?? "缺失 Chunk"} 的本次内容`}
+        models={models}
+        model={model}
         value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
         placeholder={
           node.kind === "text"
@@ -98,12 +102,8 @@ export function NodeEditor({
               ? "此 Chunk 内容为空"
               : "引用的资源不存在；可移除引用或恢复原资源。"
         }
-        onChange={(event) =>
-          onChange(
-            node.kind === "text"
-              ? { ...node, text: event.target.value }
-              : { ...node, overrideText: event.target.value },
-          )
+        onChange={(text) =>
+          onChange(node.kind === "text" ? { ...node, text } : { ...node, overrideText: text })
         }
       />
     </article>

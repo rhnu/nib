@@ -1,48 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AccountStatus, GenerationResult, JobRecord } from "../../bindings/generation";
+import type { GenerationResult, JobRecord } from "../../bindings/generation";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
+import { useAccountData } from "./use-account-data";
 
 export function useGenerationData() {
-  const [account, setAccount] = useState<AccountStatus | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const [accountLoading, setAccountLoading] = useState(true);
+  const account = useAccountData();
   const [jobs, setJobs] = useState<JobRecord[] | null>(null);
   const [results, setResults] = useState<GenerationResult[] | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const active = useRef(false);
   const pending = useRef<Promise<void> | null>(null);
-  const accountPending = useRef<Promise<void> | null>(null);
   const jobsRef = useRef<JobRecord[]>([]);
   const mutationRevision = useRef(0);
-  const accountRevision = useRef(0);
-
-  const refreshAccount = useCallback((): Promise<void> => {
-    if (!active.current) return Promise.resolve();
-    if (accountPending.current) return accountPending.current;
-    setAccountLoading(true);
-    const revision = accountRevision.current;
-    const request = generationApi
-      .account()
-      .then(
-        (value) => {
-          if (!active.current || revision !== accountRevision.current) return;
-          setAccount(value);
-          setAccountError(null);
-        },
-        (error: unknown) => {
-          if (active.current && revision === accountRevision.current)
-            setAccountError(errorMessage(error));
-        },
-      )
-      .finally(() => {
-        accountPending.current = null;
-        if (active.current) setAccountLoading(false);
-      });
-    accountPending.current = request;
-    return request;
-  }, []);
 
   const refresh = useCallback((): Promise<void> => {
     if (!active.current) return Promise.resolve();
@@ -73,7 +44,6 @@ export function useGenerationData() {
     active.current = true;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    void refreshAccount();
     const poll = async () => {
       await refresh();
       if (stopped) return;
@@ -88,14 +58,7 @@ export function useGenerationData() {
       active.current = false;
       clearTimeout(timer);
     };
-  }, [refresh, refreshAccount]);
-
-  const accountChanged = useCallback((value: AccountStatus) => {
-    if (!active.current) return;
-    accountRevision.current += 1;
-    setAccount(value);
-    setAccountError(null);
-  }, []);
+  }, [refresh]);
 
   const acceptJob = useCallback(
     (value: JobRecord) => {
@@ -114,11 +77,7 @@ export function useGenerationData() {
   );
 
   return {
-    account,
-    accountError,
-    accountLoading,
-    refreshAccount,
-    accountChanged,
+    ...account,
     jobs,
     results,
     queryError,

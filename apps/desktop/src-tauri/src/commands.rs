@@ -23,6 +23,7 @@ pub(crate) fn persistence_error(error: PersistenceError) -> ApiError {
         ),
         PersistenceError::InvalidData { message } => {
             return ApiError {
+                validation_fields: Vec::new(),
                 code: ErrorCode::Invalid,
                 message,
             };
@@ -40,6 +41,7 @@ pub(crate) fn persistence_error(error: PersistenceError) -> ApiError {
         tracing::error!(error = ?error, "local data operation failed");
     }
     ApiError {
+        validation_fields: Vec::new(),
         code,
         message: message.to_owned(),
     }
@@ -49,6 +51,7 @@ fn expansion_error(error: ExpansionError) -> ApiError {
     match error {
         ExpansionError::Persistence(error) => persistence_error(error),
         ExpansionError::Unresolved { issues } => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unresolved,
             message: issues
                 .into_iter()
@@ -72,6 +75,7 @@ async fn with_database<T: Send + 'static>(
     .map_err(|error| {
         tracing::error!(error = ?error, "database worker failed");
         ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "本地数据操作未完成，请重试。".to_owned(),
         }
@@ -94,6 +98,14 @@ pub(crate) async fn inspect_tokens(
             .map_err(crate::generation::generation_error)
     })
     .await
+}
+
+#[tauri::command]
+pub(crate) fn get_model_defaults_capabilities(
+    model: Option<novelai_bridge::Model>,
+    settings: Option<prompt::GenerationSettings>,
+) -> nib_app::api::ModelCapabilities {
+    nib_app::api::model_defaults_capabilities(model.unwrap_or_default(), settings)
 }
 
 #[tauri::command]
@@ -190,6 +202,7 @@ pub(crate) async fn resolve_draft(
 ) -> Result<ResolvedDraft, ApiError> {
     with_database(state, move |database| {
         nib_app::session::validate_draft(&draft).map_err(|error| ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Invalid,
             message: error.to_string(),
         })?;

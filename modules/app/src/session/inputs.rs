@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct CreationInputs {
     pub operation: CreationOperation,
+    #[cfg_attr(feature = "typegen", ts(type = "\"normalize\" | \"reject\""))]
+    pub policy: novelai_bridge::ValidationPolicy,
     #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
     pub stream: Option<novelai_bridge::StreamMode>,
     pub references: ReferenceInputs,

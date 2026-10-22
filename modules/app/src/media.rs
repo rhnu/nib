@@ -428,9 +428,13 @@ fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft
             draft
         },
         FrozenSubmission::Director {
-            asset_id, command, ..
+            asset_id,
+            command,
+            policy,
+            ..
         } => Draft {
             inputs: CreationInputs {
+                policy: *policy,
                 operation: CreationOperation::Director {
                     asset_id: asset_id.clone(),
                     command: command.clone(),
@@ -447,9 +451,11 @@ fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft
             crop_to_mask,
             focus_seed,
             info_extract_seed,
+            policy,
             ..
         } => Draft {
             inputs: CreationInputs {
+                policy: *policy,
                 operation: CreationOperation::EncodeVibe {
                     asset_id: asset_id.clone(),
                     model: *model,

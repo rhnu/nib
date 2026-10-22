@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
-import type { Draft, Resource, ResolvedDraft } from "../../bindings/workbench";
-import { HelpMarker, IconButton } from "../../shared/ui";
+import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
+import type { ParameterDiagnostic } from "../../bindings/generation";
+import { Field, HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
@@ -9,6 +10,9 @@ export function ContextRail({
   resources,
   models,
   resolved,
+  capabilities,
+  diagnostics,
+  errorFields,
   readCurrentDraft,
   edit,
   onAddPreset,
@@ -18,6 +22,9 @@ export function ContextRail({
   resources: Map<string, Resource>;
   models: string[];
   resolved: ResolvedDraft | null;
+  capabilities: ModelCapabilities | null;
+  diagnostics: ParameterDiagnostic[];
+  errorFields: string[];
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
   onAddPreset: () => void;
@@ -67,6 +74,21 @@ export function ContextRail({
       </section>
       <section className="settings-context">
         <header className="section-heading">
+          <h2>图像设置</h2>
+        </header>
+        <SettingsEditor
+          fields="image"
+          value={draft.settings}
+          models={models}
+          capabilities={capabilities}
+          diagnostics={diagnostics}
+          errorFields={errorFields}
+          resolved={resolved?.settings}
+          onChange={(settings) => edit({ ...draft, settings })}
+        />
+      </section>
+      <section className="settings-context">
+        <header className="section-heading">
           <h2>
             参数
             <HelpMarker label="参数继承帮助">
@@ -78,8 +100,32 @@ export function ContextRail({
           fields="parameters"
           value={draft.settings}
           models={models}
+          capabilities={capabilities}
+          diagnostics={diagnostics}
+          errorFields={errorFields}
           resolved={resolved?.settings}
           onChange={(settings) => edit({ ...draft, settings })}
+          advancedContent={
+            <div data-setting-field="policy">
+              <Field label="参数校验策略">
+                <select
+                  value={draft.inputs.policy}
+                  onChange={(event) =>
+                    edit({
+                      ...draft,
+                      inputs: {
+                        ...draft.inputs,
+                        policy: event.target.value === "reject" ? "reject" : "normalize",
+                      },
+                    })
+                  }
+                >
+                  <option value="normalize">自动调整并显示诊断</option>
+                  <option value="reject">严格拒绝需要调整的参数</option>
+                </select>
+              </Field>
+            </div>
+          }
         />
       </section>
     </div>

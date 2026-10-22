@@ -15,6 +15,7 @@ use crate::state::{DesktopState, GenerationRuntime};
 fn credential_error(error: &CredentialError) -> ApiError {
     // Keyring errors can contain rejected secret bytes; never render their Debug or Display.
     ApiError {
+        validation_fields: Vec::new(),
         code: if matches!(error, CredentialError::InvalidKey) {
             ErrorCode::Invalid
         } else {
@@ -34,30 +35,42 @@ pub(crate) fn generation_error(error: JobError) -> ApiError {
         JobError::Persistence(error) => crate::commands::persistence_error(error),
         JobError::Credential(error) => credential_error(&error),
         JobError::MissingCredentials => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "请先配置 NovelAI API Key。".to_owned(),
         },
         JobError::Unresolved => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unresolved,
             message: "当前创作有未解决的资源引用，请在解析面板中处理后再生成。".to_owned(),
         },
         JobError::Unavailable => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "生成队列已停止，请重新打开应用。未完成任务不会自动重新请求。".to_owned(),
         },
         JobError::Worker(_) => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "后台生成操作中断，请确认任务状态后重试。".to_owned(),
         },
         JobError::Bridge(novelai_bridge::BridgeError::Api(error)) => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: format!("NovelAI 请求失败（HTTP {}）。", error.status()),
         },
         JobError::Bridge(novelai_bridge::BridgeError::Transport(_)) => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "无法连接 NovelAI。请求可能已被服务端处理，请确认后再重试。".to_owned(),
         },
+        JobError::Bridge(novelai_bridge::BridgeError::InvalidRequest(error)) => ApiError {
+            validation_fields: nib_app::api::request_error_fields(&error),
+            code: ErrorCode::Invalid,
+            message: error.to_string(),
+        },
         error => ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Invalid,
             message: error.user_message(),
         },
@@ -70,6 +83,7 @@ pub(crate) async fn blocking<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(action)
         .await
         .map_err(|_worker_error| ApiError {
+            validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
             message: "操作未完成，请重试。".to_owned(),
         })?
@@ -116,6 +130,7 @@ pub(crate) async fn save_account_key(
         let trimmed = key.expose_secret().trim();
         if trimmed.is_empty() {
             return Err(ApiError {
+                validation_fields: Vec::new(),
                 code: ErrorCode::Invalid,
                 message: "请输入 NovelAI API Key。".to_owned(),
             });

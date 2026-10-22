@@ -1,18 +1,23 @@
 import { RotateCcw } from "lucide-react";
 import type { Composition, InstanceOverride, Resource } from "../../bindings/workbench";
 import { IconButton, Toggle } from "../../shared/ui";
+import { PromptTextEditor } from "./PromptTextEditor";
 /** Linked instances keep only explicit text and enabled-state overrides. */
 export function PresetOverrides({
   composition,
   overrides,
   resources,
   name,
+  models,
+  model,
   onChange: override,
 }: {
   composition: Composition;
   overrides: InstanceOverride[];
   resources: Map<string, Resource>;
   name: string;
+  models?: string[];
+  model?: string;
   onChange: (value: InstanceOverride) => void;
 }) {
   return (
@@ -51,11 +56,12 @@ export function PresetOverrides({
                     <RotateCcw size={14} />
                   </IconButton>
                 </header>
-                <textarea
-                  aria-label={`${name} ${scope === "positive" ? "基础" : "负面"}提示本次覆盖`}
-                  spellCheck={false}
+                <PromptTextEditor
+                  label={`${name} ${scope === "positive" ? "基础" : "负面"}提示本次覆盖`}
+                  models={models}
+                  model={model}
                   value={local.text ?? original}
-                  onChange={(event) => override({ ...local, text: event.target.value })}
+                  onChange={(text) => override({ ...local, text })}
                 />
                 {(local.text !== null || local.enabled !== null) && (
                   <span className="tag">本次覆盖</span>

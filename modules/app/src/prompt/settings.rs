@@ -190,7 +190,7 @@ impl GenerationSettings {
         }
     }
 
-    pub(super) fn resolve(&self) -> ResolvedSettings {
+    pub(crate) fn resolve(&self) -> ResolvedSettings {
         let mut request = GenerateImageRequest::builder("", self.model.unwrap_or_default()).build();
         if let Some(value) = self.model {
             request.core.model = value;

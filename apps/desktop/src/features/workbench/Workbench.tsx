@@ -7,6 +7,10 @@ import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
 import { PromptWorkspace } from "./PromptWorkspace";
 import { useWorkbench } from "./useWorkbench";
+import { useModelCapabilities } from "./useModelCapabilities";
+import { useGeneration } from "../generation/generation-context";
+import { useGenerationQuote } from "../generation/use-generation-quote";
+import { isQuoteEligible } from "../generation/quote-state";
 export type WorkbenchExtension = {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -15,6 +19,8 @@ export type WorkbenchExtension = {
   resourceVersion: number;
   resolved: ResolvedDraft | null;
   resolving: boolean;
+  estimate: ReturnType<typeof useGenerationQuote>;
+  quoteRefreshKey: unknown;
 };
 export function Workbench({
   workspace,
@@ -58,6 +64,18 @@ export function Workbench({
     refreshResources,
     resourceVersion,
   } = state;
+  const { accountVersion, accountSummaryLoading } = useGeneration();
+  const quoteRefreshKey = [resourceVersion, accountVersion];
+  const estimate = useGenerationQuote(
+    draft,
+    quoteRefreshKey,
+    !resolving && !accountSummaryLoading && isQuoteEligible(draft, resolved),
+  );
+  const modelId = draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId;
+  const model = useModelCapabilities(
+    modelId,
+    resolved?.settings.model === modelId ? resolved.settings : draft.settings,
+  );
   const [page, setPage] = useState<"create" | "settings">(initialPage);
   const extension = {
     draft,
@@ -67,6 +85,8 @@ export function Workbench({
     resourceVersion,
     resolved,
     resolving,
+    estimate,
+    quoteRefreshKey,
   };
   return (
     <div className="workbench">
@@ -120,6 +140,10 @@ export function Workbench({
               draft={draft}
               resources={resources}
               models={workspace.models}
+              capabilities={model.capabilities}
+              diagnostics={estimate.quote?.diagnostics ?? []}
+              tokens={estimate.quote?.tokens ?? []}
+              errorFields={estimate.fields}
               resolved={resolved}
               resolving={resolving}
               resolveError={resolveError}
@@ -127,11 +151,19 @@ export function Workbench({
               edit={edit}
               setError={setError}
             />
+            {model.error && (
+              <Notice actions={<Button onClick={model.retry}>重试模型查询</Button>}>
+                {model.error}
+              </Notice>
+            )}
             <ContextRail
               draft={draft}
               resources={resources}
               models={workspace.models}
               resolved={resolved}
+              capabilities={model.capabilities}
+              diagnostics={estimate.quote?.diagnostics ?? []}
+              errorFields={estimate.fields}
               readCurrentDraft={readCurrentDraft}
               edit={edit}
               onAddPreset={() => openLibrary("preset")}

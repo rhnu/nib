@@ -46,3 +46,21 @@ async fn shared_sdk_client_is_replaceable_without_erasing_language_specific_rank
     assert_eq!(tags[0].power, 42);
     assert_eq!(tags[1].power, 7);
 }
+
+#[test]
+fn ipc_suggestion_shapes_preserve_languages_rankings_and_provider_order() {
+    let english: SuggestTagsResult = serde_json::from_str(r#"{"tags":[{"tag":"cat","count":9,"confidence":0.8},{"tag":"cat ears","count":3,"confidence":0.9}]}"#).unwrap();
+    let value = serde_json::to_value(&english).unwrap();
+    assert_eq!(value["tags"][0]["tag"], "cat");
+    assert_eq!(value["tags"][0]["count"], 9);
+    assert_eq!(value["tags"][1]["confidence"], 0.9);
+    let japanese: SuggestTagsResult = serde_json::from_str(
+        r#"[{"jp_tag":"猫","en_tag":"cat","power":7},{"jp_tag":"犬","en_tag":"dog","power":42}]"#,
+    )
+    .unwrap();
+    let value = serde_json::to_value(&japanese).unwrap();
+    assert_eq!(value[0]["jp_tag"], "猫");
+    assert_eq!(value[0]["en_tag"], "cat");
+    assert_eq!(value[0]["power"], 7);
+    assert_eq!(value[1]["power"], 42);
+}

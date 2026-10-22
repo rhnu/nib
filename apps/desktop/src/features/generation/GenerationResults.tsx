@@ -5,7 +5,13 @@ import { useGeneration } from "./generation-context";
 import { JobQueue } from "./JobQueue";
 import { ResultGallery } from "./ResultGallery";
 
-export function GenerationResults({ onRestore }: { onRestore: (draft: Draft) => void }) {
+export function GenerationResults({
+  onRestore,
+  onUseSeed,
+}: {
+  onRestore: (draft: Draft) => void;
+  onUseSeed: (seed: number) => void;
+}) {
   const { results, queryError, refreshing, refresh } = useGeneration();
   return (
     <section className="generation-results" aria-label="生成任务与结果">
@@ -31,6 +37,7 @@ export function GenerationResults({ onRestore }: { onRestore: (draft: Draft) => 
         <ResultGallery
           results={results?.filter((result) => result.kind === "image") ?? null}
           onRestore={onRestore}
+          onUseSeed={onUseSeed}
           queryFailed={queryError !== null}
         />
         <JobQueue />

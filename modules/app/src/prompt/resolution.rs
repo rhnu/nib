@@ -416,6 +416,7 @@ pub fn expand_preset(
         resource_id,
         overrides,
         output_overrides,
+        settings_overrides,
     } = &instance.binding
     else {
         return Ok(instance.clone());
@@ -469,13 +470,19 @@ pub fn expand_preset(
     if !issues.is_empty() {
         return Err(ExpansionError::Unresolved { issues });
     }
+    let mut defaults = defaults.clone();
+    defaults.overlay(
+        settings_overrides,
+        &mut SettingsProvenance::default(),
+        &SettingSource::SdkDefault,
+    );
     Ok(PresetInstance {
         id: instance.id.clone(),
         enabled: instance.enabled,
         binding: PresetBinding::Expanded {
             name: resource.name.clone(),
             composition: expanded,
-            defaults: defaults.clone(),
+            defaults,
             characters: expanded_characters,
             references,
         },

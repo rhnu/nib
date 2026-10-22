@@ -49,4 +49,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 5;
+PRAGMA user_version = 6;

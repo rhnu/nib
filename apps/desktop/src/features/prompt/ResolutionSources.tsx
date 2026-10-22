@@ -4,10 +4,12 @@ import type {
   SettingSource,
   SettingsProvenance,
 } from "../../bindings/workbench";
+import { settingKeys, settingLabels, settingValue } from "./settings";
 
 function sourceLabel(source: SettingSource): string {
   if (source.kind === "draft") return "创作覆盖";
   if (source.kind === "sdkDefault") return "SDK 默认";
+  if (source.kind === "presetOverride") return "配方实例覆盖";
   return `${source.name}${source.expanded ? "（已展开）" : ""}`;
 }
 
@@ -42,21 +44,11 @@ export function SettingsSources({
 }) {
   return (
     <dl className="provenance-list">
-      {(
-        [
-          ["model", "模型"],
-          ["size", "尺寸"],
-          ["steps", "Steps"],
-          ["scale", "Guidance"],
-          ["sampler", "采样器"],
-        ] as const
-      ).map(([key, label]) => (
+      {settingKeys.map((key) => (
         <div key={key}>
-          <dt>{label}</dt>
+          <dt>{settingLabels[key]}</dt>
           <dd>
-            <strong>
-              {key === "size" ? `${settings.size.width} × ${settings.size.height}` : settings[key]}
-            </strong>
+            <strong>{settingValue(key, settings[key])}</strong>
             <small>{sourceLabel(provenance[key])}</small>
           </dd>
         </div>

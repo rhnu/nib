@@ -65,6 +65,10 @@ pub enum SettingSource {
         name: String,
         expanded: bool,
     },
+    PresetOverride {
+        instance_id: String,
+        resource_id: String,
+    },
     Draft,
 }
 
@@ -148,6 +152,7 @@ impl ResolvedDraft {
             .negative_prompt(&self.negative)
             .build();
         self.settings.apply_to(&mut request);
+        request.policy = self.inputs.policy;
         if !self.characters.is_empty() || self.settings.use_coords.is_some() {
             request.characters = Some(CharacterSet {
                 characters: self

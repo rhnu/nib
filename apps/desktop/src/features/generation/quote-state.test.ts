@@ -9,7 +9,12 @@ const draft: Draft = {
   presets: [],
   settings: emptySettings(),
   characters: [],
-  inputs: { operation: { kind: "textToImage" }, references: emptyReferences(), stream: null },
+  inputs: {
+    operation: { kind: "textToImage" },
+    references: emptyReferences(),
+    stream: null,
+    policy: "normalize",
+  },
 };
 
 describe("generation quote eligibility", () => {
@@ -76,6 +81,13 @@ describe("generation quote identity", () => {
     expect(generationQuoteKey({ ...draft, settings: { ...draft.settings, steps: 20 } })).not.toBe(
       generationQuoteKey(draft),
     );
+  });
+
+  it("invalidates after account refresh or request policy changes", () => {
+    expect(generationQuoteKey(draft, [1, 2])).not.toBe(generationQuoteKey(draft, [1, 1]));
+    expect(
+      generationQuoteKey({ ...draft, inputs: { ...draft.inputs, policy: "reject" } }),
+    ).not.toBe(generationQuoteKey(draft));
   });
 
   it("invalidates a quote when an image operation or character changes", () => {

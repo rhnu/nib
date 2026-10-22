@@ -130,6 +130,7 @@ pub enum PresetBinding {
     Linked {
         resource_id: String,
         overrides: Vec<InstanceOverride>,
+        settings_overrides: GenerationSettings,
         #[serde(default)]
         output_overrides: PresetOutputOverrides,
     },
