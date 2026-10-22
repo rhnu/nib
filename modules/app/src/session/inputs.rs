@@ -22,6 +22,13 @@ pub struct ImageOperationOptions {
         ts(type = "(0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5)[]")
     )]
     pub upscale_blur_sigmas: Vec<novelai_bridge::UpscaleBlurSigma>,
+    #[cfg_attr(
+        feature = "typegen",
+        ts(
+            type = "{ strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null }"
+        )
+    )]
+    pub inpaint_conditioning: novelai_bridge::InpaintImageToImage,
 }
 
 /// Lists SDK wire values at the IPC boundary; no frontend copy of the enum is required.
@@ -29,6 +36,7 @@ pub struct ImageOperationOptions {
 pub fn image_operation_options() -> ImageOperationOptions {
     use novelai_bridge::UpscaleBlurSigma;
     ImageOperationOptions {
+        inpaint_conditioning: novelai_bridge::InpaintImageToImage::new(0.7, 0.0),
         upscale_blur_sigmas: vec![
             UpscaleBlurSigma::None,
             UpscaleBlurSigma::Sigma030,
@@ -38,6 +46,25 @@ pub fn image_operation_options() -> ImageOperationOptions {
             UpscaleBlurSigma::Sigma050,
         ],
     }
+}
+
+/// Creates pure infilling from real retained source and mask assets using SDK defaults.
+///
+/// # Errors
+/// Returns missing, unavailable or invalid source/mask content without editing a draft.
+pub fn create_inpaint_operation(
+    assets: &dyn crate::media::AssetReader,
+    id: String,
+    mask_asset_id: String,
+) -> Result<CreationOperation, crate::persistence::PersistenceError> {
+    let input =
+        novelai_bridge::InpaintingInput::new(assets.image(&id)?, assets.image(&mask_asset_id)?);
+    Ok(CreationOperation::Inpainting {
+        asset_id: id,
+        mask_asset_id,
+        img2img: input.img2img,
+        add_original_image: input.add_original_image,
+    })
 }
 
 /// Reads a stable application image and projects SDK constructor defaults into editing state.

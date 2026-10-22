@@ -112,6 +112,9 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
     max_enhance: "maxEnhance",
     declared_blur_sigma: "declaredBlurSigma",
     image: "sourceImage",
+    mask: "maskAssetId",
+    mask_asset_id: "maskAssetId",
+    img2img: "img2img",
   };
   const tail = field.split(".").at(-1) ?? "";
   const key = field.startsWith("operation.input.")

@@ -142,7 +142,9 @@ export function GenerationActions({
       <AccountSnapshot compact />
       {estimate.quote && !effectiveOperation && (
         <p className="generation-danger" role="alert">
-          SDK 未保留 Max Enhance 操作。请切换支持的模型，或明确选择普通图生图后再提交。
+          {draft.inputs.operation.kind === "inpainting"
+            ? "局部重绘或所选局部条件未生效。请选择纯补绘或更换模型后再提交。"
+            : "SDK 未保留 Max Enhance 操作。请切换支持的模型，或明确选择普通图生图后再提交。"}
         </p>
       )}
       {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}

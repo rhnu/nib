@@ -40,6 +40,19 @@ pub(crate) async fn create_image_operation(
 }
 
 #[tauri::command]
+pub(crate) async fn create_inpaint_operation(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    mask_asset_id: String,
+) -> Result<CreationOperation, ApiError> {
+    with_media(state, move |media| {
+        nib_app::session::create_inpaint_operation(media.as_ref(), id, mask_asset_id)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
 pub(crate) async fn list_media_assets(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<Vec<MediaAsset>, ApiError> {

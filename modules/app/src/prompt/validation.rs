@@ -135,6 +135,7 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
 /// # Errors
 /// Returns the field and reason for the first structural violation.
 pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
+    draft.mask_editor.validate()?;
     outputs(
         &draft.composition,
         &draft.characters,

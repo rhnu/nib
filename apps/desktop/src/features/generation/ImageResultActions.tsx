@@ -12,12 +12,14 @@ export function ImageResultActions({
   onImageOperation,
   onRestore,
   canMaxEnhance,
+  canInpaint,
 }: {
   assetId: string;
   available: boolean;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   onRestore: (draft: Draft) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
 }) {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const media = useMediaAsset(metadataOpen ? assetId : null);
@@ -30,6 +32,13 @@ export function ImageResultActions({
           onClick={() => onImageOperation(assetId, "imageToImage")}
         >
           用作底图
+        </Button>
+        <Button
+          className="quiet"
+          disabled={!available || !canInpaint}
+          onClick={() => onImageOperation(assetId, "inpainting")}
+        >
+          局部重绘
         </Button>
         <Button
           className="quiet"

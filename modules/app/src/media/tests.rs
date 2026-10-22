@@ -12,7 +12,7 @@ fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt
     else {
         panic!("the fixture is a generation submission")
     };
-    let restored = restore_submission(&submitted, Some(42));
+    let restored = restore_submission(&submitted, Some(42), MaskEditorState::default());
     assert_eq!(restored.revision, 0);
     assert_eq!(restored.presets.len(), 0);
     assert_eq!(restored.settings.seed, Some(42));
@@ -55,7 +55,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
             defry: 2,
         },
     };
-    let restored = restore_submission(&director, None);
+    let restored = restore_submission(&director, None, MaskEditorState::default());
     assert_eq!(restored.composition.positive.len(), 0);
     assert_eq!(restored.presets.len(), 0);
     assert!(matches!(restored.inputs.operation,
@@ -72,7 +72,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
         focus_seed: Some(41),
         info_extract_seed: Some(42),
     };
-    let restored = restore_submission(&vibe, None);
+    let restored = restore_submission(&vibe, None, MaskEditorState::default());
     assert!(
         matches!(restored.inputs.operation, CreationOperation::EncodeVibe {
             asset_id, information_extracted, mask_asset_id: Some(mask), crop_to_mask: Some(true),
@@ -86,7 +86,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
         declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::Sigma040,
     };
     assert!(
-        matches!(restore_submission(&upscale, None).inputs.operation,
+        matches!(restore_submission(&upscale, None, MaskEditorState::default()).inputs.operation,
         CreationOperation::Upscale { asset_id, model: Model::NaiDiffusion5Curated,
             declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::Sigma040 }
         if asset_id == "upscale-source")
@@ -121,10 +121,35 @@ fn generation_restore_keeps_source_mask_and_reference_identities() {
         ..CreationInputs::default()
     };
     let expected_inputs = resolved.inputs.clone();
-    let restored = restore_submission(&submitted, Some(7));
+    let restored = restore_submission(&submitted, Some(7), MaskEditorState::default());
     assert_eq!(restored.inputs, expected_inputs);
     assert_eq!(restored.settings.seed, Some(7));
     assert_eq!(restored.presets.len(), 0);
+}
+
+#[test]
+fn result_restoration_preserves_current_unapplied_mask_work() {
+    let editor = MaskEditorState {
+        active_source_id: Some("editing-source".into()),
+        sessions: vec![crate::session::MaskSession {
+            source_asset_id: "editing-source".into(),
+            width: 512,
+            height: 512,
+            base_mask_asset_id: None,
+            commands: vec![crate::session::MaskCommand::Clear],
+            cursor: 1,
+            revision: 2,
+            applied_revision: 0,
+            applied_mask_asset_id: None,
+            brush_size: 32.0,
+            zoom: 1.5,
+            pan_x: -10.0,
+            pan_y: 20.0,
+        }],
+    };
+    let restored = restore_submission(&crate::jobs::tests::submission(), Some(9), editor.clone());
+    assert_eq!(restored.mask_editor, editor);
+    assert_eq!(restored.settings.seed, Some(9));
 }
 
 #[test]
@@ -144,7 +169,7 @@ fn samples_without_seed_metadata_do_not_inherit_the_request_seed() {
     assert!(samples.iter().all(|sample| sample.seed.is_none()));
 
     let submitted = crate::jobs::tests::submission();
-    let restored = restore_submission(&submitted, None);
+    let restored = restore_submission(&submitted, None, MaskEditorState::default());
     assert_eq!(restored.settings.seed, submitted.seed());
 }
 

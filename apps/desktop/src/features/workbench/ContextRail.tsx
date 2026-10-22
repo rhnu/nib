@@ -24,6 +24,7 @@ export function ContextRail({
   onRequestOperation,
   onReturnToText,
   imageInputVersion,
+  onEditMask,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -41,6 +42,7 @@ export function ContextRail({
   onRequestOperation: (id: string, kind: ImageOperationAction) => void;
   onReturnToText: () => void;
   imageInputVersion: number;
+  onEditMask: (assetId: string) => void;
 }) {
   return (
     <div className="context-rail">
@@ -102,6 +104,7 @@ export function ContextRail({
         diagnostics={diagnostics}
         errorFields={errorFields}
         inputVersion={imageInputVersion}
+        onEditMask={onEditMask}
       />
       {draft.inputs.operation.kind !== "upscale" && (
         <>

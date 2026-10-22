@@ -134,12 +134,14 @@ export default function App() {
               readCurrentDraft,
               onImageOperation,
               canMaxEnhance,
+              canInpaint,
             }) => (
               <GenerationResults
                 onRestore={onRestore}
                 operation={draft.inputs.operation}
                 onImageOperation={onImageOperation}
                 canMaxEnhance={canMaxEnhance}
+                canInpaint={canInpaint}
                 onUseSeed={(seed) => {
                   const current = readCurrentDraft();
                   onRestore({ ...current, settings: { ...current.settings, seed } });

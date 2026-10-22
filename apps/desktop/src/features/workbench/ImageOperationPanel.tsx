@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Image, Info } from "lucide-react";
+import { Image, Info, Paintbrush } from "lucide-react";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
 import type { MediaAsset } from "../../bindings/media";
 import type {
@@ -24,6 +24,7 @@ import {
   type ImageOperationAction,
 } from "./image-operation";
 import "./image-operation.css";
+import { InpaintSettings } from "./InpaintSettings";
 
 interface ImageOperationPanelProps {
   draft: Draft;
@@ -39,6 +40,7 @@ interface ImageOperationPanelProps {
   onRequestOperation: (id: string, kind: ImageOperationAction) => void;
   onReturnToText: () => void;
   inputVersion: number;
+  onEditMask: (assetId: string) => void;
 }
 
 /** The draft owns input values; this panel owns only open dialogs and the next import's action. */
@@ -56,14 +58,19 @@ export function ImageOperationPanel({
   onRequestOperation,
   onReturnToText,
   inputVersion,
+  onEditMask,
 }: ImageOperationPanelProps) {
   const prefix = useId();
   const operation = draft.inputs.operation;
-  const currentAction = imageOperationAction(operation);
-  const [importAction, setImportAction] = useState<ImageOperationAction | null>(null);
+  const currentAction =
+    operation.kind === "inpainting" ? "inpainting" : imageOperationAction(operation);
+  const [importAction, setImportAction] = useState<ImageOperationAction | "inpainting" | null>(
+    null,
+  );
   const action = currentAction === "textToImage" ? (importAction ?? currentAction) : currentAction;
   const sourceId = operationSourceId(operation);
   const media = useMediaAsset(sourceId);
+  const mask = useMediaAsset(operation.kind === "inpainting" ? operation.maskAssetId : null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [metadataAsset, setMetadataAsset] = useState<MediaAsset | null>(null);
   const [options, setOptions] = useState<ImageOperationOptions | null>(null);
@@ -99,14 +106,23 @@ export function ImageOperationPanel({
   }, [isAdvancedDiagnostic, diagnosticSignature, errorSignature]);
 
   const requestSource = (asset: MediaAsset) => {
-    const target = action === "upscale" || action === "maxEnhance" ? action : "imageToImage";
-    onRequestOperation(asset.id, target);
+    if (action === "inpainting") onEditMask(asset.id);
+    else {
+      const target = action === "upscale" || action === "maxEnhance" ? action : "imageToImage";
+      onRequestOperation(asset.id, target);
+    }
     setImportAction(null);
   };
   const selectAction = (next: string) => {
     if (next === "textToImage") {
       setImportAction(null);
       onReturnToText();
+    } else if (next === "inpainting") {
+      if (sourceId) onEditMask(sourceId);
+      else {
+        setImportAction(next);
+        setPickerOpen(true);
+      }
     } else if (next === "imageToImage" || next === "maxEnhance" || next === "upscale") {
       if (sourceId) onRequestOperation(sourceId, next);
       else {
@@ -170,11 +186,24 @@ export function ImageOperationPanel({
         <h2>
           图像输入
           <HelpMarker label="图像输入说明">
-            导入后保存图像内容，移动原文件不会影响底图。普通图生图与 Max Enhance
-            共用编辑值；独立放大使用专有参数。
+            局部重绘先编辑并应用遮罩。纯补绘与局部图生图的可用性来自模型能力；Max Enhance
+            的输出与计价尺寸来自估费。
           </HelpMarker>
         </h2>
       </header>
+      {draft.maskEditor.sessions.some(
+        (session) => session.revision !== session.appliedRevision,
+      ) && (
+        <div className="image-source-actions" aria-label="待继续的遮罩">
+          {draft.maskEditor.sessions
+            .filter((session) => session.revision !== session.appliedRevision)
+            .map((session, index) => (
+              <Button key={session.sourceAssetId} onClick={() => onEditMask(session.sourceAssetId)}>
+                继续遮罩 {index + 1} · {session.width} × {session.height}
+              </Button>
+            ))}
+        </div>
+      )}
       <div data-setting-field="maxEnhance">
         <Field label="操作">
           <select
@@ -188,6 +217,9 @@ export function ImageOperationPanel({
               Max Enhance
             </option>
             <option value="upscale">独立放大</option>
+            <option value="inpainting" disabled={capabilities?.inpainting === false}>
+              局部重绘
+            </option>
             {currentAction === null && (
               <option value={operation.kind}>{operationLabel(operation)}</option>
             )}
@@ -195,9 +227,6 @@ export function ImageOperationPanel({
         </Field>
         {messages("maxEnhance")}
       </div>
-      {action === "textToImage" ? (
-        <p className="image-operation-note">选择图像开始图生图、Max Enhance 或独立放大。</p>
-      ) : null}
       <div className="image-source-actions">
         <ImageImporter
           key={`${operation.kind}:${sourceId}:${currentAction}:${inputVersion}`}
@@ -209,7 +238,7 @@ export function ImageOperationPanel({
         </Button>
       </div>
       {sourceId && (
-        <div className="image-source">
+        <div className="image-source" data-setting-field="sourceImage">
           {media.loading && <output className="muted">正在读取底图…</output>}
           {media.error && (
             <div className="inline-warning" role="alert">
@@ -242,18 +271,86 @@ export function ImageOperationPanel({
                   <Info size={13} />
                   图像信息与恢复
                 </Button>
+                {capabilities?.inpainting !== false && operation.kind !== "inpainting" && (
+                  <Button
+                    className="quiet"
+                    disabled={!media.asset.available}
+                    onClick={() => onEditMask(sourceId!)}
+                  >
+                    <Paintbrush size={13} />
+                    绘制遮罩
+                  </Button>
+                )}
               </div>
             </>
           )}
         </div>
       )}
+      {operation.kind === "inpainting" && (
+        <>
+          <div className="image-source" data-setting-field="maskAssetId">
+            {mask.loading && <output className="muted">正在读取已应用遮罩…</output>}
+            {mask.error && (
+              <div className="inline-warning" role="alert">
+                {mask.error}
+                <Button className="quiet" onClick={mask.retry}>
+                  重试
+                </Button>
+              </div>
+            )}
+            {mask.asset && (
+              <>
+                <AssetImage
+                  asset={mask.asset}
+                  alt="已应用的局部重绘遮罩"
+                  className="image-source-thumbnail"
+                />
+                <div className="image-source-info">
+                  <strong>已应用遮罩</strong>
+                  <small>
+                    {mask.asset.width ?? "?"} × {mask.asset.height ?? "?"}
+                  </small>
+                  {!mask.asset.available && (
+                    <p className="inline-warning">遮罩不可用，请重新编辑并应用。</p>
+                  )}
+                </div>
+              </>
+            )}
+            <Button
+              className="quiet"
+              disabled={!media.asset?.available}
+              onClick={() => onEditMask(operation.assetId)}
+            >
+              <Paintbrush size={13} />
+              编辑遮罩
+            </Button>
+            {messages("maskAssetId")}
+            {messages("mask")}
+          </div>
+          <InpaintSettings
+            key={`${sourceId}:${operation.maskAssetId}:${inputVersion}`}
+            operation={operation}
+            capabilities={capabilities}
+            defaults={options?.inpaintConditioning ?? null}
+            optionsError={optionsError}
+            retryOptions={() => {
+              setOptionsError(null);
+              setAttempt((value) => value + 1);
+            }}
+            diagnostics={diagnostics}
+            errorFields={errorFields}
+            update={(change) =>
+              updateOperation((current) =>
+                current.kind === "inpainting" ? change(current) : current,
+              )
+            }
+          />
+        </>
+      )}
       {operation.kind === "imageToImage" && (
         <div className="image-operation-fields">
           {operation.maxEnhance && (
             <>
-              <p className="image-operation-note">
-                Max Enhance 以底图尺寸作为输入，输出和计价尺寸由 SDK 计算。
-              </p>
               {capabilities?.maxEnhance === false && (
                 <p className="inline-warning" role="alert">
                   当前模型不支持 Max Enhance；已编辑值保留，请更换模型或操作。

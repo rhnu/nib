@@ -18,7 +18,15 @@ export type CreationOperation = { "kind": "textToImage" } | { "kind": "imageToIm
 
 export type ImageOperationKind = "imageToImage" | "maxEnhance" | "upscale";
 
-export type ImageOperationOptions = { upscaleBlurSigmas: (0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5)[], };
+export type ImageOperationOptions = { upscaleBlurSigmas: (0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5)[], inpaintConditioning: { strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null }, };
+
+export type MaskEditorState = { activeSourceId: string | null, sessions: Array<MaskSession>, };
+
+export type MaskSession = { sourceAssetId: string, width: number, height: number, baseMaskAssetId: string | null, commands: Array<MaskCommand>, cursor: number, revision: number, appliedRevision: number, appliedMaskAssetId: string | null, brushSize: number, zoom: number, panX: number, panY: number, };
+
+export type MaskCommand = { "kind": "paint", points: Array<MaskPoint>, size: number, } | { "kind": "erase", points: Array<MaskPoint>, size: number, } | { "kind": "clear" };
+
+export type MaskPoint = { x: number, y: number, };
 
 export type ReferenceInputs = { precise: Array<PreciseReferenceInput>, vibes: Array<VibeReferenceInput>, normalizeVibeStrength: boolean | null, };
 
@@ -50,7 +58,7 @@ export type PresetBinding = { "kind": "linked", resourceId: string, overrides: A
 
 export type PresetInstance = { id: string, enabled: boolean, binding: PresetBinding, };
 
-export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, };
+export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, };
 
 export type ValidationError = { field: string, message: string, };
 
@@ -84,7 +92,7 @@ export type ReferenceStatus = { available: boolean, reason: string, };
 
 export type NumericRange = { min: number, max: number, };
 
-export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, };
+export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, inpaintStrength: NumericRange, };
 
 export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
 

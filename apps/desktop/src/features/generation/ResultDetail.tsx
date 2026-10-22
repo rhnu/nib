@@ -19,6 +19,7 @@ export function ResultDetail({
   onUseSeed,
   onImageOperation,
   canMaxEnhance,
+  canInpaint,
 }: {
   result: GenerationResult;
   onClose: () => void;
@@ -26,6 +27,7 @@ export function ResultDetail({
   onUseSeed: (seed: number) => void;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
 }) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [confirmRestore, setConfirmRestore] = useState(false);
@@ -100,6 +102,7 @@ export function ResultDetail({
               onClose();
             }}
             canMaxEnhance={canMaxEnhance}
+            canInpaint={canInpaint}
           />
           {result.submission.kind === "generation" && (
             <p className="generation-muted">

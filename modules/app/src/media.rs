@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     jobs::{FrozenSubmission, JobRecord},
     persistence::{PersistenceError, SqliteDatabase},
-    session::{CreationInputs, CreationOperation, Draft},
+    session::{CreationInputs, CreationOperation, Draft, DraftStore, MaskEditorState},
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -214,7 +214,11 @@ impl MediaLibrary {
                 id: id.to_owned(),
             });
         }
-        let draft = restore_submission(&output.result.submission, output.result.seed);
+        let draft = restore_submission(
+            &output.result.submission,
+            output.result.seed,
+            self.database.get_draft()?.mask_editor,
+        );
         self.validate_inputs(&draft.inputs)?;
         Ok(draft)
     }
@@ -249,7 +253,8 @@ impl MediaLibrary {
         if !metadata.warnings.is_empty() {
             notices.push("SDK 在元信息中发现无法解释的字段，请检查导入内容。".to_owned());
         }
-        let draft = crate::session::draft_from_metadata(metadata);
+        let mut draft = crate::session::draft_from_metadata(metadata);
+        draft.mask_editor = self.database.get_draft()?.mask_editor;
         if metadata.uc_preset.is_some() && metadata.negative_prompt.is_none() {
             notices.push("图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。".to_owned());
         }
@@ -417,8 +422,12 @@ fn retained(
     }
 }
 
-fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft {
-    match submission {
+fn restore_submission(
+    submission: &FrozenSubmission,
+    seed: Option<i64>,
+    mask_editor: MaskEditorState,
+) -> Draft {
+    let mut draft = match submission {
         FrozenSubmission::Generation {
             request, resolved, ..
         } => {
@@ -486,7 +495,10 @@ fn restore_submission(submission: &FrozenSubmission, seed: Option<i64>) -> Draft
             },
             ..Draft::default()
         },
-    }
+    };
+    // Canvas work is current application state, never part of a frozen submission.
+    draft.mask_editor = mask_editor;
+    draft
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "../../bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "../../shared/host/useCloseGuard";
 import { errorMessage } from "../../shared/host/error";
@@ -8,6 +8,7 @@ import { useResolution } from "../prompt/useResolution";
 import { emptySettings } from "../prompt/model";
 import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
+import { useGenerationDraft } from "./useGenerationDraft";
 export function useWorkbench(
   workspace: WorkspaceSnapshot,
   initialResources: Map<string, Resource>,
@@ -22,12 +23,17 @@ export function useWorkbench(
   // The writer is initialized before subscription and never clears the live draft.
   const draft = written.value!;
   const { resources, refreshResources, resourceVersion } = useResourceCache(initialResources);
-  const resolution = useResolution(draft, resources);
+  const generationDraft = useGenerationDraft(draft);
+  const resolution = useResolution(generationDraft, resources);
   const [error, setError] = useState("");
   const [library, setLibrary] = useState(false);
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
   const [resourceDirty, setResourceDirty] = useState(false);
   const [restoreVersion, setRestoreVersion] = useState(0);
+  const beforeClose = useRef<() => Promise<boolean>>(async () => true);
+  const setBeforeClose = (callback: () => Promise<boolean>) => {
+    beforeClose.current = callback;
+  };
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({
@@ -50,12 +56,14 @@ export function useWorkbench(
       setLibrary(true);
     },
     onError: setError,
+    beforeClose: () => beforeClose.current(),
   });
   const edit = (value: Draft) => writer.edit(value);
   const readCurrentDraft = () => writer.getSnapshot().value!;
   const restore = (value: Draft) => {
     setRestoreVersion((version) => version + 1);
-    writer.edit({ ...value, revision: readCurrentDraft().revision });
+    const current = readCurrentDraft();
+    writer.edit({ ...value, revision: current.revision, maskEditor: current.maskEditor });
   };
   const openLibrary = (target: InsertTarget) => {
     setInsertTarget(target);
@@ -110,8 +118,10 @@ export function useWorkbench(
   };
   return {
     writer,
+    setBeforeClose,
     written,
     draft,
+    generationDraft,
     resources,
     refreshResources,
     resourceVersion,

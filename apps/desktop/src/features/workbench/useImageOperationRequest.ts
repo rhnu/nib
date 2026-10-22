@@ -58,6 +58,7 @@ export function useImageOperationRequest({
     else edit(next);
   };
   async function request(id: string, kind: ImageOperationAction) {
+    if (kind === "inpainting") return;
     const sequence = ++lifetime.current.sequence;
     setBusy(true);
     setCandidate(null);
@@ -86,7 +87,11 @@ export function useImageOperationRequest({
       setBusy(false);
       offer({ asset: null, operation: { kind: "textToImage" } });
     },
-    cancel: () => setCandidate(null),
+    cancel: () => {
+      lifetime.current.sequence += 1;
+      setBusy(false);
+      setCandidate(null);
+    },
     confirm: () => {
       if (!candidate) return;
       edit(nextDraft(readCurrentDraft(), candidate));

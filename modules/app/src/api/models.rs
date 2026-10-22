@@ -78,6 +78,7 @@ pub struct GenerationRanges {
     pub cfg_rescale: NumericRange,
     pub img2img_strength: NumericRange,
     pub img2img_noise: NumericRange,
+    pub inpaint_strength: NumericRange,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -281,6 +282,7 @@ fn generation_ranges(settings: &ResolvedSettings) -> GenerationRanges {
         cfg_rescale: constraints.cfg_rescale.into(),
         img2img_strength: constraints.img2img_strength.into(),
         img2img_noise: constraints.img2img_noise.into(),
+        inpaint_strength: constraints.inpaint_strength.into(),
     }
 }
 

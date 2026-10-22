@@ -1,10 +1,12 @@
 import type { CreationOperation, Draft, ResolvedDraft } from "../../bindings/workbench";
 
-/** A normalization may adjust fields, but must not silently turn a requested Max operation into ordinary img2img. */
+/** Normalization must not silently switch a requested image operation or drop its conditioning mode. */
 export function isOperationEffective(
   requested: CreationOperation,
   effective: CreationOperation | null,
 ): boolean {
+  if (requested.kind === "inpainting")
+    return effective?.kind === "inpainting" && (!requested.img2img || effective.img2img !== null);
   return (
     requested.kind !== "imageToImage" ||
     !requested.maxEnhance ||

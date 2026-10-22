@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "restore_image_metadata",
             "get_image_operation_options",
             "create_image_operation",
+            "create_inpaint_operation",
         ]));
     tauri_build::try_build(attributes)?;
     Ok(())

@@ -48,7 +48,12 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
       <dl className="generation-metadata">
         <div>
           <dt>操作</dt>
-          <dd>{operationLabel(resolved.inputs.operation)}</dd>
+          <dd>
+            {operationLabel(resolved.inputs.operation)}
+            {resolved.inputs.operation.kind === "inpainting"
+              ? ` · ${resolved.inputs.operation.img2img ? "局部图生图" : "纯补绘"}`
+              : ""}
+          </dd>
         </div>
         <div>
           <dt>模型</dt>
@@ -80,7 +85,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           <dd>{resolved.inputs.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
         </div>
       </dl>
-      <SubmissionImageInput operation={resolved.inputs.operation} />
+      <SubmissionImageInput operation={resolved.inputs.operation} seed={seed} />
       <details className="generation-prompts">
         <summary>查看提交时的提示词</summary>
         <h4>正面提示</h4>

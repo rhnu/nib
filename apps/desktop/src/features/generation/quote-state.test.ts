@@ -10,6 +10,7 @@ import {
 
 const draft: Draft = {
   revision: 1,
+  maskEditor: { activeSourceId: null, sessions: [] },
   composition: { positive: [], negative: [] },
   presets: [],
   settings: emptySettings(),
@@ -23,6 +24,23 @@ const draft: Draft = {
 };
 
 describe("effective image operation", () => {
+  it("requires an explicit pure infill choice when the SDK removes local conditioning", () => {
+    const pure: Extract<CreationOperation, { kind: "inpainting" }> = {
+      kind: "inpainting",
+      assetId: "source",
+      maskAssetId: "mask",
+      img2img: null,
+      addOriginalImage: true,
+    };
+    const conditioned = {
+      ...pure,
+      img2img: { strength: 0.5, noise: 0.1, color_correct: true, extra_noise_seed: 7 },
+    };
+    expect(isOperationEffective(conditioned, pure)).toBe(false);
+    expect(isOperationEffective(conditioned, conditioned)).toBe(true);
+    expect(isOperationEffective(pure, pure)).toBe(true);
+    expect(isOperationEffective(pure, { kind: "textToImage" })).toBe(false);
+  });
   it("does not submit an ordinary SDK result under a requested Max Enhance action", () => {
     const requested: Extract<CreationOperation, { kind: "imageToImage" }> = {
       kind: "imageToImage",
@@ -94,6 +112,15 @@ describe("generation quote identity", () => {
   it("preserves a quote across saves but invalidates it when resources change", () => {
     expect(generationQuoteKey({ ...draft, revision: 2 }, 1)).toBe(generationQuoteKey(draft, 1));
     expect(generationQuoteKey(draft, 2)).not.toBe(generationQuoteKey(draft, 1));
+  });
+
+  it("does not invalidate frozen generation content for independent mask editing", () => {
+    expect(
+      generationQuoteKey({
+        ...draft,
+        maskEditor: { activeSourceId: "editing-source", sessions: [] },
+      }),
+    ).toBe(generationQuoteKey(draft));
   });
 
   it("invalidates a quote after a prompt or parameter edit", () => {

@@ -7,6 +7,8 @@ import { useGeneration } from "./generation-context";
 import { JobQueue } from "./JobQueue";
 import { ResultGallery } from "./ResultGallery";
 import { SourceImageView } from "./SourceImageView";
+import { ImageResultActions } from "./ImageResultActions";
+import { useMediaAsset } from "../media/useMediaAsset";
 
 export function GenerationResults({
   onRestore,
@@ -14,15 +16,18 @@ export function GenerationResults({
   operation,
   onImageOperation,
   canMaxEnhance,
+  canInpaint,
 }: {
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
   operation: CreationOperation;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
 }) {
   const { results, queryError, refreshing, refresh } = useGeneration();
   const sourceId = operationSourceId(operation);
+  const source = useMediaAsset(sourceId);
   const [view, setView] = useState<"source" | "results">("results");
   const showSource = Boolean(sourceId && (view === "source" || results?.length === 0));
   return (
@@ -62,7 +67,17 @@ export function GenerationResults({
       )}
       <div className="generation-results-content">
         {showSource && sourceId ? (
-          <SourceImageView key={sourceId} id={sourceId} />
+          <>
+            <ImageResultActions
+              assetId={sourceId}
+              available={source.asset?.available ?? false}
+              onRestore={onRestore}
+              onImageOperation={onImageOperation}
+              canMaxEnhance={canMaxEnhance}
+              canInpaint={canInpaint}
+            />
+            <SourceImageView key={sourceId} id={sourceId} />
+          </>
         ) : (
           <ResultGallery
             results={results?.filter((result) => result.kind === "image") ?? null}
@@ -71,6 +86,7 @@ export function GenerationResults({
             queryFailed={queryError !== null}
             onImageOperation={onImageOperation}
             canMaxEnhance={canMaxEnhance}
+            canInpaint={canInpaint}
           />
         )}
         <JobQueue />

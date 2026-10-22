@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
 import { Button, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
@@ -10,10 +10,12 @@ import { useWorkbench } from "./useWorkbench";
 import { useDraftCapabilities } from "./useDraftCapabilities";
 import { useModelCapabilities } from "./useModelCapabilities";
 import { useImageOperationRequest } from "./useImageOperationRequest";
-import { operationLabel, type ImageOperationAction } from "./image-operation";
+import { operationLabel, operationSourceId, type ImageOperationAction } from "./image-operation";
 import { useGeneration } from "../generation/generation-context";
 import { useGenerationQuote } from "../generation/use-generation-quote";
 import { isQuoteEligible } from "../generation/quote-state";
+import { useMaskEditor } from "./useMaskEditor";
+import { InpaintCanvasWorkspace } from "../inpaint/InpaintCanvasWorkspace";
 export type WorkbenchExtension = {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -26,6 +28,7 @@ export type WorkbenchExtension = {
   quoteRefreshKey: unknown;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
   operationPending: boolean;
 };
 export function Workbench({
@@ -50,8 +53,10 @@ export function Workbench({
   const state = useWorkbench(workspace, initialResources, settingsWriter);
   const {
     writer,
+    setBeforeClose,
     written,
     draft,
+    generationDraft,
     resources,
     resolved,
     resolving,
@@ -74,11 +79,11 @@ export function Workbench({
   const { accountVersion, accountSummaryLoading } = useGeneration();
   const quoteRefreshKey = [resourceVersion, accountVersion];
   const estimate = useGenerationQuote(
-    draft,
+    generationDraft,
     quoteRefreshKey,
     !resolving && !accountSummaryLoading && isQuoteEligible(draft, resolved),
   );
-  const model = useDraftCapabilities(draft, resourceVersion);
+  const model = useDraftCapabilities(generationDraft, resourceVersion);
   const generationTarget = useModelCapabilities(
     draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId,
     resolved?.settings ?? draft.settings,
@@ -92,19 +97,46 @@ export function Workbench({
     contextVersion: restoreVersion,
   });
   const [page, setPage] = useState<"create" | "settings">(initialPage);
+  const mask = useMaskEditor({ draft, readCurrentDraft, edit, onError: setError });
+  useLayoutEffect(() => {
+    setBeforeClose(mask.requestClose);
+  });
+  const editMask = (id: string) => {
+    imageOperation.cancel();
+    mask.open(id);
+  };
+  const requestOperation = (id: string, kind: ImageOperationAction) => {
+    if (kind === "inpainting") {
+      editMask(id);
+      setPage("create");
+    } else mask.guard(() => imageOperation.request(id, kind));
+  };
+  const guardedRestore = (value: Draft) => mask.guard(() => restore(value));
+  const guardedLibrary = (target: Parameters<typeof openLibrary>[0]) =>
+    mask.guard(() => openLibrary(target));
   const extension = {
     draft,
     readCurrentDraft,
-    onRestore: restore,
+    onRestore: guardedRestore,
     reportError: setError,
     resourceVersion,
     resolved,
     resolving,
     estimate,
     quoteRefreshKey,
-    onImageOperation: imageOperation.request,
+    onImageOperation: requestOperation,
     canMaxEnhance: editorCapabilities?.maxEnhance ?? false,
-    operationPending: imageOperation.busy,
+    canInpaint: editorCapabilities?.inpainting ?? false,
+    operationPending:
+      imageOperation.busy ||
+      mask.pending ||
+      Boolean(
+        mask.active &&
+        (mask.active.revision !== mask.active.appliedRevision ||
+          draft.inputs.operation.kind !== "inpainting" ||
+          draft.inputs.operation.assetId !== mask.active.sourceAssetId ||
+          draft.inputs.operation.maskAssetId !== mask.active.appliedMaskAssetId),
+      ),
   };
   return (
     <div className="workbench">
@@ -113,21 +145,23 @@ export function Workbench({
           <Button
             aria-current={!library && page === "create" ? "page" : undefined}
             disabled={library}
-            onClick={() => setPage("create")}
+            onClick={() => {
+              if (page !== "create") mask.guard(() => setPage("create"));
+            }}
           >
             创作
           </Button>
           <Button
             aria-current={library ? "page" : undefined}
             disabled={library}
-            onClick={() => openLibrary("positive")}
+            onClick={() => guardedLibrary("positive")}
           >
             资源库
           </Button>
           <Button
             aria-current={!library && page === "settings" ? "page" : undefined}
             disabled={library}
-            onClick={() => setPage("settings")}
+            onClick={() => mask.guard(() => setPage("settings"))}
           >
             设置
           </Button>
@@ -166,7 +200,7 @@ export function Workbench({
                 resolved={resolved}
                 resolving={resolving}
                 resolveError={resolveError}
-                openLibrary={openLibrary}
+                openLibrary={guardedLibrary}
                 edit={edit}
                 setError={setError}
               />
@@ -186,12 +220,13 @@ export function Workbench({
               errorFields={estimate.fields}
               readCurrentDraft={readCurrentDraft}
               edit={edit}
-              onAddPreset={() => openLibrary("preset")}
+              onAddPreset={() => guardedLibrary("preset")}
               setError={setError}
               estimate={estimate.quote}
-              onRestore={restore}
-              onRequestOperation={imageOperation.request}
-              onReturnToText={imageOperation.returnToText}
+              onRestore={guardedRestore}
+              onRequestOperation={requestOperation}
+              onReturnToText={() => mask.guard(imageOperation.returnToText)}
+              onEditMask={editMask}
               imageInputVersion={restoreVersion}
             />
           </div>
@@ -200,7 +235,25 @@ export function Workbench({
           )}
         </aside>
         <main className="main-workspace flex min-h-0 min-w-0 flex-col">
-          {renderResults?.(extension)}
+          <div
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            style={{ display: mask.active ? "none" : undefined }}
+          >
+            {renderResults?.(extension)}
+          </div>
+          {mask.active && (
+            <InpaintCanvasWorkspace
+              key={mask.active.sourceAssetId}
+              value={mask.active}
+              onChange={mask.change}
+              onApply={() => {
+                void mask.apply();
+              }}
+              onClose={mask.close}
+              onDiscard={mask.requestDiscard}
+              pending={mask.pending || mask.transition !== null || mask.discarding}
+            />
+          )}
         </main>
       </div>
       <div className="settings-page-slot" hidden={page !== "settings"}>
@@ -229,12 +282,10 @@ export function Workbench({
           <div className="generation-dialog-body">
             <p>
               将切换到{operationLabel(imageOperation.candidate.operation)}
-              。现有源图将替换，不适用的操作专有参数将清除；提示词、配方及其余设置保留。
+              ，替换当前图像操作。
             </p>
             {imageOperation.candidate.operation.kind === "imageToImage" &&
-              imageOperation.candidate.operation.maxEnhance && (
-                <p>Max Enhance 将输入画布设为所选源图尺寸，预计输出与计价尺寸由 SDK 计算。</p>
-              )}
+              imageOperation.candidate.operation.maxEnhance && <p>输入尺寸将采用源图尺寸。</p>}
             <footer className="generation-dialog-actions">
               <Button onClick={imageOperation.cancel}>保留当前操作</Button>
               <Button className="primary" onClick={imageOperation.confirm}>
@@ -243,6 +294,62 @@ export function Workbench({
             </footer>
           </div>
         )}
+      </Modal>
+      <Modal open={mask.transition !== null} onClose={mask.cancel} title="遮罩尚未应用">
+        <div className="generation-dialog-body">
+          <p>保留编辑可在下次打开这张源图时继续。</p>
+          <footer className="generation-dialog-actions">
+            <Button disabled={mask.pending} onClick={mask.cancel}>
+              取消
+            </Button>
+            <Button disabled={mask.pending} onClick={mask.discardAndContinue}>
+              放弃编辑
+            </Button>
+            <Button disabled={mask.pending} onClick={mask.keep}>
+              保留编辑
+            </Button>
+            <Button
+              className="primary"
+              disabled={mask.pending}
+              onClick={() => {
+                void mask.applyAndContinue();
+              }}
+            >
+              {mask.pending ? "正在应用…" : "应用遮罩"}
+            </Button>
+          </footer>
+        </div>
+      </Modal>
+      <Modal
+        open={mask.applyConfirmation !== null}
+        onClose={() => mask.confirmApply(false)}
+        title="切换为局部重绘？"
+      >
+        <div className="generation-dialog-body">
+          <p>
+            将替换当前{mask.applyConfirmation && operationLabel(mask.applyConfirmation.operation)}
+            {mask.applyConfirmation &&
+            operationSourceId(mask.applyConfirmation.operation) !== mask.active?.sourceAssetId
+              ? "的源图与专有参数。"
+              : "的专有参数。"}
+          </p>
+          <footer className="generation-dialog-actions">
+            <Button onClick={() => mask.confirmApply(false)}>取消</Button>
+            <Button className="primary" onClick={() => mask.confirmApply(true)}>
+              应用遮罩并切换
+            </Button>
+          </footer>
+        </div>
+      </Modal>
+      <Modal open={mask.discarding} onClose={mask.cancelDiscard} title="放弃未应用的遮罩编辑？">
+        <div className="generation-dialog-body">
+          <footer className="generation-dialog-actions">
+            <Button onClick={mask.cancelDiscard}>取消</Button>
+            <Button className="primary" onClick={mask.confirmDiscard}>
+              放弃编辑
+            </Button>
+          </footer>
+        </div>
       </Modal>
     </div>
   );

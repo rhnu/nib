@@ -92,7 +92,6 @@ export function ImageImporter({ onImported }: { onImported: (asset: MediaAsset) 
           }}
         />
       </div>
-      <p className="help-note">导入后保存独立媒体内容，原文件移动或删除不会影响已导入图片。</p>
       {busy && <output aria-live="polite">正在导入{lastFile ? ` ${lastFile.name}` : ""}…</output>}
       {error && (
         <Notice

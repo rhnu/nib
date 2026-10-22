@@ -7,10 +7,10 @@ import type {
 } from "../../bindings/workbench";
 import { invokeHost } from "../../shared/host/invoke";
 
-export type ImageOperationAction = ImageOperationKind;
+export type ImageOperationAction = ImageOperationKind | "inpainting";
 
 export const imageOperationApi = {
-  create: (id: string, kind: ImageOperationAction) =>
+  create: (id: string, kind: ImageOperationKind) =>
     invokeHost<CreationOperation>("create_image_operation", { id, kind }),
   options: () => invokeHost<ImageOperationOptions>("get_image_operation_options"),
 };

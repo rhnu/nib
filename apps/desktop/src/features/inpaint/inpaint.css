@@ -1,0 +1,121 @@
+.inpaint-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+}
+.inpaint-toolbar,
+.inpaint-view-toolbar,
+.inpaint-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-subtle);
+  flex-shrink: 0;
+}
+.inpaint-toolbar .ui-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.inpaint-brush {
+  display: grid;
+  gap: 3px;
+  min-width: 120px;
+  max-width: 200px;
+  flex: 1;
+  font-size: 11px;
+  color: var(--muted);
+}
+.inpaint-brush input[type="range"] {
+  height: 15px;
+  padding: 0;
+  border: 0;
+  min-height: 0;
+  width: 100%;
+  accent-color: var(--accent);
+}
+.inpaint-view-toolbar {
+  justify-content: space-between;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.inpaint-view-toolbar > label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.inpaint-view-toolbar select {
+  height: 30px;
+  width: auto;
+}
+.inpaint-view-toolbar output {
+  min-width: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.inpaint-viewport {
+  flex: 1;
+  min-height: 220px;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--bg);
+  cursor: crosshair;
+}
+.inpaint-viewport.tool-pan {
+  cursor: grab;
+}
+.inpaint-viewport.tool-pan:active {
+  cursor: grabbing;
+}
+.inpaint-viewport > canvas {
+  position: absolute;
+  display: block;
+  image-rendering: auto;
+  pointer-events: none;
+}
+.inpaint-viewport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.inpaint-loading {
+  display: block;
+  padding: 20px;
+  color: var(--muted);
+}
+.inpaint-brush-cursor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 1px solid white;
+  box-shadow: 0 0 0 1px black;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.inpaint-footer {
+  justify-content: space-between;
+  border-top: 1px solid var(--line-subtle);
+  border-bottom: 0;
+}
+.inpaint-footer > div:first-child {
+  min-width: 0;
+  font-size: 12px;
+}
+@media (max-width: 680px) {
+  .inpaint-toolbar,
+  .inpaint-view-toolbar,
+  .inpaint-footer {
+    padding: 7px 8px;
+  }
+  .inpaint-footer > .button-group {
+    flex-wrap: wrap;
+  }
+}

@@ -92,3 +92,24 @@ fn image_to_image_capabilities_use_actual_operation_context_and_sdk_ranges() {
         f64::from(constraints.img2img_noise.max)
     );
 }
+
+#[test]
+fn inpainting_projects_conditioning_capability_and_its_distinct_strength_range() {
+    let submitted = crate::jobs::tests::submission();
+    let mut resolved = submitted.resolved().unwrap().clone();
+    resolved.inputs.operation = CreationOperation::Inpainting {
+        asset_id: "source".into(),
+        mask_asset_id: "mask".into(),
+        img2img: None,
+        add_original_image: true,
+    };
+    resolved.settings.model = Model::NaiDiffusion3;
+    let v3 = model_capabilities(&resolved).unwrap();
+    assert!(v3.inpainting);
+    assert!(!v3.inpainting_image_to_image);
+    resolved.settings.model = Model::NaiDiffusion5Full;
+    let v5 = model_capabilities(&resolved).unwrap();
+    assert!(v5.inpainting_image_to_image);
+    assert_eq!(v5.ranges.inpaint_strength.max, 1.0);
+    assert!(v5.ranges.img2img_strength.max < v5.ranges.inpaint_strength.max);
+}

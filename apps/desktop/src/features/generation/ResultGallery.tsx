@@ -61,6 +61,7 @@ function ResultCanvas({
   onRestore,
   onImageOperation,
   canMaxEnhance,
+  canInpaint,
 }: {
   result: GenerationResult;
   onOpen: () => void;
@@ -68,6 +69,7 @@ function ResultCanvas({
   onRestore: (draft: Draft) => void;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
 }) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [zoom, setZoom] = useState(1);
@@ -124,6 +126,7 @@ function ResultCanvas({
         onRestore={onRestore}
         onImageOperation={onImageOperation}
         canMaxEnhance={canMaxEnhance}
+        canInpaint={canInpaint}
       />
       <div className={`generation-canvas ${canZoom ? "generation-canvas-viewer" : ""}`}>
         {!result.available ? (
@@ -168,6 +171,7 @@ export function ResultGallery({
   queryFailed,
   onImageOperation,
   canMaxEnhance,
+  canInpaint,
 }: {
   results: GenerationResult[] | null;
   onRestore: (draft: Draft) => void;
@@ -175,6 +179,7 @@ export function ResultGallery({
   queryFailed: boolean;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
+  canInpaint: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -203,6 +208,7 @@ export function ResultGallery({
               onRestore={onRestore}
               onImageOperation={onImageOperation}
               canMaxEnhance={canMaxEnhance}
+              canInpaint={canInpaint}
             />
           )}
           <div className="generation-filmstrip">
@@ -240,6 +246,7 @@ export function ResultGallery({
           onUseSeed={onUseSeed}
           onImageOperation={onImageOperation}
           canMaxEnhance={canMaxEnhance}
+          canInpaint={canInpaint}
         />
       )}
     </section>

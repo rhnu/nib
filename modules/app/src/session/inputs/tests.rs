@@ -82,3 +82,36 @@ fn unavailable_sources_are_rejected_for_every_image_action() {
         ));
     }
 }
+
+#[test]
+fn inpainting_requires_real_source_and_mask_and_uses_pure_infilling_defaults() {
+    assert!(matches!(
+        create_inpaint_operation(&ImageAssets, "missing".into(), "retained-source".into()),
+        Err(PersistenceError::NotFound { .. })
+    ));
+    assert!(matches!(
+        create_inpaint_operation(&ImageAssets, "retained-source".into(), "missing".into()),
+        Err(PersistenceError::NotFound { .. })
+    ));
+    let expected = novelai_bridge::InpaintingInput::new(
+        ImageAssets.image("retained-source").unwrap(),
+        ImageAssets.image("retained-source").unwrap(),
+    );
+    assert_eq!(
+        create_inpaint_operation(
+            &ImageAssets,
+            "retained-source".into(),
+            "retained-source".into()
+        )
+        .unwrap(),
+        CreationOperation::Inpainting {
+            asset_id: "retained-source".into(),
+            mask_asset_id: "retained-source".into(),
+            img2img: expected.img2img,
+            add_original_image: expected.add_original_image,
+        }
+    );
+    let conditioning = image_operation_options().inpaint_conditioning;
+    let sdk_defaults = novelai_bridge::InpaintImageToImage::new(0.7, 0.0);
+    assert_eq!(conditioning, sdk_defaults);
+}

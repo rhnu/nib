@@ -33,6 +33,7 @@ const imageOperation = (
 });
 const creation = (operation: CreationOperation): Draft => ({
   revision: 1,
+  maskEditor: { activeSourceId: null, sessions: [] },
   composition: emptyComposition(),
   presets: [],
   characters: [],

@@ -1,9 +1,11 @@
 //! Automatically retained current creation. The frontend owns high-frequency edits.
 
 mod inputs;
+mod mask_editor;
 mod restore;
 mod sqlite;
 pub use inputs::*;
+pub use mask_editor::*;
 pub use restore::*;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +27,7 @@ pub struct Draft {
     pub characters: Vec<CharacterComposition>,
     #[serde(default)]
     pub inputs: CreationInputs,
+    pub mask_editor: MaskEditorState,
 }
 
 pub trait DraftStore {

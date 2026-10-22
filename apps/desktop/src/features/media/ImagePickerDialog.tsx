@@ -56,7 +56,7 @@ function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open
             </Notice>
           )}
           {!assets.loading && !assets.error && images.length === 0 && (
-            <p className="muted">尚无图片。导入图片后可在这里重复使用。</p>
+            <p className="muted">尚无图片</p>
           )}
           <fieldset className="media-image-list">
             <legend className="media-sr-only">选择一张已有图片</legend>
@@ -103,16 +103,15 @@ function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open
                 disabled={!!imageUnavailableReason(selected)}
                 onClick={() => setMetadataOpen(true)}
               >
-                检查元信息 / 恢复已知内容
+                图片元信息
               </Button>
             </>
           ) : (
-            <p className="muted">选择已有图片，或导入单张图片。</p>
+            <p className="muted">未选择图片</p>
           )}
         </div>
       </div>
       <footer className="media-picker-footer">
-        <p className="muted">仅用作底图保留当前提示词；恢复生成内容会先展示替换预览。</p>
         <div className="media-dialog-actions">
           <Button onClick={onClose}>取消</Button>
           <Button
@@ -124,7 +123,7 @@ function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open
               onClose();
             }}
           >
-            仅用作底图
+            选择图片
           </Button>
         </div>
       </footer>

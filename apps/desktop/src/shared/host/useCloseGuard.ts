@@ -10,16 +10,18 @@ export function useCloseGuard({
   onResourceBlocked,
   onError,
   enabled = true,
+  beforeClose,
 }: {
   writer: CloseWriter;
   resourceDirty: boolean;
   onResourceBlocked: () => void;
   onError: (message: string) => void;
   enabled?: boolean;
+  beforeClose?: () => Promise<boolean>;
 }) {
-  const latest = useRef({ resourceDirty, onResourceBlocked, onError });
+  const latest = useRef({ resourceDirty, onResourceBlocked, onError, beforeClose });
   useLayoutEffect(() => {
-    latest.current = { resourceDirty, onResourceBlocked, onError };
+    latest.current = { resourceDirty, onResourceBlocked, onError, beforeClose };
   });
   useEffect(() => {
     if (!enabled) return;
@@ -41,6 +43,7 @@ export function useCloseGuard({
         }
         closing = true;
         try {
+          if (latest.current.beforeClose && !(await latest.current.beforeClose())) return;
           await writer.flush();
           if (latest.current.resourceDirty) {
             latest.current.onResourceBlocked();
