@@ -281,6 +281,9 @@ fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
     assert_eq!(second.core, request.core);
     let metadata = novelai_bridge::ImageMetadata {
         prompt: Some("portrait, masterpiece".into()),
+        negative_prompt: Some("blur, low quality".into()),
+        quality_toggle: Some(true),
+        uc_preset: Some(0),
         characters: vec![novelai_bridge::CharacterMetadata {
             source_index: 0,
             prompt: Some("hero".into()),
@@ -293,6 +296,20 @@ fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
     assert_eq!(
         metadata_draft.settings.quality,
         Some(novelai_bridge::QualityPreset::None)
+    );
+    assert_eq!(
+        metadata_draft.settings.uc_preset,
+        Some(novelai_bridge::UcPreset::None)
+    );
+    let metadata_resolved = resolve_draft(&metadata_draft, &Resources::default()).unwrap();
+    let normalized = metadata_resolved.generation_request().normalize().unwrap();
+    assert_eq!(
+        normalized.resolved_prompts().prompt,
+        "portrait, masterpiece"
+    );
+    assert_eq!(
+        normalized.resolved_prompts().negative_prompt,
+        "blur, low quality"
     );
 }
 

@@ -76,6 +76,8 @@ pub struct GenerationRanges {
     pub scale: NumericRange,
     pub n_samples: NumericRange,
     pub cfg_rescale: NumericRange,
+    pub img2img_strength: NumericRange,
+    pub img2img_noise: NumericRange,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -179,7 +181,6 @@ fn project_capabilities(
     let references = descriptor.resolve_references(mode, intent);
     let profile = descriptor.sampling();
     let (sampler, samplers, noise_schedules) = sampling_options(settings, mode);
-    let constraints = descriptor.constraints();
     ModelCapabilities {
         model: model.as_str().to_owned(),
         tokenizer: descriptor.prompt().tokenizer.as_str().to_owned(),
@@ -233,18 +234,7 @@ fn project_capabilities(
         defaults: ResolvedSettings::from_request(
             &novelai_bridge::GenerateImageRequest::builder("", model).build(),
         ),
-        ranges: GenerationRanges {
-            dimension: constraints.canvas.dimension.into(),
-            dimension_multiple: constraints.canvas.multiple,
-            max_pixels: constraints.canvas.max_pixels,
-            steps: constraints.steps.into(),
-            scale: constraints.scale.into(),
-            n_samples: NumericRange {
-                min: f64::from(constraints.samples.min),
-                max: f64::from(descriptor.sample_limit(settings.size)),
-            },
-            cfg_rescale: constraints.cfg_rescale.into(),
-        },
+        ranges: generation_ranges(settings),
         transparent_background: descriptor.prompt().transparent_background,
         furry_mode: descriptor.prompt().furry_mode,
         smea: profile.supports_smea(mode, sampler),
@@ -272,6 +262,25 @@ fn project_capabilities(
             .is_available(),
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
+    }
+}
+
+fn generation_ranges(settings: &ResolvedSettings) -> GenerationRanges {
+    let descriptor = settings.model.descriptor();
+    let constraints = descriptor.constraints();
+    GenerationRanges {
+        dimension: constraints.canvas.dimension.into(),
+        dimension_multiple: constraints.canvas.multiple,
+        max_pixels: constraints.canvas.max_pixels,
+        steps: constraints.steps.into(),
+        scale: constraints.scale.into(),
+        n_samples: NumericRange {
+            min: f64::from(constraints.samples.min),
+            max: f64::from(descriptor.sample_limit(settings.size)),
+        },
+        cfg_rescale: constraints.cfg_rescale.into(),
+        img2img_strength: constraints.img2img_strength.into(),
+        img2img_noise: constraints.img2img_noise.into(),
     }
 }
 

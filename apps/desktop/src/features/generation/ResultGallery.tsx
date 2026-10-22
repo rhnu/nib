@@ -6,6 +6,8 @@ import { Button, IconButton } from "../../shared/ui";
 import { ResultDetail } from "./ResultDetail";
 import { useResultImage } from "./use-result-image";
 import { resultFilename } from "./result-file";
+import { ImageResultActions } from "./ImageResultActions";
+import type { ImageOperationAction } from "../workbench/image-operation";
 
 function ResultTile({
   result,
@@ -56,10 +58,16 @@ function ResultCanvas({
   result,
   onOpen,
   onUseSeed,
+  onRestore,
+  onImageOperation,
+  canMaxEnhance,
 }: {
   result: GenerationResult;
   onOpen: () => void;
   onUseSeed: (seed: number) => void;
+  onRestore: (draft: Draft) => void;
+  onImageOperation: (id: string, kind: ImageOperationAction) => void;
+  canMaxEnhance: boolean;
 }) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [zoom, setZoom] = useState(1);
@@ -110,6 +118,13 @@ function ResultCanvas({
           </Button>
         </div>
       </div>
+      <ImageResultActions
+        assetId={result.assetId}
+        available={result.available}
+        onRestore={onRestore}
+        onImageOperation={onImageOperation}
+        canMaxEnhance={canMaxEnhance}
+      />
       <div className={`generation-canvas ${canZoom ? "generation-canvas-viewer" : ""}`}>
         {!result.available ? (
           <div className="generation-canvas-status">
@@ -151,11 +166,15 @@ export function ResultGallery({
   onRestore,
   onUseSeed,
   queryFailed,
+  onImageOperation,
+  canMaxEnhance,
 }: {
   results: GenerationResult[] | null;
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
   queryFailed: boolean;
+  onImageOperation: (id: string, kind: ImageOperationAction) => void;
+  canMaxEnhance: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -181,6 +200,9 @@ export function ResultGallery({
               result={selected}
               onOpen={() => setDetailId(selected.id)}
               onUseSeed={onUseSeed}
+              onRestore={onRestore}
+              onImageOperation={onImageOperation}
+              canMaxEnhance={canMaxEnhance}
             />
           )}
           <div className="generation-filmstrip">
@@ -216,6 +238,8 @@ export function ResultGallery({
           onClose={() => setDetailId(null)}
           onRestore={onRestore}
           onUseSeed={onUseSeed}
+          onImageOperation={onImageOperation}
+          canMaxEnhance={canMaxEnhance}
         />
       )}
     </section>

@@ -2,6 +2,8 @@ import type { JobRecord } from "../../bindings/generation";
 import { ContentSources, SettingsSources } from "../prompt/ResolutionSources";
 import { submissionLabel } from "./operation";
 import { ParameterDiagnostics } from "./ParameterDiagnostics";
+import { SubmissionImageInput } from "./SubmissionImageInput";
+import { operationLabel } from "../workbench/image-operation";
 
 export function SubmissionSummary({ submission }: { submission: JobRecord["submission"] }) {
   if (submission.kind !== "generation")
@@ -22,7 +24,20 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
               <dd>{submission.informationExtracted}</dd>
             </div>
           )}
+          {submission.kind === "upscale" && (
+            <>
+              <div>
+                <dt>放大模型</dt>
+                <dd>{submission.model}</dd>
+              </div>
+              <div>
+                <dt>Blur Sigma</dt>
+                <dd>{submission.declaredBlurSigma}</dd>
+              </div>
+            </>
+          )}
         </dl>
+        {submission.kind === "upscale" && <SubmissionImageInput operation={submission} />}
         <ParameterDiagnostics diagnostics={submission.diagnostics} />
       </div>
     );
@@ -31,6 +46,10 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
     <div className="generation-submission">
       <ParameterDiagnostics diagnostics={submission.diagnostics} />
       <dl className="generation-metadata">
+        <div>
+          <dt>操作</dt>
+          <dd>{operationLabel(resolved.inputs.operation)}</dd>
+        </div>
         <div>
           <dt>模型</dt>
           <dd>{resolved.settings.model}</dd>
@@ -61,6 +80,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           <dd>{resolved.inputs.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
         </div>
       </dl>
+      <SubmissionImageInput operation={resolved.inputs.operation} />
       <details className="generation-prompts">
         <summary>查看提交时的提示词</summary>
         <h4>正面提示</h4>

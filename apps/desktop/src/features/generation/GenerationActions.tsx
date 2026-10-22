@@ -8,10 +8,11 @@ import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { QuoteHelp } from "./QuoteSummary";
 import { useGenerationQuote, validationFields } from "./use-generation-quote";
-import { generationQuoteKey, isQuoteEligible } from "./quote-state";
+import { generationQuoteKey, isQuoteEligible, isOperationEffective } from "./quote-state";
 import { ParameterDiagnostics } from "./ParameterDiagnostics";
 import { AccountSnapshot } from "./AccountSnapshot";
 import { focusSetting } from "../prompt/SettingsEditor";
+import { operationLabel } from "../workbench/image-operation";
 
 export function GenerationActions({
   draft,
@@ -19,12 +20,14 @@ export function GenerationActions({
   refreshKey,
   resolved,
   estimate,
+  operationPending,
 }: {
   draft: Draft;
   readCurrentDraft: () => Draft;
   refreshKey?: unknown;
   resolved?: ResolvedDraft | null;
   estimate: ReturnType<typeof useGenerationQuote>;
+  operationPending: boolean;
 }) {
   const {
     account,
@@ -35,6 +38,12 @@ export function GenerationActions({
     accountSummaryLoading,
   } = useGeneration();
   const hasPrompt = isQuoteEligible(draft, resolved);
+  const effectiveOperation = isOperationEffective(
+    draft.inputs.operation,
+    estimate.quote?.resolved?.inputs.operation ?? null,
+  );
+  const actionLabel =
+    draft.inputs.operation.kind === "textToImage" ? "生成" : operationLabel(draft.inputs.operation);
   const [accountOpen, setAccountOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<{ key: string; message: string } | null>(null);
@@ -51,6 +60,8 @@ export function GenerationActions({
   async function submit() {
     if (
       submittingRef.current ||
+      operationPending ||
+      !effectiveOperation ||
       !account?.configured ||
       !estimate.quote ||
       estimate.quote.tooExpensive ||
@@ -90,6 +101,8 @@ export function GenerationActions({
           className="primary"
           disabled={
             submitting ||
+            operationPending ||
+            (Boolean(estimate.quote) && !effectiveOperation) ||
             accountLoading ||
             accountSummaryLoading ||
             (Boolean(account?.configured) &&
@@ -109,10 +122,12 @@ export function GenerationActions({
               : accountLoading
                 ? "读取账户…"
                 : account?.configured
-                  ? "生成"
-                  : "配置账户以生成"}
+                  ? actionLabel
+                  : `配置账户以${actionLabel}`}
           </span>
-          {estimate.quote ? (
+          {estimate.quote && !effectiveOperation ? (
+            <span className="generation-submit-cost">操作未生效</span>
+          ) : estimate.quote ? (
             <span className="generation-submit-cost">
               {estimate.quote.estimatedAnlas === null
                 ? "费用未知"
@@ -125,6 +140,11 @@ export function GenerationActions({
         <QuoteHelp />
       </div>
       <AccountSnapshot compact />
+      {estimate.quote && !effectiveOperation && (
+        <p className="generation-danger" role="alert">
+          SDK 未保留 Max Enhance 操作。请切换支持的模型，或明确选择普通图生图后再提交。
+        </p>
+      )}
       {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={focusSetting} />

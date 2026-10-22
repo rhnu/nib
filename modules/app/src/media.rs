@@ -240,7 +240,8 @@ impl MediaLibrary {
         let mut notices =
             vec!["仅恢复图片中已知的字段；未包含的设置、参考材料和遮罩无法还原。".to_owned()];
         if !metadata.characters.is_empty() {
-            notices.push("角色信息缺少位置，未补造角色位置。".to_owned());
+            notices
+                .push("角色文字可在元信息详情查看；缺少完整位置，角色与位置均未恢复。".to_owned());
         }
         if !metadata.vibe_entries.is_empty() {
             notices.push("嵌入 Vibe 材料可单独导入；生成信息不代表完整参考配置。".to_owned());

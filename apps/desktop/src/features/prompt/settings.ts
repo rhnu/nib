@@ -103,7 +103,20 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
     });
     return true;
   }
-  const key = diagnosticSetting(field) ?? (field.split(".").includes("policy") ? "policy" : null);
+  const inputFields: Record<string, string> = {
+    strength: "strength",
+    noise: "noise",
+    color_correct: "colorCorrect",
+    extra_noise_seed: "extraNoiseSeed",
+    add_original_image: "addOriginalImage",
+    max_enhance: "maxEnhance",
+    declared_blur_sigma: "declaredBlurSigma",
+    image: "sourceImage",
+  };
+  const tail = field.split(".").at(-1) ?? "";
+  const key = field.startsWith("operation.input.")
+    ? inputFields[tail]
+    : (diagnosticSetting(field) ?? (field.split(".").includes("policy") ? "policy" : null));
   if (!key) return false;
   const selector = `[data-setting-field="${key}"]`;
   const target =

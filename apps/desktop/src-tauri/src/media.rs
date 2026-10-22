@@ -8,7 +8,7 @@ use nib_app::{
         AssetSource, GenerationResult, ImageMetadataReport, MediaAsset, MediaLibrary,
         MetadataRestore,
     },
-    session::Draft,
+    session::{CreationOperation, Draft, ImageOperationKind, ImageOperationOptions},
 };
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
@@ -19,6 +19,24 @@ async fn with_media<T: Send + 'static>(
 ) -> Result<T, ApiError> {
     let state = state.inner().clone();
     blocking(move || action(state.media().map_err(persistence_error)?)).await
+}
+
+#[tauri::command]
+pub(crate) fn get_image_operation_options() -> ImageOperationOptions {
+    nib_app::session::image_operation_options()
+}
+
+#[tauri::command]
+pub(crate) async fn create_image_operation(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    kind: ImageOperationKind,
+) -> Result<CreationOperation, ApiError> {
+    with_media(state, move |media| {
+        nib_app::session::create_image_operation(media.as_ref(), id, kind)
+            .map_err(persistence_error)
+    })
+    .await
 }
 
 #[tauri::command]

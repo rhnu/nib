@@ -78,6 +78,8 @@ pub fn run() -> anyhow::Result<()> {
             media::read_result_content,
             media::restore_result,
             media::list_media_assets,
+            media::get_image_operation_options,
+            media::create_image_operation,
             media::get_media_asset,
             media::import_image_asset,
             media::import_vibe_asset,

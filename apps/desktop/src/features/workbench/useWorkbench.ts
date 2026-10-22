@@ -27,6 +27,7 @@ export function useWorkbench(
   const [library, setLibrary] = useState(false);
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
   const [resourceDirty, setResourceDirty] = useState(false);
+  const [restoreVersion, setRestoreVersion] = useState(0);
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({
@@ -52,8 +53,10 @@ export function useWorkbench(
   });
   const edit = (value: Draft) => writer.edit(value);
   const readCurrentDraft = () => writer.getSnapshot().value!;
-  const restore = (value: Draft) =>
+  const restore = (value: Draft) => {
+    setRestoreVersion((version) => version + 1);
     writer.edit({ ...value, revision: readCurrentDraft().revision });
+  };
   const openLibrary = (target: InsertTarget) => {
     setInsertTarget(target);
     setLibrary(true);
@@ -121,6 +124,7 @@ export function useWorkbench(
     setResourceDirty,
     edit,
     restore,
+    restoreVersion,
     readCurrentDraft,
     openLibrary,
     insert,

@@ -111,18 +111,35 @@ export default function App() {
               </>
             )}
             settings={<SettingsPage settings={settings} />}
-            renderActions={({ draft, readCurrentDraft, quoteRefreshKey, resolved, estimate }) => (
+            renderActions={({
+              draft,
+              readCurrentDraft,
+              quoteRefreshKey,
+              resolved,
+              estimate,
+              operationPending,
+            }) => (
               <GenerationActions
                 draft={draft}
                 readCurrentDraft={readCurrentDraft}
                 refreshKey={quoteRefreshKey}
                 resolved={resolved}
                 estimate={estimate}
+                operationPending={operationPending}
               />
             )}
-            renderResults={({ onRestore, readCurrentDraft }) => (
+            renderResults={({
+              draft,
+              onRestore,
+              readCurrentDraft,
+              onImageOperation,
+              canMaxEnhance,
+            }) => (
               <GenerationResults
                 onRestore={onRestore}
+                operation={draft.inputs.operation}
+                onImageOperation={onImageOperation}
+                canMaxEnhance={canMaxEnhance}
                 onUseSeed={(seed) => {
                   const current = readCurrentDraft();
                   onRestore({ ...current, settings: { ...current.settings, seed } });

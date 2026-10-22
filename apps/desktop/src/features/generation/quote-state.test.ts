@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Draft } from "../../bindings/workbench";
+import type { CreationOperation, Draft } from "../../bindings/workbench";
 import { emptyReferences, emptySettings } from "../prompt/model";
-import { generationQuoteKey, hasResolvedPrompt, isQuoteEligible } from "./quote-state";
+import {
+  generationQuoteKey,
+  hasResolvedPrompt,
+  isQuoteEligible,
+  isOperationEffective,
+} from "./quote-state";
 
 const draft: Draft = {
   revision: 1,
@@ -16,6 +21,29 @@ const draft: Draft = {
     policy: "normalize",
   },
 };
+
+describe("effective image operation", () => {
+  it("does not submit an ordinary SDK result under a requested Max Enhance action", () => {
+    const requested: Extract<CreationOperation, { kind: "imageToImage" }> = {
+      kind: "imageToImage",
+      assetId: "source",
+      strength: 0.7,
+      noise: 0,
+      colorCorrect: true,
+      extraNoiseSeed: null,
+      addOriginalImage: true,
+      maxEnhance: true,
+    };
+    expect(isOperationEffective(requested, { ...requested, maxEnhance: false })).toBe(false);
+    expect(isOperationEffective(requested, requested)).toBe(true);
+    expect(
+      isOperationEffective(
+        { ...requested, maxEnhance: false },
+        { ...requested, maxEnhance: false },
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("generation quote eligibility", () => {
   it("waits for resolved positive text, including text supplied by resources", () => {

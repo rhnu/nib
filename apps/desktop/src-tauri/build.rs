@@ -32,6 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "list_results",
             "read_result_content",
             "restore_result",
+            "list_media_assets",
+            "get_media_asset",
+            "import_image_asset",
+            "read_media_asset",
+            "inspect_image_metadata",
+            "restore_image_metadata",
+            "get_image_operation_options",
+            "create_image_operation",
         ]));
     tauri_build::try_build(attributes)?;
     Ok(())

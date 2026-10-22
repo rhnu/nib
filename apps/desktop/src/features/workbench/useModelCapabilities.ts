@@ -4,7 +4,11 @@ import { errorMessage } from "../../shared/host/error";
 import { workbenchApi } from "./api";
 
 /** Editable choices come from the SDK descriptor, including for a sparse preset. */
-export function useModelCapabilities(model?: string, settings?: GenerationSettings | null) {
+export function useModelCapabilities(
+  model?: string,
+  settings?: GenerationSettings | null,
+  enabled = true,
+) {
   const [attempt, setAttempt] = useState(0);
   const key = JSON.stringify([model ?? null, settings ?? null]);
   const [response, setResponse] = useState<{
@@ -14,6 +18,7 @@ export function useModelCapabilities(model?: string, settings?: GenerationSettin
     error: string | null;
   } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     void workbenchApi.modelCapabilities(model, settings).then(
       (capabilities) => {
@@ -26,13 +31,13 @@ export function useModelCapabilities(model?: string, settings?: GenerationSettin
     return () => {
       active = false;
     };
-  }, [key, model, settings, attempt]);
+  }, [key, model, settings, attempt, enabled]);
   const current =
-    response && response.key === key && response.attempt === attempt ? response : null;
+    enabled && response && response.key === key && response.attempt === attempt ? response : null;
   return {
     capabilities: current?.capabilities ?? null,
     error: current?.error ?? null,
-    loading: current === null,
+    loading: enabled && current === null,
     retry: () => setAttempt((value) => value + 1),
   };
 }

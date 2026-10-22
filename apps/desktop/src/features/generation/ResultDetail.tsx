@@ -9,17 +9,23 @@ import { ResultResubmitDialog } from "./ResultResubmitDialog";
 import { SubmissionSummary } from "./SubmissionSummary";
 import { useResultImage } from "./use-result-image";
 import { resultFilename } from "./result-file";
+import { ImageResultActions } from "./ImageResultActions";
+import type { ImageOperationAction } from "../workbench/image-operation";
 
 export function ResultDetail({
   result,
   onClose,
   onRestore,
   onUseSeed,
+  onImageOperation,
+  canMaxEnhance,
 }: {
   result: GenerationResult;
   onClose: () => void;
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
+  onImageOperation: (id: string, kind: ImageOperationAction) => void;
+  canMaxEnhance: boolean;
 }) {
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [confirmRestore, setConfirmRestore] = useState(false);
@@ -82,6 +88,19 @@ export function ResultDetail({
             </time>
           </p>
           <SubmissionSummary submission={result.submission} />
+          <ImageResultActions
+            assetId={result.assetId}
+            available={result.available}
+            onRestore={(draft) => {
+              onRestore(draft);
+              onClose();
+            }}
+            onImageOperation={(id, kind) => {
+              onImageOperation(id, kind);
+              onClose();
+            }}
+            canMaxEnhance={canMaxEnhance}
+          />
           {result.submission.kind === "generation" && (
             <p className="generation-muted">
               {result.seed === null

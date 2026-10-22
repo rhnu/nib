@@ -1,13 +1,16 @@
 import { useState, type ReactNode } from "react";
 import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
-import { Button, Notice } from "../../shared/ui";
+import { Button, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import type { CloseWriter } from "../../shared/host/useCloseGuard";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
 import { PromptWorkspace } from "./PromptWorkspace";
 import { useWorkbench } from "./useWorkbench";
+import { useDraftCapabilities } from "./useDraftCapabilities";
 import { useModelCapabilities } from "./useModelCapabilities";
+import { useImageOperationRequest } from "./useImageOperationRequest";
+import { operationLabel, type ImageOperationAction } from "./image-operation";
 import { useGeneration } from "../generation/generation-context";
 import { useGenerationQuote } from "../generation/use-generation-quote";
 import { isQuoteEligible } from "../generation/quote-state";
@@ -21,6 +24,9 @@ export type WorkbenchExtension = {
   resolving: boolean;
   estimate: ReturnType<typeof useGenerationQuote>;
   quoteRefreshKey: unknown;
+  onImageOperation: (id: string, kind: ImageOperationAction) => void;
+  canMaxEnhance: boolean;
+  operationPending: boolean;
 };
 export function Workbench({
   workspace,
@@ -58,6 +64,7 @@ export function Workbench({
     setResourceDirty,
     edit,
     restore,
+    restoreVersion,
     readCurrentDraft,
     openLibrary,
     insert,
@@ -71,11 +78,19 @@ export function Workbench({
     quoteRefreshKey,
     !resolving && !accountSummaryLoading && isQuoteEligible(draft, resolved),
   );
-  const modelId = draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId;
-  const model = useModelCapabilities(
-    modelId,
-    resolved?.settings.model === modelId ? resolved.settings : draft.settings,
+  const model = useDraftCapabilities(draft, resourceVersion);
+  const generationTarget = useModelCapabilities(
+    draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId,
+    resolved?.settings ?? draft.settings,
+    draft.inputs.operation.kind === "upscale",
   );
+  const editorCapabilities = model.capabilities ?? generationTarget.capabilities;
+  const imageOperation = useImageOperationRequest({
+    readCurrentDraft,
+    edit,
+    onError: setError,
+    contextVersion: restoreVersion,
+  });
   const [page, setPage] = useState<"create" | "settings">(initialPage);
   const extension = {
     draft,
@@ -87,6 +102,9 @@ export function Workbench({
     resolving,
     estimate,
     quoteRefreshKey,
+    onImageOperation: imageOperation.request,
+    canMaxEnhance: editorCapabilities?.maxEnhance ?? false,
+    operationPending: imageOperation.busy,
   };
   return (
     <div className="workbench">
@@ -136,21 +154,23 @@ export function Workbench({
       <div className="workspace-body" hidden={page !== "create"}>
         <aside className="generation-sidebar" aria-label="生成侧栏">
           <div className="generation-sidebar-scroll">
-            <PromptWorkspace
-              draft={draft}
-              resources={resources}
-              models={workspace.models}
-              capabilities={model.capabilities}
-              diagnostics={estimate.quote?.diagnostics ?? []}
-              tokens={estimate.quote?.tokens ?? []}
-              errorFields={estimate.fields}
-              resolved={resolved}
-              resolving={resolving}
-              resolveError={resolveError}
-              openLibrary={openLibrary}
-              edit={edit}
-              setError={setError}
-            />
+            {draft.inputs.operation.kind !== "upscale" && (
+              <PromptWorkspace
+                draft={draft}
+                resources={resources}
+                models={workspace.models}
+                capabilities={model.capabilities}
+                diagnostics={estimate.quote?.diagnostics ?? []}
+                tokens={estimate.quote?.tokens ?? []}
+                errorFields={estimate.fields}
+                resolved={resolved}
+                resolving={resolving}
+                resolveError={resolveError}
+                openLibrary={openLibrary}
+                edit={edit}
+                setError={setError}
+              />
+            )}
             {model.error && (
               <Notice actions={<Button onClick={model.retry}>重试模型查询</Button>}>
                 {model.error}
@@ -161,13 +181,18 @@ export function Workbench({
               resources={resources}
               models={workspace.models}
               resolved={resolved}
-              capabilities={model.capabilities}
+              capabilities={editorCapabilities}
               diagnostics={estimate.quote?.diagnostics ?? []}
               errorFields={estimate.fields}
               readCurrentDraft={readCurrentDraft}
               edit={edit}
               onAddPreset={() => openLibrary("preset")}
               setError={setError}
+              estimate={estimate.quote}
+              onRestore={restore}
+              onRequestOperation={imageOperation.request}
+              onReturnToText={imageOperation.returnToText}
+              imageInputVersion={restoreVersion}
             />
           </div>
           {renderActions && (
@@ -192,6 +217,33 @@ export function Workbench({
         onDirtyChange={setResourceDirty}
         notice={error || (written.error ? errorMessage(written.error) : "")}
       />
+      {imageOperation.busy && (
+        <output className="generation-muted image-operation-progress">正在读取图像输入…</output>
+      )}
+      <Modal
+        open={imageOperation.candidate !== null}
+        onClose={imageOperation.cancel}
+        title="更改当前图像操作？"
+      >
+        {imageOperation.candidate && (
+          <div className="generation-dialog-body">
+            <p>
+              将切换到{operationLabel(imageOperation.candidate.operation)}
+              。现有源图将替换，不适用的操作专有参数将清除；提示词、配方及其余设置保留。
+            </p>
+            {imageOperation.candidate.operation.kind === "imageToImage" &&
+              imageOperation.candidate.operation.maxEnhance && (
+                <p>Max Enhance 将输入画布设为所选源图尺寸，预计输出与计价尺寸由 SDK 计算。</p>
+              )}
+            <footer className="generation-dialog-actions">
+              <Button onClick={imageOperation.cancel}>保留当前操作</Button>
+              <Button className="primary" onClick={imageOperation.confirm}>
+                应用更改
+              </Button>
+            </footer>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

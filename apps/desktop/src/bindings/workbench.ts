@@ -16,6 +16,10 @@ export type CreationInputs = { operation: CreationOperation, policy: "normalize"
 
 export type CreationOperation = { "kind": "textToImage" } | { "kind": "imageToImage", assetId: string, strength: number, noise: number, colorCorrect: boolean, extraNoiseSeed: number | null, addOriginalImage: boolean, maxEnhance: boolean, } | { "kind": "inpainting", assetId: string, maskAssetId: string, img2img: { strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null } | null, addOriginalImage: boolean, } | { "kind": "director", assetId: string, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe", assetId: string, model: string, informationExtracted: number, maskAssetId: string | null, cropToMask: boolean | null, focusSeed: number | null, infoExtractSeed: number | null, } | { "kind": "upscale", assetId: string, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
 
+export type ImageOperationKind = "imageToImage" | "maxEnhance" | "upscale";
+
+export type ImageOperationOptions = { upscaleBlurSigmas: (0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5)[], };
+
 export type ReferenceInputs = { precise: Array<PreciseReferenceInput>, vibes: Array<VibeReferenceInput>, normalizeVibeStrength: boolean | null, };
 
 export type PreciseReferenceInput = { id: string, enabled: boolean, assetId: string, referenceType: string, strength: number, fidelity: number, informationExtracted: number, };
@@ -80,7 +84,7 @@ export type ReferenceStatus = { available: boolean, reason: string, };
 
 export type NumericRange = { min: number, max: number, };
 
-export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, };
+export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, };
 
 export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
 

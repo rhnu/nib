@@ -1,0 +1,120 @@
+.image-operation-panel > * + * {
+  margin-top: 10px;
+}
+.image-source-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.image-source-actions .image-importer {
+  flex-basis: 100%;
+}
+.image-source {
+  display: flex;
+  gap: 9px;
+  align-items: start;
+  min-width: 0;
+}
+.image-source-thumbnail {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.image-source-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.image-source-info strong {
+  font-weight: 500;
+}
+.image-source-info small,
+.image-operation-note,
+.image-operation-advanced summary small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.image-source-info .ui-button {
+  justify-self: start;
+  font-size: 11px;
+}
+.image-operation-fields {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.image-operation-fields input,
+.image-operation-panel select {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.image-operation-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.image-operation-advanced {
+  border-top: 1px solid var(--line-subtle);
+  padding-top: 10px;
+}
+.image-operation-advanced summary {
+  font-size: 12px;
+  cursor: pointer;
+}
+.image-operation-advanced summary small {
+  display: block;
+  margin: 4px 0 0 15px;
+}
+.image-operation-advanced[open] > div {
+  margin-top: 10px;
+}
+.image-operation-geometry {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 11px;
+}
+.image-operation-geometry > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.image-operation-geometry dt {
+  color: var(--muted);
+}
+.image-operation-geometry dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.image-operation-diagnostic {
+  display: grid;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.image-operation-toggle .image-operation-diagnostic {
+  flex-basis: 100%;
+}
+.image-operation-panel [aria-invalid="true"] {
+  outline: 1px solid var(--danger);
+  outline-offset: 1px;
+}

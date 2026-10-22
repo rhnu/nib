@@ -25,8 +25,8 @@ use nib_app::{
         VibeReferenceOverride,
     },
     session::{
-        CreationInputs, CreationOperation, Draft, PreciseReferenceInput, ReferenceInputs,
-        VibeInput, VibeReferenceInput,
+        CreationInputs, CreationOperation, Draft, ImageOperationKind, ImageOperationOptions,
+        PreciseReferenceInput, ReferenceInputs, VibeInput, VibeReferenceInput,
     },
     settings::{
         AccountStatus, AccountSummary, AllowanceSummary, ApplicationPreferences,
@@ -78,6 +78,8 @@ fn types(check: bool) -> Result<()> {
         CharacterComposition::decl(&config),
         CreationInputs::decl(&config),
         CreationOperation::decl(&config),
+        ImageOperationKind::decl(&config),
+        ImageOperationOptions::decl(&config),
         ReferenceInputs::decl(&config),
         PreciseReferenceInput::decl(&config),
         VibeReferenceInput::decl(&config),

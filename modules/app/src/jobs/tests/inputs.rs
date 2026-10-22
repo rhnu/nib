@@ -164,3 +164,60 @@ fn max_enhance_keeps_its_input_canvas_and_distinct_output_geometry() {
     assert_eq!(plan.geometry().input_size, request(&reopened).core.size);
     assert!(plan.geometry().output_size.pixels() > plan.geometry().input_size.pixels());
 }
+
+#[test]
+fn image_to_image_options_freeze_restore_and_rehydrate_without_following_later_edits() {
+    let submitted = submission();
+    let mut edited = submitted.resolved().unwrap().clone();
+    edited.settings.seed = 789;
+    edited.inputs.operation = CreationOperation::ImageToImage {
+        asset_id: "source".into(),
+        strength: 0.65,
+        noise: 0.15,
+        color_correct: false,
+        extra_noise_seed: None,
+        add_original_image: false,
+        max_enhance: false,
+    };
+    let frozen = prepare_submission(edited.clone(), &ImageAssets).unwrap();
+    // Subsequent editing must have no effect on the persisted operation or noise seed.
+    edited.inputs.operation = CreationOperation::TextToImage;
+    edited.settings.seed = 123;
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    let reopened = sqlite::decode_submission(&encoded).unwrap();
+    let resolved = reopened.resolved().unwrap();
+    let restored = crate::session::restore_generation(request(&reopened), resolved.inputs.clone());
+    let hydrated =
+        operations::hydrate(request(&reopened).clone(), &restored.inputs, &ImageAssets).unwrap();
+    let GenerationInput::ImageToImage(input) = hydrated.operation else {
+        panic!("expected restored image-to-image input")
+    };
+    assert_eq!(input.strength.to_bits(), 0.65_f32.to_bits());
+    assert_eq!(input.noise.to_bits(), 0.15_f32.to_bits());
+    assert!(!input.color_correct);
+    assert!(!input.add_original_image);
+    assert!(!input.max_enhance);
+    assert_eq!(input.extra_noise_seed, Some(789));
+    assert!(matches!(&restored.inputs.operation,
+        CreationOperation::ImageToImage { asset_id, .. } if asset_id == "source"));
+    assert!(!encoded.contains("iVBOR"));
+}
+
+#[test]
+fn image_to_image_submission_requires_retained_media_before_it_can_enter_the_queue() {
+    let submitted = submission();
+    let mut resolved = submitted.resolved().unwrap().clone();
+    resolved.inputs.operation = CreationOperation::ImageToImage {
+        asset_id: "missing".into(),
+        strength: 0.7,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: None,
+        add_original_image: true,
+        max_enhance: false,
+    };
+    assert!(matches!(
+        prepare_submission(resolved, &NoAssets),
+        Err(JobError::InputMedia { .. })
+    ));
+}
