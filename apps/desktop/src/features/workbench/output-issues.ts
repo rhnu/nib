@@ -8,11 +8,12 @@ export type OutputFieldIssue = { field: string; message: string };
 export type OutputIssues = {
   characters: Record<string, OutputFieldIssue[]>;
   precise: Record<string, OutputFieldIssue[]>;
+  vibes: Record<string, OutputFieldIssue[]>;
 };
 export type ScopedOutputIssues = { draft: OutputIssues; presets: Record<string, OutputIssues> };
-const empty = (): OutputIssues => ({ characters: {}, precise: {} });
+const empty = (): OutputIssues => ({ characters: {}, precise: {}, vibes: {} });
 type Target = {
-  kind: "character" | "reference";
+  kind: "character" | "reference" | "vibe";
   id: string;
   presetInstanceId: string | null;
   field?: string;
@@ -45,9 +46,12 @@ export function outputTarget(
             : tail.split(".").at(-1),
     };
   }
-  const referenceMatch = /^references\.character_references\[(\d+)\](?:\.(.*))?$/.exec(field);
+  const preciseMatch = /^references\.character_references\[(\d+)\](?:\.(.*))?$/.exec(field);
+  const vibeMatch = /^references\.vibe_transfer\.references\[(\d+)\](?:\.(.*))?$/.exec(field);
+  const referenceMatch = preciseMatch ?? vibeMatch;
+  const referenceKind = preciseMatch ? "precise" : "vibes";
   if (referenceMatch) {
-    const reference = resolved?.inputs.references.precise.filter((item) => item.enabled)[
+    const reference = resolved?.inputs.references[referenceKind].filter((item) => item.enabled)[
       Number(referenceMatch[1])
     ];
     if (!reference) return null;
@@ -57,25 +61,27 @@ export function outputTarget(
     const resource = binding?.kind === "linked" ? resources.get(binding.resourceId) : null;
     const definitions =
       binding?.kind === "expanded"
-        ? binding.references.precise
+        ? binding.references[referenceKind]
         : resource?.content.kind === "preset"
-          ? resource.content.references.precise
-          : draft.inputs.references.precise;
+          ? resource.content.references[referenceKind]
+          : draft.inputs.references[referenceKind];
     const definition = definitions.find(
       (item) => outputIdentity(instance?.id ?? null, item.id) === reference.id,
     );
     if (!definition) return null;
     const tail = referenceMatch[2] ?? "entry";
     return {
-      kind: "reference",
+      kind: preciseMatch ? "reference" : "vibe",
       id: definition.id,
       presetInstanceId: source?.presetInstanceId ?? null,
       field:
-        tail === "information_extracted"
+        tail === "information_extracted" || tail === "input.information_extracted"
           ? "informationExtracted"
-          : tail === "image"
-            ? "assetId"
-            : tail,
+          : tail.startsWith("input")
+            ? "input"
+            : tail === "image"
+              ? "assetId"
+              : tail,
     };
   }
   return null;
@@ -98,7 +104,12 @@ export function collectOutputIssues(
     const scope = target.presetInstanceId
       ? (result.presets[target.presetInstanceId] ??= empty())
       : result.draft;
-    const group = target.kind === "character" ? scope.characters : scope.precise;
+    const group =
+      target.kind === "character"
+        ? scope.characters
+        : target.kind === "vibe"
+          ? scope.vibes
+          : scope.precise;
     (group[target.id] ??= []).push({ field: target.field ?? "entry", message: issue.message });
   }
   return result;
@@ -116,7 +127,9 @@ export function focusOutputField(
       ? "characters"
       : field === "references.character_references"
         ? "precise"
-        : null;
+        : field === "references.vibe_transfer" || field === "references.vibe_transfer.references"
+          ? "vibes"
+          : null;
   if (collection) {
     const group = document.querySelector<HTMLElement>(
       `[data-draft-outputs] [data-setting-field="${collection}"]`,
@@ -133,7 +146,7 @@ export function focusOutputField(
     return true;
   }
   let target = outputTarget(field, resolved, draft, resources);
-  for (const kind of ["character", "reference"] as const) {
+  for (const kind of ["character", "reference", "vibe"] as const) {
     if (!field.startsWith(`${kind}:`)) continue;
     try {
       target = { ...JSON.parse(field.slice(kind.length + 1)), kind } as Target;
@@ -147,7 +160,7 @@ export function focusOutputField(
     ? document.querySelector(`[data-preset-instance-id="${CSS.escape(target.presetInstanceId)}"]`)
     : document.querySelector("[data-draft-outputs]");
   const row = scope?.querySelector<HTMLElement>(
-    `[data-${target.kind === "character" ? "character" : "reference"}-id="${CSS.escape(target.id)}"]`,
+    `[data-${target.kind}-id="${CSS.escape(target.id)}"]`,
   );
   if (!row) return false;
   for (let element: HTMLElement | null = row; element; element = element.parentElement)
@@ -179,13 +192,13 @@ export function focusOutputField(
       : (promptScope ?? row);
     const control = selected.field
       ? container.querySelector<HTMLElement>(
-          `[data-${selected.kind === "character" ? "character" : "reference"}-field="${CSS.escape(selected.field)}"]`,
+          `[data-${selected.kind}-field="${CSS.escape(selected.field)}"]`,
         )
       : null;
     const fieldContainer = control ?? container;
     const focus = fieldContainer.matches("textarea, input, select, button")
       ? fieldContainer
-      : (fieldContainer.querySelector<HTMLElement>("textarea, input, select") ??
+      : (fieldContainer.querySelector<HTMLElement>("textarea, input:not([type='range']), select") ??
         fieldContainer.querySelector<HTMLElement>("button[aria-invalid='true'], button"));
     for (
       let parent: HTMLElement | null = focus ?? fieldContainer;

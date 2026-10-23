@@ -3,6 +3,39 @@ use crate::{media::AssetReader, persistence::PersistenceError};
 
 struct ImageAssets;
 
+#[test]
+fn separate_encoder_round_trips_zero_seeds_without_switching_generation() {
+    let mut input = create_vibe_encoding_input(
+        &ImageAssets,
+        "retained-source".to_owned(),
+        Model::NaiDiffusion45Full,
+    )
+    .unwrap();
+    input.information_extracted = 0.4;
+    input.mask_asset_id = Some("mask".to_owned());
+    input.crop_to_mask = Some(false);
+    input.focus_seed = Some(0);
+    input.info_extract_seed = Some(42);
+    let draft = crate::session::Draft {
+        vibe_encoder: Some(input.clone()),
+        ..crate::session::Draft::default()
+    };
+    crate::session::validate_draft(&draft).unwrap();
+    let retained: crate::session::Draft =
+        serde_json::from_slice(&serde_json::to_vec(&draft).unwrap()).unwrap();
+    assert_eq!(retained.vibe_encoder, Some(input.clone()));
+    assert_eq!(retained.inputs.operation, CreationOperation::TextToImage);
+    let operation = CreationOperation::EncodeVibe(input);
+    let wire = serde_json::to_value(&operation).unwrap();
+    assert_eq!(wire["kind"], "encodeVibe");
+    assert_eq!(wire["focusSeed"], 0);
+    assert_eq!(wire["cropToMask"], false);
+    assert_eq!(
+        serde_json::from_value::<CreationOperation>(wire).unwrap(),
+        operation
+    );
+}
+
 impl AssetReader for ImageAssets {
     fn image(&self, id: &str) -> Result<novelai_bridge::EncodedImage, PersistenceError> {
         if id != "retained-source" {

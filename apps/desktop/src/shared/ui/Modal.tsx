@@ -8,12 +8,14 @@ export function Modal({
   title,
   children,
   wide = false,
+  className = "",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
   wide?: boolean;
+  className?: string;
 }) {
   return (
     <Dialog.Root
@@ -24,7 +26,7 @@ export function Modal({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="modal-backdrop" />
-        <Dialog.Popup className={`modal ${wide ? "modal-wide" : ""}`}>
+        <Dialog.Popup className={`modal ${wide ? "modal-wide" : ""} ${className}`}>
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>
             <Dialog.Close className="icon-button" aria-label="关闭" title="关闭">

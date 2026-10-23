@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Plus } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "../../bindings/workbench";
 import { ActionsMenu, IconButton, Toggle } from "../../shared/ui";
@@ -31,7 +31,6 @@ type EditorProps = {
 function CharacterRow({
   character,
   index,
-  initialOpen,
   resources,
   models,
   capabilities,
@@ -44,7 +43,6 @@ function CharacterRow({
 }: Omit<EditorProps, "value" | "onChange" | "title" | "issues"> & {
   character: CharacterComposition;
   index: number;
-  initialOpen: boolean;
   update: (patch: Partial<Omit<CharacterComposition, "id">>) => void;
   actions: {
     canUp: boolean;
@@ -55,16 +53,13 @@ function CharacterRow({
   };
   fieldIssues: CharacterFieldIssue[];
 }) {
-  const [open, setOpen] = useState(initialOpen);
   const root = useRef<HTMLElement>(null);
-  const prompts = useRef<HTMLDetailsElement>(null);
   const textIssue = fieldIssues.find(
     (issue) => issue.field === "positive" || issue.field === "negative",
   )?.field;
   const signature = fieldIssues.map((issue) => `${issue.field}:${issue.message}`).join("|");
   useEffect(() => {
-    if (!textIssue || !prompts.current) return;
-    prompts.current.open = true;
+    if (!textIssue) return;
     root.current?.querySelector<HTMLElement>(`[data-prompt-tab="${textIssue}"]`)?.click();
   }, [signature, textIssue]);
   return (
@@ -96,13 +91,7 @@ function CharacterRow({
           {issue.message}
         </p>
       ))}
-      <details
-        ref={prompts}
-        open={open}
-        onToggle={(event) => setOpen(event.currentTarget.open)}
-        className="character-prompts"
-      >
-        <summary>正负提示词</summary>
+      <div className="character-prompts">
         <CompositionEditor
           compact
           value={character.composition}
@@ -120,7 +109,7 @@ function CharacterRow({
             }
           }}
         />
-      </details>
+      </div>
       <CharacterPositionFields
         value={character.position}
         onChange={(position) => update({ position })}
@@ -145,7 +134,6 @@ export function CharacterListEditor({
   title = "角色",
   issues = {},
 }: EditorProps) {
-  const [newId, setNewId] = useState<string | null>(null);
   const latest = useRef({ value, onChange });
   useLayoutEffect(() => {
     latest.current = { value, onChange };
@@ -174,7 +162,6 @@ export function CharacterListEditor({
             const character = createCharacter(
               capabilities.characterPositionOptions.defaultPosition,
             );
-            setNewId(character.id);
             emit([...latest.current.value, character]);
           }}
         >
@@ -195,7 +182,6 @@ export function CharacterListEditor({
           key={character.id}
           character={character}
           index={index}
-          initialOpen={character.id === newId}
           resources={resources}
           models={models}
           capabilities={capabilities}

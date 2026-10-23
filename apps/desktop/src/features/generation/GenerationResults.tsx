@@ -1,6 +1,11 @@
 import { RotateCw } from "lucide-react";
 import { useState } from "react";
-import type { CreationOperation, Draft } from "../../bindings/workbench";
+import type {
+  CreationOperation,
+  Draft,
+  VibeEncodingInput,
+  VibeReferenceInput,
+} from "../../bindings/workbench";
 import { operationSourceId, type ImageOperationAction } from "../workbench/image-operation";
 import { Button, Notice } from "../../shared/ui";
 import { useGeneration } from "./generation-context";
@@ -9,6 +14,7 @@ import { ResultGallery } from "./ResultGallery";
 import { SourceImageView } from "./SourceImageView";
 import { ImageResultActions } from "./ImageResultActions";
 import { useMediaAsset } from "../media/useMediaAsset";
+import { VibeResults } from "../vibes/VibeResults";
 
 export function GenerationResults({
   onRestore,
@@ -18,6 +24,8 @@ export function GenerationResults({
   canMaxEnhance,
   canInpaint,
   onViewedAssetChange,
+  onAddVibeReference,
+  onEncodeVibe,
 }: {
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
@@ -26,16 +34,46 @@ export function GenerationResults({
   canMaxEnhance: boolean;
   canInpaint: boolean;
   onViewedAssetChange?: (id: string | null) => void;
+  onAddVibeReference?: (reference: VibeReferenceInput) => void;
+  onEncodeVibe?: (input: VibeEncodingInput) => void;
 }) {
   const { results, queryError, refreshing, refresh } = useGeneration();
   const sourceId = operationSourceId(operation);
   const source = useMediaAsset(sourceId);
   const [view, setView] = useState<"source" | "results">("results");
+  const [resultKind, setResultKind] = useState<"image" | "vibe">("image");
+  const imageResults = results?.filter((result) => result.kind === "image") ?? null;
+  const vibeResults = results?.filter((result) => result.kind === "vibe") ?? [];
+  const showVibes = resultKind === "vibe" || (imageResults?.length === 0 && vibeResults.length > 0);
   const showSource = Boolean(sourceId && (view === "source" || results?.length === 0));
   return (
     <section className="generation-results" aria-label="生成任务与结果">
       <header className="generation-results-heading">
         <h2>生成结果</h2>
+        {vibeResults.length > 0 && (
+          <div className="button-group" aria-label="结果类型">
+            <Button
+              className="quiet"
+              aria-pressed={!showVibes && view === "results"}
+              onClick={() => {
+                setView("results");
+                setResultKind("image");
+              }}
+            >
+              图像 {imageResults?.length ?? 0}
+            </Button>
+            <Button
+              className="quiet"
+              aria-pressed={showVibes && view === "results"}
+              onClick={() => {
+                setView("results");
+                setResultKind("vibe");
+              }}
+            >
+              Vibe {vibeResults.length}
+            </Button>
+          </div>
+        )}
         {sourceId && (
           <div className="button-group" aria-label="画布内容">
             <Button className="quiet" aria-pressed={showSource} onClick={() => setView("source")}>
@@ -80,9 +118,15 @@ export function GenerationResults({
             />
             <SourceImageView key={sourceId} id={sourceId} />
           </>
+        ) : showVibes ? (
+          <VibeResults
+            results={vibeResults}
+            onAddReference={onAddVibeReference}
+            onEncode={onEncodeVibe}
+          />
         ) : (
           <ResultGallery
-            results={results?.filter((result) => result.kind === "image") ?? null}
+            results={imageResults}
             onRestore={onRestore}
             onUseSeed={onUseSeed}
             queryFailed={queryError !== null}

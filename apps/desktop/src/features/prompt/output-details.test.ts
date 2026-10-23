@@ -26,6 +26,7 @@ const character: CharacterComposition = {
   },
 };
 const draft = (): Draft => ({
+  vibeEncoder: null,
   revision: 0,
   composition: emptyComposition(),
   settings: emptySettings(),

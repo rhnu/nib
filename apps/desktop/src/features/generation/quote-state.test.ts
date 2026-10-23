@@ -9,6 +9,7 @@ import {
 } from "./quote-state";
 
 const draft: Draft = {
+  vibeEncoder: null,
   revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: { positive: [], negative: [] },

@@ -15,7 +15,8 @@ CREATE TABLE current_creation (
     settings TEXT NOT NULL CHECK (json_valid(settings)),
     characters TEXT NOT NULL CHECK (json_valid(characters)),
     inputs TEXT NOT NULL CHECK (json_valid(inputs)),
-    mask_editor TEXT NOT NULL CHECK (json_valid(mask_editor))
+    mask_editor TEXT NOT NULL CHECK (json_valid(mask_editor)),
+    vibe_encoder TEXT NOT NULL CHECK (json_valid(vibe_encoder))
 );
 
 CREATE TABLE jobs (
@@ -50,4 +51,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 7;
+PRAGMA user_version = 8;

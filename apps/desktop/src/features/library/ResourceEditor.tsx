@@ -10,6 +10,7 @@ import { useModelCapabilities } from "../workbench/useModelCapabilities";
 import { PromptTextEditor } from "../prompt/PromptTextEditor";
 import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
 import { PreciseReferenceEditor } from "../references";
+import { VibeReferenceEditor } from "../vibes";
 export function ResourceEditor({
   editor,
   dirty,
@@ -134,6 +135,22 @@ export function ResourceEditor({
                 const current = latest.current.editor.content;
                 if (current.kind === "preset")
                   updatePreset({ references: { ...current.references, precise } });
+              }}
+            />
+            <VibeReferenceEditor
+              value={editor.content.references.vibes}
+              normalizeValue={editor.content.references.normalizeVibeStrength}
+              onNormalizeChange={(normalizeVibeStrength) => {
+                const current = latest.current.editor.content;
+                if (current.kind === "preset")
+                  updatePreset({ references: { ...current.references, normalizeVibeStrength } });
+              }}
+              capabilities={model.capabilities}
+              contextKey={editor.id}
+              onChange={(vibes) => {
+                const current = latest.current.editor.content;
+                if (current.kind === "preset")
+                  updatePreset({ references: { ...current.references, vibes } });
               }}
             />
             {((model.capabilities?.maxCharacters ?? 0) > 0 ||

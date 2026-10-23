@@ -74,10 +74,10 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
     };
     let restored = restore_submission(&vibe, None, MaskEditorState::default());
     assert!(
-        matches!(restored.inputs.operation, CreationOperation::EncodeVibe {
+        matches!(restored.inputs.operation, CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
             asset_id, information_extracted, mask_asset_id: Some(mask), crop_to_mask: Some(true),
             focus_seed: Some(41), info_extract_seed: Some(42), ..
-        } if asset_id == "source" && mask == "vibe-mask" && information_extracted.to_bits() == 0.7_f32.to_bits())
+        }) if asset_id == "source" && mask == "vibe-mask" && information_extracted.to_bits() == 0.7_f32.to_bits())
     );
     let upscale = FrozenSubmission::Upscale {
         asset_id: "upscale-source".into(),

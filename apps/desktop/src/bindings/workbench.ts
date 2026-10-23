@@ -14,7 +14,7 @@ export type CharacterComposition = { id: string, enabled: boolean, composition: 
 
 export type CreationInputs = { operation: CreationOperation, policy: "normalize" | "reject", stream: string | null, references: ReferenceInputs, };
 
-export type CreationOperation = { "kind": "textToImage" } | { "kind": "imageToImage", assetId: string, strength: number, noise: number, colorCorrect: boolean, extraNoiseSeed: number | null, addOriginalImage: boolean, maxEnhance: boolean, } | { "kind": "inpainting", assetId: string, maskAssetId: string, img2img: { strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null } | null, addOriginalImage: boolean, } | { "kind": "director", assetId: string, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe", assetId: string, model: string, informationExtracted: number, maskAssetId: string | null, cropToMask: boolean | null, focusSeed: number | null, infoExtractSeed: number | null, } | { "kind": "upscale", assetId: string, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
+export type CreationOperation = { "kind": "textToImage" } | { "kind": "imageToImage", assetId: string, strength: number, noise: number, colorCorrect: boolean, extraNoiseSeed: number | null, addOriginalImage: boolean, maxEnhance: boolean, } | { "kind": "inpainting", assetId: string, maskAssetId: string, img2img: { strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null } | null, addOriginalImage: boolean, } | { "kind": "director", assetId: string, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe" } & VibeEncodingInput | { "kind": "upscale", assetId: string, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
 
 export type ImageOperationKind = "imageToImage" | "maxEnhance" | "upscale";
 
@@ -35,6 +35,10 @@ export type PreciseReferenceInput = { id: string, enabled: boolean, assetId: str
 export type VibeReferenceInput = { id: string, enabled: boolean, input: VibeInput, strength: number, };
 
 export type VibeInput = { "kind": "encoded", assetId: string, } | { "kind": "image", assetId: string, informationExtracted: number, };
+
+export type VibeEncodingInput = { assetId: string, model: string, informationExtracted: number, maskAssetId: string | null, cropToMask: boolean | null, focusSeed: number | null, infoExtractSeed: number | null, };
+
+export type VibeEncodingOptions = { models: string[], informationExtracted: NumericRange, };
 
 export type PresetOutputOverrides = { characters: Array<CharacterOutputOverride>, precise: Array<PreciseReferenceOverride>, vibes: Array<VibeReferenceOverride>, normalizeVibeStrength: boolean | null, };
 
@@ -58,7 +62,7 @@ export type PresetBinding = { "kind": "linked", resourceId: string, overrides: A
 
 export type PresetInstance = { id: string, enabled: boolean, binding: PresetBinding, };
 
-export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, };
+export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, };
 
 export type ValidationError = { field: string, message: string, };
 
@@ -96,9 +100,11 @@ export type CharacterPositionOptions = { defaultPosition: { x: number; y: number
 
 export type PreciseReferenceOptions = { referenceTypes: string[], strength: NumericRange | null, fidelity: NumericRange | null, informationExtracted: NumericRange, maxReferences: number | null, };
 
+export type VibeReferenceOptions = { strength: NumericRange | null, informationExtracted: NumericRange, normalizeStrengthDefault: boolean, metadataModelKey: string | null, };
+
 export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, inpaintStrength: NumericRange, };
 
-export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, characterPositionOptions: CharacterPositionOptions, preciseReferenceOptions: PreciseReferenceOptions, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
+export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, characterPositionOptions: CharacterPositionOptions, preciseReferenceOptions: PreciseReferenceOptions, vibeReferenceOptions: VibeReferenceOptions, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
 
 export type TokenInspection = { model: string, tokenizer: string, framing: "content_only" | "model_input", count: { used: number; limit: number }, tokenIds: Array<number>, };
 

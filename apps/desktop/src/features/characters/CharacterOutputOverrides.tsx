@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import type {
   CharacterComposition,
@@ -40,22 +40,6 @@ export function CharacterOutputOverrides({
   issues?: CharacterIssues;
 }) {
   const root = useRef<HTMLElement>(null);
-  const issueSignature = JSON.stringify(issues);
-  const issueState = useRef(issues);
-  useLayoutEffect(() => {
-    issueState.current = issues;
-  }, [issues]);
-  useEffect(() => {
-    for (const [id, fields] of Object.entries(issueState.current)) {
-      if (!fields.some((issue) => issue.field === "positive" || issue.field === "negative"))
-        continue;
-      const row = [
-        ...(root.current?.querySelectorAll<HTMLElement>("[data-character-id]") ?? []),
-      ].find((element) => element.dataset.characterId === id);
-      const details = row?.querySelector<HTMLDetailsElement>(".character-prompts");
-      if (details) details.open = true;
-    }
-  }, [issueSignature]);
   const latest = useRef({ overrides, onChange });
   useLayoutEffect(() => {
     latest.current = { overrides, onChange };
@@ -115,8 +99,7 @@ export function CharacterOutputOverrides({
                 {issue.message}
               </p>
             ))}
-            <details className="character-prompts">
-              <summary>正负提示词</summary>
+            <div className="character-prompts">
               <PresetOverrides
                 composition={character.composition}
                 overrides={textOverrides}
@@ -129,7 +112,7 @@ export function CharacterOutputOverrides({
                   .filter((issue) => issue.field === "positive" || issue.field === "negative")
                   .map((issue) => issue.field)}
               />
-            </details>
+            </div>
             <CharacterPositionFields
               value={local?.position ?? character.position}
               onChange={(position) => update(character.id, { position })}

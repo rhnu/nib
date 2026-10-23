@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
 import type { ParameterDiagnostic, TokenFieldUsage } from "../../bindings/generation";
 import { ScanText } from "lucide-react";
 import { HelpMarker, IconButton, Modal } from "../../shared/ui";
 import { CompositionEditor } from "../prompt/CompositionEditor";
 import { SettingsEditor, focusSetting } from "../prompt/SettingsEditor";
+import { diagnosticSetting } from "../prompt/settings";
 import { ResolutionInspector } from "../prompt/ResolutionInspector";
 import { promptApi } from "../prompt/api";
 import { errorMessage } from "../../shared/host/error";
@@ -43,10 +44,18 @@ export function PromptWorkspace({
 }) {
   const [inspector, setInspector] = useState(false);
   const issueCount = resolved?.issues.length ?? 0;
+  const promptOptions = useRef<HTMLDetailsElement>(null);
+  const optionIssue = [...diagnostics.map((item) => item.field), ...errorFields].some((field) =>
+    ["quality", "ucPreset", "furryMode"].includes(diagnosticSetting(field) ?? ""),
+  );
+  const diagnosticSignature = JSON.stringify([diagnostics, errorFields]);
+  useEffect(() => {
+    if (optionIssue && promptOptions.current) promptOptions.current.open = true;
+  }, [optionIssue, diagnosticSignature]);
   return (
     <section className="prompt-workspace">
       <SettingsEditor
-        fields="model"
+        fields="modelOnly"
         value={draft.settings}
         models={models}
         capabilities={capabilities}
@@ -95,21 +104,22 @@ export function PromptWorkspace({
           }
         }}
       />
-      <SettingsEditor
-        fields="prompt"
-        value={draft.settings}
-        models={models}
-        capabilities={capabilities}
-        diagnostics={diagnostics}
-        errorFields={errorFields}
-        resolved={resolved?.settings}
-        onChange={(settings) => edit({ ...draft, settings })}
-      />
+      <details className="prompt-options" ref={promptOptions}>
+        <summary>提示词选项</summary>
+        <SettingsEditor
+          fields="promptOptions"
+          value={draft.settings}
+          models={models}
+          capabilities={capabilities}
+          diagnostics={diagnostics}
+          errorFields={errorFields}
+          resolved={resolved?.settings}
+          onChange={(settings) => edit({ ...draft, settings })}
+        />
+      </details>
       <TokenUsageSummary tokens={tokens} />
       {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
-        <output className="inline-warning">
-          此模型不接受自定义负面提示；编辑内容已保留，实际处理结果见 SDK 诊断。
-        </output>
+        <output className="inline-warning">此模型不接受自定义负面提示，已保留编辑内容。</output>
       )}
       {resolveError && (
         <p className="inline-warning" role="alert">

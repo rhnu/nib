@@ -28,6 +28,8 @@ pub struct Draft {
     #[serde(default)]
     pub inputs: CreationInputs,
     pub mask_editor: MaskEditorState,
+    // Separately retained encoder edits never replace the active image operation.
+    pub vibe_encoder: Option<VibeEncodingInput>,
 }
 
 pub trait DraftStore {

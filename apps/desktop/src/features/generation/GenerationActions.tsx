@@ -127,7 +127,7 @@ export function GenerationActions({
                 ? "读取账户…"
                 : account?.configured
                   ? actionLabel
-                  : `配置账户以${actionLabel}`}
+                  : "配置账户"}
           </span>
           {estimate.quote && !effectiveOperation ? (
             <span className="generation-submit-cost">操作未生效</span>

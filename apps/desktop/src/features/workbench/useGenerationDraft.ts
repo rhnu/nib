@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { Draft } from "../../bindings/workbench";
 
-/** Drawing and view changes do not invalidate prompt resolution, capabilities or generation quotes. */
+/** Canvas and independent encoding edits do not invalidate generation resolution or quotes. */
 export function useGenerationDraft(draft: Draft): Draft {
   const { composition, presets, settings, characters, inputs } = draft;
   return useMemo(
@@ -13,6 +13,7 @@ export function useGenerationDraft(draft: Draft): Draft {
       characters,
       inputs,
       maskEditor: { activeSourceId: null, sessions: [] },
+      vibeEncoder: null,
     }),
     [composition, presets, settings, characters, inputs],
   );

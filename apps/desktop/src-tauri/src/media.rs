@@ -6,10 +6,11 @@ use nib_app::{
     api::ApiError,
     media::{
         AssetSource, GenerationResult, ImageMetadataReport, MediaAsset, MediaLibrary,
-        MetadataRestore,
+        MetadataRestore, VibeAssetInspection, VibeDocumentInspection,
     },
     session::{
         CreationOperation, Draft, ImageOperationKind, ImageOperationOptions, PreciseReferenceInput,
+        VibeEncodingInput, VibeReferenceInput,
     },
 };
 
@@ -21,6 +22,73 @@ async fn with_media<T: Send + 'static>(
 ) -> Result<T, ApiError> {
     let state = state.inner().clone();
     blocking(move || action(state.media().map_err(persistence_error)?)).await
+}
+
+#[tauri::command]
+pub(crate) fn get_vibe_encoding_options() -> nib_app::session::VibeEncodingOptions {
+    nib_app::session::vibe_encoding_options()
+}
+
+#[tauri::command]
+pub(crate) async fn create_vibe_encoding_input(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    model: novelai_bridge::Model,
+) -> Result<VibeEncodingInput, ApiError> {
+    with_media(state, move |media| {
+        nib_app::session::create_vibe_encoding_input(media.as_ref(), id, model)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn create_vibe_reference(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    reference_id: String,
+    strength: f32,
+) -> Result<VibeReferenceInput, ApiError> {
+    with_media(state, move |media| {
+        nib_app::session::create_vibe_reference(media.as_ref(), id, reference_id, strength)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn inspect_vibe_document(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<VibeDocumentInspection, ApiError> {
+    with_media(state, move |media| {
+        media.inspect_vibe_document(&id).map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn inspect_vibe_asset(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<VibeAssetInspection, ApiError> {
+    with_media(state, move |media| {
+        media.inspect_vibe_asset(&id).map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn prepare_vibe_reencoding(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<VibeEncodingInput, ApiError> {
+    with_media(state, move |media| {
+        media
+            .prepare_vibe_reencoding(&id)
+            .map_err(persistence_error)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -140,11 +208,10 @@ pub(crate) async fn create_image_vibe_document(
 pub(crate) async fn create_encoded_vibe_document(
     state: tauri::State<'_, DesktopState>,
     vibe_id: String,
-    model_key: String,
 ) -> Result<MediaAsset, ApiError> {
     with_media(state, move |media| {
         media
-            .create_encoded_vibe_document(&vibe_id, &model_key)
+            .create_encoded_vibe_document(&vibe_id)
             .map_err(persistence_error)
     })
     .await

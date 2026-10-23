@@ -118,20 +118,43 @@ export function PreciseReferenceRow({
     range: NumericRange | null | undefined,
     help: string,
   ) => (
-    <div className="precise-reference-field" data-reference-field={field}>
+    <div
+      className={`precise-reference-field ${field === "strength" ? "precise-reference-strength" : ""}`}
+      data-reference-field={field}
+    >
       <div className="precise-reference-label">
         <label htmlFor={`${prefix}-${field}`}>{name}</label>
         <HelpMarker label={`${name}说明`}>{help}</HelpMarker>
         {reset(field, name)}
       </div>
-      <ReferenceNumber
-        id={`${prefix}-${field}`}
-        range={range}
-        value={value[field]}
-        invalid={hasIssue(field)}
-        describedBy={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
-        onChange={(number) => onChange({ [field]: number })}
-      />
+      <div
+        className={
+          field === "strength" && range ? "precise-reference-strength-controls" : undefined
+        }
+      >
+        {field === "strength" && range && (
+          <input
+            type="range"
+            aria-label="参考强度滑块"
+            min={range.min}
+            max={range.max}
+            step="any"
+            value={Math.max(range.min, Math.min(range.max, value.strength))}
+            disabled={range.min === range.max}
+            aria-invalid={hasIssue(field) || undefined}
+            aria-describedby={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
+            onChange={(event) => onChange({ strength: event.currentTarget.valueAsNumber })}
+          />
+        )}
+        <ReferenceNumber
+          id={`${prefix}-${field}`}
+          range={range}
+          value={value[field]}
+          invalid={hasIssue(field)}
+          describedBy={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
+          onChange={(number) => onChange({ [field]: number })}
+        />
+      </div>
       {messages(field)}
     </div>
   );
@@ -214,15 +237,10 @@ export function PreciseReferenceRow({
         )}
       </div>
       {savedTypeUnsupported && (
-        <p className="precise-reference-message">当前 SDK 不支持已保存的用途，由 SDK 校验。</p>
+        <p className="precise-reference-message">当前模型不支持已保存的用途。</p>
       )}
       <details className="precise-reference-advanced" ref={advanced}>
-        <summary>
-          高级
-          <span className="precise-reference-status">
-            {` · Fidelity ${value.fidelity} · 信息提取量 ${value.informationExtracted}`}
-          </span>
-        </summary>
+        <summary>高级</summary>
         <div className="precise-reference-fields">
           {numeric(
             "fidelity",
@@ -234,7 +252,7 @@ export function PreciseReferenceRow({
             "informationExtracted",
             "信息提取量",
             options?.informationExtracted,
-            "用于参考图片的信息提取参数；有效范围由 SDK 提供。",
+            "控制从参考图片中提取的信息量。",
           )}
         </div>
       </details>

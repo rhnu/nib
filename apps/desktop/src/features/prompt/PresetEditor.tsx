@@ -23,6 +23,7 @@ import {
 import { setTextOverride, staleTextOverrides } from "../characters/model";
 import type { CharacterIssues } from "../characters/model";
 import { PreciseReferenceEditor, PreciseReferenceOutputOverrides } from "../references";
+import { VibeReferenceEditor, VibeOutputOverrides } from "../vibes";
 
 export function PresetEditor({
   instance,
@@ -39,6 +40,7 @@ export function PresetEditor({
   onPosition,
   characterIssues,
   preciseIssues,
+  vibeIssues,
 }: {
   instance: PresetInstance;
   resources: Map<string, Resource>;
@@ -54,13 +56,19 @@ export function PresetEditor({
   onPosition?: (characterId: string) => void;
   characterIssues?: CharacterIssues;
   preciseIssues?: Record<string, { field: string; message: string }[]>;
+  vibeIssues?: Record<string, { field: string; message: string }[]>;
 }) {
   const latest = useRef({ instance, onChange, active: true });
   const details = useRef<HTMLDetailsElement>(null);
-  const issueSignature = JSON.stringify([characterIssues ?? null, preciseIssues ?? null]);
+  const issueSignature = JSON.stringify([
+    characterIssues ?? null,
+    preciseIssues ?? null,
+    vibeIssues ?? null,
+  ]);
   const hasOutputIssues =
     Object.values(characterIssues ?? {}).some((issues) => issues.length > 0) ||
-    Object.values(preciseIssues ?? {}).some((issues) => issues.length > 0);
+    Object.values(preciseIssues ?? {}).some((issues) => issues.length > 0) ||
+    Object.values(vibeIssues ?? {}).some((issues) => issues.length > 0);
   useEffect(() => {
     if (hasOutputIssues && details.current) details.current.open = true;
   }, [issueSignature, hasOutputIssues]);
@@ -281,6 +289,50 @@ export function PresetEditor({
                   issues={preciseIssues}
                 />
               ))}
+            {references &&
+              (binding.kind === "linked" ? (
+                <VibeOutputOverrides
+                  value={references.vibes}
+                  overrides={binding.outputOverrides.vibes}
+                  normalizeValue={binding.outputOverrides.normalizeVibeStrength}
+                  normalizeInherited={references.normalizeVibeStrength}
+                  onNormalizeChange={(normalizeVibeStrength) =>
+                    updateLinked((current) => ({
+                      ...current,
+                      outputOverrides: { ...current.outputOverrides, normalizeVibeStrength },
+                    }))
+                  }
+                  onChange={(vibes) =>
+                    updateLinked((current) => ({
+                      ...current,
+                      outputOverrides: { ...current.outputOverrides, vibes },
+                    }))
+                  }
+                  capabilities={outputCapabilities}
+                  contextKey={`${instance.id}:${binding.resourceId}`}
+                  issues={vibeIssues}
+                />
+              ) : (
+                <VibeReferenceEditor
+                  value={references.vibes}
+                  normalizeValue={references.normalizeVibeStrength}
+                  onNormalizeChange={(normalizeVibeStrength) => {
+                    const current = latest.current.instance.binding;
+                    if (current.kind === "expanded")
+                      updateExpanded({
+                        references: { ...current.references, normalizeVibeStrength },
+                      });
+                  }}
+                  onChange={(vibes) => {
+                    const current = latest.current.instance.binding;
+                    if (current.kind === "expanded")
+                      updateExpanded({ references: { ...current.references, vibes } });
+                  }}
+                  capabilities={outputCapabilities}
+                  contextKey={instance.id}
+                  issues={vibeIssues}
+                />
+              ))}
             {binding.kind === "linked" ? (
               (characters.length > 0 || binding.outputOverrides.characters.length > 0) && (
                 <CharacterOutputOverrides
@@ -334,11 +386,6 @@ export function PresetEditor({
             ))}
             <section className="preset-settings">
               <h3>{binding.kind === "linked" ? "本次设置覆盖" : "配方默认设置"}</h3>
-              <p className="setting-note">
-                {binding.kind === "linked"
-                  ? "留空继续使用原配方的声明；修改只影响本次实例。"
-                  : "仅声明配方负责的设置，其余继续继承。"}
-              </p>
               {capabilityState.loading && <output className="muted">正在读取模型选项…</output>}
               {capabilityState.error && (
                 <div className="inline-warning" role="alert">

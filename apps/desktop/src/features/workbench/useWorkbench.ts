@@ -75,7 +75,12 @@ export function useWorkbench(
   const restore = (value: Draft) => {
     setRestoreVersion((version) => version + 1);
     const current = readCurrentDraft();
-    writer.edit({ ...value, revision: current.revision, maskEditor: current.maskEditor });
+    writer.edit({
+      ...value,
+      revision: current.revision,
+      maskEditor: current.maskEditor,
+      vibeEncoder: current.vibeEncoder,
+    });
   };
   const openLibrary = (target: InsertTarget) => {
     setInsertTarget(target);

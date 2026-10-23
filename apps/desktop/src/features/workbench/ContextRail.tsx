@@ -1,7 +1,13 @@
 import { Plus } from "lucide-react";
-import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
+import type {
+  Draft,
+  ModelCapabilities,
+  Resource,
+  ResolvedDraft,
+  VibeEncodingInput,
+} from "../../bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
-import { Button, Field, HelpMarker, IconButton } from "../../shared/ui";
+import { Button, HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
@@ -9,6 +15,7 @@ import { ImageOperationPanel } from "./ImageOperationPanel";
 import type { ImageOperationAction } from "./image-operation";
 import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
 import { PreciseReferenceEditor } from "../references";
+import { VibeReferenceEditor } from "../vibes";
 import type { ScopedOutputIssues } from "./output-issues";
 export function ContextRail({
   draft,
@@ -30,6 +37,7 @@ export function ContextRail({
   onEditMask,
   onPosition,
   outputIssues,
+  onEncodeVibe,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -50,6 +58,7 @@ export function ContextRail({
   onEditMask: (assetId: string) => void;
   onPosition: (characterId?: string, presetInstanceId?: string) => void;
   outputIssues: ScopedOutputIssues;
+  onEncodeVibe: (input?: VibeEncodingInput) => void;
 }) {
   return (
     <div className="context-rail">
@@ -76,6 +85,7 @@ export function ContextRail({
               onPosition={(id) => onPosition(id, instance.id)}
               characterIssues={outputIssues.presets[instance.id]?.characters}
               preciseIssues={outputIssues.presets[instance.id]?.precise}
+              vibeIssues={outputIssues.presets[instance.id]?.vibes}
               onChange={(value) => {
                 const current = readCurrentDraft();
                 if (current)
@@ -138,6 +148,36 @@ export function ContextRail({
                 issues={outputIssues.draft.precise}
               />
             </div>
+            <div data-setting-field="vibes">
+              <VibeReferenceEditor
+                value={draft.inputs.references.vibes}
+                normalizeValue={draft.inputs.references.normalizeVibeStrength}
+                onNormalizeChange={(normalizeVibeStrength) => {
+                  const current = readCurrentDraft();
+                  edit({
+                    ...current,
+                    inputs: {
+                      ...current.inputs,
+                      references: { ...current.inputs.references, normalizeVibeStrength },
+                    },
+                  });
+                }}
+                onChange={(vibes) => {
+                  const current = readCurrentDraft();
+                  edit({
+                    ...current,
+                    inputs: {
+                      ...current.inputs,
+                      references: { ...current.inputs.references, vibes },
+                    },
+                  });
+                }}
+                capabilities={capabilities}
+                contextKey={imageInputVersion}
+                onEncode={onEncodeVibe}
+                issues={outputIssues.draft.vibes}
+              />
+            </div>
             <div data-setting-field="characters">
               <CharacterListEditor
                 value={draft.characters}
@@ -185,47 +225,6 @@ export function ContextRail({
               errorFields={errorFields}
               resolved={resolved?.settings}
               onChange={(settings) => edit({ ...draft, settings })}
-            />
-          </section>
-          <section className="settings-context">
-            <header className="section-heading">
-              <h2>
-                参数
-                <HelpMarker label="参数继承帮助">
-                  留空继承配方或 SDK 默认值。输入框显示当前生效值，可在解析面板查看具体来源。
-                </HelpMarker>
-              </h2>
-            </header>
-            <SettingsEditor
-              fields="parameters"
-              value={draft.settings}
-              models={models}
-              capabilities={capabilities}
-              diagnostics={diagnostics}
-              errorFields={errorFields}
-              resolved={resolved?.settings}
-              onChange={(settings) => edit({ ...draft, settings })}
-              advancedContent={
-                <div data-setting-field="policy">
-                  <Field label="参数校验策略">
-                    <select
-                      value={draft.inputs.policy}
-                      onChange={(event) =>
-                        edit({
-                          ...draft,
-                          inputs: {
-                            ...draft.inputs,
-                            policy: event.target.value === "reject" ? "reject" : "normalize",
-                          },
-                        })
-                      }
-                    >
-                      <option value="normalize">自动调整并显示诊断</option>
-                      <option value="reject">严格拒绝需要调整的参数</option>
-                    </select>
-                  </Field>
-                </div>
-              }
             />
           </section>
         </>

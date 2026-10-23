@@ -76,7 +76,7 @@ export function settingValue(
   key: SettingKey,
   value: GenerationSettings[SettingKey] | ResolvedSettings[SettingKey],
 ): string {
-  if (value === null) return key === "imageFormat" ? "SDK 默认格式" : "未设置";
+  if (value === null) return key === "imageFormat" ? "默认格式" : "未设置";
   if (typeof value === "boolean") return value ? "开启" : "关闭";
   if (typeof value === "object") return `${value.width} × ${value.height}`;
   if (key === "seed" && value === 0) return "自动（0）";
@@ -131,7 +131,8 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
   }
   target.scrollIntoView({ block: "nearest" });
   (
-    target.querySelector<HTMLElement>("input, select") ??
+    target.querySelector<HTMLElement>('input:not([type="range"]), select') ??
+    target.querySelector<HTMLElement>("input") ??
     target.querySelector<HTMLElement>("button")
   )?.focus();
   return true;

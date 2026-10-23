@@ -25,7 +25,7 @@ export interface SettingsEditorProps {
   capabilities?: ModelCapabilities | null;
   diagnostics?: ParameterDiagnostic[];
   errorFields?: string[];
-  fields?: "all" | "model" | "prompt" | "image" | "parameters";
+  fields?: "all" | "model" | "modelOnly" | "prompt" | "promptOptions" | "image" | "parameters";
   mode?: "draft" | "preset" | "instance";
   advancedContent?: ReactNode;
 }
@@ -88,9 +88,7 @@ export function SettingsEditor({
           )}
         </div>
         {control}
-        {unsupported && (
-          <small className="setting-note">当前模型不支持；已有值保留，由 SDK 校验。</small>
-        )}
+        {unsupported && <small className="setting-note">当前模型不支持，已保留设置。</small>}
         {messages.length > 0 && (
           <output id={`${prefix}-${key}-diagnostic`} className="setting-message">
             {messages.map((item, index) => (
@@ -98,9 +96,7 @@ export function SettingsEditor({
             ))}
           </output>
         )}
-        {rejected && (
-          <small className="setting-message">此项未通过 SDK 校验，详见生成区错误。</small>
-        )}
+        {rejected && <small className="setting-message">此项无效，详见生成区错误。</small>}
       </div>
     );
   };
@@ -111,8 +107,7 @@ export function SettingsEditor({
   });
   const number = (key: "steps" | "scale" | "seed" | "nSamples" | "cfgRescale", help?: string) => {
     const range = key === "seed" ? undefined : capabilities?.ranges[key];
-    return wrapper(
-      key,
+    const numericInput = (
       <input
         {...controlProps(key)}
         type="number"
@@ -126,9 +121,33 @@ export function SettingsEditor({
           else if (Number.isFinite(event.target.valueAsNumber))
             change(key, event.target.valueAsNumber);
         }}
-      />,
+      />
+    );
+    const sliderValue = value[key] ?? effective?.[key];
+    const hasSlider = (key === "steps" || key === "scale") && range && sliderValue !== undefined;
+    return wrapper(
+      key,
+      hasSlider ? (
+        <div className="setting-slider">
+          <input
+            type="range"
+            aria-label={`${settingLabels[key]}滑块`}
+            aria-invalid={controlProps(key)["aria-invalid"]}
+            aria-describedby={controlProps(key)["aria-describedby"]}
+            min={range.min}
+            max={range.max}
+            step={key === "steps" ? 1 : "any"}
+            value={Math.max(range.min, Math.min(range.max, sliderValue))}
+            disabled={range.min === range.max}
+            onChange={(event) => change(key, event.currentTarget.valueAsNumber)}
+          />
+          {numericInput}
+        </div>
+      ) : (
+        numericInput
+      ),
       range && range.min === range.max
-        ? `${help ? `${help} ` : ""}当前模型固定为 ${range.min}；已有覆盖保留，由 SDK 校验。`
+        ? `${help ? `${help} ` : ""}当前模型固定为 ${range.min}，已保留设置。`
         : help,
     );
   };
@@ -200,21 +219,17 @@ export function SettingsEditor({
       supported === false && value[key] === true,
     );
 
-  const advancedValues = advancedSettingKeys
-    .filter((key) => value[key] !== null)
-    .map((key) => `${settingLabels[key]} ${settingValue(key, value[key])}`);
-  const advancedSummary = advancedValues.length
-    ? `${advancedValues.length} 项覆盖 · ${advancedValues.join(" · ")}`
-    : "继承配方或 SDK 默认";
+  const advancedCount = advancedSettingKeys.filter((key) => value[key] !== null).length;
+  const advancedSummary = advancedCount ? `${advancedCount} 项已设置` : "";
   return (
     <div className="settings-editor" data-setting-editor={mode}>
-      {(fields === "all" || fields === "model") && (
+      {(fields === "all" || fields === "model" || fields === "modelOnly") && (
         <div className="settings-fields settings-model">
           {options("model", models)}
-          {boolean("furryMode", capabilities?.furryMode, "使用模型提供的 Furry 数据集标签。")}
+          {fields !== "modelOnly" && boolean("furryMode", capabilities?.furryMode)}
         </div>
       )}
-      {(fields === "all" || fields === "prompt") && (
+      {(fields === "all" || fields === "prompt" || fields === "promptOptions") && (
         <div className="settings-fields settings-prompt">
           {options(
             "quality",
@@ -222,6 +237,7 @@ export function SettingsEditor({
             "自动追加模型质量标签；字面提示词保持原样。",
           )}
           {options("ucPreset", capabilities?.ucPresets, "与自定义负面提示一起组成实际提交文本。")}
+          {fields === "promptOptions" && boolean("furryMode", capabilities?.furryMode)}
         </div>
       )}
       {(fields === "all" || fields === "image") && (
@@ -296,10 +312,10 @@ export function SettingsEditor({
               </IconButton>
             </div>,
             capabilities
-              ? `尺寸步进 ${capabilities.ranges.dimensionMultiple}；最大像素 ${capabilities.ranges.maxPixels.toLocaleString()}。实际限制由 SDK 校验。`
+              ? `尺寸步进 ${capabilities.ranges.dimensionMultiple}；最大像素 ${capabilities.ranges.maxPixels.toLocaleString()}。`
               : undefined,
           )}
-          {number("nSamples", "一次请求生成的图片数量；可用上限随尺寸变化，由 SDK 校验。")}
+          {number("nSamples", "一次生成的图片数量，上限随尺寸变化。")}
         </div>
       )}
       {(fields === "all" || fields === "parameters") && (
@@ -307,16 +323,13 @@ export function SettingsEditor({
           <div className="settings-fields settings-main">
             {number("steps")}
             {number("scale")}
-            {number(
-              "seed",
-              "留空继承；显式输入 0 使用自动种子。指定非零种子时保存该值。提交时由 SDK 确定实际种子。",
-            )}
+            {number("seed", "输入 0 使用随机种子；固定种子便于复现。")}
             {options("sampler", capabilities?.samplers, undefined, capabilities?.fixedSampler)}
           </div>
           <details className="advanced-settings" ref={advanced}>
             <summary>
               <span>高级设置</span>
-              <small>{advancedSummary}</small>
+              {advancedSummary && <small>{advancedSummary}</small>}
             </summary>
             <div className="settings-fields">
               {options(
@@ -331,6 +344,7 @@ export function SettingsEditor({
               {boolean("smea", capabilities?.smea)}
               {boolean("smeaDyn", capabilities?.smea)}
               {boolean("legacyUc", capabilities?.legacyUc)}
+              <h4 className="settings-group-title">输出</h4>
               {boolean(
                 "transparentBackground",
                 capabilities?.transparentBackground,
@@ -341,8 +355,9 @@ export function SettingsEditor({
               {options(
                 "responseFormat",
                 capabilities?.responseFormats,
-                "选择 SDK 的 ZIP 或 JSON 图像响应。",
+                "选择 ZIP 或 JSON 图像响应。",
               )}
+              {advancedContent && <h4 className="settings-group-title">执行</h4>}
               {advancedContent}
             </div>
           </details>

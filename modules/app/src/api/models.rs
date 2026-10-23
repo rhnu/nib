@@ -27,6 +27,7 @@ pub struct ModelCapabilities {
     pub character_positioning: Option<String>,
     pub character_position_options: CharacterPositionOptions,
     pub precise_reference_options: PreciseReferenceOptions,
+    pub vibe_reference_options: VibeReferenceOptions,
     pub streaming: bool,
     pub inpainting: bool,
     pub inpainting_image_to_image: bool,
@@ -116,6 +117,17 @@ pub struct PreciseReferenceOptions {
     pub max_references: Option<u32>,
 }
 
+/// SDK Vibe editor hints; an absent strength bound means finite signed values.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct VibeReferenceOptions {
+    pub strength: Option<NumericRange>,
+    pub information_extracted: NumericRange,
+    pub normalize_strength_default: bool,
+    pub metadata_model_key: Option<String>,
+}
+
 impl<T: Into<f64>> From<novelai_bridge::ParameterRange<T>> for NumericRange {
     fn from(value: novelai_bridge::ParameterRange<T>) -> Self {
         Self {
@@ -159,7 +171,7 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
         CreationOperation::Inpainting { .. } => GenerationMode::Inpainting,
         CreationOperation::TextToImage => GenerationMode::TextToImage,
         CreationOperation::Director { .. }
-        | CreationOperation::EncodeVibe { .. }
+        | CreationOperation::EncodeVibe(crate::session::VibeEncodingInput { .. })
         | CreationOperation::Upscale { .. } => return None,
     };
     Some(project_capabilities(
@@ -230,6 +242,7 @@ fn project_capabilities(
                 .map(|profile| profile.positioning),
         ),
         precise_reference_options: precise_reference_options(),
+        vibe_reference_options: vibe_reference_options(model),
         streaming: descriptor.support().streaming,
         inpainting: descriptor.support().inpainting.is_some(),
         inpainting_image_to_image: descriptor
@@ -317,6 +330,17 @@ fn character_position_options(
             _ => None,
         }),
         use_coords_default: CharacterSet::default().use_coords,
+    }
+}
+
+fn vibe_reference_options(model: Model) -> VibeReferenceOptions {
+    VibeReferenceOptions {
+        strength: None,
+        // SDK VibeReference and EncodeVibeRequest document extraction in 0..1.
+        information_extracted: NumericRange { min: 0.0, max: 1.0 },
+        normalize_strength_default: novelai_bridge::VibeTransferConfig::new(Vec::new())
+            .normalize_strength,
+        metadata_model_key: model.vibe_model_key().map(str::to_owned),
     }
 }
 

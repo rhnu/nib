@@ -32,6 +32,7 @@ const imageOperation = (
   maxEnhance: false,
 });
 const creation = (operation: CreationOperation): Draft => ({
+  vibeEncoder: null,
   revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: emptyComposition(),

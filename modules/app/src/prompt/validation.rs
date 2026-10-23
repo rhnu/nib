@@ -136,6 +136,12 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
 /// Returns the field and reason for the first structural violation.
 pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
     draft.mask_editor.validate()?;
+    if let Some(encoder) = &draft.vibe_encoder {
+        nonempty(&encoder.asset_id, "vibeEncoder.assetId")?;
+        if let Some(id) = &encoder.mask_asset_id {
+            nonempty(id, "vibeEncoder.maskAssetId")?;
+        }
+    }
     outputs(
         &draft.composition,
         &draft.characters,
@@ -149,11 +155,11 @@ pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
         | CreationOperation::Director { asset_id, .. } => {
             nonempty(asset_id, "inputs.operation.assetId")?;
         },
-        CreationOperation::EncodeVibe {
+        CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
             asset_id,
             mask_asset_id,
             ..
-        } => {
+        }) => {
             nonempty(asset_id, "inputs.operation.assetId")?;
             if let Some(mask_asset_id) = mask_asset_id {
                 nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;

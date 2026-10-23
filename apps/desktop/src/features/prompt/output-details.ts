@@ -54,6 +54,15 @@ export function resolutionIssueDetails(
       labels.push("精确参考");
       target = `reference:${JSON.stringify({ id: issue.nodeId, presetInstanceId: issue.presetInstanceId })}`;
     }
+    const vibe =
+      instance.binding.kind === "linked"
+        ? instance.binding.outputOverrides.vibes.some((reference) => reference.id === issue.nodeId)
+        : instance.binding.references.vibes.some((reference) => reference.id === issue.nodeId);
+    if (!target && vibe) {
+      composition = undefined;
+      labels.push("Vibe");
+      target = `vibe:${JSON.stringify({ id: issue.nodeId, presetInstanceId: issue.presetInstanceId })}`;
+    }
   }
   if (issue.scope) labels.push(issue.scope === "positive" ? "基础提示" : "负面提示");
   if (issue.nodeId && composition) {

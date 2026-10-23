@@ -104,3 +104,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.precise-reference-strength {
+  grid-column: 1 / -1;
+}
+.precise-reference-strength-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 10px;
+}
+.precise-reference-strength-controls input {
+  width: 100%;
+  min-width: 0;
+}
+.precise-reference-strength-controls input[type="range"] {
+  height: 20px;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+  background: transparent;
+}

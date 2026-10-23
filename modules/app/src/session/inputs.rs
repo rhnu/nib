@@ -3,6 +3,28 @@
 use novelai_bridge::{CharacterReferenceType, DirectorCommand, Model};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct VibeEncodingOptions {
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub models: Vec<Model>,
+    pub information_extracted: crate::api::NumericRange,
+}
+
+/// Reads supported encoder models from the SDK, independently of the generation model.
+#[must_use]
+pub fn vibe_encoding_options() -> VibeEncodingOptions {
+    VibeEncodingOptions {
+        models: Model::ALL
+            .into_iter()
+            .filter(|model| model.descriptor().can_encode_vibe())
+            .collect(),
+        // EncodeVibeRequest documents normalized extraction in the unit interval.
+        information_extracted: crate::api::NumericRange { min: 0.0, max: 1.0 },
+    }
+}
+
 /// Image actions available from a retained source or result, without modifying a draft.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,6 +112,80 @@ pub fn create_precise_reference(
     })
 }
 
+/// Initializes the separate encoder form through the SDK constructor.
+///
+/// # Errors
+/// Returns unavailable or invalid source image content.
+pub fn create_vibe_encoding_input(
+    assets: &dyn crate::media::AssetReader,
+    id: String,
+    model: Model,
+) -> Result<VibeEncodingInput, crate::persistence::PersistenceError> {
+    let request = novelai_bridge::EncodeVibeRequest::new(assets.image(&id)?, model);
+    Ok(VibeEncodingInput {
+        asset_id: id,
+        model: request.model,
+        information_extracted: request.information_extracted,
+        mask_asset_id: None,
+        crop_to_mask: request.crop_to_mask,
+        focus_seed: request.focus_seed,
+        info_extract_seed: request.info_extract_seed,
+    })
+}
+
+/// Creates a reference from a retained image or encoding, without remote encoding.
+/// The initial strength is an application editing choice, not an SDK default.
+///
+/// # Errors
+/// Returns unavailable/incompatible media content.
+pub fn create_vibe_reference(
+    media: &crate::media::MediaLibrary,
+    id: String,
+    reference_id: String,
+    strength: f32,
+) -> Result<VibeReferenceInput, crate::persistence::PersistenceError> {
+    use crate::media::AssetReader as _;
+    let input = match media.asset(&id)?.kind {
+        crate::media::AssetKind::Image => {
+            // The SDK deserializer owns the omitted extraction default for image references.
+            let value = serde_json::json!({ "kind": "image", "image": media.image(&id)? });
+            let reference: novelai_bridge::VibeReferenceInput = serde_json::from_value(value)
+                .map_err(|error| {
+                    crate::persistence::PersistenceError::failure(
+                        "initialize a Vibe image reference",
+                        error,
+                    )
+                })?;
+            let novelai_bridge::VibeReferenceInput::Image {
+                information_extracted,
+                ..
+            } = reference
+            else {
+                unreachable!("the SDK deserialized the supplied image variant")
+            };
+            VibeInput::Image {
+                asset_id: id,
+                information_extracted,
+            }
+        },
+        crate::media::AssetKind::Vibe => {
+            media.vibe(&id)?;
+            VibeInput::Encoded { asset_id: id }
+        },
+        crate::media::AssetKind::VibeDocument => {
+            return Err(crate::persistence::PersistenceError::InvalidData {
+                message: "请先从 Vibe 文档中选择原图或编码缓存。".to_owned(),
+            });
+        },
+    };
+    Ok(VibeReferenceInput {
+        id: reference_id,
+        enabled: true,
+        input,
+        strength,
+    })
+}
+
 /// Reads a stable application image and projects SDK constructor defaults into editing state.
 /// The initial influence and noise are application choices; other defaults belong to the SDK.
 ///
@@ -137,6 +233,23 @@ pub struct CreationInputs {
     pub references: ReferenceInputs,
 }
 
+/// Independently retained Vibe encoder editing inputs, separate from generation references.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct VibeEncodingInput {
+    pub asset_id: String,
+    #[cfg_attr(feature = "typegen", ts(type = "string"))]
+    pub model: Model,
+    pub information_extracted: f32,
+    pub mask_asset_id: Option<String>,
+    pub crop_to_mask: Option<bool>,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub focus_seed: Option<i64>,
+    #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
+    pub info_extract_seed: Option<i64>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -179,18 +292,7 @@ pub enum CreationOperation {
         )]
         command: DirectorCommand,
     },
-    EncodeVibe {
-        asset_id: String,
-        #[cfg_attr(feature = "typegen", ts(type = "string"))]
-        model: Model,
-        information_extracted: f32,
-        mask_asset_id: Option<String>,
-        crop_to_mask: Option<bool>,
-        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
-        focus_seed: Option<i64>,
-        #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
-        info_extract_seed: Option<i64>,
-    },
+    EncodeVibe(VibeEncodingInput),
     Upscale {
         asset_id: String,
         #[cfg_attr(feature = "typegen", ts(type = "string"))]

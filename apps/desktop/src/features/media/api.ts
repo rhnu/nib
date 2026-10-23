@@ -1,4 +1,11 @@
-import type { ImageMetadataReport, MediaAsset, MetadataRestore } from "../../bindings/media";
+import type {
+  ImageMetadataReport,
+  MediaAsset,
+  MetadataRestore,
+  VibeAssetInspection,
+  VibeDocumentInspection,
+} from "../../bindings/media";
+import type { VibeEncodingInput, VibeReferenceInput } from "../../bindings/workbench";
 import { invokeHost } from "../../shared/host/invoke";
 
 export const mediaApi = {
@@ -12,8 +19,19 @@ export const mediaApi = {
     invokeHost<MediaAsset>("import_vibe_document", { bytes, name }),
   createImageVibeDocument: (imageId: string) =>
     invokeHost<MediaAsset>("create_image_vibe_document", { imageId }),
-  createEncodedVibeDocument: (vibeId: string, modelKey: string) =>
-    invokeHost<MediaAsset>("create_encoded_vibe_document", { vibeId, modelKey }),
+  createEncodedVibeDocument: (vibeId: string) =>
+    invokeHost<MediaAsset>("create_encoded_vibe_document", { vibeId }),
+  inspectVibeDocument: (id: string) =>
+    invokeHost<VibeDocumentInspection>("inspect_vibe_document", { id }),
+  inspectVibeAsset: (id: string) => invokeHost<VibeAssetInspection>("inspect_vibe_asset", { id }),
+  prepareVibeReencoding: (id: string) =>
+    invokeHost<VibeEncodingInput>("prepare_vibe_reencoding", { id }),
+  createVibeReference: (id: string) =>
+    invokeHost<VibeReferenceInput>("create_vibe_reference", {
+      id,
+      referenceId: crypto.randomUUID(),
+      strength: 1,
+    }),
   bundleVibeDocuments: (documentIds: string[]) =>
     invokeHost<MediaAsset>("bundle_vibe_documents", { documentIds }),
   importPngVibeDocument: (imageId: string) =>

@@ -138,6 +138,8 @@ export default function App() {
               canMaxEnhance,
               canInpaint,
               onViewedAssetChange,
+              onAddVibeReference,
+              onEncodeVibe,
             }) => (
               <GenerationResults
                 onRestore={onRestore}
@@ -146,6 +148,8 @@ export default function App() {
                 canMaxEnhance={canMaxEnhance}
                 canInpaint={canInpaint}
                 onViewedAssetChange={onViewedAssetChange}
+                onAddVibeReference={onAddVibeReference}
+                onEncodeVibe={onEncodeVibe}
                 onUseSeed={(seed) => {
                   const current = readCurrentDraft();
                   onRestore({ ...current, settings: { ...current.settings, seed } });

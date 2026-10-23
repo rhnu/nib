@@ -1,6 +1,13 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
-import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
-import { Button, Modal, Notice } from "../../shared/ui";
+import type {
+  Draft,
+  Resource,
+  ResolvedDraft,
+  VibeEncodingInput,
+  VibeReferenceInput,
+  WorkspaceSnapshot,
+} from "../../bindings/workbench";
+import { Button, Field, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { usePendingWork, waitForPendingWork } from "../../shared/host/pending-work";
 import type { CloseWriter } from "../../shared/host/useCloseGuard";
@@ -22,6 +29,8 @@ import { applyCharacterPosition, characterKey, livePositionCharacters } from "..
 import { outputIdentity } from "../prompt/output-identity";
 import { collectOutputIssues, focusOutputField } from "./output-issues";
 import { usePendingInputTransition } from "./usePendingInputTransition";
+import { GenerationParameterPanel } from "./GenerationParameterPanel";
+import { VibeEncoderPanel } from "../vibes/VibeEncoderPanel";
 export type WorkbenchExtension = {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -38,6 +47,8 @@ export type WorkbenchExtension = {
   operationPending: boolean;
   onFocusField: (field: string) => void;
   onViewedAssetChange: (id: string | null) => void;
+  onAddVibeReference: (reference: VibeReferenceInput) => void;
+  onEncodeVibe: (input?: VibeEncodingInput) => void;
 };
 export function Workbench({
   workspace,
@@ -87,6 +98,7 @@ export function Workbench({
   const { accountVersion, accountSummaryLoading } = useGeneration();
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
+  const [encoderOpen, setEncoderOpen] = useState(false);
   const quoteRefreshKey = [resourceVersion, accountVersion];
   const estimate = useGenerationQuote(
     generationDraft,
@@ -113,6 +125,11 @@ export function Workbench({
   const pendingInputs = usePendingWork();
   const afterInputs = usePendingInputTransition(setError);
   const guard = (action: () => void) => afterInputs(() => mask.guard(action));
+  const openEncoder = (input?: VibeEncodingInput) =>
+    afterInputs(() => {
+      if (input) edit({ ...readCurrentDraft(), vibeEncoder: input });
+      setEncoderOpen(true);
+    });
   useLayoutEffect(() => {
     setBeforeClose(async () => {
       await waitForPendingWork();
@@ -181,6 +198,20 @@ export function Workbench({
     quoteRefreshKey,
     onFocusField: focusField,
     onViewedAssetChange: setViewedAssetId,
+    onEncodeVibe: openEncoder,
+    onAddVibeReference: (reference: VibeReferenceInput) => {
+      const current = readCurrentDraft();
+      edit({
+        ...current,
+        inputs: {
+          ...current.inputs,
+          references: {
+            ...current.inputs.references,
+            vibes: [...current.inputs.references.vibes, reference],
+          },
+        },
+      });
+    },
     onImageOperation: requestOperation,
     canMaxEnhance: editorCapabilities?.maxEnhance ?? false,
     canInpaint: editorCapabilities?.inpainting ?? false,
@@ -289,8 +320,42 @@ export function Workbench({
               imageInputVersion={restoreVersion}
               onPosition={openPositions}
               outputIssues={outputIssues}
+              onEncodeVibe={openEncoder}
             />
           </div>
+          {draft.inputs.operation.kind !== "upscale" && (
+            <GenerationParameterPanel
+              value={draft.settings}
+              models={workspace.models}
+              capabilities={editorCapabilities}
+              diagnostics={estimate.quote?.diagnostics ?? []}
+              errorFields={estimate.fields}
+              resolved={resolved?.settings}
+              onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
+              advancedContent={
+                <div data-setting-field="policy">
+                  <Field label="参数校验">
+                    <select
+                      value={draft.inputs.policy}
+                      onChange={(event) => {
+                        const current = readCurrentDraft();
+                        edit({
+                          ...current,
+                          inputs: {
+                            ...current.inputs,
+                            policy: event.target.value === "reject" ? "reject" : "normalize",
+                          },
+                        });
+                      }}
+                    >
+                      <option value="normalize">自动调整</option>
+                      <option value="reject">严格拒绝</option>
+                    </select>
+                  </Field>
+                </div>
+              }
+            />
+          )}
           {renderActions && (
             <div className="generation-actions-slot">{renderActions(extension)}</div>
           )}
@@ -361,6 +426,19 @@ export function Workbench({
         onDirtyChange={setResourceDirty}
         notice={error || (written.error ? errorMessage(written.error) : "")}
       />
+      <Modal
+        open={encoderOpen}
+        onClose={() => afterInputs(() => setEncoderOpen(false))}
+        title="编码 Vibe"
+        className="vibe-encoder-modal"
+      >
+        <VibeEncoderPanel
+          draft={draft}
+          readCurrentDraft={readCurrentDraft}
+          refreshKey={quoteRefreshKey}
+          onChange={(vibeEncoder) => edit({ ...readCurrentDraft(), vibeEncoder })}
+        />
+      </Modal>
       {(imageOperation.busy || pendingInputs > 0) && (
         <output className="generation-muted image-operation-progress">正在准备图像输入…</output>
       )}

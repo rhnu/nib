@@ -31,7 +31,7 @@ impl JobQueue {
                     diagnostics: adjustments(prepared.adjustments()),
                 })
             },
-            CreationOperation::EncodeVibe {
+            CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
                 asset_id,
                 model,
                 information_extracted,
@@ -39,7 +39,7 @@ impl JobQueue {
                 crop_to_mask,
                 focus_seed,
                 info_extract_seed,
-            } => {
+            }) => {
                 let prepared = EncodeVibeRequest {
                     image: image(self.assets.as_ref(), asset_id)?,
                     model: *model,
@@ -417,9 +417,12 @@ pub(super) fn hydrate(
         .collect::<Result<Vec<_>, JobError>>()?;
     let references = ReferenceSet {
         character_references: precise,
-        vibe_transfer: (!vibes.is_empty()).then(|| VibeTransferConfig {
-            references: vibes,
-            normalize_strength: references.normalize_vibe_strength.unwrap_or(true),
+        vibe_transfer: (!vibes.is_empty()).then(|| {
+            let mut config = VibeTransferConfig::new(vibes);
+            if let Some(normalize) = references.normalize_vibe_strength {
+                config.normalize_strength = normalize;
+            }
+            config
         }),
     };
     request.references = (!references.is_empty()).then_some(references);

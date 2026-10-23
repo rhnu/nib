@@ -42,9 +42,7 @@
   cursor: pointer;
 }
 .advanced-settings summary small {
-  display: block;
-  margin: 4px 0 0 15px;
-  overflow-wrap: anywhere;
+  margin-left: 8px;
 }
 .advanced-settings[open] > .settings-fields {
   margin-top: 10px;
@@ -322,4 +320,62 @@
 .compact-composition .prompt-node textarea {
   min-height: 100px;
   font-size: 12px;
+}
+
+.settings-main {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.settings-main > :is([data-setting-field="steps"], [data-setting-field="scale"]) {
+  grid-column: 1 / -1;
+}
+.setting-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 106px;
+  align-items: center;
+  gap: 10px;
+}
+.setting-slider input {
+  width: 100%;
+  min-width: 0;
+}
+.setting-slider input[type="range"] {
+  height: 20px;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+  background: transparent;
+}
+.settings-group-title {
+  grid-column: 1 / -1;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+}
+.prompt-workspace .settings-model > [data-setting-field="model"] {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+.prompt-workspace .settings-model .setting-label {
+  min-height: 30px;
+  white-space: nowrap;
+}
+.prompt-workspace .settings-model .setting-label .spacer {
+  display: none;
+}
+.prompt-workspace .settings-model .setting-message,
+.prompt-workspace .settings-model .setting-note {
+  grid-column: 1 / -1;
+}
+.prompt-options {
+  margin-top: 8px;
+}
+.prompt-options > summary {
+  padding: 5px 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+.prompt-options > .settings-editor {
+  margin: 4px 0 8px;
 }

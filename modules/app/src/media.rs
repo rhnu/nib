@@ -4,7 +4,6 @@ mod assets;
 mod metadata;
 mod sqlite;
 mod vibe;
-
 use std::{fs, path::PathBuf, sync::Arc};
 
 pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
@@ -16,6 +15,10 @@ use novelai_bridge::{
     UpscaleImageResult, VibeEncoding,
 };
 use serde::{Deserialize, Serialize};
+pub use vibe::{
+    VibeAssetInspection, VibeCacheSummary, VibeDocumentEntry, VibeDocumentInspection,
+    VibeSourceDocument,
+};
 
 use crate::{
     jobs::{FrozenSubmission, JobRecord},
@@ -214,11 +217,13 @@ impl MediaLibrary {
                 id: id.to_owned(),
             });
         }
-        let draft = restore_submission(
+        let current = self.database.get_draft()?;
+        let mut draft = restore_submission(
             &output.result.submission,
             output.result.seed,
-            self.database.get_draft()?.mask_editor,
+            current.mask_editor,
         );
+        draft.vibe_encoder = current.vibe_encoder;
         self.validate_inputs(&draft.inputs)?;
         Ok(draft)
     }
@@ -254,7 +259,9 @@ impl MediaLibrary {
             notices.push("SDK 在元信息中发现无法解释的字段，请检查导入内容。".to_owned());
         }
         let mut draft = crate::session::draft_from_metadata(metadata);
-        draft.mask_editor = self.database.get_draft()?.mask_editor;
+        let current = self.database.get_draft()?;
+        draft.mask_editor = current.mask_editor;
+        draft.vibe_encoder = current.vibe_encoder;
         if metadata.uc_preset.is_some() && metadata.negative_prompt.is_none() {
             notices.push("图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。".to_owned());
         }
@@ -283,11 +290,11 @@ impl MediaLibrary {
             CreationOperation::ImageToImage { asset_id, .. }
             | CreationOperation::Director { asset_id, .. }
             | CreationOperation::Upscale { asset_id, .. } => vec![asset_id],
-            CreationOperation::EncodeVibe {
+            CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
                 asset_id,
                 mask_asset_id,
                 ..
-            } => std::iter::once(asset_id.as_str())
+            }) => std::iter::once(asset_id.as_str())
                 .chain(mask_asset_id.as_deref())
                 .collect(),
             CreationOperation::Inpainting {
@@ -466,7 +473,7 @@ fn restore_submission(
         } => Draft {
             inputs: CreationInputs {
                 policy: *policy,
-                operation: CreationOperation::EncodeVibe {
+                operation: CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
                     asset_id: asset_id.clone(),
                     model: *model,
                     information_extracted: *information_extracted,
@@ -474,7 +481,7 @@ fn restore_submission(
                     crop_to_mask: *crop_to_mask,
                     focus_seed: *focus_seed,
                     info_extract_seed: *info_extract_seed,
-                },
+                }),
                 ..CreationInputs::default()
             },
             ..Draft::default()

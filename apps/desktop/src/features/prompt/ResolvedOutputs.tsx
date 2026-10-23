@@ -13,6 +13,7 @@ import { promptApi } from "./api";
 import { ContentSources } from "./ResolutionSources";
 import { useAssistRequest } from "./useAssistRequest";
 import "./resolved-outputs.css";
+import { ResolvedVibes } from "../vibes";
 
 function OutputSource({ source }: { source: InputProvenance | ResolvedCharacter | undefined }) {
   if (!source) return <p className="muted">来源未记录</p>;
@@ -198,9 +199,15 @@ function ResolvedReferenceDetails({
 
 /** Resolved and frozen details consume the same retained facts, without live resource lookups. */
 export function ResolvedOutputs({ resolved }: { resolved: ResolvedDraft }) {
-  if (!resolved.characters.length && !resolved.inputs.references.precise.length) return null;
+  if (
+    !resolved.characters.length &&
+    !resolved.inputs.references.precise.length &&
+    !resolved.inputs.references.vibes.length
+  )
+    return null;
   return (
     <div className="resolved-outputs">
+      <ResolvedVibes resolved={resolved} />
       {resolved.characters.length > 0 && (
         <section>
           <h3>角色 · {resolved.characters.length}</h3>

@@ -50,6 +50,7 @@ const resource: Resource = {
 };
 const resources = new Map([[resource.id, resource]]);
 const creation = (): Draft => ({
+  vibeEncoder: null,
   revision: 1,
   composition: emptyComposition(),
   characters: [character("direct")],
@@ -302,6 +303,50 @@ describe("SDK output field ownership", () => {
     ]);
     expect(issues.presets["first:instance"].precise["ref:local"][0].field).toBe("fidelity");
     expect(issues.presets.second).toBeUndefined();
+  });
+  it("locates Vibe fields after disabled filtering and before model-path normalization", () => {
+    const draft = creation();
+    draft.inputs.references.vibes = [
+      {
+        id: "disabled-vibe",
+        enabled: false,
+        input: { kind: "encoded", assetId: "first" },
+        strength: 1,
+      },
+      {
+        id: "vibe:local",
+        enabled: true,
+        input: { kind: "image", assetId: "raw", informationExtracted: 0.7 },
+        strength: -1,
+      },
+    ];
+    const resolved = preview();
+    resolved.inputs.references.vibes = draft.inputs.references.vibes.map((reference) => ({
+      ...reference,
+      id: outputIdentity(null, reference.id),
+    }));
+    expect(
+      outputTarget(
+        "references.vibe_transfer.references[0].input.information_extracted",
+        resolved,
+        draft,
+        resources,
+      ),
+    ).toEqual({
+      kind: "vibe",
+      id: "vibe:local",
+      presetInstanceId: null,
+      field: "informationExtracted",
+    });
+    expect(
+      collectOutputIssues(
+        draft,
+        resources,
+        resolved,
+        [{ field: "references.vibe_transfer.references[0].strength", change: "normalized" }],
+        [],
+      ).draft.vibes["vibe:local"],
+    ).toEqual([{ field: "strength", message: "normalized" }]);
   });
   it("maps direct reference identities independently from identically concatenated preset IDs", () => {
     const draft = creation();

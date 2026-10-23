@@ -76,6 +76,8 @@ function EditorContent({
     }
   }
 
+  if (capabilities && !capabilities.canAddPreciseReference && !value.length) return null;
+
   return (
     <section className="precise-reference-editor" aria-label={title} aria-busy={busy}>
       <header className="precise-reference-heading">

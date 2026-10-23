@@ -614,15 +614,16 @@ fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
     let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
     Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
     let mut draft = Draft::default();
-    draft.inputs.operation = crate::session::CreationOperation::EncodeVibe {
-        asset_id: "source".to_owned(),
-        model: novelai_bridge::Model::NaiDiffusion45Full,
-        information_extracted: 9.0,
-        mask_asset_id: Some("source".to_owned()),
-        crop_to_mask: Some(true),
-        focus_seed: Some(123),
-        info_extract_seed: Some(456),
-    };
+    draft.inputs.operation =
+        crate::session::CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
+            asset_id: "source".to_owned(),
+            model: novelai_bridge::Model::NaiDiffusion45Full,
+            information_extracted: 9.0,
+            mask_asset_id: Some("source".to_owned()),
+            crop_to_mask: Some(true),
+            focus_seed: Some(123),
+            info_extract_seed: Some(456),
+        });
     let frozen = queue.freeze(&draft).unwrap();
     assert!(frozen.resolved().is_none());
     assert!(frozen.seed().is_none());
