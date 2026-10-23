@@ -13,7 +13,7 @@ import { PresetOverrides } from "./PresetOverrides";
 import { promptApi } from "./api";
 import { errorMessage } from "../../shared/host/error";
 import { ActionsMenu, Button, Toggle } from "../../shared/ui";
-import { useModelCapabilities } from "../workbench/useModelCapabilities";
+import { useModelCapabilities } from "../model/useModelCapabilities";
 import { settingsWithDefaults } from "./settings";
 import {
   CharacterListEditor,

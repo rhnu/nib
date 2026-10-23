@@ -6,7 +6,7 @@ import { libraryApi } from "./api";
 import { mergeResourceSave } from "./resource-edit";
 import { hasPendingWork, waitForPendingWork } from "../../shared/host/pending-work";
 export function useResourceEditor(
-  onChanged: () => Promise<void>,
+  onChanged: (id: string) => Promise<void>,
   refreshSearch: () => void,
   onDirtyChange: (dirty: boolean) => void,
 ) {
@@ -74,9 +74,9 @@ export function useResourceEditor(
     current.version++;
     publish({ ...resource, revision: current.editor.revision }, true);
   };
-  const refresh = async () => {
+  const refresh = async (id: string) => {
     try {
-      await latest.current.onChanged();
+      await latest.current.onChanged(id);
     } finally {
       if (latest.current.active) latest.current.refreshSearch();
     }
@@ -154,7 +154,7 @@ export function useResourceEditor(
       const merged = mergeResourceSave(current.editor, current.version, request, saved);
       if (merged) publish(merged.editor, merged.dirty);
       try {
-        await refresh();
+        await refresh(saved.id);
       } catch (cause) {
         if (isCurrent(operation))
           setError(`资源已保存，但刷新资源列表失败：${errorMessage(cause)}`);
@@ -179,7 +179,7 @@ export function useResourceEditor(
           .then(async () => {
             if (!isCurrent(operation)) return;
             publish(null, false);
-            await refresh();
+            await refresh(editor.id);
           })
           .catch((cause: unknown) => {
             if (isCurrent(operation)) setError(errorMessage(cause));

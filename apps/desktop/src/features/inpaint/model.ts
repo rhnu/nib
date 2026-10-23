@@ -67,19 +67,26 @@ export function appendCommand(session: MaskSession, command: MaskCommand): MaskS
   };
 }
 
-export function appendStrokePoint(
+/** Append coalesced samples with one command-array copy and one edit revision. */
+export function appendStrokePoints(
   session: MaskSession,
   commandIndex: number,
-  point: MaskPoint,
+  points: readonly MaskPoint[],
 ): MaskSession {
   const command = session.commands[commandIndex];
   if (!command || command.kind === "clear" || commandIndex !== session.cursor - 1) return session;
-  const last = command.points.at(-1);
-  if (last?.x === point.x && last.y === point.y) return session;
+  const added: MaskPoint[] = [];
+  let last = command.points.at(-1);
+  for (const point of points) {
+    if (last?.x === point.x && last.y === point.y) continue;
+    added.push(point);
+    last = point;
+  }
+  if (!added.length) return session;
   return {
     ...session,
     commands: session.commands.map((item, index) =>
-      index === commandIndex ? { ...command, points: [...command.points, point] } : item,
+      index === commandIndex ? { ...command, points: [...command.points, ...added] } : item,
     ),
     revision: session.revision + 1,
   };

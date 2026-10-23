@@ -1,3 +1,4 @@
+import { useAccount } from "../generation/account/account-context";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import type {
@@ -9,11 +10,10 @@ import type {
 import { Button, Modal, Notice } from "../../shared/ui";
 import { AssetImage, ImagePickerDialog, useMediaAsset } from "../media";
 import { imageName } from "../media/model";
-import { useGeneration } from "../generation/generation-context";
-import { GenerationActions } from "../generation/GenerationActions";
-import { JobQueue } from "../generation/JobQueue";
-import { useGenerationQuote } from "../generation/use-generation-quote";
-import type { ImageOperationAction } from "../workbench/image-operation";
+import { GenerationActions } from "../generation/submission/GenerationActions";
+import { JobQueue } from "../generation/jobs/JobQueue";
+import { useGenerationQuote } from "../generation/submission/use-generation-quote";
+import type { ImageOperationAction } from "../inputs/image-operation";
 import { DirectorParameters } from "./DirectorParameters";
 import { DirectorResults } from "./DirectorResults";
 import {
@@ -67,7 +67,7 @@ export function DirectorWorkspace({
   const workspace = draft.director;
   const state = selectedDirectorTool(workspace);
   const media = useMediaAsset(state?.assetId ?? null);
-  const { accountSummaryLoading } = useGeneration();
+  const { accountSummaryLoading } = useAccount();
   const assetId = state?.assetId ?? null;
   const command = state?.command;
   const policy = state?.policy;

@@ -1,17 +1,20 @@
+import { useMediaQuery } from "../media/useMediaQuery";
+import { resultsApi } from "../generation/results/api";
+import { summarizeResult } from "../generation/jobs/summary";
+import { useJobData } from "../generation/jobs/job-context";
 import { useState } from "react";
 import { ChevronDown, Columns2, Info, RotateCw } from "lucide-react";
-import type { GenerationResult } from "../../bindings/generation";
+import type { ResultSummary } from "../../bindings/generation";
 import type { DirectorToolKind, Draft } from "../../bindings/workbench";
 import { ActionsMenu, Button, Notice } from "../../shared/ui";
 import { AssetImage } from "../media/AssetImage";
 import { useMediaAsset } from "../media/useMediaAsset";
-import { useGeneration } from "../generation/generation-context";
-import { ImageResultActions } from "../generation/ImageResultActions";
-import { ResultDetail } from "../generation/ResultDetail";
-import { useResultImage } from "../generation/use-result-image";
-import { resultFilename } from "../generation/result-file";
-import type { ImageOperationAction } from "../workbench/image-operation";
-import { commandTool, directorOutputLabel, directorToolLabels } from "./model";
+import { ImageResultActions } from "../generation/results/ImageResultActions";
+import { ResultDetail } from "../generation/results/ResultDetail";
+import { useMediaContent } from "../media/useMediaContent";
+import { resultFilename } from "../generation/results/result-file";
+import type { ImageOperationAction } from "../inputs/image-operation";
+import { directorOutputLabel, directorToolLabels } from "./model";
 
 function SourceFrame({ id, title }: { id: string | null; title: string }) {
   const media = useMediaAsset(id);
@@ -31,9 +34,9 @@ function SourceFrame({ id, title }: { id: string | null; title: string }) {
   );
 }
 
-function OutputFrame({ result }: { result: GenerationResult | null }) {
-  const image = useResultImage(
-    result?.id ?? "",
+function OutputFrame({ result }: { result: ResultSummary | null }) {
+  const image = useMediaContent(
+    result?.assetId ?? null,
     result?.mimeType ?? "image/png",
     result?.available ?? false,
   );
@@ -76,11 +79,11 @@ function OutputThumbnail({
   selected,
   onSelect,
 }: {
-  result: GenerationResult;
+  result: ResultSummary;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const image = useResultImage(result.id, result.mimeType, result.available);
+  const image = useMediaContent(result.assetId, "image/png", result.available, "thumbnail");
   const label = directorOutputLabel(result);
   return (
     <Button
@@ -131,19 +134,37 @@ export function DirectorResults({
   canUsePreciseReference?: boolean;
   canUseVibeReference?: boolean;
 }) {
-  const generation = useGeneration();
+  const generation = useJobData();
   const outputs =
     generation.results?.filter(
       (result) =>
         result.kind === "image" &&
-        result.submission.kind === "director" &&
-        commandTool(result.submission.command) === tool,
+        result.operation.kind === "director" &&
+        result.operation.tool === tool,
     ) ?? [];
-  const selected = outputs.find((result) => result.id === selectedId) ?? outputs[0] ?? null;
+  const retained = useMediaQuery(
+    selectedId &&
+      generation.results !== null &&
+      !generation.results.some((item) => item.id === selectedId)
+      ? selectedId
+      : null,
+    resultsApi.get,
+  );
+  const retainedSummary = retained.value ? summarizeResult(retained.value) : null;
+  const pinned =
+    retainedSummary?.operation.kind === "director" && retainedSummary.operation.tool === tool
+      ? retainedSummary
+      : null;
+  const selected =
+    outputs.find((result) => result.id === selectedId) ??
+    pinned ??
+    (retained.loading ? null : outputs[0]) ??
+    null;
   const submittedSource =
-    selected?.submission.kind === "director" ? selected.submission.assetId : sourceId;
+    selected?.operation.kind === "director" ? selected.operation.assetId : sourceId;
+  const [visibleCount, setVisibleCount] = useState(12);
   const [compare, setCompare] = useState(true);
-  const [detail, setDetail] = useState<GenerationResult | null>(null);
+  const [detail, setDetail] = useState<ResultSummary | null>(null);
   const available = selected?.available ?? false;
   return (
     <section className="director-results" aria-label="导演工具输入与输出">
@@ -176,6 +197,11 @@ export function DirectorResults({
           </Button>
         </div>
       </header>
+      {retained.error && (
+        <Notice actions={<Button onClick={retained.retry}>重试读取选中结果</Button>}>
+          {retained.error}
+        </Notice>
+      )}
       {generation.queryError && (
         <Notice actions={<Button onClick={() => void generation.refresh()}>重试查询</Button>}>
           {generation.queryError}
@@ -229,14 +255,27 @@ export function DirectorResults({
         {generation.results === null ? (
           <output className="muted">正在读取结果…</output>
         ) : (
-          outputs.map((result) => (
-            <OutputThumbnail
-              key={result.id}
-              result={result}
-              selected={selected?.id === result.id}
-              onSelect={() => onSelect(result.id)}
-            />
-          ))
+          outputs
+            .slice(0, visibleCount)
+            .map((result) => (
+              <OutputThumbnail
+                key={result.id}
+                result={result}
+                selected={selected?.id === result.id}
+                onSelect={() => onSelect(result.id)}
+              />
+            ))
+        )}
+        {outputs.length > visibleCount && (
+          <Button onClick={() => setVisibleCount((count) => count + 12)}>更多输出</Button>
+        )}
+        {generation.hasMoreResults && (
+          <Button
+            disabled={generation.loadingMoreResults}
+            onClick={() => void generation.loadMoreResults()}
+          >
+            {generation.loadingMoreResults ? "正在读取…" : "读取更早结果"}
+          </Button>
         )}
       </div>
       {detail && (

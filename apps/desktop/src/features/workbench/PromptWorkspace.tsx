@@ -9,7 +9,7 @@ import { diagnosticSetting } from "../prompt/settings";
 import { ResolutionInspector } from "../prompt/ResolutionInspector";
 import { promptApi } from "../prompt/api";
 import { errorMessage } from "../../shared/host/error";
-import { TokenUsageSummary } from "../generation/TokenUsageSummary";
+import { TokenUsageSummary } from "../generation/submission/TokenUsageSummary";
 import type { InsertTarget } from "../library/ResourceLibrary";
 export function PromptWorkspace({
   draft,

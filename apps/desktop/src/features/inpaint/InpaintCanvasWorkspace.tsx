@@ -5,7 +5,7 @@ import { errorMessage } from "../../shared/host/error";
 import { Button, HelpMarker, IconButton, Notice } from "../../shared/ui";
 import {
   appendCommand,
-  appendStrokePoint,
+  appendStrokePoints,
   canvasTransform,
   nativePoint,
   overlayMaskPixels,
@@ -49,6 +49,16 @@ export function InpaintCanvasWorkspace({
   const [pointer, setPointer] = useState<MaskPoint | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const images = useMaskBitmaps(value.sourceAssetId, value.baseMaskAssetId);
+  const { width, height, commands, cursor } = value;
+  const raster = useRef<{
+    width: number;
+    height: number;
+    commands: MaskSession["commands"];
+    cursor: number;
+    base: ImageBitmap | null;
+    mask: HTMLCanvasElement;
+    overlay: HTMLCanvasElement;
+  } | null>(null);
   const latest = useRef({ value, onChange, pending, size });
   useLayoutEffect(() => {
     if (latest.current.value.sourceAssetId !== value.sourceAssetId) {
@@ -106,22 +116,36 @@ export function InpaintCanvasWorkspace({
     if (!target || !source) return;
     const frame = requestAnimationFrame(() => {
       try {
-        if (source.width !== value.width || source.height !== value.height)
+        if (source.width !== width || source.height !== height)
           throw new Error("遮罩会话尺寸与底图原生尺寸不一致，请重新打开编辑器。");
         const context = target.getContext("2d");
         if (!context) throw new Error("无法绘制遮罩预览，请重试读取底图。");
-        target.width = value.width;
-        target.height = value.height;
+        target.width = width;
+        target.height = height;
         context.drawImage(source, 0, 0);
         if (preview !== "original") {
-          const mask = drawMask(value, images.mask);
-          if (preview === "overlay") {
-            const maskContext = mask.getContext("2d")!;
-            const pixels = maskContext.getImageData(0, 0, mask.width, mask.height);
+          let cached = raster.current;
+          if (
+            !cached ||
+            cached.width !== width ||
+            cached.height !== height ||
+            cached.commands !== commands ||
+            cached.cursor !== cursor ||
+            cached.base !== images.mask
+          ) {
+            const mask = drawMask({ width, height, commands, cursor }, images.mask);
+            const overlay = document.createElement("canvas");
+            overlay.width = width;
+            overlay.height = height;
+            const overlayContext = overlay.getContext("2d");
+            if (!overlayContext) throw new Error("无法创建遮罩叠加画布。");
+            const pixels = mask.getContext("2d")!.getImageData(0, 0, width, height);
             pixels.data.set(overlayMaskPixels(pixels.data));
-            maskContext.putImageData(pixels, 0, 0);
+            overlayContext.putImageData(pixels, 0, 0);
+            cached = { width, height, commands, cursor, base: images.mask, mask, overlay };
+            raster.current = cached;
           }
-          context.drawImage(mask, 0, 0);
+          context.drawImage(preview === "overlay" ? cached.overlay : cached.mask, 0, 0);
         }
         setRenderError(null);
       } catch (cause) {
@@ -129,7 +153,7 @@ export function InpaintCanvasWorkspace({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [value, preview, images.source, images.mask]);
+  }, [width, height, commands, cursor, preview, images.source, images.mask]);
 
   const transform = canvasTransform(value, size);
   const ready =
@@ -203,12 +227,13 @@ export function InpaintCanvasWorkspace({
         panY: current.panY + screen.y - current.start.y,
       });
     } else {
-      let next = latest.current.value;
+      const session = latest.current.value;
+      const transform = canvasTransform(session, latest.current.size);
       const events = event.nativeEvent.getCoalescedEvents?.();
-      for (const sample of events?.length ? events : [event]) {
-        const point = nativePoint(eventPoint(sample), canvasTransform(next, latest.current.size));
-        next = appendStrokePoint(next, current.commandIndex, point);
-      }
+      const points = (events?.length ? events : [event]).map((sample) =>
+        nativePoint(eventPoint(sample), transform),
+      );
+      const next = appendStrokePoints(session, current.commandIndex, points);
       if (next !== latest.current.value) change(next);
     }
   };

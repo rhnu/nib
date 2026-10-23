@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
 import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
 import { encodingSubmission, isReusableEncoding, optionalEncodingSeed } from "./encoding-model";
-import type { GenerationResult } from "../../bindings/generation";
-import { generationQuoteKey } from "../generation/quote-state";
+import type { ResultSummary } from "../../bindings/generation";
+import { generationQuoteKey } from "../generation/submission/quote-state";
 
 const input: VibeEncodingInput = {
   assetId: "source",
@@ -35,7 +35,7 @@ const draft: Draft = {
 
 describe("independent Vibe encoding", () => {
   it("recognizes retained encoding at the IPC numeric precision and rejects missing files", () => {
-    const result: GenerationResult = {
+    const result: ResultSummary = {
       id: "result",
       jobId: "job",
       sampleIndex: 0,
@@ -46,12 +46,9 @@ describe("independent Vibe encoding", () => {
       createdAt: 1,
       mimeType: "application/octet-stream",
       available: true,
-      submission: {
+      operation: {
         kind: "encodeVibe",
-        ...input,
-        informationExtracted: 0.699999988079071,
-        policy: "normalize",
-        diagnostics: [],
+        input: { ...input, informationExtracted: 0.699999988079071 },
       },
     };
     expect(isReusableEncoding(result, input)).toBe(true);

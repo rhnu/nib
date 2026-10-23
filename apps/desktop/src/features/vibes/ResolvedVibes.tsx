@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ResolvedDraft } from "../../bindings/workbench";
 import { AssetImage, useMediaAsset } from "../media";
 import { VibeAssetDetails } from "./VibeAssetDetails";
@@ -9,6 +10,15 @@ function ImageMaterial({ id }: { id: string }) {
     <AssetImage asset={media.asset} alt="Vibe 原图" className="vibe-thumbnail" />
   ) : (
     <output>{media.error ?? "正在读取原图…"}</output>
+  );
+}
+function CollapsedImageMaterial({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>查看原图</summary>
+      {open && <ImageMaterial id={id} />}
+    </details>
   );
 }
 export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
@@ -74,10 +84,7 @@ export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
             {reference.input.kind === "encoded" ? (
               <VibeAssetDetails id={reference.input.assetId} />
             ) : (
-              <details>
-                <summary>查看原图</summary>
-                <ImageMaterial id={reference.input.assetId} />
-              </details>
+              <CollapsedImageMaterial id={reference.input.assetId} />
             )}
           </article>
         );

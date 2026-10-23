@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
-import type { GenerationResult } from "../../bindings/generation";
+import type { ResultSummary } from "../../bindings/generation";
 import type { VibeEncodingInput, VibeReferenceInput } from "../../bindings/workbench";
 import { Button, Notice } from "../../shared/ui";
 import { mediaApi } from "../media/api";
 import { useMediaQuery } from "../media/useMediaQuery";
-import { VibeAssetDetails } from "./VibeAssetDetails";
+import { VibeAssetInformation } from "./VibeAssetDetails";
 import { downloadBytes } from "./model";
 import { useVibeAction } from "./useVibeAction";
 import "./vibes.css";
@@ -14,7 +14,7 @@ export function VibeResultCard({
   onAddReference,
   onEncode,
 }: {
-  result: GenerationResult;
+  result: ResultSummary;
   onAddReference?: (value: VibeReferenceInput) => void;
   onEncode?: (input: VibeEncodingInput) => void;
 }) {
@@ -35,33 +35,40 @@ export function VibeResultCard({
           {new Date(result.createdAt).toLocaleString()}
         </time>
       </header>
+      {inspection.loading && <output>正在读取编码信息…</output>}
       {result.available ? (
-        <VibeAssetDetails id={result.assetId} onEncode={onEncode} />
+        inspection.value && (
+          <VibeAssetInformation
+            id={result.assetId}
+            inspection={inspection.value}
+            onEncode={onEncode}
+          />
+        )
       ) : (
         <p className="vibe-message">编码文件不可用</p>
       )}
-      {result.submission.kind === "encodeVibe" && (
+      {result.operation.kind === "encodeVibe" && (
         <dl className="vibe-identity">
           <div>
             <dt>源图</dt>
-            <dd>{result.submission.assetId}</dd>
+            <dd>{result.operation.input.assetId}</dd>
           </div>
-          {result.submission.maskAssetId && (
+          {result.operation.input.maskAssetId && (
             <div>
               <dt>遮罩</dt>
               <dd>
-                {result.submission.maskAssetId}
-                {result.submission.cropToMask ? " · 裁剪" : ""}
+                {result.operation.input.maskAssetId}
+                {result.operation.input.cropToMask ? " · 裁剪" : ""}
               </dd>
             </div>
           )}
           <div>
             <dt>Focus seed</dt>
-            <dd>{result.submission.focusSeed ?? "自动"}</dd>
+            <dd>{result.operation.input.focusSeed ?? "自动"}</dd>
           </div>
           <div>
             <dt>Extract seed</dt>
-            <dd>{result.submission.infoExtractSeed ?? "自动"}</dd>
+            <dd>{result.operation.input.infoExtractSeed ?? "自动"}</dd>
           </div>
         </dl>
       )}

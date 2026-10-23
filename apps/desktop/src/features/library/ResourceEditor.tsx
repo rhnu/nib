@@ -6,7 +6,7 @@ import { CompositionEditor } from "../prompt/CompositionEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { promptApi } from "../prompt/api";
 import { errorMessage } from "../../shared/host/error";
-import { useModelCapabilities } from "../workbench/useModelCapabilities";
+import { useModelCapabilities } from "../model/useModelCapabilities";
 import { PromptTextEditor } from "../prompt/PromptTextEditor";
 import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
 import { PreciseReferenceEditor } from "../references";

@@ -3,7 +3,6 @@ import type { Resource, WorkspaceSnapshot } from "../bindings/workbench";
 import { hasDesktopHost } from "../shared/host/invoke";
 import { errorMessage } from "../shared/host/error";
 import { workbenchApi } from "../features/workbench/api";
-import { libraryApi } from "../features/library/api";
 type OpenWorkspace = { snapshot: WorkspaceSnapshot; resources: Map<string, Resource> };
 export function useWorkspaceStartup(enabled = true) {
   const [workspace, setWorkspace] = useState<OpenWorkspace | null>(null);
@@ -15,12 +14,12 @@ export function useWorkspaceStartup(enabled = true) {
     let active = true;
     void workbenchApi
       .workspace()
-      .then(async (snapshot) => {
-        const fetched = await Promise.all(
-          snapshot.resources.map((item) => libraryApi.resource(item.id)),
-        );
+      .then((snapshot) => {
         if (active) {
-          setWorkspace({ snapshot, resources: new Map(fetched.map((item) => [item.id, item])) });
+          setWorkspace({
+            snapshot,
+            resources: new Map(snapshot.resources.map((item) => [item.id, item])),
+          });
           setLoading(false);
         }
       })

@@ -1,13 +1,13 @@
 import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
-import type { GenerationResult } from "../../bindings/generation";
+import type { ResultSummary } from "../../bindings/generation";
 
 /** Compare at the IPC's f32 precision, without treating a missing output as reusable. */
-export function isReusableEncoding(result: GenerationResult, input: VibeEncodingInput): boolean {
-  const saved = result.submission;
+export function isReusableEncoding(result: ResultSummary, input: VibeEncodingInput): boolean {
+  const saved = result.operation.kind === "encodeVibe" ? result.operation.input : null;
   return (
     result.kind === "vibe" &&
     result.available &&
-    saved.kind === "encodeVibe" &&
+    saved !== null &&
     saved.assetId === input.assetId &&
     saved.model === input.model &&
     Math.fround(saved.informationExtracted) === Math.fround(input.informationExtracted) &&

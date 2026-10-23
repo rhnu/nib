@@ -11,8 +11,8 @@ import { Button, HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
-import { ImageOperationPanel } from "./ImageOperationPanel";
-import type { ImageOperationAction } from "./image-operation";
+import { ImageOperationPanel } from "../inputs/ImageOperationPanel";
+import type { ImageOperationAction } from "../inputs/image-operation";
 import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
 import { PreciseReferenceEditor } from "../references";
 import { VibeReferenceEditor } from "../vibes";
@@ -32,6 +32,7 @@ export function ContextRail({
   estimate,
   onRestore,
   onRequestOperation,
+  onPrepareImportedOperation,
   onReturnToText,
   imageInputVersion,
   onEditMask,
@@ -53,6 +54,7 @@ export function ContextRail({
   estimate: GenerationQuote | null;
   onRestore: (draft: Draft) => void;
   onRequestOperation: (id: string, kind: ImageOperationAction) => void;
+  onPrepareImportedOperation: (id: string, kind: ImageOperationAction) => Promise<void>;
   onReturnToText: () => void;
   imageInputVersion: number;
   onEditMask: (assetId: string) => void;
@@ -121,6 +123,7 @@ export function ContextRail({
         onRestore={onRestore}
         onError={setError}
         onRequestOperation={onRequestOperation}
+        onPrepareImportedOperation={onPrepareImportedOperation}
         onReturnToText={onReturnToText}
         diagnostics={diagnostics}
         errorFields={errorFields}

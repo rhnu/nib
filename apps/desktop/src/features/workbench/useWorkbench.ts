@@ -9,7 +9,7 @@ import { useResolution } from "../prompt/useResolution";
 import { emptySettings } from "../prompt/model";
 import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
-import { useGenerationDraft } from "./useGenerationDraft";
+import { useGenerationDraft } from "../inputs/useGenerationDraft";
 export function useWorkbench(
   workspace: WorkspaceSnapshot,
   initialResources: Map<string, Resource>,
@@ -26,9 +26,16 @@ export function useWorkbench(
   const written = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
   // The writer is initialized before subscription and never clears the live draft.
   const draft = written.value!;
-  const { resources, refreshResources, resourceVersion } = useResourceCache(initialResources);
+  const {
+    resources,
+    refreshResources,
+    resourceVersion,
+    resourceError,
+    ensureResources,
+    retryResources,
+  } = useResourceCache(initialResources, draft);
   const generationDraft = useGenerationDraft(draft);
-  const resolution = useResolution(generationDraft, resources);
+  const resolution = useResolution(generationDraft, resourceVersion);
   const [error, setError] = useState("");
   const library = draft.activePage === "library";
   const setLibrary = (open: boolean) => {
@@ -141,7 +148,7 @@ export function useWorkbench(
       });
     }
     if (!resources.has(resource.id))
-      void refreshResources().catch((cause) => setError(errorMessage(cause)));
+      void ensureResources([resource.id]).catch((cause) => setError(errorMessage(cause)));
   };
   return {
     writer,
@@ -151,9 +158,12 @@ export function useWorkbench(
     generationDraft,
     resources,
     refreshResources,
+    ensureResources,
+    resourceError,
+    retryResources,
     resourceVersion,
     ...resolution,
-    error,
+    error: error || resourceError,
     setError,
     library,
     setLibrary,

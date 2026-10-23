@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MaskSession } from "../../bindings/workbench";
 import {
   appendCommand,
-  appendStrokePoint,
+  appendStrokePoints,
   binaryMaskPixels,
   canvasTransform,
   containMaskRect,
@@ -70,7 +70,7 @@ describe("persisted mask history", () => {
     const dot = appendCommand(initial, { kind: "paint", size: 20, points: [{ x: 10, y: 20 }] });
     expect(dot.cursor).toBe(1);
     expect(dot.commands).toEqual([{ kind: "paint", size: 20, points: [{ x: 10, y: 20 }] }]);
-    const moved = appendStrokePoint(dot, 0, { x: 30, y: 20 });
+    const moved = appendStrokePoints(dot, 0, [{ x: 30, y: 20 }]);
     expect(moved.cursor).toBe(1);
     expect(moved.commands).toEqual([
       {
@@ -87,7 +87,27 @@ describe("persisted mask history", () => {
   });
   it("does not add duplicate pointer samples", () => {
     const dot = appendCommand(session(), { kind: "erase", size: 4, points: [{ x: 2, y: 3 }] });
-    expect(appendStrokePoint(dot, 0, { x: 2, y: 3 })).toBe(dot);
+    expect(appendStrokePoints(dot, 0, [{ x: 2, y: 3 }])).toBe(dot);
+  });
+  it("keeps coalesced sample order and drops adjacent duplicates in one edit", () => {
+    const dot = appendCommand(session(), { kind: "paint", size: 4, points: [{ x: 1, y: 1 }] });
+    const next = appendStrokePoints(dot, 0, [
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+      { x: 2, y: 2 },
+      { x: 3, y: 2 },
+    ]);
+    expect(next.commands[0]).toEqual({
+      kind: "paint",
+      size: 4,
+      points: [
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+        { x: 3, y: 2 },
+      ],
+    });
+    expect(next.revision).toBe(2);
+    expect(dot.commands[0]).toEqual({ kind: "paint", size: 4, points: [{ x: 1, y: 1 }] });
   });
   it("makes clear undoable and preserves its redo command", () => {
     const painted = appendCommand(session(), { kind: "paint", size: 10, points: [{ x: 5, y: 5 }] });

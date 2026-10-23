@@ -9,7 +9,10 @@ export async function loadMaskBitmap(id: string): Promise<ImageBitmap> {
 }
 
 /** Rebuild an opaque black/white mask independently of the displayed source and overlay. */
-export function drawMask(session: MaskSession, baseMask: ImageBitmap | null): HTMLCanvasElement {
+export function drawMask(
+  session: Pick<MaskSession, "width" | "height" | "commands" | "cursor">,
+  baseMask: ImageBitmap | null,
+): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = session.width;
   canvas.height = session.height;

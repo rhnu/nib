@@ -20,14 +20,17 @@ import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
 import { PromptWorkspace } from "./PromptWorkspace";
 import { useWorkbench } from "./useWorkbench";
-import { useDraftCapabilities } from "./useDraftCapabilities";
-import { useModelCapabilities } from "./useModelCapabilities";
-import { useImageOperationRequest } from "./useImageOperationRequest";
-import { operationLabel, operationSourceId, type ImageOperationAction } from "./image-operation";
-import { useGeneration } from "../generation/generation-context";
+import { useModelCapabilities } from "../model/useModelCapabilities";
+import { useImageOperationRequest } from "../inputs/useImageOperationRequest";
+import {
+  operationLabel,
+  operationSourceId,
+  type ImageOperationAction,
+} from "../inputs/image-operation";
+import { useAccount } from "../generation/account/account-context";
 import { StreamModeSelect } from "../generation";
-import { useGenerationQuote } from "../generation/use-generation-quote";
-import { isQuoteEligible } from "../generation/quote-state";
+import { useGenerationQuote } from "../generation/submission/use-generation-quote";
+import { isQuoteEligible } from "../generation/submission/quote-state";
 import { useMaskEditor } from "./useMaskEditor";
 import { InpaintCanvasWorkspace } from "../inpaint/InpaintCanvasWorkspace";
 import { CharacterPositionWorkspace } from "../positioning/CharacterPositionWorkspace";
@@ -104,9 +107,12 @@ export function Workbench({
     openLibrary,
     insert,
     refreshResources,
+    ensureResources,
+    resourceError,
+    retryResources,
     resourceVersion,
   } = state;
-  const { accountVersion, accountSummaryLoading } = useGeneration();
+  const { accountVersion, accountSummaryLoading } = useAccount();
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const [encoderOpen, setEncoderOpen] = useState(false);
@@ -121,7 +127,11 @@ export function Workbench({
     quoteRefreshKey,
     !resolving && !accountSummaryLoading && isQuoteEligible(draft, resolved),
   );
-  const model = useDraftCapabilities(generationDraft, resourceVersion);
+  const model = {
+    capabilities: state.capabilities,
+    error: resolveError,
+    retry: state.retryResolution,
+  };
   const generationTarget = useModelCapabilities(
     draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId,
     resolved?.settings ?? draft.settings,
@@ -168,8 +178,26 @@ export function Workbench({
       guard(() => {
         setPositioning(null);
         setPage("create");
-        imageOperation.request(id, kind);
+        void imageOperation.request(id, kind).catch(() => {});
       });
+  };
+  const prepareImportedOperation = async (id: string, kind: ImageOperationAction) => {
+    let preparation: Promise<void> | undefined;
+    // Import already owns pending work. Only the local mask decision may precede this commit.
+    mask.guard(() => {
+      setPositioning(null);
+      setPage("create");
+      if (kind === "inpainting") {
+        imageOperation.cancel();
+        mask.open(id);
+      } else {
+        preparation = imageOperation.request(id, kind);
+        // A mask decision may defer this callback beyond the import's await.
+        // The request reports failures itself; also handle rejection in that case.
+        void preparation.catch(() => {});
+      }
+    });
+    await preparation;
   };
   const guardedRestore = (value: Draft) =>
     guard(() => {
@@ -360,6 +388,7 @@ export function Workbench({
           <Notice
             actions={
               <>
+                {resourceError && <Button onClick={retryResources}>重试读取资源</Button>}
                 {Boolean(written.error) && (
                   <Button onClick={() => void writer.flush().catch(() => {})}>重试保存</Button>
                 )}
@@ -415,6 +444,7 @@ export function Workbench({
                 estimate={estimate.quote}
                 onRestore={guardedRestore}
                 onRequestOperation={requestOperation}
+                onPrepareImportedOperation={prepareImportedOperation}
                 onReturnToText={() => guard(imageOperation.returnToText)}
                 onEditMask={editMask}
                 imageInputVersion={restoreVersion}
@@ -552,6 +582,8 @@ export function Workbench({
           resources={resources}
           models={workspace.models}
           onChanged={refreshResources}
+          ensureResources={ensureResources}
+          resourceVersion={resourceVersion}
           onInsert={insert}
           target={insertTarget}
           onDirtyChange={setResourceDirty}

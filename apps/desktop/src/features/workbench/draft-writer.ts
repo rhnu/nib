@@ -8,9 +8,9 @@ export class DraftWriter<T extends { revision: number }> {
   private pending: Promise<void> | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
-  private write: (value: T) => Promise<T>;
+  private write: (value: T) => Promise<{ revision: number }>;
 
-  constructor(write: (value: T) => Promise<T>) {
+  constructor(write: (value: T) => Promise<{ revision: number }>) {
     this.write = write;
   }
   subscribe = (listener: () => void) => {

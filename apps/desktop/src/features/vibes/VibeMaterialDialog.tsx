@@ -5,7 +5,7 @@ import { ActionsMenu, Button, Modal, Notice } from "../../shared/ui";
 import { ImagePickerDialog } from "../media";
 import { mediaApi } from "../media/api";
 import { useMediaQuery } from "../media/useMediaQuery";
-import { VibeAssetDetails } from "./VibeAssetDetails";
+import { VibeAssetInformation } from "./VibeAssetDetails";
 import { downloadBytes, vibeMaterialName } from "./model";
 import { useVibeAction } from "./useVibeAction";
 import "./vibes.css";
@@ -324,7 +324,15 @@ function Materials({
                   </>
                 ) : selected.kind === "vibe" ? (
                   <>
-                    <VibeAssetDetails id={selected.id} />
+                    {encoding.loading && <output>正在读取编码信息…</output>}
+                    {encoding.error && (
+                      <Notice actions={<Button onClick={encoding.retry}>重试读取</Button>}>
+                        {encoding.error}
+                      </Notice>
+                    )}
+                    {encoding.value && (
+                      <VibeAssetInformation id={selected.id} inspection={encoding.value} />
+                    )}
                     <Button
                       disabled={action.busy || !encoding.value?.canExportDocument}
                       onClick={() =>

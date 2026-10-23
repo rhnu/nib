@@ -1,3 +1,5 @@
+import { useAccount } from "../generation/account/account-context";
+import { useJobData } from "../generation/jobs/job-context";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
 import { Button, Field, HelpMarker, Notice } from "../../shared/ui";
@@ -6,10 +8,9 @@ import { errorMessage } from "../../shared/host/error";
 import { ImagePickerDialog, useMediaAsset, AssetImage } from "../media";
 import { useMediaQuery } from "../media/useMediaQuery";
 import { imageName } from "../media/model";
-import { useGenerationDraft } from "../workbench/useGenerationDraft";
-import { useGenerationQuote } from "../generation/use-generation-quote";
-import { useGeneration } from "../generation/generation-context";
-import { GenerationActions } from "../generation/GenerationActions";
+import { useGenerationDraft } from "../inputs/useGenerationDraft";
+import { useGenerationQuote } from "../generation/submission/use-generation-quote";
+import { GenerationActions } from "../generation/submission/GenerationActions";
 import { encodingApi } from "./encoding-api";
 import { encodingSubmission, isReusableEncoding, optionalEncodingSeed } from "./encoding-model";
 import "./encoder.css";
@@ -31,7 +32,8 @@ export function VibeEncoderPanel({
   const mask = useMediaAsset(input?.maskAssetId ?? null);
   const base = useGenerationDraft(draft);
   const submission = useMemo(() => (input ? encodingSubmission(base, input) : null), [base, input]);
-  const { accountSummaryLoading, results } = useGeneration();
+  const { accountSummaryLoading } = useAccount();
+  const { results } = useJobData();
   const estimate = useGenerationQuote(
     submission ?? base,
     refreshKey,
@@ -110,14 +112,6 @@ export function VibeEncoderPanel({
     });
   };
   const encoded = input && results?.some((result) => isReusableEncoding(result, input));
-  const hasPrevious =
-    input &&
-    results?.some(
-      (result) =>
-        result.kind === "vibe" &&
-        result.submission.kind === "encodeVibe" &&
-        result.submission.assetId === input.assetId,
-    );
   return (
     <div className="vibe-encoder" ref={root}>
       {options.loading && <output>正在读取编码选项…</output>}
@@ -235,9 +229,7 @@ export function VibeEncoderPanel({
             </div>
           </details>
           <div className="vibe-encoder-status">
-            <span>
-              {encoded ? "已有可复用编码" : hasPrevious ? "参数已更改，需重新编码" : "尚未编码"}
-            </span>
+            <span>{encoded ? "已有可复用编码" : "可编码当前输入，或从材料中选择已有编码"}</span>
             <HelpMarker label="编码与参考">
               改变提取量、模型或遮罩需要重新编码。编码结果可从材料库复用，添加已有材料不会重新编码。
             </HelpMarker>

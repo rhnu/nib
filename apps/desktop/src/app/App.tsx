@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AccountProvider } from "../features/generation/account/AccountProvider";
 import { Workbench } from "../features/workbench/Workbench";
 import { GenerationActions, GenerationProvider, GenerationResults } from "../features/generation";
 import { StartupScreen } from "./StartupScreen";
@@ -47,122 +48,123 @@ export default function App() {
     </>
   );
   return (
-    <div className="application">
-      {!workspace ? (
-        <>
-          <TitleBar
-            navigation={
-              settings.ready && (
-                <nav className="desktop-navigation" aria-label="主导航">
-                  <Button
-                    aria-current={startupPage === "create" ? "page" : undefined}
-                    onClick={() => setStartupPage("create")}
-                  >
-                    创作
-                  </Button>
-                  <Button
-                    aria-current={startupPage === "settings" ? "page" : undefined}
-                    onClick={() => setStartupPage("settings")}
-                  >
-                    设置
-                  </Button>
-                </nav>
-              )
-            }
-          />
-          {settingsNotice}
-          {settings.ready ? (
-            startupPage === "settings" ? (
-              <SettingsPage settings={settings} showAccount={false} />
-            ) : (
-              <>
-                {error && (
-                  <Notice
-                    actions={
-                      <Button onClick={() => setStartupPage("settings")}>更改存储位置</Button>
-                    }
-                  >
-                    创作数据无法打开。可在设置中检查存储位置，取消待迁移更改后重试；新的目录设置于下次启动生效。
-                  </Notice>
-                )}
-                <StartupScreen loading={loading} error={error} retry={retry} />
-              </>
-            )
-          ) : (
-            <StartupScreen
-              loading={settings.loading}
-              error={settings.error}
-              retry={settings.retry}
-              loadingLabel="正在同步应用设置…"
+    <AccountProvider executionVersion={settings.executionVersion}>
+      <div className="application">
+        {!workspace ? (
+          <>
+            <TitleBar
+              navigation={
+                settings.ready && (
+                  <nav className="desktop-navigation" aria-label="主导航">
+                    <Button
+                      aria-current={startupPage === "create" ? "page" : undefined}
+                      onClick={() => setStartupPage("create")}
+                    >
+                      创作
+                    </Button>
+                    <Button
+                      aria-current={startupPage === "settings" ? "page" : undefined}
+                      onClick={() => setStartupPage("settings")}
+                    >
+                      设置
+                    </Button>
+                  </nav>
+                )
+              }
             />
-          )}
-        </>
-      ) : (
-        <GenerationProvider
-          executionVersion={settings.executionVersion}
-          beforeSubmit={settings.prepareSubmission}
-          submissionBlocked={settings.submissionBlocked}
-        >
-          <Workbench
-            workspace={workspace.snapshot}
-            initialResources={workspace.resources}
-            initialPage={startupPage}
-            settingsWriter={settings.closeWriter}
-            renderHeader={(navigation) => (
-              <>
-                <TitleBar navigation={navigation} />
-                {settingsNotice}
-              </>
-            )}
-            settings={<SettingsPage settings={settings} />}
-            renderActions={({
-              draft,
-              readCurrentDraft,
-              quoteRefreshKey,
-              resolved,
-              estimate,
-              operationPending,
-              onFocusField,
-            }) => (
-              <GenerationActions
-                draft={draft}
-                readCurrentDraft={readCurrentDraft}
-                refreshKey={quoteRefreshKey}
-                resolved={resolved}
-                estimate={estimate}
-                operationPending={operationPending}
-                onFocusField={onFocusField}
+            {settingsNotice}
+            {settings.ready ? (
+              startupPage === "settings" ? (
+                <SettingsPage settings={settings} />
+              ) : (
+                <>
+                  {error && (
+                    <Notice
+                      actions={
+                        <Button onClick={() => setStartupPage("settings")}>更改存储位置</Button>
+                      }
+                    >
+                      创作数据无法打开。可在设置中检查存储位置，取消待迁移更改后重试；新的目录设置于下次启动生效。
+                    </Notice>
+                  )}
+                  <StartupScreen loading={loading} error={error} retry={retry} />
+                </>
+              )
+            ) : (
+              <StartupScreen
+                loading={settings.loading}
+                error={settings.error}
+                retry={settings.retry}
+                loadingLabel="正在同步应用设置…"
               />
             )}
-            renderResults={({
-              draft,
-              onRestore,
-              readCurrentDraft,
-              onImageOperation,
-              canMaxEnhance,
-              canInpaint,
-              onViewedAssetChange,
-              onAddVibeReference,
-              onEncodeVibe,
-            }) => (
-              <GenerationResults
-                onRestore={onRestore}
-                operation={draft.inputs.operation}
-                onImageOperation={onImageOperation}
-                canMaxEnhance={canMaxEnhance}
-                canInpaint={canInpaint}
-                onViewedAssetChange={onViewedAssetChange}
-                onAddVibeReference={onAddVibeReference}
-                onEncodeVibe={onEncodeVibe}
-                onUseSeed={(seed) => {
-                  const current = readCurrentDraft();
-                  onRestore({ ...current, settings: { ...current.settings, seed } });
-                }}
-              />
-            )}
-          />
-        </GenerationProvider>
-      )}
-    </div>
+          </>
+        ) : (
+          <GenerationProvider
+            beforeSubmit={settings.prepareSubmission}
+            submissionBlocked={settings.submissionBlocked}
+          >
+            <Workbench
+              workspace={workspace.snapshot}
+              initialResources={workspace.resources}
+              initialPage={startupPage}
+              settingsWriter={settings.closeWriter}
+              renderHeader={(navigation) => (
+                <>
+                  <TitleBar navigation={navigation} />
+                  {settingsNotice}
+                </>
+              )}
+              settings={<SettingsPage settings={settings} />}
+              renderActions={({
+                draft,
+                readCurrentDraft,
+                quoteRefreshKey,
+                resolved,
+                estimate,
+                operationPending,
+                onFocusField,
+              }) => (
+                <GenerationActions
+                  draft={draft}
+                  readCurrentDraft={readCurrentDraft}
+                  refreshKey={quoteRefreshKey}
+                  resolved={resolved}
+                  estimate={estimate}
+                  operationPending={operationPending}
+                  onFocusField={onFocusField}
+                />
+              )}
+              renderResults={({
+                draft,
+                onRestore,
+                readCurrentDraft,
+                onImageOperation,
+                canMaxEnhance,
+                canInpaint,
+                onViewedAssetChange,
+                onAddVibeReference,
+                onEncodeVibe,
+              }) => (
+                <GenerationResults
+                  onRestore={onRestore}
+                  operation={draft.inputs.operation}
+                  onImageOperation={onImageOperation}
+                  canMaxEnhance={canMaxEnhance}
+                  canInpaint={canInpaint}
+                  onViewedAssetChange={onViewedAssetChange}
+                  onAddVibeReference={onAddVibeReference}
+                  onEncodeVibe={onEncodeVibe}
+                  onUseSeed={(seed) => {
+                    const current = readCurrentDraft();
+                    onRestore({ ...current, settings: { ...current.settings, seed } });
+                  }}
+                />
+              )}
+            />
+          </GenerationProvider>
+        )}
+      </div>
+    </AccountProvider>
   );
 }

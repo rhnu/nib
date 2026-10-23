@@ -1,12 +1,17 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { MediaAsset } from "../../bindings/media";
 import { errorMessage } from "../../shared/host/error";
 import { Button, Notice } from "../../shared/ui";
+import { importAndCommitImage } from "./image-import";
 import { mediaApi } from "./api";
-import { imageUnavailableReason, singleImageFile } from "./model";
+import { singleImageFile } from "./model";
 import "./media.css";
 
-export function ImageImporter({ onImported }: { onImported: (asset: MediaAsset) => void }) {
+export function ImageImporter({
+  onImported,
+}: {
+  onImported: (asset: MediaAsset) => void | Promise<void>;
+}) {
   const id = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +21,7 @@ export function ImageImporter({ onImported }: { onImported: (asset: MediaAsset) 
   useLayoutEffect(() => {
     latest.current.onImported = onImported;
   }, [onImported]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const current = latest.current;
     current.active = true;
     return () => {
@@ -31,14 +36,13 @@ export function ImageImporter({ onImported }: { onImported: (asset: MediaAsset) 
     setError(null);
     setLastFile(file);
     try {
-      const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
-      if (!latest.current.active) return;
-      const asset = await mediaApi.importImage(bytes, file.name);
-      if (!latest.current.active) return;
-      const reason = imageUnavailableReason(asset);
-      if (reason) throw new Error(reason);
-      setLastFile(null);
-      latest.current.onImported(asset);
+      await importAndCommitImage({
+        file,
+        importImage: mediaApi.importImage,
+        commit: (asset) => latest.current.onImported(asset),
+        isCurrent: () => latest.current.active,
+      });
+      if (latest.current.active) setLastFile(null);
     } catch (cause) {
       if (latest.current.active) setError(errorMessage(cause));
     } finally {

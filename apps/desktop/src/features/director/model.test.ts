@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DirectorWorkspace, Draft } from "../../bindings/workbench";
 import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
-import { generationQuoteKey } from "../generation/quote-state";
+import { generationQuoteKey } from "../generation/submission/quote-state";
 import {
   commandTool,
   directorSubmission,

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { resourceDependencies } from "./resource-dependencies";
 import { Plus, Search } from "lucide-react";
 import type { Resource, ResourceKind, ResourceSummary } from "../../bindings/workbench";
 import { ActionsMenu, Button, HelpMarker, Modal } from "../../shared/ui";
@@ -14,11 +16,15 @@ export function ResourceLibrary({
   onInsert,
   target,
   onDirtyChange,
+  ensureResources,
+  resourceVersion,
 }: {
   open: boolean;
   resources: Map<string, Resource>;
   models: string[];
-  onChanged: () => Promise<void>;
+  onChanged: (id: string) => Promise<void>;
+  ensureResources: (ids: string[]) => Promise<void>;
+  resourceVersion: number;
   onInsert: (resource: ResourceSummary) => void;
   target: InsertTarget;
   onDirtyChange: (dirty: boolean) => void;
@@ -41,6 +47,12 @@ export function ResourceLibrary({
     remove,
     dismiss,
   } = useResourceEditor(onChanged, refreshSearch, onDirtyChange);
+  const dependencyKey = JSON.stringify(editor ? resourceDependencies(editor) : []);
+  useEffect(() => {
+    void ensureResources(JSON.parse(dependencyKey) as string[]).catch((cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : "无法读取引用资源，请重试。"),
+    );
+  }, [dependencyKey, ensureResources, setError, resourceVersion]);
   return (
     <>
       <section className="library-page" hidden={!open} aria-label="资源库">

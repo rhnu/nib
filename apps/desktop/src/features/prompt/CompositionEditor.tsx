@@ -115,7 +115,6 @@ export function CompositionEditor({
       ))}
       {pickerScope && (
         <ChunkPicker
-          resources={resources}
           onClose={() => setPickerScope(null)}
           onChoose={(resourceId) => {
             update(pickerScope, [

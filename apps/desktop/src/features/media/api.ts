@@ -56,6 +56,7 @@ export const mediaApi = {
       parameterKey,
     }),
   content: (id: string) => invokeHost<ArrayBuffer>("read_media_asset", { id }),
+  thumbnail: (id: string) => invokeHost<ArrayBuffer>("read_media_thumbnail", { id }),
   metadata: (id: string) => invokeHost<ImageMetadataReport>("inspect_image_metadata", { id }),
   embeddedVibes: (id: string) => invokeHost<MediaAsset[]>("import_embedded_vibes", { id }),
   restoreMetadata: (id: string) => invokeHost<MetadataRestore>("restore_image_metadata", { id }),

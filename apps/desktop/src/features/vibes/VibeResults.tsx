@@ -1,15 +1,21 @@
 import { useState } from "react";
-import type { GenerationResult } from "../../bindings/generation";
+import type { ResultSummary } from "../../bindings/generation";
 import type { VibeEncodingInput, VibeReferenceInput } from "../../bindings/workbench";
-import { Field } from "../../shared/ui";
+import { Button, Field } from "../../shared/ui";
 import { VibeResultCard } from "./VibeResultCard";
 
 export function VibeResults({
   results,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   onAddReference,
   onEncode,
 }: {
-  results: GenerationResult[];
+  results: ResultSummary[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => Promise<void>;
   onAddReference?: (reference: VibeReferenceInput) => void;
   onEncode?: (input: VibeEncodingInput) => void;
 }) {
@@ -27,6 +33,11 @@ export function VibeResults({
           ))}
         </select>
       </Field>
+      {hasMore && (
+        <Button disabled={loadingMore} onClick={() => void onLoadMore?.()}>
+          {loadingMore ? "正在读取…" : "读取更早结果"}
+        </Button>
+      )}
       {selected && (
         <VibeResultCard
           key={selected.id}
