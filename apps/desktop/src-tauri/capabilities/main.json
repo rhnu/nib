@@ -42,6 +42,7 @@
     "allow-get-image-operation-options",
     "allow-create-image-operation",
     "allow-create-inpaint-operation",
+    "allow-create-precise-reference",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-is-maximized",

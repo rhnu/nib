@@ -2,8 +2,8 @@
 
 mod models;
 pub use models::{
-    GenerationRanges, ModelCapabilities, NumericRange, ReferenceStatus, model_capabilities,
-    model_defaults_capabilities,
+    CharacterPositionOptions, GenerationRanges, ModelCapabilities, NumericRange,
+    PreciseReferenceOptions, ReferenceStatus, model_capabilities, model_defaults_capabilities,
 };
 
 /// Application metadata displayed by the desktop client.

@@ -67,6 +67,29 @@ pub fn create_inpaint_operation(
     })
 }
 
+/// Creates a reference entry from retained image bytes and SDK constructor defaults.
+/// Identity and enabled state belong to the application; reference semantics belong to the SDK.
+///
+/// # Errors
+/// Returns missing, unavailable or invalid reference image content.
+pub fn create_precise_reference(
+    assets: &dyn crate::media::AssetReader,
+    id: String,
+    reference_id: String,
+    reference_type: CharacterReferenceType,
+) -> Result<PreciseReferenceInput, crate::persistence::PersistenceError> {
+    let reference = novelai_bridge::CharacterReference::new(assets.image(&id)?, reference_type);
+    Ok(PreciseReferenceInput {
+        id: reference_id,
+        enabled: true,
+        asset_id: id,
+        reference_type: reference.reference_type,
+        strength: reference.strength,
+        fidelity: reference.fidelity,
+        information_extracted: reference.information_extracted,
+    })
+}
+
 /// Reads a stable application image and projects SDK constructor defaults into editing state.
 /// The initial influence and noise are application choices; other defaults belong to the SDK.
 ///

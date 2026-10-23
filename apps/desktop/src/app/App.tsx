@@ -118,6 +118,7 @@ export default function App() {
               resolved,
               estimate,
               operationPending,
+              onFocusField,
             }) => (
               <GenerationActions
                 draft={draft}
@@ -126,6 +127,7 @@ export default function App() {
                 resolved={resolved}
                 estimate={estimate}
                 operationPending={operationPending}
+                onFocusField={onFocusField}
               />
             )}
             renderResults={({
@@ -135,6 +137,7 @@ export default function App() {
               onImageOperation,
               canMaxEnhance,
               canInpaint,
+              onViewedAssetChange,
             }) => (
               <GenerationResults
                 onRestore={onRestore}
@@ -142,6 +145,7 @@ export default function App() {
                 onImageOperation={onImageOperation}
                 canMaxEnhance={canMaxEnhance}
                 canInpaint={canInpaint}
+                onViewedAssetChange={onViewedAssetChange}
                 onUseSeed={(seed) => {
                   const current = readCurrentDraft();
                   onRestore({ ...current, settings: { ...current.settings, seed } });

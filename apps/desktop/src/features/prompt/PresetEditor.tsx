@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { FileText, Link2 } from "lucide-react";
 import type {
   InstanceOverride,
+  GenerationSettings,
   ModelCapabilities,
   PresetInstance,
   Resource,
@@ -14,6 +15,14 @@ import { errorMessage } from "../../shared/host/error";
 import { ActionsMenu, Button, Toggle } from "../../shared/ui";
 import { useModelCapabilities } from "../workbench/useModelCapabilities";
 import { settingsWithDefaults } from "./settings";
+import {
+  CharacterListEditor,
+  CharacterOutputOverrides,
+  CharacterPositionPolicy,
+} from "../characters";
+import { setTextOverride, staleTextOverrides } from "../characters/model";
+import type { CharacterIssues } from "../characters/model";
+import { PreciseReferenceEditor, PreciseReferenceOutputOverrides } from "../references";
 
 export function PresetEditor({
   instance,
@@ -27,6 +36,9 @@ export function PresetEditor({
   canUp,
   canDown,
   onError,
+  onPosition,
+  characterIssues,
+  preciseIssues,
 }: {
   instance: PresetInstance;
   resources: Map<string, Resource>;
@@ -39,8 +51,19 @@ export function PresetEditor({
   canUp: boolean;
   canDown: boolean;
   onError: (message: string) => void;
+  onPosition?: (characterId: string) => void;
+  characterIssues?: CharacterIssues;
+  preciseIssues?: Record<string, { field: string; message: string }[]>;
 }) {
   const latest = useRef({ instance, onChange, active: true });
+  const details = useRef<HTMLDetailsElement>(null);
+  const issueSignature = JSON.stringify([characterIssues ?? null, preciseIssues ?? null]);
+  const hasOutputIssues =
+    Object.values(characterIssues ?? {}).some((issues) => issues.length > 0) ||
+    Object.values(preciseIssues ?? {}).some((issues) => issues.length > 0);
+  useEffect(() => {
+    if (hasOutputIssues && details.current) details.current.open = true;
+  }, [issueSignature, hasOutputIssues]);
   useLayoutEffect(() => {
     latest.current.instance = instance;
     latest.current.onChange = onChange;
@@ -61,6 +84,18 @@ export function PresetEditor({
         ? resource.content.composition
         : null;
   const name = binding.kind === "expanded" ? binding.name : (resource?.name ?? "资源缺失");
+  const characters =
+    binding.kind === "expanded"
+      ? binding.characters
+      : resource?.content.kind === "preset"
+        ? resource.content.characters
+        : [];
+  const references =
+    binding.kind === "expanded"
+      ? binding.references
+      : resource?.content.kind === "preset"
+        ? resource.content.references
+        : null;
   const defaults =
     binding.kind === "expanded"
       ? binding.defaults
@@ -75,18 +110,55 @@ export function PresetEditor({
   );
   const capabilityState = useModelCapabilities(model, hintSettings);
   const effectiveCapabilities = capabilityState.capabilities;
+  const outputCapabilities = capabilities ?? effectiveCapabilities;
   const inherited =
     effectiveCapabilities && defaults
       ? settingsWithDefaults(effectiveCapabilities.defaults, defaults)
       : undefined;
-  const override = (value: InstanceOverride) => {
-    if (binding.kind !== "linked") return;
-    const overrides = binding.overrides.filter((item) => item.nodeId !== value.nodeId);
-    if (value.enabled !== null || value.text !== null) overrides.push(value);
-    onChange({ ...instance, binding: { ...binding, overrides } });
+  const emit = (next: PresetInstance) => {
+    if (!latest.current.active) return;
+    latest.current.instance = next;
+    latest.current.onChange(next);
   };
+  const updateLinked = (
+    update: (
+      value: Extract<PresetInstance["binding"], { kind: "linked" }>,
+    ) => Extract<PresetInstance["binding"], { kind: "linked" }>,
+  ) => {
+    const current = latest.current.instance;
+    if (current.binding.kind === "linked") emit({ ...current, binding: update(current.binding) });
+  };
+  const updateExpanded = (
+    patch: Partial<Omit<Extract<PresetInstance["binding"], { kind: "expanded" }>, "kind">>,
+  ) => {
+    const current = latest.current.instance;
+    if (current.binding.kind === "expanded")
+      emit({ ...current, binding: { ...current.binding, ...patch } });
+  };
+  const changeSettings = (next: GenerationSettings) => {
+    const current = latest.current.instance;
+    emit({
+      ...current,
+      binding:
+        current.binding.kind === "linked"
+          ? { ...current.binding, settingsOverrides: next }
+          : { ...current.binding, defaults: next },
+    });
+  };
+  const override = (value: InstanceOverride) =>
+    updateLinked((current) => ({
+      ...current,
+      overrides: setTextOverride(current.overrides, value),
+    }));
+  const staleText =
+    binding.kind === "linked" && composition
+      ? staleTextOverrides(composition, characters, binding.overrides)
+      : [];
   return (
-    <article className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}>
+    <article
+      className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}
+      data-preset-instance-id={instance.id}
+    >
       <header className="node-heading">
         <span className="node-label">
           {binding.kind === "linked" ? <Link2 size={15} /> : <FileText size={15} />}
@@ -97,7 +169,7 @@ export function PresetEditor({
           <Toggle
             label={`启用 ${name}`}
             checked={instance.enabled}
-            onChange={(enabled) => onChange({ ...instance, enabled })}
+            onChange={(enabled) => emit({ ...latest.current.instance, enabled })}
           />
           <ActionsMenu
             label={`${name} 的操作`}
@@ -112,7 +184,7 @@ export function PresetEditor({
                         void promptApi.expandPreset(instance).then(
                           (result) => {
                             if (latest.current.active && latest.current.instance === instance)
-                              latest.current.onChange(result);
+                              emit(result);
                             else if (latest.current.active)
                               onError("配方已发生修改，请再次展开以使用最新内容。");
                           },
@@ -128,7 +200,7 @@ export function PresetEditor({
         </div>
       </header>
       {composition ? (
-        <details>
+        <details ref={details}>
           <summary>本次内容与设置</summary>
           <div className="preset-detail">
             {binding.kind === "linked" ? (
@@ -150,9 +222,7 @@ export function PresetEditor({
                   resources={resources}
                   models={models}
                   model={model}
-                  onChange={(next) =>
-                    onChange({ ...instance, binding: { ...binding, composition: next } })
-                  }
+                  onChange={(composition) => updateExpanded({ composition })}
                   expandChunk={async (node) => {
                     try {
                       return await promptApi.expandChunk(node);
@@ -164,6 +234,104 @@ export function PresetEditor({
                 />
               </>
             )}
+            {((outputCapabilities?.maxCharacters ?? 0) > 0 ||
+              characters.length > 0 ||
+              settings.useCoords !== null) && (
+              <CharacterPositionPolicy
+                value={settings.useCoords}
+                inherited={
+                  binding.kind === "linked"
+                    ? inherited?.useCoords
+                    : effectiveCapabilities?.defaults.useCoords
+                }
+                onChange={(useCoords) => {
+                  const current = latest.current.instance.binding;
+                  changeSettings({
+                    ...(current.kind === "linked" ? current.settingsOverrides : current.defaults),
+                    useCoords,
+                  });
+                }}
+              />
+            )}
+            {references &&
+              (binding.kind === "linked" ? (
+                <PreciseReferenceOutputOverrides
+                  value={references.precise}
+                  overrides={binding.outputOverrides.precise}
+                  onChange={(precise) =>
+                    updateLinked((current) => ({
+                      ...current,
+                      outputOverrides: { ...current.outputOverrides, precise },
+                    }))
+                  }
+                  capabilities={outputCapabilities}
+                  contextKey={`${instance.id}:${binding.resourceId}`}
+                  issues={preciseIssues}
+                />
+              ) : (
+                <PreciseReferenceEditor
+                  value={references.precise}
+                  onChange={(precise) => {
+                    const current = latest.current.instance.binding;
+                    if (current.kind === "expanded")
+                      updateExpanded({ references: { ...current.references, precise } });
+                  }}
+                  capabilities={outputCapabilities}
+                  contextKey={instance.id}
+                  issues={preciseIssues}
+                />
+              ))}
+            {binding.kind === "linked" ? (
+              (characters.length > 0 || binding.outputOverrides.characters.length > 0) && (
+                <CharacterOutputOverrides
+                  value={characters}
+                  overrides={binding.outputOverrides.characters}
+                  textOverrides={binding.overrides}
+                  onChange={(characters) =>
+                    updateLinked((current) => ({
+                      ...current,
+                      outputOverrides: { ...current.outputOverrides, characters },
+                    }))
+                  }
+                  onTextChange={override}
+                  resources={resources}
+                  models={models}
+                  capabilities={outputCapabilities}
+                  onPosition={onPosition}
+                  name={name}
+                  issues={characterIssues}
+                />
+              )
+            ) : (
+              <CharacterListEditor
+                value={binding.characters}
+                onChange={(characters) => updateExpanded({ characters })}
+                resources={resources}
+                models={models}
+                capabilities={outputCapabilities}
+                onError={onError}
+                onPosition={onPosition}
+                allowChunk={false}
+                title="角色输出"
+                issues={characterIssues}
+              />
+            )}
+            {staleText.map((item) => (
+              <div
+                className="character-stale-override"
+                data-prompt-node-id={item.nodeId}
+                key={item.nodeId}
+              >
+                <span>
+                  已移除片段的覆盖 <code>{item.nodeId}</code>
+                </span>
+                <Button
+                  onClick={() => override({ nodeId: item.nodeId, enabled: null, text: null })}
+                >
+                  移除失效覆盖
+                </Button>
+              </div>
+            ))}
             <section className="preset-settings">
               <h3>{binding.kind === "linked" ? "本次设置覆盖" : "配方默认设置"}</h3>
               <p className="setting-note">
@@ -186,15 +354,7 @@ export function PresetEditor({
                 capabilities={effectiveCapabilities}
                 resolved={binding.kind === "linked" ? inherited : undefined}
                 mode={binding.kind === "linked" ? "instance" : "preset"}
-                onChange={(next) =>
-                  onChange({
-                    ...instance,
-                    binding:
-                      binding.kind === "linked"
-                        ? { ...binding, settingsOverrides: next }
-                        : { ...binding, defaults: next },
-                  })
-                }
+                onChange={changeSettings}
               />
             </section>
           </div>

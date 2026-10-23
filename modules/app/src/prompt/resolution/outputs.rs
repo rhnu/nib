@@ -5,6 +5,7 @@ use super::{
     PresetOutputOverrides, PromptScope, ReferenceInputs, ResolutionIssue, ResolutionIssueKind,
     ResolvedCharacter, ResolvedFragment, ResourceReader, issue, resolve_composition,
 };
+use crate::prompt::scoped_output_id;
 
 fn join_fragments(fragments: &[ResolvedFragment], scope: PromptScope) -> String {
     fragments
@@ -129,10 +130,7 @@ pub(super) fn resolve_outputs(
             )?;
         }
         characters.push(ResolvedCharacter {
-            id: context.instance_id.map_or_else(
-                || definition.id.clone(),
-                |instance| format!("{instance}:{}", definition.id),
-            ),
+            id: scoped_output_id(context.instance_id, &definition.id),
             enabled: definition.enabled,
             positive: join_fragments(&fragments, PromptScope::Positive),
             negative: join_fragments(&fragments, PromptScope::Negative),
@@ -148,13 +146,11 @@ pub(super) fn resolve_outputs(
         });
     }
     let mut references = references;
-    if let Some(instance) = context.instance_id {
-        for reference in &mut references.precise {
-            reference.id = format!("{instance}:{}", reference.id);
-        }
-        for reference in &mut references.vibes {
-            reference.id = format!("{instance}:{}", reference.id);
-        }
+    for reference in &mut references.precise {
+        reference.id = scoped_output_id(context.instance_id, &reference.id);
+    }
+    for reference in &mut references.vibes {
+        reference.id = scoped_output_id(context.instance_id, &reference.id);
     }
     inputs.append(&references);
     for id in references
@@ -165,17 +161,14 @@ pub(super) fn resolve_outputs(
     {
         sources.push(InputProvenance {
             id: id.clone(),
-            overridden: output_overrides.precise.iter().any(|edit| {
-                context.instance_id.map_or_else(
-                    || edit.id.clone(),
-                    |instance| format!("{instance}:{}", edit.id),
-                ) == *id
-            }) || output_overrides.vibes.iter().any(|edit| {
-                context.instance_id.map_or_else(
-                    || edit.id.clone(),
-                    |instance| format!("{instance}:{}", edit.id),
-                ) == *id
-            }),
+            overridden: output_overrides
+                .precise
+                .iter()
+                .any(|edit| scoped_output_id(context.instance_id, &edit.id) == *id)
+                || output_overrides
+                    .vibes
+                    .iter()
+                    .any(|edit| scoped_output_id(context.instance_id, &edit.id) == *id),
             preset_instance_id: context.instance_id.map(str::to_owned),
             resource_id: context.resource.map(|resource| resource.id.clone()),
             expanded: context.expanded,

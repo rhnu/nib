@@ -1,8 +1,10 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Resource, ResourceKind } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
 import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
 import { libraryApi } from "./api";
+import { mergeResourceSave } from "./resource-edit";
+import { hasPendingWork, waitForPendingWork } from "../../shared/host/pending-work";
 export function useResourceEditor(
   onChanged: () => Promise<void>,
   refreshSearch: () => void,
@@ -13,97 +15,186 @@ export function useResourceEditor(
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; action: () => void } | null>(null);
+  const latest = useRef({
+    active: true,
+    editor: null as Resource | null,
+    dirty: false,
+    busy: false,
+    version: 0,
+    operation: 0,
+    onChanged,
+    refreshSearch,
+    onDirtyChange,
+  });
+  useLayoutEffect(() => {
+    Object.assign(latest.current, { onChanged, refreshSearch, onDirtyChange });
+  }, [onChanged, refreshSearch, onDirtyChange]);
+  useEffect(() => {
+    const current = latest.current;
+    current.active = true;
+    return () => {
+      current.active = false;
+      current.operation++;
+    };
+  }, []);
   useLayoutEffect(() => {
     onDirtyChange(dirty || busy);
   }, [dirty, busy, onDirtyChange]);
   const leave = (action: () => void) => {
-    if (busy) return;
-    if (dirty) setConfirm({ title: "放弃资源中未保存的修改？", action });
-    else action();
+    if (latest.current.busy) return;
+    const operation = latest.current.operation;
+    const proceed = () => {
+      if (!isCurrent(operation) || latest.current.busy) return;
+      if (latest.current.dirty) setConfirm({ title: "放弃资源中未保存的修改？", action });
+      else action();
+    };
+    if (!hasPendingWork()) proceed();
+    else
+      void waitForPendingWork().then(proceed, (cause: unknown) => {
+        if (isCurrent(operation)) setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
+      });
   };
+  const publish = (next: Resource | null, nextDirty: boolean) => {
+    latest.current.editor = next;
+    latest.current.dirty = nextDirty;
+    latest.current.onDirtyChange(nextDirty || latest.current.busy);
+    setEditor(next);
+    setDirty(nextDirty);
+  };
+  const setWorking = (working: boolean) => {
+    latest.current.busy = working;
+    latest.current.onDirtyChange(latest.current.dirty || working);
+    setBusy(working);
+  };
+  const isCurrent = (operation: number) =>
+    latest.current.active && latest.current.operation === operation;
   const change = (resource: Resource) => {
-    setEditor(resource);
-    setDirty(true);
+    const current = latest.current;
+    if (!current.active || !current.editor || resource.id !== current.editor.id) return;
+    current.version++;
+    publish({ ...resource, revision: current.editor.revision }, true);
   };
   const refresh = async () => {
-    await onChanged();
-    refreshSearch();
+    try {
+      await latest.current.onChanged();
+    } finally {
+      if (latest.current.active) latest.current.refreshSearch();
+    }
   };
   const create = (nextKind: ResourceKind) =>
     leave(() => {
-      setEditor({
-        id: crypto.randomUUID(),
-        revision: 0,
-        name: "",
-        content:
-          nextKind === "chunk"
-            ? { kind: "chunk", text: "" }
-            : {
-                kind: "preset",
-                composition: emptyComposition(),
-                defaults: emptySettings(),
-                characters: [],
-                references: emptyReferences(),
-              },
-      });
-      setDirty(false);
+      latest.current.operation++;
+      latest.current.version++;
+      publish(
+        {
+          id: crypto.randomUUID(),
+          revision: 0,
+          name: "",
+          content:
+            nextKind === "chunk"
+              ? { kind: "chunk", text: "" }
+              : {
+                  kind: "preset",
+                  composition: emptyComposition(),
+                  defaults: emptySettings(),
+                  characters: [],
+                  references: emptyReferences(),
+                },
+        },
+        false,
+      );
       setError("");
     });
   const select = (id: string) =>
     leave(() => {
-      setBusy(true);
+      const operation = ++latest.current.operation;
+      setWorking(true);
       void libraryApi
         .resource(id)
         .then(
           (resource) => {
-            setEditor(resource);
-            setDirty(false);
+            if (!isCurrent(operation)) return;
+            latest.current.version++;
+            publish(resource, false);
             setError("");
           },
-          (cause: unknown) => setError(errorMessage(cause)),
+          (cause: unknown) => {
+            if (isCurrent(operation)) setError(errorMessage(cause));
+          },
         )
-        .finally(() => setBusy(false));
+        .finally(() => {
+          if (isCurrent(operation)) setWorking(false);
+        });
     });
   const save = async () => {
-    if (!editor || busy) return;
-    if (!editor.name.trim()) {
+    const current = latest.current;
+    if (current.busy || !current.active) return;
+    const waitingOperation = current.operation;
+    try {
+      await waitForPendingWork();
+    } catch (cause) {
+      if (isCurrent(waitingOperation))
+        setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
+      return;
+    }
+    if (!isCurrent(waitingOperation) || current.busy) return;
+    const snapshot = current.editor;
+    if (!snapshot || current.busy || !current.active) return;
+    if (!snapshot.name.trim()) {
       setError("请填写资源名称。");
       return;
     }
-    setBusy(true);
+    const request = { id: snapshot.id, version: current.version };
+    const operation = ++current.operation;
+    setWorking(true);
     setError("");
     try {
-      const saved = await libraryApi.saveResource({ ...editor, name: editor.name.trim() });
-      setEditor(saved);
-      setDirty(false);
-      await refresh();
+      const saved = await libraryApi.saveResource({ ...snapshot, name: snapshot.name.trim() });
+      if (!isCurrent(operation)) return;
+      const merged = mergeResourceSave(current.editor, current.version, request, saved);
+      if (merged) publish(merged.editor, merged.dirty);
+      try {
+        await refresh();
+      } catch (cause) {
+        if (isCurrent(operation))
+          setError(`资源已保存，但刷新资源列表失败：${errorMessage(cause)}`);
+      }
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (isCurrent(operation)) setError(errorMessage(cause));
     } finally {
-      setBusy(false);
+      if (isCurrent(operation)) setWorking(false);
     }
   };
   const remove = () => {
-    if (!editor) return;
+    const editor = latest.current.editor;
+    if (!editor || latest.current.busy) return;
     setConfirm({
       title: `删除“${editor.name}”？已有引用会保留并显示资源缺失。`,
       action: () => {
-        setBusy(true);
+        if (latest.current.editor?.id !== editor.id || latest.current.busy) return;
+        const operation = ++latest.current.operation;
+        setWorking(true);
         void libraryApi
           .deleteResource(editor.id, editor.revision)
           .then(async () => {
-            setEditor(null);
-            setDirty(false);
+            if (!isCurrent(operation)) return;
+            publish(null, false);
             await refresh();
           })
-          .catch((cause: unknown) => setError(errorMessage(cause)))
-          .finally(() => setBusy(false));
+          .catch((cause: unknown) => {
+            if (isCurrent(operation)) setError(errorMessage(cause));
+          })
+          .finally(() => {
+            if (isCurrent(operation)) setWorking(false);
+          });
       },
     });
   };
   const dismiss = () => {
-    setEditor(null);
-    setDirty(false);
+    latest.current.operation++;
+    latest.current.version++;
+    publish(null, false);
+    setWorking(false);
   };
   return {
     editor,

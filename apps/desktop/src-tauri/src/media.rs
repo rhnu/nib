@@ -8,7 +8,9 @@ use nib_app::{
         AssetSource, GenerationResult, ImageMetadataReport, MediaAsset, MediaLibrary,
         MetadataRestore,
     },
-    session::{CreationOperation, Draft, ImageOperationKind, ImageOperationOptions},
+    session::{
+        CreationOperation, Draft, ImageOperationKind, ImageOperationOptions, PreciseReferenceInput,
+    },
 };
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
@@ -47,6 +49,20 @@ pub(crate) async fn create_inpaint_operation(
 ) -> Result<CreationOperation, ApiError> {
     with_media(state, move |media| {
         nib_app::session::create_inpaint_operation(media.as_ref(), id, mask_asset_id)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn create_precise_reference(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    reference_id: String,
+    reference_type: novelai_bridge::CharacterReferenceType,
+) -> Result<PreciseReferenceInput, ApiError> {
+    with_media(state, move |media| {
+        nib_app::session::create_precise_reference(media.as_ref(), id, reference_id, reference_type)
             .map_err(persistence_error)
     })
     .await

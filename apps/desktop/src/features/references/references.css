@@ -1,0 +1,106 @@
+.precise-reference-editor {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+.precise-reference-heading,
+.precise-reference-row > header,
+.precise-reference-label,
+.precise-reference-image {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.precise-reference-heading h3 {
+  margin: 0;
+}
+.precise-reference-row {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-subtle);
+}
+.precise-reference-row > header > strong {
+  font-size: 12px;
+}
+.precise-reference-row[data-disabled] > header > strong {
+  color: var(--muted);
+}
+.precise-reference-image {
+  align-items: flex-start;
+}
+.precise-reference-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--input);
+}
+.precise-reference-image-info {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.precise-reference-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.precise-reference-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.precise-reference-label {
+  min-height: 24px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.precise-reference-label label {
+  flex: 1;
+}
+.precise-reference-label .icon-button {
+  width: 24px;
+  min-height: 24px;
+}
+.precise-reference-field input,
+.precise-reference-field select {
+  font-size: 12px;
+}
+.precise-reference-advanced > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+}
+.precise-reference-advanced[open] > .precise-reference-fields {
+  margin-top: 8px;
+}
+.precise-reference-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.precise-reference-message {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.precise-reference-message p {
+  margin: 0;
+}
+.precise-reference-field :is(input, select)[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+@media (max-width: 360px) {
+  .precise-reference-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

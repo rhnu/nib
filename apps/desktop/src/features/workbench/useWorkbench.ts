@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "../../bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "../../shared/host/useCloseGuard";
 import { errorMessage } from "../../shared/host/error";
+import { hasPendingWork, waitForPendingWork } from "../../shared/host/pending-work";
 import { useResourceCache } from "../library/useResourceCache";
 import type { InsertTarget } from "../library/ResourceLibrary";
 import { useResolution } from "../prompt/useResolution";
@@ -28,7 +29,12 @@ export function useWorkbench(
   const [error, setError] = useState("");
   const [library, setLibrary] = useState(false);
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
-  const [resourceDirty, setResourceDirty] = useState(false);
+  const [resourceDirty, updateResourceDirty] = useState(false);
+  const resourceDirtyRef = useRef(false);
+  const setResourceDirty = useCallback((dirty: boolean) => {
+    resourceDirtyRef.current = dirty;
+    updateResourceDirty(dirty);
+  }, []);
   const [restoreVersion, setRestoreVersion] = useState(0);
   const beforeClose = useRef<() => Promise<boolean>>(async () => true);
   const setBeforeClose = (callback: () => Promise<boolean>) => {
@@ -37,13 +43,18 @@ export function useWorkbench(
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({
-        dirty: writer.getSnapshot().dirty || settingsWriter.getSnapshot().dirty,
+        dirty: hasPendingWork() || writer.getSnapshot().dirty || settingsWriter.getSnapshot().dirty,
       }),
       flush: async () => {
         do {
+          await waitForPendingWork();
           await settingsWriter.flush();
           await writer.flush();
-        } while (settingsWriter.getSnapshot().dirty || writer.getSnapshot().dirty);
+        } while (
+          hasPendingWork() ||
+          settingsWriter.getSnapshot().dirty ||
+          writer.getSnapshot().dirty
+        );
       },
     }),
     [writer, settingsWriter],
@@ -51,6 +62,7 @@ export function useWorkbench(
   useCloseGuard({
     writer: closeWriter,
     resourceDirty,
+    getResourceDirty: () => resourceDirtyRef.current,
     onResourceBlocked: () => {
       setError("资源中有未保存的修改。请先保存资源，再关闭窗口。");
       setLibrary(true);

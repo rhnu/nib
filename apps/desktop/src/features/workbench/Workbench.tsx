@@ -2,6 +2,7 @@ import { useLayoutEffect, useState, type ReactNode } from "react";
 import type { Draft, Resource, ResolvedDraft, WorkspaceSnapshot } from "../../bindings/workbench";
 import { Button, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
+import { usePendingWork, waitForPendingWork } from "../../shared/host/pending-work";
 import type { CloseWriter } from "../../shared/host/useCloseGuard";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
@@ -16,6 +17,11 @@ import { useGenerationQuote } from "../generation/use-generation-quote";
 import { isQuoteEligible } from "../generation/quote-state";
 import { useMaskEditor } from "./useMaskEditor";
 import { InpaintCanvasWorkspace } from "../inpaint/InpaintCanvasWorkspace";
+import { CharacterPositionWorkspace } from "../positioning/CharacterPositionWorkspace";
+import { applyCharacterPosition, characterKey, livePositionCharacters } from "../positioning/model";
+import { outputIdentity } from "../prompt/output-identity";
+import { collectOutputIssues, focusOutputField } from "./output-issues";
+import { usePendingInputTransition } from "./usePendingInputTransition";
 export type WorkbenchExtension = {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -30,6 +36,8 @@ export type WorkbenchExtension = {
   canMaxEnhance: boolean;
   canInpaint: boolean;
   operationPending: boolean;
+  onFocusField: (field: string) => void;
+  onViewedAssetChange: (id: string | null) => void;
 };
 export function Workbench({
   workspace,
@@ -77,6 +85,8 @@ export function Workbench({
     resourceVersion,
   } = state;
   const { accountVersion, accountSummaryLoading } = useGeneration();
+  const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
+  const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const quoteRefreshKey = [resourceVersion, accountVersion];
   const estimate = useGenerationQuote(
     generationDraft,
@@ -87,9 +97,11 @@ export function Workbench({
   const generationTarget = useModelCapabilities(
     draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId,
     resolved?.settings ?? draft.settings,
-    draft.inputs.operation.kind === "upscale",
+    draft.inputs.operation.kind === "upscale" || positioning !== null,
   );
-  const editorCapabilities = model.capabilities ?? generationTarget.capabilities;
+  const editorCapabilities =
+    model.capabilities ??
+    (draft.inputs.operation.kind === "upscale" ? generationTarget.capabilities : null);
   const imageOperation = useImageOperationRequest({
     readCurrentDraft,
     edit,
@@ -98,22 +110,65 @@ export function Workbench({
   });
   const [page, setPage] = useState<"create" | "settings">(initialPage);
   const mask = useMaskEditor({ draft, readCurrentDraft, edit, onError: setError });
+  const pendingInputs = usePendingWork();
+  const afterInputs = usePendingInputTransition(setError);
+  const guard = (action: () => void) => afterInputs(() => mask.guard(action));
   useLayoutEffect(() => {
-    setBeforeClose(mask.requestClose);
+    setBeforeClose(async () => {
+      await waitForPendingWork();
+      return mask.requestClose();
+    });
   });
   const editMask = (id: string) => {
-    imageOperation.cancel();
-    mask.open(id);
+    afterInputs(() => {
+      imageOperation.cancel();
+      setPositioning(null);
+      mask.open(id);
+    });
   };
   const requestOperation = (id: string, kind: ImageOperationAction) => {
     if (kind === "inpainting") {
       editMask(id);
       setPage("create");
-    } else mask.guard(() => imageOperation.request(id, kind));
+    } else
+      guard(() => {
+        setPositioning(null);
+        imageOperation.request(id, kind);
+      });
   };
-  const guardedRestore = (value: Draft) => mask.guard(() => restore(value));
+  const guardedRestore = (value: Draft) =>
+    guard(() => {
+      setPositioning(null);
+      restore(value);
+    });
   const guardedLibrary = (target: Parameters<typeof openLibrary>[0]) =>
-    mask.guard(() => openLibrary(target));
+    guard(() => openLibrary(target));
+  const focusField = (field: string) => {
+    focusOutputField(field, readCurrentDraft(), resources, resolved);
+  };
+  const openPositions = (id?: string, instanceId?: string) =>
+    guard(() => {
+      imageOperation.cancel();
+      setPositioning({
+        selected: id
+          ? characterKey({
+              presetInstanceId: instanceId ?? null,
+              id: outputIdentity(instanceId ?? null, id),
+            })
+          : null,
+      });
+      setPage("create");
+    });
+  const positionCharacters = livePositionCharacters(draft, resources, resolved?.characters ?? []);
+  const positionSize =
+    draft.settings.size ?? resolved?.settings.size ?? generationTarget.capabilities?.defaults.size;
+  const outputIssues = collectOutputIssues(
+    draft,
+    resources,
+    resolved,
+    estimate.quote?.diagnostics ?? [],
+    estimate.fields,
+  );
   const extension = {
     draft,
     readCurrentDraft,
@@ -124,10 +179,13 @@ export function Workbench({
     resolving,
     estimate,
     quoteRefreshKey,
+    onFocusField: focusField,
+    onViewedAssetChange: setViewedAssetId,
     onImageOperation: requestOperation,
     canMaxEnhance: editorCapabilities?.maxEnhance ?? false,
     canInpaint: editorCapabilities?.inpainting ?? false,
     operationPending:
+      pendingInputs > 0 ||
       imageOperation.busy ||
       mask.pending ||
       Boolean(
@@ -146,7 +204,7 @@ export function Workbench({
             aria-current={!library && page === "create" ? "page" : undefined}
             disabled={library}
             onClick={() => {
-              if (page !== "create") mask.guard(() => setPage("create"));
+              if (page !== "create") guard(() => setPage("create"));
             }}
           >
             创作
@@ -161,7 +219,7 @@ export function Workbench({
           <Button
             aria-current={!library && page === "settings" ? "page" : undefined}
             disabled={library}
-            onClick={() => mask.guard(() => setPage("settings"))}
+            onClick={() => guard(() => setPage("settings"))}
           >
             设置
           </Button>
@@ -203,6 +261,7 @@ export function Workbench({
                 openLibrary={guardedLibrary}
                 edit={edit}
                 setError={setError}
+                onFocusField={focusField}
               />
             )}
             {model.error && (
@@ -225,9 +284,11 @@ export function Workbench({
               estimate={estimate.quote}
               onRestore={guardedRestore}
               onRequestOperation={requestOperation}
-              onReturnToText={() => mask.guard(imageOperation.returnToText)}
+              onReturnToText={() => guard(imageOperation.returnToText)}
               onEditMask={editMask}
               imageInputVersion={restoreVersion}
+              onPosition={openPositions}
+              outputIssues={outputIssues}
             />
           </div>
           {renderActions && (
@@ -237,7 +298,7 @@ export function Workbench({
         <main className="main-workspace flex min-h-0 min-w-0 flex-col">
           <div
             className="flex min-h-0 min-w-0 flex-1 flex-col"
-            style={{ display: mask.active ? "none" : undefined }}
+            style={{ display: mask.active || positioning ? "none" : undefined }}
           >
             {renderResults?.(extension)}
           </div>
@@ -253,6 +314,36 @@ export function Workbench({
               onDiscard={mask.requestDiscard}
               pending={mask.pending || mask.transition !== null || mask.discarding}
             />
+          )}
+          {positioning && !mask.active && positionSize && (
+            <CharacterPositionWorkspace
+              characters={positionCharacters}
+              capabilities={model.capabilities ?? generationTarget.capabilities}
+              size={positionSize}
+              sourceId={operationSourceId(draft.inputs.operation) ?? viewedAssetId}
+              selectedKey={positioning.selected}
+              onSelect={(selected) => setPositioning({ selected })}
+              onChange={(character, position) => {
+                const current = readCurrentDraft();
+                const next = applyCharacterPosition(current, resources, character, position);
+                if (next !== current) edit(next);
+              }}
+              useCoords={draft.settings.useCoords}
+              effectiveUseCoords={
+                estimate.quote?.resolved?.settings.useCoords ?? resolved?.settings.useCoords
+              }
+              onModeChange={(useCoords) => {
+                const current = readCurrentDraft();
+                edit({ ...current, settings: { ...current.settings, useCoords } });
+              }}
+              onClose={() => setPositioning(null)}
+            />
+          )}
+          {positioning && !mask.active && !positionSize && (
+            <div>
+              <output>正在读取画布设置…</output>
+              <Button onClick={() => setPositioning(null)}>返回图像</Button>
+            </div>
           )}
         </main>
       </div>
@@ -270,8 +361,8 @@ export function Workbench({
         onDirtyChange={setResourceDirty}
         notice={error || (written.error ? errorMessage(written.error) : "")}
       />
-      {imageOperation.busy && (
-        <output className="generation-muted image-operation-progress">正在读取图像输入…</output>
+      {(imageOperation.busy || pendingInputs > 0) && (
+        <output className="generation-muted image-operation-progress">正在准备图像输入…</output>
       )}
       <Modal
         open={imageOperation.candidate !== null}
@@ -288,7 +379,7 @@ export function Workbench({
               imageOperation.candidate.operation.maxEnhance && <p>输入尺寸将采用源图尺寸。</p>}
             <footer className="generation-dialog-actions">
               <Button onClick={imageOperation.cancel}>保留当前操作</Button>
-              <Button className="primary" onClick={imageOperation.confirm}>
+              <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
                 应用更改
               </Button>
             </footer>

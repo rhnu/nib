@@ -78,6 +78,13 @@ pub struct CharacterComposition {
     pub position: CharacterPosition,
 }
 
+/// Namespaces an output identity without assigning syntax to either opaque source identity.
+/// Direct outputs are encoded too, so a local identity cannot impersonate a scoped output.
+#[must_use]
+pub fn scoped_output_id(instance_id: Option<&str>, local_id: &str) -> String {
+    serde_json::json!([instance_id, local_id]).to_string()
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]

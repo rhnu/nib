@@ -115,3 +115,37 @@ fn inpainting_requires_real_source_and_mask_and_uses_pure_infilling_defaults() {
     let sdk_defaults = novelai_bridge::InpaintImageToImage::new(0.7, 0.0);
     assert_eq!(conditioning, sdk_defaults);
 }
+
+#[test]
+fn precise_references_use_real_retained_images_and_sdk_constructor_defaults() {
+    assert!(matches!(
+        create_precise_reference(
+            &ImageAssets,
+            "missing".into(),
+            "reference".into(),
+            CharacterReferenceType::Character
+        ),
+        Err(PersistenceError::NotFound { .. })
+    ));
+    let reference = create_precise_reference(
+        &ImageAssets,
+        "retained-source".into(),
+        "reference".into(),
+        CharacterReferenceType::Style,
+    )
+    .unwrap();
+    let sdk = novelai_bridge::CharacterReference::new(
+        ImageAssets.image("retained-source").unwrap(),
+        CharacterReferenceType::Style,
+    );
+    assert_eq!(reference.id, "reference");
+    assert_eq!(reference.asset_id, "retained-source");
+    assert!(reference.enabled);
+    assert_eq!(reference.reference_type, sdk.reference_type);
+    assert_eq!(reference.strength.to_bits(), sdk.strength.to_bits());
+    assert_eq!(reference.fidelity.to_bits(), sdk.fidelity.to_bits());
+    assert_eq!(
+        reference.information_extracted.to_bits(),
+        sdk.information_extracted.to_bits()
+    );
+}

@@ -113,3 +113,48 @@ fn inpainting_projects_conditioning_capability_and_its_distinct_strength_range()
     assert_eq!(v5.ranges.inpaint_strength.max, 1.0);
     assert!(v5.ranges.img2img_strength.max < v5.ranges.inpaint_strength.max);
 }
+
+#[test]
+fn character_position_hints_follow_sdk_profiles_and_defaults() {
+    let v4 = model_defaults_capabilities(Model::NaiDiffusion45Full, None);
+    assert_eq!(v4.character_positioning.as_deref(), Some("grid5x5"));
+    assert_eq!(
+        v4.character_position_options.grid_coordinates,
+        Some(vec![0.1, 0.3, 0.5, 0.7, 0.9])
+    );
+    assert_eq!(
+        v4.character_position_options.default_position,
+        novelai_bridge::CharacterPosition::default()
+    );
+    assert_eq!(v4.character_position_options.use_coords_default, None);
+    let v5 = model_defaults_capabilities(Model::NaiDiffusion5Full, None);
+    assert_eq!(v5.character_positioning.as_deref(), Some("freeform"));
+    assert!(v5.character_position_options.grid_coordinates.is_none());
+    assert!(v5.max_characters > 0);
+    assert!(!v5.can_add_precise_reference);
+    assert!(v4.can_add_precise_reference);
+    let v3 = model_defaults_capabilities(Model::NaiDiffusion3, None);
+    assert_eq!(v3.max_characters, 0);
+    assert!(v3.character_positioning.is_none());
+}
+
+#[test]
+fn precise_reference_hints_do_not_invent_signed_bounds_or_a_count_limit() {
+    let capabilities = model_defaults_capabilities(Model::NaiDiffusion5Full, None);
+    let options = capabilities.precise_reference_options;
+    assert!(options.strength.is_none());
+    assert!(options.fidelity.is_none());
+    assert!(options.max_references.is_none());
+    assert_eq!(options.information_extracted.min, 0.0);
+    assert_eq!(options.information_extracted.max, 1.0);
+    assert!(
+        options
+            .reference_types
+            .contains(&novelai_bridge::CharacterReferenceType::Costume)
+    );
+    assert!(
+        options
+            .reference_types
+            .contains(&novelai_bridge::CharacterReferenceType::Delta)
+    );
+}

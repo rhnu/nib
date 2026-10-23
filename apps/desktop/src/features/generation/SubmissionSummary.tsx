@@ -4,6 +4,7 @@ import { submissionLabel } from "./operation";
 import { ParameterDiagnostics } from "./ParameterDiagnostics";
 import { SubmissionImageInput } from "./SubmissionImageInput";
 import { operationLabel } from "../workbench/image-operation";
+import { ResolvedOutputs } from "../prompt/ResolvedOutputs";
 
 export function SubmissionSummary({ submission }: { submission: JobRecord["submission"] }) {
   if (submission.kind !== "generation")
@@ -93,6 +94,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
         <h4>负面提示</h4>
         <pre>{resolved.negative || "（空）"}</pre>
       </details>
+      <ResolvedOutputs resolved={resolved} />
       <details className="generation-sources">
         <summary>完整有效设置与内容来源</summary>
         <div className="generation-source-details">

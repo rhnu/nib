@@ -50,3 +50,47 @@ fn missing_encoder_retains_the_sdk_error_and_requested_tokenizer() {
         }
     ));
 }
+
+#[test]
+fn effective_character_inspection_matches_sdk_request_token_budgets() {
+    let tokenizers = Tokenizers::bundled().unwrap();
+    for model in [Model::NaiDiffusion45Full, Model::NaiDiffusion5Full] {
+        let request = novelai_bridge::GenerateImageRequest::builder("scene", model)
+            .characters(vec![
+                novelai_bridge::Character {
+                    prompt: "unused character".into(),
+                    negative_prompt: None,
+                    position: novelai_bridge::CharacterPosition::default(),
+                    enabled: false,
+                },
+                novelai_bridge::Character {
+                    prompt: "red hair, smile".into(),
+                    negative_prompt: Some("blue hair".into()),
+                    position: novelai_bridge::CharacterPosition::default(),
+                    enabled: true,
+                },
+            ])
+            .build();
+        let normalized = request.normalize().unwrap();
+        let usage = normalized.count_tokens(&tokenizers).unwrap();
+        let character = &normalized.resolved_prompts().characters[0];
+        assert_eq!(character.index, 1);
+        assert_eq!(usage.characters[0].index, 1);
+        let positive = inspect_tokens(
+            &tokenizers,
+            model,
+            &character.prompt,
+            FramingPolicy::ModelInput,
+        )
+        .unwrap();
+        let negative = inspect_tokens(
+            &tokenizers,
+            model,
+            &character.negative_prompt,
+            FramingPolicy::ModelInput,
+        )
+        .unwrap();
+        assert_eq!(positive.count, usage.characters[0].prompt);
+        assert_eq!(negative.count, usage.characters[0].negative_prompt);
+    }
+}

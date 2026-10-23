@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, ImageOff, Info, Minus, Plus } from "lucide-react";
 import type { Draft } from "../../bindings/workbench";
 import type { GenerationResult } from "../../bindings/generation";
@@ -172,6 +172,7 @@ export function ResultGallery({
   onImageOperation,
   canMaxEnhance,
   canInpaint,
+  onViewedAssetChange,
 }: {
   results: GenerationResult[] | null;
   onRestore: (draft: Draft) => void;
@@ -180,12 +181,17 @@ export function ResultGallery({
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
   canInpaint: boolean;
+  onViewedAssetChange?: (id: string | null) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(12);
   const selected = results?.find((result) => result.id === selectedId) ?? results?.[0];
   const detail = results?.find((result) => result.id === detailId);
+  const selectedAssetId = selected?.available ? selected.assetId : null;
+  useEffect(() => {
+    onViewedAssetChange?.(selectedAssetId);
+  }, [selectedAssetId, onViewedAssetChange]);
   return (
     <section className="generation-gallery" aria-label="已保存的生成结果">
       {results === null ? (

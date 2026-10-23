@@ -17,12 +17,18 @@ async function listImages() {
 
 type PickerProps = {
   open: boolean;
+  title?: string;
   onClose: () => void;
   onSelect: (asset: MediaAsset) => void;
   onRestore?: (draft: Draft) => void;
 };
 
-function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open">) {
+function PickerContent({
+  onClose,
+  onSelect,
+  onRestore,
+  title = "选择底图",
+}: Omit<PickerProps, "open">) {
   const assets = useMediaQuery("images", listImages);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [imported, setImported] = useState<MediaAsset | null>(null);
@@ -33,7 +39,7 @@ function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open
       : (assets.value ?? []);
   const selected = images.find((asset) => asset.id === selectedId) ?? null;
   return (
-    <Modal open onClose={onClose} title="选择底图" wide>
+    <Modal open onClose={onClose} title={title} wide>
       <div className="media-picker">
         <div className="media-picker-library">
           <ImageImporter
@@ -92,7 +98,7 @@ function PickerContent({ onClose, onSelect, onRestore }: Omit<PickerProps, "open
               <AssetImage
                 key={selected.id}
                 asset={selected}
-                alt={`待选底图：${imageName(selected)}`}
+                alt={`待选图片：${imageName(selected)}`}
               />
               <p className="media-asset-heading">{imageName(selected)}</p>
               <p className="muted">

@@ -92,9 +92,13 @@ export type ReferenceStatus = { available: boolean, reason: string, };
 
 export type NumericRange = { min: number, max: number, };
 
+export type CharacterPositionOptions = { defaultPosition: { x: number; y: number }, range: NumericRange, gridCoordinates: Array<number> | null, useCoordsDefault: boolean | null, };
+
+export type PreciseReferenceOptions = { referenceTypes: string[], strength: NumericRange | null, fidelity: NumericRange | null, informationExtracted: NumericRange, maxReferences: number | null, };
+
 export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, inpaintStrength: NumericRange, };
 
-export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
+export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, characterPositionOptions: CharacterPositionOptions, preciseReferenceOptions: PreciseReferenceOptions, streaming: boolean, inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
 
 export type TokenInspection = { model: string, tokenizer: string, framing: "content_only" | "model_input", count: { used: number; limit: number }, tokenIds: Array<number>, };
 

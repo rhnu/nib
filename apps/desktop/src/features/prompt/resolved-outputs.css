@@ -1,0 +1,79 @@
+.resolved-outputs,
+.resolved-outputs > section,
+.resolved-output-item {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+.resolved-outputs {
+  margin: 14px 0;
+}
+.resolved-output-item {
+  border-top: 1px solid var(--line-subtle);
+  padding-top: 10px;
+}
+.resolved-output-item header {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.resolved-output-item :is(h4, h5, p),
+.resolved-outputs > section > p {
+  margin: 0;
+}
+.resolved-output-item h5,
+.resolved-output-item summary {
+  color: var(--muted);
+  font-size: 11px;
+}
+.resolved-output-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.resolved-output-metadata {
+  display: grid;
+  margin: 0;
+  gap: 5px;
+  font-size: 11px;
+}
+.resolved-output-metadata > div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 8px;
+}
+.resolved-output-metadata dt {
+  color: var(--muted);
+}
+.resolved-output-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.resolved-output-item details[open] > summary {
+  margin-bottom: 10px;
+}
+.resolved-character-tokens {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  font-size: 11px;
+}
+.resolved-character-tokens output {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.resolved-output-warning {
+  color: var(--danger);
+}
+.resolved-reference-image {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+.resolved-reference-material {
+  display: grid;
+  gap: 8px;
+}

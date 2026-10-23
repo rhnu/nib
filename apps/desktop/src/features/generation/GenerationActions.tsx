@@ -3,6 +3,7 @@ import { KeyRound, Play, RotateCw } from "lucide-react";
 import type { Draft, ResolvedDraft } from "../../bindings/workbench";
 import { Button } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
+import { hasPendingWork } from "../../shared/host/pending-work";
 import { AccountDialog } from "./AccountDialog";
 import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
@@ -21,6 +22,7 @@ export function GenerationActions({
   resolved,
   estimate,
   operationPending,
+  onFocusField = focusSetting,
 }: {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -28,6 +30,7 @@ export function GenerationActions({
   resolved?: ResolvedDraft | null;
   estimate: ReturnType<typeof useGenerationQuote>;
   operationPending: boolean;
+  onFocusField?: (field: string) => void;
 }) {
   const {
     account,
@@ -60,6 +63,7 @@ export function GenerationActions({
   async function submit() {
     if (
       submittingRef.current ||
+      hasPendingWork() ||
       operationPending ||
       !effectiveOperation ||
       !account?.configured ||
@@ -149,14 +153,14 @@ export function GenerationActions({
       )}
       {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}
       {estimate.quote && (
-        <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={focusSetting} />
+        <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}
       {submitted && <output className="generation-muted">已加入顺序队列</output>}
       {error && (
         <div className="generation-action-error" role="alert">
           <span>{error}</span>
           {(currentSubmitError ? submitFields : estimate.fields).map((field) => (
-            <Button key={field} className="quiet" onClick={() => focusSetting(field)}>
+            <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
               定位参数
             </Button>
           ))}

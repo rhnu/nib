@@ -268,6 +268,115 @@ fn repeated_preset_reference_outputs_keep_independent_ids_and_sources() {
     );
 }
 
+fn identity_preset(resource_id: &str, local_id: &str) -> Resource {
+    let mut definition = preset(resource_id, vec![], vec![], GenerationSettings::default());
+    let ResourceContent::Preset {
+        characters,
+        references,
+        ..
+    } = &mut definition.content
+    else {
+        unreachable!()
+    };
+    characters.push(CharacterComposition {
+        id: local_id.into(),
+        enabled: true,
+        position: novelai_bridge::CharacterPosition::default(),
+        composition: Composition {
+            positive: vec![text("role-text", "hero")],
+            negative: vec![],
+        },
+    });
+    references
+        .precise
+        .push(crate::session::PreciseReferenceInput {
+            id: local_id.into(),
+            enabled: true,
+            asset_id: "stable-image".into(),
+            reference_type: novelai_bridge::CharacterReferenceType::Character,
+            strength: 1.0,
+            fidelity: 1.0,
+            information_extracted: 1.0,
+        });
+    references.vibes.push(crate::session::VibeReferenceInput {
+        id: format!("{local_id}:v"),
+        enabled: true,
+        input: crate::session::VibeInput::Encoded {
+            asset_id: "stable-vibe".into(),
+        },
+        strength: 0.5,
+    });
+    definition
+}
+
+#[test]
+fn output_namespaces_keep_colons_and_json_shaped_direct_identities_unambiguous() {
+    let first = identity_preset("first", "b:c");
+    let second = identity_preset("second", "c");
+    let ResourceContent::Preset {
+        mut characters,
+        mut references,
+        ..
+    } = identity_preset("unused", "direct").content
+    else {
+        unreachable!()
+    };
+    characters[0].id = r#"["a","b:c"]"#.into();
+    references.precise[0].id = r#"["a","b:c"]"#.into();
+    references.vibes[0].id = r#"["a","b:c:v"]"#.into();
+    let draft = Draft {
+        presets: vec![
+            instance("a", "first", vec![]),
+            instance("a:b", "second", vec![]),
+        ],
+        characters,
+        inputs: crate::session::CreationInputs {
+            references,
+            ..Default::default()
+        },
+        ..Draft::default()
+    };
+    validate_draft(&draft).unwrap();
+    let resolved = resolve_draft(&draft, &Resources::new(vec![first, second])).unwrap();
+    assert_eq!(resolved.characters[0].id, r#"["a","b:c"]"#);
+    assert_eq!(resolved.characters[1].id, r#"["a:b","c"]"#);
+    let character_ids: std::collections::HashSet<_> =
+        resolved.characters.iter().map(|value| &value.id).collect();
+    assert_eq!(character_ids.len(), 3);
+    let reference_ids: std::collections::HashSet<_> = resolved
+        .inputs
+        .references
+        .precise
+        .iter()
+        .map(|value| &value.id)
+        .chain(
+            resolved
+                .inputs
+                .references
+                .vibes
+                .iter()
+                .map(|value| &value.id),
+        )
+        .collect();
+    assert_eq!(reference_ids.len(), 6);
+    for (index, expected_scope) in [Some("a"), Some("a:b"), None].into_iter().enumerate() {
+        let reference = &resolved.inputs.references.precise[index];
+        let source = resolved
+            .input_sources
+            .iter()
+            .find(|source| source.id == reference.id)
+            .unwrap();
+        assert_eq!(source.preset_instance_id.as_deref(), expected_scope);
+        let identity: (Option<String>, String) = serde_json::from_str(&reference.id).unwrap();
+        assert_eq!(identity.0.as_deref(), expected_scope);
+        assert_eq!(resolved.characters[index].id, reference.id);
+    }
+    let (direct_scope, direct_local): (Option<String>, String) =
+        serde_json::from_str(&resolved.characters[2].id).unwrap();
+    assert_eq!(direct_scope, None);
+    assert_eq!(direct_local, r#"["a","b:c"]"#);
+}
+
 #[test]
 fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
     let request = novelai_bridge::GenerateImageRequest::builder("portrait", Model::default())

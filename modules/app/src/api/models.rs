@@ -1,8 +1,9 @@
 //! IPC views read SDK descriptors; they never decide request validity.
 
 use novelai_bridge::{
-    AlphaMode, GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule,
-    QualityPreset, ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
+    AlphaMode, CharacterPosition, CharacterPositionProfile, CharacterReferenceType, CharacterSet,
+    GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule, QualityPreset,
+    ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
 };
 use serde::Serialize;
 
@@ -24,6 +25,8 @@ pub struct ModelCapabilities {
     pub token_limit: u32,
     pub max_characters: u32,
     pub character_positioning: Option<String>,
+    pub character_position_options: CharacterPositionOptions,
+    pub precise_reference_options: PreciseReferenceOptions,
     pub streaming: bool,
     pub inpainting: bool,
     pub inpainting_image_to_image: bool,
@@ -86,6 +89,31 @@ pub struct GenerationRanges {
 pub struct NumericRange {
     pub min: f64,
     pub max: f64,
+}
+
+/// SDK coordinate defaults and editor hints; normalization remains in the SDK.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct CharacterPositionOptions {
+    #[cfg_attr(feature = "typegen", ts(type = "{ x: number; y: number }"))]
+    pub default_position: CharacterPosition,
+    pub range: NumericRange,
+    pub grid_coordinates: Option<Vec<f32>>,
+    pub use_coords_default: Option<bool>,
+}
+
+/// A missing numeric bound means the SDK accepts finite signed values, not a unit interval.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct PreciseReferenceOptions {
+    #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
+    pub reference_types: Vec<CharacterReferenceType>,
+    pub strength: Option<NumericRange>,
+    pub fidelity: Option<NumericRange>,
+    pub information_extracted: NumericRange,
+    pub max_references: Option<u32>,
 }
 
 impl<T: Into<f64>> From<novelai_bridge::ParameterRange<T>> for NumericRange {
@@ -195,6 +223,13 @@ fn project_capabilities(
             }
             .to_owned()
         }),
+        character_position_options: character_position_options(
+            descriptor
+                .prompt()
+                .characters
+                .map(|profile| profile.positioning),
+        ),
+        precise_reference_options: precise_reference_options(),
         streaming: descriptor.support().streaming,
         inpainting: descriptor.support().inpainting.is_some(),
         inpainting_image_to_image: descriptor
@@ -263,6 +298,43 @@ fn project_capabilities(
             .is_available(),
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
+    }
+}
+
+fn character_position_options(
+    profile: Option<CharacterPositionProfile>,
+) -> CharacterPositionOptions {
+    CharacterPositionOptions {
+        default_position: CharacterPosition::default(),
+        // CharacterPosition documents normalized coordinates; the SDK owns clamping/snapping.
+        range: NumericRange { min: 0.0, max: 1.0 },
+        grid_coordinates: profile.and_then(|profile| match profile {
+            CharacterPositionProfile::Grid5x5 => Some(
+                (0..5_u8)
+                    .map(|index| profile.resolve_coordinate(f32::from(index) / 4.0))
+                    .collect(),
+            ),
+            _ => None,
+        }),
+        use_coords_default: CharacterSet::default().use_coords,
+    }
+}
+
+fn precise_reference_options() -> PreciseReferenceOptions {
+    PreciseReferenceOptions {
+        reference_types: vec![
+            CharacterReferenceType::Character,
+            CharacterReferenceType::Style,
+            CharacterReferenceType::CharacterAndStyle,
+            CharacterReferenceType::Costume,
+            CharacterReferenceType::Delta,
+        ],
+        strength: None,
+        fidelity: None,
+        // CharacterReference documents extraction in 0..1, but exposes no range descriptor.
+        // Strength/fidelity are finite signed values and the SDK declares no count limit.
+        information_extracted: NumericRange { min: 0.0, max: 1.0 },
+        max_references: None,
     }
 }
 

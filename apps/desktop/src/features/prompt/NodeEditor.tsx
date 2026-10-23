@@ -43,7 +43,10 @@ export function NodeEditor({
   }, []);
   const sourceText = resource?.content.kind === "chunk" ? resource.content.text : "";
   return (
-    <article className={`prompt-node ${node.enabled ? "" : "node-disabled"}`}>
+    <article
+      className={`prompt-node ${node.enabled ? "" : "node-disabled"}`}
+      data-prompt-node-id={node.id}
+    >
       <header className="node-heading">
         <span className="node-label">
           {node.kind === "chunk" ? <Link2 size={14} /> : <Type size={14} />}

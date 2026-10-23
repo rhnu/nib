@@ -17,6 +17,7 @@ export function GenerationResults({
   onImageOperation,
   canMaxEnhance,
   canInpaint,
+  onViewedAssetChange,
 }: {
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
@@ -24,6 +25,7 @@ export function GenerationResults({
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
   canInpaint: boolean;
+  onViewedAssetChange?: (id: string | null) => void;
 }) {
   const { results, queryError, refreshing, refresh } = useGeneration();
   const sourceId = operationSourceId(operation);
@@ -87,6 +89,7 @@ export function GenerationResults({
             onImageOperation={onImageOperation}
             canMaxEnhance={canMaxEnhance}
             canInpaint={canInpaint}
+            onViewedAssetChange={onViewedAssetChange}
           />
         )}
         <JobQueue />

@@ -221,3 +221,124 @@ fn image_to_image_submission_requires_retained_media_before_it_can_enter_the_que
         Err(JobError::InputMedia { .. })
     ));
 }
+
+#[test]
+fn precise_references_freeze_signed_parameters_and_restore_the_same_assets() {
+    let submitted = submission();
+    let mut resolved = submitted.resolved().unwrap().clone();
+    resolved.settings.model = Model::NaiDiffusion45Full;
+    resolved
+        .inputs
+        .references
+        .precise
+        .push(crate::session::PreciseReferenceInput {
+            id: "reference".into(),
+            enabled: true,
+            asset_id: "source".into(),
+            reference_type: novelai_bridge::CharacterReferenceType::Costume,
+            strength: -2.0,
+            fidelity: 1.5,
+            information_extracted: 1.5,
+        });
+    let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    let reopened = sqlite::decode_submission(&encoded).unwrap();
+    let inputs = reopened.resolved().unwrap().inputs.clone();
+    let restored = crate::session::restore_generation(request(&reopened), inputs);
+    let hydrated =
+        operations::hydrate(request(&reopened).clone(), &restored.inputs, &ImageAssets).unwrap();
+    let reference = &hydrated.references.as_ref().unwrap().character_references[0];
+    assert_eq!(reference.strength.to_bits(), (-2f32).to_bits());
+    assert_eq!(reference.fidelity.to_bits(), 1.5_f32.to_bits());
+    assert_eq!(reference.information_extracted.to_bits(), 1f32.to_bits());
+    assert_eq!(
+        reference.reference_type,
+        novelai_bridge::CharacterReferenceType::Costume
+    );
+    assert_eq!(restored.inputs.references.precise[0].asset_id, "source");
+    assert!(!encoded.contains("iVBOR"));
+}
+
+#[test]
+fn collection_coordinate_modes_freeze_effective_positions_and_restore_without_old_resources() {
+    for (mode, expected_x, expected_use_coords) in [
+        (None, 0.3_f32, true),
+        (Some(false), 0.5_f32, false),
+        (Some(true), 0.3_f32, true),
+    ] {
+        let submitted = submission();
+        let mut resolved = submitted.resolved().unwrap().clone();
+        resolved.settings.model = Model::NaiDiffusion45Full;
+        resolved.settings.use_coords = mode;
+        resolved.characters.push(crate::prompt::ResolvedCharacter {
+            id: "hero".into(),
+            enabled: true,
+            positive: "red hair".into(),
+            negative: "blue hair".into(),
+            position: novelai_bridge::CharacterPosition { x: 0.32, y: 0.68 },
+            fragments: Vec::new(),
+            preset_instance_id: Some("recipe-use".into()),
+            resource_id: Some("recipe".into()),
+            expanded: false,
+            overridden: true,
+        });
+        let frozen = prepare_submission(resolved.clone(), &NoAssets).unwrap();
+        let reopened =
+            sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+        assert_eq!(
+            resolved.characters[0].position.x.to_bits(),
+            0.32_f32.to_bits()
+        );
+        let restored = crate::session::restore_generation(
+            request(&reopened),
+            reopened.resolved().unwrap().inputs.clone(),
+        );
+        assert_eq!(
+            restored.characters[0].position.x.to_bits(),
+            expected_x.to_bits()
+        );
+        assert_eq!(restored.settings.use_coords, Some(expected_use_coords));
+        assert_eq!(restored.characters[0].composition.positive.len(), 1);
+        assert_eq!(restored.presets.len(), 0);
+    }
+}
+
+#[test]
+fn precise_reference_indices_skip_disabled_images_and_keep_the_enabled_entry_identity() {
+    let submitted = submission();
+    let mut resolved = submitted.resolved().unwrap().clone();
+    resolved.settings.model = Model::NaiDiffusion45Full;
+    let enabled = crate::session::PreciseReferenceInput {
+        id: "enabled-reference".into(),
+        enabled: true,
+        asset_id: "source".into(),
+        reference_type: novelai_bridge::CharacterReferenceType::Character,
+        strength: 1.0,
+        fidelity: 1.0,
+        information_extracted: 2.0,
+    };
+    resolved.inputs.references.precise = vec![
+        crate::session::PreciseReferenceInput {
+            id: "disabled-reference".into(),
+            enabled: false,
+            asset_id: "absent-image".into(),
+            ..enabled.clone()
+        },
+        enabled,
+    ];
+    let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
+    let references = &frozen.resolved().unwrap().inputs.references.precise;
+    assert_eq!(references.len(), 1);
+    assert_eq!(references[0].id, "enabled-reference");
+    let sdk_field = novelai_bridge::GenerationField::CharacterReference {
+        index: 0,
+        field: novelai_bridge::CharacterReferenceField::InformationExtracted,
+    }
+    .to_string();
+    assert!(
+        frozen
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.field == sdk_field)
+    );
+}

@@ -1,12 +1,15 @@
 import { Plus } from "lucide-react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
-import { Field, HelpMarker, IconButton } from "../../shared/ui";
+import { Button, Field, HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
 import { ImageOperationPanel } from "./ImageOperationPanel";
 import type { ImageOperationAction } from "./image-operation";
+import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
+import { PreciseReferenceEditor } from "../references";
+import type { ScopedOutputIssues } from "./output-issues";
 export function ContextRail({
   draft,
   resources,
@@ -25,6 +28,8 @@ export function ContextRail({
   onReturnToText,
   imageInputVersion,
   onEditMask,
+  onPosition,
+  outputIssues,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -43,6 +48,8 @@ export function ContextRail({
   onReturnToText: () => void;
   imageInputVersion: number;
   onEditMask: (assetId: string) => void;
+  onPosition: (characterId?: string, presetInstanceId?: string) => void;
+  outputIssues: ScopedOutputIssues;
 }) {
   return (
     <div className="context-rail">
@@ -65,6 +72,10 @@ export function ContextRail({
               instance={instance}
               resources={resources}
               models={models}
+              capabilities={capabilities}
+              onPosition={(id) => onPosition(id, instance.id)}
+              characterIssues={outputIssues.presets[instance.id]?.characters}
+              preciseIssues={outputIssues.presets[instance.id]?.precise}
               onChange={(value) => {
                 const current = readCurrentDraft();
                 if (current)
@@ -108,6 +119,59 @@ export function ContextRail({
       />
       {draft.inputs.operation.kind !== "upscale" && (
         <>
+          <section className="settings-context" data-draft-outputs>
+            <div data-setting-field="precise">
+              <PreciseReferenceEditor
+                value={draft.inputs.references.precise}
+                onChange={(precise) => {
+                  const current = readCurrentDraft();
+                  edit({
+                    ...current,
+                    inputs: {
+                      ...current.inputs,
+                      references: { ...current.inputs.references, precise },
+                    },
+                  });
+                }}
+                capabilities={capabilities}
+                contextKey={imageInputVersion}
+                issues={outputIssues.draft.precise}
+              />
+            </div>
+            <div data-setting-field="characters">
+              <CharacterListEditor
+                value={draft.characters}
+                onChange={(characters) => edit({ ...readCurrentDraft(), characters })}
+                resources={resources}
+                models={models}
+                capabilities={capabilities}
+                onError={setError}
+                onPosition={(id) => onPosition(id)}
+                issues={outputIssues.draft.characters}
+              />
+            </div>
+            {Boolean(draft.characters.length || resolved?.characters.length) && (
+              <>
+                <CharacterPositionPolicy
+                  value={draft.settings.useCoords}
+                  inherited={estimate?.resolved?.settings.useCoords ?? resolved?.settings.useCoords}
+                  onChange={(useCoords) => {
+                    const current = readCurrentDraft();
+                    edit({ ...current, settings: { ...current.settings, useCoords } });
+                  }}
+                />
+                <div className="button-group">
+                  <Button
+                    className="quiet"
+                    disabled={!capabilities?.characterPositioning}
+                    onClick={() => onPosition()}
+                  >
+                    角色定位
+                  </Button>
+                </div>
+              </>
+            )}
+          </section>
           <section className="settings-context">
             <header className="section-heading">
               <h2>图像设置</h2>

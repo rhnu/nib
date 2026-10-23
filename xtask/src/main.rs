@@ -4,8 +4,9 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use nib_app::{
     api::{
-        ApiError, AppInfo, ErrorCode, GenerationRanges, ModelCapabilities, NumericRange,
-        ReferenceStatus, WorkspaceSnapshot,
+        ApiError, AppInfo, CharacterPositionOptions, ErrorCode, GenerationRanges,
+        ModelCapabilities, NumericRange, PreciseReferenceOptions, ReferenceStatus,
+        WorkspaceSnapshot,
     },
     jobs::{
         FrozenSubmission, GenerationQuote, JobFeedback, JobRecord, JobStatus, OperationKind,
@@ -117,6 +118,8 @@ fn types(check: bool) -> Result<()> {
         ApiError::decl(&config),
         ReferenceStatus::decl(&config),
         NumericRange::decl(&config),
+        CharacterPositionOptions::decl(&config),
+        PreciseReferenceOptions::decl(&config),
         GenerationRanges::decl(&config),
         ModelCapabilities::decl(&config),
         TokenInspection::decl(&config),

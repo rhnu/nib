@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "get_image_operation_options",
             "create_image_operation",
             "create_inpaint_operation",
+            "create_precise_reference",
         ]));
     tauri_build::try_build(attributes)?;
     Ok(())

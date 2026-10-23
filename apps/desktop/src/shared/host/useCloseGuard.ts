@@ -7,6 +7,7 @@ export type CloseWriter = { getSnapshot: () => { dirty: boolean }; flush: () => 
 export function useCloseGuard({
   writer,
   resourceDirty,
+  getResourceDirty,
   onResourceBlocked,
   onError,
   enabled = true,
@@ -14,19 +15,28 @@ export function useCloseGuard({
 }: {
   writer: CloseWriter;
   resourceDirty: boolean;
+  getResourceDirty?: () => boolean;
   onResourceBlocked: () => void;
   onError: (message: string) => void;
   enabled?: boolean;
   beforeClose?: () => Promise<boolean>;
 }) {
-  const latest = useRef({ resourceDirty, onResourceBlocked, onError, beforeClose });
+  const latest = useRef({
+    resourceDirty,
+    getResourceDirty,
+    onResourceBlocked,
+    onError,
+    beforeClose,
+  });
   useLayoutEffect(() => {
-    latest.current = { resourceDirty, onResourceBlocked, onError, beforeClose };
+    latest.current = { resourceDirty, getResourceDirty, onResourceBlocked, onError, beforeClose };
   });
   useEffect(() => {
     if (!enabled) return;
+    const isResourceDirty = () =>
+      latest.current.getResourceDirty?.() ?? latest.current.resourceDirty;
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (writer.getSnapshot().dirty || latest.current.resourceDirty) event.preventDefault();
+      if (writer.getSnapshot().dirty || isResourceDirty()) event.preventDefault();
     };
     window.addEventListener("beforeunload", beforeUnload);
     if (!hasDesktopHost()) return () => window.removeEventListener("beforeunload", beforeUnload);
@@ -37,7 +47,7 @@ export function useCloseGuard({
       .onCloseRequested(async (event) => {
         event.preventDefault();
         if (closing) return;
-        if (latest.current.resourceDirty) {
+        if (isResourceDirty()) {
           latest.current.onResourceBlocked();
           return;
         }
@@ -45,7 +55,7 @@ export function useCloseGuard({
         try {
           if (latest.current.beforeClose && !(await latest.current.beforeClose())) return;
           await writer.flush();
-          if (latest.current.resourceDirty) {
+          if (isResourceDirty()) {
             latest.current.onResourceBlocked();
             return;
           }

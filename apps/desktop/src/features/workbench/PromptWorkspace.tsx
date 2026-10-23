@@ -24,6 +24,7 @@ export function PromptWorkspace({
   openLibrary,
   edit,
   setError,
+  onFocusField,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -38,6 +39,7 @@ export function PromptWorkspace({
   openLibrary: (target: InsertTarget) => void;
   edit: (draft: Draft) => void;
   setError: (message: string) => void;
+  onFocusField?: (field: string) => void;
 }) {
   const [inspector, setInspector] = useState(false);
   const issueCount = resolved?.issues.length ?? 0;
@@ -124,7 +126,7 @@ export function PromptWorkspace({
           diagnostics={diagnostics}
           onFocusField={(field) => {
             setInspector(false);
-            requestAnimationFrame(() => focusSetting(field));
+            requestAnimationFrame(() => (onFocusField ?? focusSetting)(field));
           }}
         />
       </Modal>
