@@ -1,8 +1,11 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::{AssetKind, GenerationResult, MediaAsset, RetainedOutput};
+use super::{
+    AssetKind, GenerationResult, ListedOutput, MediaAsset, ResultQuery, ResultSummary,
+    RetainedOutput,
+};
 use crate::{
-    jobs::decode_submission,
+    jobs::{OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission},
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
 };
 
@@ -73,10 +76,16 @@ impl SqliteDatabase {
         id: Option<&str>,
     ) -> Result<Vec<MediaAsset>, PersistenceError> {
         let connection = self.connection()?;
-        let mut statement = connection.prepare("SELECT id, kind, mime_type, byte_length, width, height, created_at, source FROM media_assets WHERE (?1 IS NULL OR id = ?1) ORDER BY created_at DESC, id")
+        let sql = if id.is_some() {
+            "SELECT id, kind, mime_type, byte_length, width, height, created_at, source FROM media_assets WHERE id = ?1"
+        } else {
+            "SELECT id, kind, mime_type, byte_length, width, height, created_at, source FROM media_assets ORDER BY created_at DESC, id"
+        };
+        let mut statement = connection
+            .prepare(sql)
             .map_err(|error| PersistenceError::failure("prepare immutable media records", error))?;
         let rows = statement
-            .query_map([id], read_asset_row)
+            .query_map(rusqlite::params_from_iter(id), read_asset_row)
             .map_err(|error| PersistenceError::failure("query immutable media records", error))?;
         rows.map(|row| {
             row.map_err(|error| PersistenceError::failure("read immutable media metadata", error))?
@@ -103,16 +112,21 @@ impl SqliteDatabase {
             .map_err(|error| PersistenceError::failure("commit embedded Vibe assets", error))
     }
 
-    pub(super) fn read_results(
-        &self,
-        id: Option<&str>,
-    ) -> Result<Vec<RetainedOutput>, PersistenceError> {
+    pub(super) fn read_result_asset(&self, id: &str) -> Result<MediaAsset, PersistenceError> {
+        self.connection()?.query_row(
+            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source FROM generation_results r JOIN media_assets a ON a.id = r.asset_id WHERE r.id = ?1",
+            [id], read_asset_row,
+        ).optional().map_err(|error| PersistenceError::failure("read a result's media identity", error))?
+            .ok_or_else(|| PersistenceError::NotFound { kind: "result", id: id.to_owned() })?.decode()
+    }
+
+    pub(super) fn read_result(&self, id: &str) -> Result<RetainedOutput, PersistenceError> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
-            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, j.submission, r.image_source FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE (?1 IS NULL OR r.id = ?1) ORDER BY r.created_at DESC, r.sample_index",
+            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, j.submission, r.image_source FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE r.id = ?1",
         ).map_err(|error| PersistenceError::failure("prepare retained operation outputs", error))?;
-        let rows = statement
-            .query_map([id], |row| {
+        let row = statement
+            .query_row([id], |row| {
                 Ok((
                     read_asset_row(row)?,
                     row.get::<_, String>(8)?,
@@ -124,33 +138,123 @@ impl SqliteDatabase {
                     row.get::<_, Option<String>>(14)?,
                 ))
             })
-            .map_err(|error| {
-                PersistenceError::failure("query retained operation outputs", error)
+            .optional()
+            .map_err(|error| PersistenceError::failure("query retained operation outputs", error))?
+            .ok_or_else(|| PersistenceError::NotFound {
+                kind: "result",
+                id: id.to_owned(),
             })?;
-        rows.map(|row| {
-            let (asset, id, job_id, sample_index, seed, created_at, submission, image_source) = row
-                .map_err(|error| {
-                    PersistenceError::failure("read retained operation output", error)
-                })?;
-            let asset = asset.decode()?;
-            Ok(RetainedOutput {
-                result: GenerationResult {
+        let (asset, id, job_id, sample_index, seed, created_at, submission, image_source) = row;
+        let asset = asset.decode()?;
+        Ok(RetainedOutput {
+            result: GenerationResult {
+                id,
+                job_id: job_id.to_string(),
+                sample_index,
+                asset_id: asset.id.clone(),
+                kind: asset.kind,
+                image_source: image_source.as_deref().map(decode).transpose()?,
+                seed,
+                created_at,
+                mime_type: asset.mime_type.clone(),
+                available: false,
+                submission: decode_submission(&submission)?,
+            },
+            asset,
+        })
+    }
+
+    pub(super) fn list_results(
+        &self,
+        query: &ResultQuery,
+    ) -> Result<(Vec<ListedOutput>, Option<String>), PersistenceError> {
+        if !(1..=100).contains(&query.limit) {
+            return Err(PersistenceError::InvalidData {
+                message: "结果分页数量必须在 1 到 100 之间。".to_owned(),
+            });
+        }
+        let before = query
+            .before
+            .as_deref()
+            .map(|cursor| {
+                cursor
+                    .parse::<i64>()
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or_else(|| PersistenceError::InvalidData {
+                        message: "结果分页位置无效。".to_owned(),
+                    })
+            })
+            .transpose()?;
+        let bound = before.map_or(i64::MAX, |value| value - 1);
+        let connection = self.connection()?;
+        let sql = format!(
+            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, r.image_source, {OPERATION_SUMMARY_SQL}, r.rowid FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE r.rowid <= ?1 ORDER BY r.rowid DESC LIMIT ?2"
+        );
+        let mut statement = connection
+            .prepare(&sql)
+            .map_err(|error| PersistenceError::failure("prepare result summaries", error))?;
+        let rows = statement
+            .query_map(params![bound, query.limit + 1], |row| {
+                Ok((
+                    read_asset_row(row)?,
+                    row.get::<_, String>(8)?,
+                    row.get::<_, i64>(9)?,
+                    row.get::<_, u32>(10)?,
+                    row.get::<_, Option<i64>>(11)?,
+                    row.get::<_, i64>(12)?,
+                    row.get::<_, Option<String>>(13)?,
+                    row.get::<_, String>(14)?,
+                    row.get::<_, i64>(15)?,
+                ))
+            })
+            .map_err(|error| PersistenceError::failure("query result summaries", error))?;
+        let mut outputs = rows
+            .map(|row| {
+                let (
+                    asset,
                     id,
-                    job_id: job_id.to_string(),
+                    job_id,
                     sample_index,
-                    asset_id: asset.id.clone(),
-                    kind: asset.kind,
-                    image_source: image_source.as_deref().map(decode).transpose()?,
                     seed,
                     created_at,
-                    mime_type: asset.mime_type.clone(),
-                    available: false,
-                    submission: decode_submission(&submission)?,
-                },
-                asset,
+                    image_source,
+                    operation,
+                    cursor,
+                ) =
+                    row.map_err(|error| PersistenceError::failure("read a result summary", error))?;
+                let asset = asset.decode()?;
+                Ok((
+                    ListedOutput {
+                        result: ResultSummary {
+                            id,
+                            job_id: job_id.to_string(),
+                            sample_index,
+                            asset_id: asset.id.clone(),
+                            kind: asset.kind,
+                            image_source: image_source.as_deref().map(decode).transpose()?,
+                            seed,
+                            created_at,
+                            mime_type: asset.mime_type.clone(),
+                            available: false,
+                            operation: decode_operation_summary(&operation)?,
+                        },
+                        asset,
+                    },
+                    cursor,
+                ))
             })
-        })
-        .collect()
+            .collect::<Result<Vec<_>, PersistenceError>>()?;
+        let next_cursor = if outputs.len() > query.limit as usize {
+            outputs.pop();
+            outputs.last().map(|(_, cursor)| cursor.to_string())
+        } else {
+            None
+        };
+        Ok((
+            outputs.into_iter().map(|(output, _)| output).collect(),
+            next_cursor,
+        ))
     }
 
     pub(super) fn commit_results(

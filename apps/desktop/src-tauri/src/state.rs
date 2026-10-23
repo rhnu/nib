@@ -91,6 +91,15 @@ impl DesktopState {
         Ok(())
     }
 
+    pub(crate) fn cached_sdk(&self) -> Result<Option<Arc<SdkClients>>, JobError> {
+        Ok(self
+            .sdk
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?
+            .as_ref()
+            .map(Arc::clone))
+    }
+
     pub(crate) fn sdk(&self) -> Result<Arc<SdkClients>, JobError> {
         let mut slot = self
             .sdk

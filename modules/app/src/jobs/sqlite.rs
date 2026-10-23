@@ -1,9 +1,13 @@
+mod query;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub(crate) use query::{OPERATION_SUMMARY_SQL, decode_operation_summary};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
-    FrozenSubmission, JobObservation, JobRecord, JobStore, ParameterDiagnostic, SubmissionResolver,
+    FrozenSubmission, JobObservation, JobPage, JobQuery, JobRecord, JobStore, ParameterDiagnostic,
+    SubmissionResolver,
 };
 use crate::{
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
@@ -387,21 +391,24 @@ impl JobStore for SqliteDatabase {
         read_job(&connection, parse_id(id)?)
     }
 
-    fn list_jobs(&self) -> Result<Vec<JobRecord>, PersistenceError> {
+    fn job_running(&self, id: &str) -> Result<bool, PersistenceError> {
+        self.connection()?
+            .query_row(
+                "SELECT status = 'running' FROM jobs WHERE id = ?1",
+                [parse_id(id)?],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| PersistenceError::failure("read the current task state", error))?
+            .ok_or_else(|| PersistenceError::NotFound {
+                kind: "job",
+                id: id.to_owned(),
+            })
+    }
+
+    fn list_jobs(&self, query: &JobQuery) -> Result<JobPage, PersistenceError> {
         let connection = self.connection()?;
-        let mut statement = connection
-            .prepare("SELECT id FROM jobs ORDER BY id DESC")
-            .map_err(|error| PersistenceError::failure("prepare generation jobs", error))?;
-        let ids = statement
-            .query_map([], |row| row.get(0))
-            .map_err(|error| PersistenceError::failure("read generation job identities", error))?
-            .collect::<Result<Vec<i64>, _>>()
-            .map_err(|error| {
-                PersistenceError::failure("decode generation job identities", error)
-            })?;
-        ids.into_iter()
-            .map(|id| read_job(&connection, id))
-            .collect()
+        query::list_jobs(&connection, query)
     }
 
     fn interrupt_jobs(&self) -> Result<(), PersistenceError> {

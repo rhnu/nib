@@ -6,14 +6,15 @@ mod mask_editor;
 mod png_text;
 mod restore;
 mod sqlite;
+mod validation;
 pub use director::*;
 pub use inputs::*;
 pub use mask_editor::*;
 pub use png_text::*;
 pub use restore::*;
 use serde::{Deserialize, Serialize};
+pub use validation::validate_draft;
 
-pub use crate::prompt::validation::validate_draft;
 use crate::{
     persistence::PersistenceError,
     prompt::{CharacterComposition, Composition, GenerationSettings, PresetInstance},
@@ -50,6 +51,14 @@ pub enum ActivePage {
     Settings,
 }
 
+/// A successful save acknowledges its revision without echoing retained editing history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct DraftSaveReceipt {
+    pub revision: u32,
+}
+
 pub trait DraftStore {
     /// Reads the current creation, returning a blank state before its first save.
     ///
@@ -61,5 +70,5 @@ pub trait DraftStore {
     ///
     /// # Errors
     /// Returns validation, revision conflict or backend failures.
-    fn save_draft(&self, draft: &Draft) -> Result<Draft, PersistenceError>;
+    fn save_draft(&self, draft: &Draft) -> Result<DraftSaveReceipt, PersistenceError>;
 }

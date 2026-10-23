@@ -1,9 +1,42 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use rusqlite::{Connection, OptionalExtension as _, params};
 
 use super::{Resource, ResourceReader, ResourceWriter, validate_resource};
 use crate::persistence::{
-    PersistenceError, ResourceSnapshot, SqliteDatabase, decode, encode, next_revision, write_miss,
+    PersistenceError, SqliteDatabase, decode, encode, next_revision, write_miss,
 };
+
+type ResourceCache = RefCell<HashMap<String, Option<Resource>>>;
+
+/// Consistent resource reads and their decoded values live only for this transaction.
+pub struct ResourceSnapshot<'a> {
+    connection: &'a Connection,
+    resources: ResourceCache,
+}
+
+impl<'a> ResourceSnapshot<'a> {
+    pub(crate) fn new(connection: &'a Connection) -> Self {
+        Self {
+            connection,
+            resources: RefCell::default(),
+        }
+    }
+}
+
+fn cached_resource(
+    cache: &ResourceCache,
+    id: &str,
+    load: impl FnOnce() -> Result<Option<Resource>, PersistenceError>,
+) -> Result<Option<Resource>, PersistenceError> {
+    if let Some(value) = cache.borrow().get(id) {
+        return Ok(value.clone());
+    }
+    // Failed reads retain their error; only a known value or known absence is reusable.
+    let value = load()?;
+    cache.borrow_mut().insert(id.to_owned(), value.clone());
+    Ok(value)
+}
 
 fn get_resource(connection: &Connection, id: &str) -> Result<Option<Resource>, PersistenceError> {
     let row = connection
@@ -41,7 +74,7 @@ impl ResourceReader for SqliteDatabase {
 
 impl ResourceReader for ResourceSnapshot<'_> {
     fn get_resource(&self, id: &str) -> Result<Option<Resource>, PersistenceError> {
-        get_resource(self.connection, id)
+        cached_resource(&self.resources, id, || get_resource(self.connection, id))
     }
 }
 
@@ -92,3 +125,6 @@ impl ResourceWriter for SqliteDatabase {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;

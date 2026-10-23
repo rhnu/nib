@@ -1,13 +1,13 @@
 //! IPC adaptation and blocking database work. Domain behavior stays in nib-app.
 
 use nib_app::{
-    api::{ApiError, ErrorCode, WorkspaceSnapshot},
+    api::{ApiError, DraftAnalysis, ErrorCode, WorkspaceSnapshot},
     jobs::SdkClientProvider as _,
     library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{
-        self, ExpansionError, PresetInstance, PromptNode, ResolvedDraft, Resource,
-        ResourceReader as _, ResourceWriter as _,
+        self, ExpansionError, PresetInstance, PromptNode, Resource, ResourceReader as _,
+        ResourceWriter as _,
     },
     session::{Draft, DraftStore as _},
 };
@@ -117,7 +117,12 @@ pub(crate) async fn get_workspace(
         Ok(WorkspaceSnapshot {
             info: nib_app::app_info(),
             resources: database
-                .search_resources(&ResourceQuery::default())
+                .read_resources(|reader| {
+                    nib_app::library::resource_definitions(
+                        &nib_app::library::draft_resource_ids(&draft),
+                        reader,
+                    )
+                })
                 .map_err(persistence_error)?,
             draft,
             models: novelai_bridge::Model::ALL
@@ -125,6 +130,19 @@ pub(crate) async fn get_workspace(
                 .map(|model| model.as_str().to_owned())
                 .collect(),
         })
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn get_resource_definitions(
+    state: tauri::State<'_, DesktopState>,
+    ids: Vec<String>,
+) -> Result<Vec<Resource>, ApiError> {
+    with_database(state, move |database| {
+        database
+            .read_resources(|reader| nib_app::library::resource_definitions(&ids, reader))
+            .map_err(persistence_error)
     })
     .await
 }
@@ -188,7 +206,7 @@ pub(crate) async fn delete_resource(
 pub(crate) async fn save_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
-) -> Result<Draft, ApiError> {
+) -> Result<nib_app::session::DraftSaveReceipt, ApiError> {
     with_database(state, move |database| {
         database.save_draft(&draft).map_err(persistence_error)
     })
@@ -199,30 +217,20 @@ pub(crate) async fn save_draft(
 pub(crate) async fn resolve_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
-) -> Result<ResolvedDraft, ApiError> {
+) -> Result<DraftAnalysis, ApiError> {
     with_database(state, move |database| {
         nib_app::session::validate_draft(&draft).map_err(|error| ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Invalid,
             message: error.to_string(),
         })?;
-        database
-            .read_resources(|reader| prompt::resolve_draft(&draft, reader))
-            .map_err(persistence_error)
-    })
-    .await
-}
-
-#[tauri::command]
-pub(crate) async fn get_model_capabilities(
-    state: tauri::State<'_, DesktopState>,
-    draft: Draft,
-) -> Result<Option<nib_app::api::ModelCapabilities>, ApiError> {
-    with_database(state, move |database| {
         let resolved = database
             .read_resources(|reader| prompt::resolve_draft(&draft, reader))
             .map_err(persistence_error)?;
-        Ok(nib_app::api::model_capabilities(&resolved))
+        Ok(DraftAnalysis {
+            capabilities: nib_app::api::model_capabilities(&resolved),
+            resolved,
+        })
     })
     .await
 }

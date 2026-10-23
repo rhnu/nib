@@ -17,15 +17,24 @@ pub struct AppInfo {
     pub default_model_id: String,
 }
 
-/// Initial workbench data; resource definitions are loaded through their own query.
+/// Initial creation and only the resource definitions needed by its editors.
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct WorkspaceSnapshot {
     pub info: AppInfo,
-    pub resources: Vec<crate::library::ResourceSummary>,
+    pub resources: Vec<crate::prompt::Resource>,
     pub draft: crate::session::Draft,
     pub models: Vec<String>,
+}
+
+/// One consistent composition read supplies both editor text and model choices.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct DraftAnalysis {
+    pub resolved: crate::prompt::ResolvedDraft,
+    pub capabilities: Option<ModelCapabilities>,
 }
 
 /// Actionable error categories at the IPC boundary.

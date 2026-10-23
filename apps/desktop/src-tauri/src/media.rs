@@ -6,7 +6,7 @@ use nib_app::{
     api::ApiError,
     media::{
         AssetSource, GenerationResult, ImageMetadataReport, MediaAsset, MediaLibrary,
-        MetadataRestore, VibeAssetInspection, VibeDocumentInspection,
+        MetadataRestore, ResultPage, ResultQuery, VibeAssetInspection, VibeDocumentInspection,
     },
     session::{
         CreationOperation, Draft, ImageOperationKind, ImageOperationOptions, PreciseReferenceInput,
@@ -428,18 +428,33 @@ pub(crate) async fn restore_image_metadata(
 #[tauri::command]
 pub(crate) async fn list_results(
     state: tauri::State<'_, DesktopState>,
-) -> Result<Vec<GenerationResult>, ApiError> {
-    with_media(state, |media| media.list().map_err(persistence_error)).await
+    query: ResultQuery,
+) -> Result<ResultPage, ApiError> {
+    with_media(state, move |media| {
+        media.list(&query).map_err(persistence_error)
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) async fn read_result_content(
+pub(crate) async fn get_result(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<GenerationResult, ApiError> {
+    with_media(state, move |media| {
+        media.get_result(&id).map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn read_media_thumbnail(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<tauri::ipc::Response, ApiError> {
     with_media(state, move |media| {
         Ok(tauri::ipc::Response::new(
-            media.read(&id).map_err(persistence_error)?.bytes,
+            media.thumbnail(&id).map_err(persistence_error)?.bytes,
         ))
     })
     .await

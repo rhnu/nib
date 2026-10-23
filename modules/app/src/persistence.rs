@@ -4,7 +4,7 @@ mod sqlite;
 
 use std::error::Error;
 
-pub use sqlite::{ResourceSnapshot, SqliteDatabase};
+pub use sqlite::SqliteDatabase;
 pub(crate) use sqlite::{decode, encode, next_revision, write_miss};
 
 /// A retained-data operation failed without hiding its original cause.

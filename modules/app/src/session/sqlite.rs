@@ -1,6 +1,6 @@
 use rusqlite::{OptionalExtension as _, params};
 
-use super::{Draft, DraftStore, validate_draft};
+use super::{Draft, DraftSaveReceipt, DraftStore, validate_draft};
 use crate::persistence::{PersistenceError, SqliteDatabase, decode, encode, next_revision};
 
 impl DraftStore for SqliteDatabase {
@@ -43,7 +43,7 @@ impl DraftStore for SqliteDatabase {
         )
     }
 
-    fn save_draft(&self, draft: &Draft) -> Result<Draft, PersistenceError> {
+    fn save_draft(&self, draft: &Draft) -> Result<DraftSaveReceipt, PersistenceError> {
         validate_draft(draft).map_err(|error| PersistenceError::InvalidData {
             message: error.to_string(),
         })?;
@@ -76,9 +76,6 @@ impl DraftStore for SqliteDatabase {
                 id: "1".to_owned(),
             });
         }
-        Ok(Draft {
-            revision,
-            ..draft.clone()
-        })
+        Ok(DraftSaveReceipt { revision })
     }
 }

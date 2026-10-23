@@ -19,15 +19,7 @@ mod storage;
 /// Returns an error if the log filter or subscriber cannot be initialized, or if
 /// the desktop runtime fails to start or run its event loop.
 pub fn run() -> anyhow::Result<()> {
-    let filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env()
-        .context("parse the RUST_LOG tracing filter")?;
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .try_init()
-        .map_err(anyhow::Error::from_boxed)
-        .context("initialize the desktop tracing subscriber")?;
+    initialize_tracing()?;
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
@@ -52,11 +44,11 @@ pub fn run() -> anyhow::Result<()> {
             commands::get_workspace,
             commands::search_resources,
             commands::get_resource,
+            commands::get_resource_definitions,
             commands::save_resource,
             commands::delete_resource,
             commands::save_draft,
             commands::resolve_draft,
-            commands::get_model_capabilities,
             commands::get_model_defaults_capabilities,
             commands::expand_chunk,
             commands::expand_preset,
@@ -68,6 +60,7 @@ pub fn run() -> anyhow::Result<()> {
             generation::quote_generation,
             generation::submit_generation,
             generation::list_jobs,
+            generation::get_job,
             generation::cancel_job,
             generation::retry_job,
             generation::get_account_summary,
@@ -75,7 +68,8 @@ pub fn run() -> anyhow::Result<()> {
             generation::subscribe_job_feedback,
             generation::unsubscribe_job_feedback,
             media::list_results,
-            media::read_result_content,
+            media::get_result,
+            media::read_media_thumbnail,
             media::restore_result,
             media::list_media_assets,
             media::get_image_operation_options,
@@ -119,4 +113,16 @@ pub fn run() -> anyhow::Result<()> {
         })
         .run(tauri::generate_context!())
         .context("run the nib desktop application")
+}
+
+fn initialize_tracing() -> anyhow::Result<()> {
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()
+        .context("parse the RUST_LOG tracing filter")?;
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .try_init()
+        .map_err(anyhow::Error::from_boxed)
+        .context("initialize the desktop tracing subscriber")
 }

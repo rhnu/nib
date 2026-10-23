@@ -53,7 +53,7 @@ fn inspection_preserves_entry_and_cache_order_without_payloads() {
     assert_eq!(entry.caches[2].model_key, "future-model");
 }
 
-fn source_file() -> VibeFile {
+pub(super) fn source_file() -> VibeFile {
     let source = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAC0lEQVR4nGNgQAcAABIAAXfx+gAAAAAASUVORK5CYII=";
     let mut file = VibeFile::image(source);
     file.name = Some("original-name".to_owned());
@@ -110,29 +110,6 @@ fn document_source_is_reported_without_inventing_a_materialized_asset() {
     assert_eq!(source.asset_id, "document");
     assert_eq!(source.entry_index, 2);
     assert_eq!(view.information_extracted, Some(0.4));
-}
-
-#[test]
-fn reencoding_uses_the_selected_cache_parameters_and_sdk_model_identity() {
-    let file = source_file();
-    let material = reencoding_material(&file, Some("v4full"), Some("unknown")).unwrap();
-    assert_eq!(material.model, novelai_bridge::Model::NaiDiffusion4Full);
-    assert_eq!(material.information_extracted, Some(0.4));
-    assert_eq!(material.image.as_bytes(), material.mask.unwrap().as_bytes());
-    assert!(matches!(
-        reencoding_material(&file, Some("future-model"), Some("unknown")),
-        Err(PersistenceError::InvalidData { .. })
-    ));
-    assert!(matches!(
-        reencoding_material(&file, Some("v4full"), Some("missing")),
-        Err(PersistenceError::InvalidData { .. })
-    ));
-    let mut no_image = file;
-    no_image.image = None;
-    assert!(matches!(
-        reencoding_material(&no_image, Some("v4full"), Some("unknown")),
-        Err(PersistenceError::InvalidData { .. })
-    ));
 }
 
 #[test]

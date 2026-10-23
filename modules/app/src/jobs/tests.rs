@@ -223,8 +223,36 @@ impl JobStore for MemoryJobs {
             })
     }
 
-    fn list_jobs(&self) -> Result<Vec<JobRecord>, PersistenceError> {
-        Ok(self.records.lock().unwrap().clone())
+    fn list_jobs(&self, query: &JobQuery) -> Result<JobPage, PersistenceError> {
+        let records = self.records.lock().unwrap();
+        let active = records
+            .iter()
+            .filter(|record| matches!(record.status, JobStatus::Queued | JobStatus::Running))
+            .map(JobSummary::from)
+            .collect();
+        let mut items: Vec<_> = records
+            .iter()
+            .rev()
+            .filter(|record| !matches!(record.status, JobStatus::Queued | JobStatus::Running))
+            .filter(|record| {
+                query.before.as_deref().is_none_or(|before| {
+                    record.id.parse::<u64>().unwrap() < before.parse::<u64>().unwrap()
+                })
+            })
+            .take(query.limit as usize + 1)
+            .map(JobSummary::from)
+            .collect();
+        let next_cursor = if items.len() > query.limit as usize {
+            items.pop();
+            items.last().map(|record| record.id.clone())
+        } else {
+            None
+        };
+        Ok(JobPage {
+            items,
+            active,
+            next_cursor,
+        })
     }
 
     fn interrupt_jobs(&self) -> Result<(), PersistenceError> {
@@ -452,9 +480,10 @@ struct NoClient;
 
 impl SdkClientProvider for NoClient {
     fn client(&self) -> Result<SdkClient, JobError> { Err(JobError::MissingCredentials) }
-
-    fn cached_client(&self) -> Option<SdkClient> { None }
 }
+
+mod account;
+use account::sampled_account;
 
 mod inputs;
 mod stream;
@@ -552,22 +581,6 @@ fn image_submission_stores_only_parameters_and_immutable_input_ids() {
 }
 
 #[test]
-fn account_summary_serialization_excludes_original_response() {
-    let info = novelai_bridge::SubscriptionInfo {
-        anlas_balance: 10,
-        subscription_active: true,
-        tier: 3,
-        expires_at_ms: None,
-        v5_usage: None,
-        raw_response: serde_json::json!({"private_payment_data":"secret"}),
-    };
-    let encoded = serde_json::to_string(&crate::settings::AccountSummary::from(&info)).unwrap();
-    assert!(!encoded.contains("secret"));
-    assert!(!encoded.contains("private_payment_data"));
-    assert!(!encoded.contains("raw_response"));
-}
-
-#[test]
 fn implicit_noise_seed_is_frozen_from_the_sdk_effective_payload() {
     let mut resolved = submission().resolved().unwrap().clone();
     resolved.inputs.operation = crate::session::CreationOperation::ImageToImage {
@@ -591,51 +604,21 @@ fn implicit_noise_seed_is_frozen_from_the_sdk_effective_payload() {
         .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
     resolved.settings.seed = prepared.resolved_seed();
-    let frozen = prepare_submission(resolved, &ImageAssets).unwrap();
-    let crate::session::CreationOperation::ImageToImage {
-        extra_noise_seed, ..
-    } = &frozen.resolved().unwrap().inputs.operation
-    else {
-        panic!("expected image input")
-    };
-    assert_eq!(
-        *extra_noise_seed,
-        body["parameters"]["extra_noise_seed"].as_i64()
-    );
-    assert!(extra_noise_seed.is_some());
-}
-
-#[test]
-fn quote_without_credentials_counts_each_prompt_target_locally() {
-    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
-    Arc::get_mut(&mut queue).unwrap().tokenizers = Arc::new(Tokenizers::bundled().unwrap());
-    let draft = Draft {
-        composition: Composition {
-            positive: vec![PromptNode::Text {
-                id: "p".to_owned(),
-                enabled: true,
-                text: "a cat".to_owned(),
-            }],
-            negative: vec![PromptNode::Text {
-                id: "n".to_owned(),
-                enabled: true,
-                text: "blurry".to_owned(),
-            }],
-        },
-        ..Draft::default()
-    };
-    let quote = queue.quote(&draft).unwrap();
-    assert_eq!(quote.tokens.len(), 2);
-    assert!(
-        quote
-            .tokens
-            .iter()
-            .all(|count| count.used > 0 && count.limit > 0)
-    );
-    assert!(!quote.account_specific);
-    assert!(quote.account_sampled_at.is_none());
-    assert!(!unexpected_call.load(Ordering::Acquire));
-    assert!(queue.account().is_none());
+    for stream in [None, Some(novelai_bridge::StreamMode::Sse)] {
+        resolved.inputs.stream = stream;
+        let frozen = prepare_submission(resolved.clone(), &ImageAssets).unwrap();
+        let crate::session::CreationOperation::ImageToImage {
+            extra_noise_seed, ..
+        } = &frozen.resolved().unwrap().inputs.operation
+        else {
+            panic!("expected image input")
+        };
+        assert_eq!(
+            *extra_noise_seed,
+            body["parameters"]["extra_noise_seed"].as_i64()
+        );
+        assert!(extra_noise_seed.is_some());
+    }
 }
 
 #[test]

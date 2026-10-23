@@ -101,9 +101,17 @@ impl MediaLibrary {
         bytes: Vec<u8>,
         source: AssetSource,
     ) -> Result<MediaAsset, PersistenceError> {
-        self.validate_source(&source)?;
         let image = EncodedImage::from_bytes(bytes)
             .map_err(|error| PersistenceError::failure("validate an imported image", error))?;
+        self.retain_image(&image, source)
+    }
+
+    pub(super) fn retain_image(
+        &self,
+        image: &EncodedImage,
+        source: AssetSource,
+    ) -> Result<MediaAsset, PersistenceError> {
+        self.validate_source(&source)?;
         let format = image_format(image.as_bytes());
         let size = image.size();
         let asset = self.stage_asset(
@@ -126,10 +134,18 @@ impl MediaLibrary {
         bytes: Vec<u8>,
         source: AssetSource,
     ) -> Result<MediaAsset, PersistenceError> {
-        self.validate_source(&source)?;
         let encoding = VibeEncoding::from_bytes(bytes).map_err(|error| {
             PersistenceError::failure("validate an imported Vibe encoding", error)
         })?;
+        self.retain_vibe(&encoding, source)
+    }
+
+    pub(super) fn retain_vibe(
+        &self,
+        encoding: &VibeEncoding,
+        source: AssetSource,
+    ) -> Result<MediaAsset, PersistenceError> {
+        self.validate_source(&source)?;
         let asset = self.stage_asset(
             AssetKind::Vibe,
             "application/octet-stream",
@@ -163,6 +179,54 @@ impl MediaLibrary {
     pub fn read_asset(&self, id: &str) -> Result<MediaContent, PersistenceError> {
         let asset = self.asset(id)?;
         self.content(&asset)
+    }
+
+    /// Reads a bounded, rebuildable PNG preview without creating another media asset.
+    ///
+    /// # Errors
+    /// Returns unavailable images, decoding failures or thumbnail cache I/O failures.
+    pub fn thumbnail(&self, id: &str) -> Result<MediaContent, PersistenceError> {
+        let _guard = self
+            .thumbnails
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        let asset = self.asset(id)?;
+        if asset.kind != AssetKind::Image || !asset.available {
+            return Err(PersistenceError::InvalidData {
+                message: "缩略图的源图不可用。".to_owned(),
+            });
+        }
+        let directory = self.directory.join("thumbnails");
+        let path = directory.join(format!("{}.png", asset.id));
+        match fs::read(&path) {
+            Ok(bytes) => {
+                if bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+                    && let Ok(image) = EncodedImage::from_bytes(bytes)
+                    && image.size().width <= 256
+                    && image.size().height <= 256
+                {
+                    return Ok(MediaContent {
+                        mime_type: "image/png".to_owned(),
+                        bytes: image.as_bytes().to_vec(),
+                    });
+                }
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) => return Err(PersistenceError::failure("read a media thumbnail", error)),
+        }
+        let image = self.image_content(&asset)?;
+        let prepared = prepare_thumbnail(&image)?;
+        fs::create_dir_all(&directory)
+            .map_err(|error| PersistenceError::failure("create the thumbnail directory", error))?;
+        let temporary = directory.join(format!("{}.partial", asset.id));
+        fs::write(&temporary, prepared.as_bytes())
+            .map_err(|error| PersistenceError::failure("write a media thumbnail", error))?;
+        fs::rename(&temporary, &path)
+            .map_err(|error| PersistenceError::failure("publish a media thumbnail", error))?;
+        Ok(MediaContent {
+            mime_type: "image/png".to_owned(),
+            bytes: prepared.as_bytes().to_vec(),
+        })
     }
 
     /// Retrieves one asset and its current file availability.
@@ -335,22 +399,49 @@ impl MediaLibrary {
     }
 }
 
+fn prepare_thumbnail(
+    image: &EncodedImage,
+) -> Result<novelai_bridge::PreparedImage, PersistenceError> {
+    let pixels = image.pixels().thumbnail(256, 256);
+    novelai_bridge::PreparedImage::from_pixels(&pixels)
+        .map_err(|error| PersistenceError::failure("encode a media thumbnail", error))
+}
+
+#[cfg(test)]
+mod tests;
+
 impl AssetReader for MediaLibrary {
     fn image(&self, id: &str) -> Result<EncodedImage, PersistenceError> {
         let asset = self.asset(id)?;
-        if asset.kind != AssetKind::Image {
-            return Err(wrong_kind(id, AssetKind::Image));
-        }
-        EncodedImage::from_bytes(self.content(&asset)?.bytes)
-            .map_err(|error| PersistenceError::failure("validate retained image content", error))
+        self.image_content(&asset)
     }
 
     fn vibe(&self, id: &str) -> Result<VibeEncoding, PersistenceError> {
         let asset = self.asset(id)?;
-        if asset.kind != AssetKind::Vibe {
-            return Err(wrong_kind(id, AssetKind::Vibe));
+        self.vibe_content(&asset)
+    }
+}
+
+impl MediaLibrary {
+    pub(super) fn image_content(
+        &self,
+        asset: &MediaAsset,
+    ) -> Result<EncodedImage, PersistenceError> {
+        if asset.kind != AssetKind::Image {
+            return Err(wrong_kind(&asset.id, AssetKind::Image));
         }
-        VibeEncoding::from_bytes(self.content(&asset)?.bytes)
+        EncodedImage::from_bytes(self.content(asset)?.bytes)
+            .map_err(|error| PersistenceError::failure("validate retained image content", error))
+    }
+
+    pub(super) fn vibe_content(
+        &self,
+        asset: &MediaAsset,
+    ) -> Result<VibeEncoding, PersistenceError> {
+        if asset.kind != AssetKind::Vibe {
+            return Err(wrong_kind(&asset.id, AssetKind::Vibe));
+        }
+        VibeEncoding::from_bytes(self.content(asset)?.bytes)
             .map_err(|error| PersistenceError::failure("validate retained Vibe content", error))
     }
 }

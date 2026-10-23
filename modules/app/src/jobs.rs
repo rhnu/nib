@@ -3,6 +3,7 @@
 mod execution;
 mod observation;
 mod operations;
+mod query;
 mod sqlite;
 
 use std::sync::{
@@ -12,8 +13,11 @@ use std::sync::{
 
 use novelai_bridge::{Client, GenerateImageRequest, Tokenizers};
 pub use observation::{JobObservation, RequestSettlement};
+pub use query::{JobPage, JobQuery, JobSummary, OperationSummary};
 use serde::{Deserialize, Serialize};
-pub(crate) use sqlite::{decode_submission, timestamp};
+pub(crate) use sqlite::{
+    OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission, timestamp,
+};
 use tokio::sync::{Notify, broadcast};
 
 use crate::{
@@ -21,7 +25,7 @@ use crate::{
     persistence::PersistenceError,
     prompt::ResolvedDraft,
     session::Draft,
-    settings::{AccountSummary, CredentialError, CredentialStore, ExecutionPreferences},
+    settings::{CredentialError, CredentialStore, ExecutionPreferences},
 };
 
 /// Only applicable operation data is frozen. Generation images remain immutable asset references.
@@ -269,7 +273,8 @@ pub trait SdkClientProvider: Send + Sync {
     /// Returns credential or SDK transport configuration errors.
     fn client(&self) -> Result<SdkClient, JobError>;
 
-    fn cached_client(&self) -> Option<SdkClient>;
+    /// Pricing and its sampling time are read from one immutable host-owned snapshot.
+    fn account_sample(&self) -> Option<crate::settings::AccountSample> { None }
 
     /// Captures global execution options without opening a connection.
     /// # Errors
@@ -283,6 +288,16 @@ pub trait SdkClientProvider: Send + Sync {
     /// Returns credential or SDK transport configuration errors.
     fn client_for(&self, _execution: ExecutionPreferences) -> Result<SdkClient, JobError> {
         self.client()
+    }
+
+    /// Selects a client and its corresponding account snapshot atomically in the host.
+    /// # Errors
+    /// Returns credential or SDK transport configuration errors.
+    fn execution_context(
+        &self,
+        execution: ExecutionPreferences,
+    ) -> Result<(SdkClient, Option<crate::settings::AccountSample>), JobError> {
+        Ok((self.client_for(execution)?, None))
     }
 }
 
@@ -311,7 +326,7 @@ pub trait JobStore: Send + Sync {
 
     /// # Errors
     /// Returns query or decoding failure.
-    fn list_jobs(&self) -> Result<Vec<JobRecord>, PersistenceError>;
+    fn list_jobs(&self, query: &JobQuery) -> Result<JobPage, PersistenceError>;
 
     /// Interrupts retained unfinished jobs without issuing requests.
     /// # Errors
@@ -358,7 +373,6 @@ pub struct JobQueue {
     failed: AtomicBool,
     submission_gate: Mutex<()>,
     active: Mutex<Option<ActiveJob>>,
-    account_sampled_at: Mutex<Option<i64>>,
 }
 
 impl JobQueue {
@@ -390,45 +404,16 @@ impl JobQueue {
             failed: AtomicBool::new(false),
             submission_gate: Mutex::new(()),
             active: Mutex::new(None),
-            account_sampled_at: Mutex::new(None),
         }))
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<JobFeedback> { self.feedback.subscribe() }
 
-    pub fn account(&self) -> Option<AccountSummary> {
-        self.clients
-            .cached_client()
-            .and_then(|client| client.last_subscription())
-            .as_ref()
-            .map(|info| {
-                let mut summary = AccountSummary::from(info);
-                summary.sampled_at = *self
-                    .account_sampled_at
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                summary
-            })
-    }
-
-    /// Explicitly samples account information without submitting paid work.
-    /// # Errors
-    /// Returns credential, service or transport failures.
-    pub async fn refresh_account(&self) -> Result<AccountSummary, JobError> {
-        let mut summary = AccountSummary::from(&self.clients.client()?.get_subscription().await?);
-        summary.sampled_at = Some(timestamp()?);
-        *self
-            .account_sampled_at
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)? = summary.sampled_at;
-        Ok(summary)
-    }
-
     /// Local resolution, token counts and estimation require no credentials or network.
     /// # Errors
     /// Returns resource, SDK validation, image or tokenizer failures.
     pub fn quote(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
-        self.quote_submission(self.freeze(draft)?)
+        self.quote_draft(draft)
     }
 
     /// Persists fixed inputs before waking the sole worker.
@@ -490,7 +475,14 @@ impl JobQueue {
 
     /// # Errors
     /// Returns storage or decoding failures.
-    pub fn list(&self) -> Result<Vec<JobRecord>, JobError> { Ok(self.store.list_jobs()?) }
+    pub fn list(&self, query: &JobQuery) -> Result<JobPage, JobError> {
+        Ok(self.store.list_jobs(query)?)
+    }
+
+    /// Reads frozen inputs only when a task's details are requested.
+    /// # Errors
+    /// Returns an unknown task or backend failure.
+    pub fn get(&self, id: &str) -> Result<JobRecord, JobError> { Ok(self.store.get_job(id)?) }
 
     /// Cancels queued work immediately; active streams settle asynchronously through the SDK.
     /// # Errors

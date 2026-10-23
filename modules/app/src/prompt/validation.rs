@@ -5,10 +5,10 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CharacterComposition, Composition, PresetBinding, PresetOutputOverrides, PromptNode, Resource,
-    ResourceContent,
+    CharacterComposition, Composition, PresetBinding, PresetInstance, PresetOutputOverrides,
+    PromptNode, Resource, ResourceContent,
 };
-use crate::session::{CreationOperation, Draft, ReferenceInputs};
+use crate::session::ReferenceInputs;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "camelCase")]
@@ -19,14 +19,14 @@ pub struct ValidationError {
     pub message: String,
 }
 
-fn invalid(field: &str, message: &str) -> ValidationError {
+pub(crate) fn invalid(field: &str, message: &str) -> ValidationError {
     ValidationError {
         field: field.into(),
         message: message.into(),
     }
 }
 
-fn nonempty(value: &str, field: &str) -> Result<(), ValidationError> {
+pub(crate) fn nonempty(value: &str, field: &str) -> Result<(), ValidationError> {
     if value.trim().is_empty() {
         return Err(invalid(field, "must not be empty"));
     }
@@ -56,7 +56,7 @@ fn composition(value: &Composition, expanded: bool) -> Result<(), ValidationErro
     Ok(())
 }
 
-fn outputs(
+pub(crate) fn outputs(
     base: &Composition,
     characters: &[CharacterComposition],
     references: &ReferenceInputs,
@@ -130,92 +130,9 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
     Ok(())
 }
 
-fn tool_editors(draft: &Draft) -> Result<(), ValidationError> {
-    let mut tools = Vec::new();
-    for state in &draft.director.tools {
-        if tools.contains(&state.tool) {
-            return Err(invalid("director.tools", "duplicate tool identity"));
-        }
-        if state.tool != crate::session::DirectorToolKind::from_command(&state.command) {
-            return Err(invalid(
-                "director.tools.command",
-                "command belongs to a different tool",
-            ));
-        }
-        tools.push(state.tool);
-        if let Some(id) = &state.asset_id {
-            nonempty(id, "director.tools.assetId")?;
-        }
-        if let Some(id) = &state.selected_result_id {
-            nonempty(id, "director.tools.selectedResultId")?;
-        }
-    }
-    if !tools.is_empty() && !tools.contains(&draft.director.selected_tool) {
-        return Err(invalid("director.selectedTool", "selected tool is missing"));
-    }
-    let mut images = HashSet::new();
-    for session in &draft.png_text_editor.sessions {
-        nonempty(&session.asset_id, "pngTextEditor.sessions.assetId")?;
-        if !images.insert(&session.asset_id) {
-            return Err(invalid(
-                "pngTextEditor.sessions.assetId",
-                "duplicate image identity",
-            ));
-        }
-        if let Some(id) = &session.selected_output_asset_id {
-            nonempty(id, "pngTextEditor.sessions.selectedOutputAssetId")?;
-        }
-    }
-    Ok(())
-}
-
-/// Checks composition entry identities and instance override structure.
-///
-/// # Errors
-/// Returns the field and reason for the first structural violation.
-pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
-    draft.mask_editor.validate()?;
-    tool_editors(draft)?;
-    if let Some(encoder) = &draft.vibe_encoder {
-        nonempty(&encoder.asset_id, "vibeEncoder.assetId")?;
-        if let Some(id) = &encoder.mask_asset_id {
-            nonempty(id, "vibeEncoder.maskAssetId")?;
-        }
-    }
-    outputs(
-        &draft.composition,
-        &draft.characters,
-        &draft.inputs.references,
-        false,
-    )?;
-    match &draft.inputs.operation {
-        CreationOperation::TextToImage => {},
-        CreationOperation::ImageToImage { asset_id, .. }
-        | CreationOperation::Upscale { asset_id, .. }
-        | CreationOperation::Director { asset_id, .. } => {
-            nonempty(asset_id, "inputs.operation.assetId")?;
-        },
-        CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
-            asset_id,
-            mask_asset_id,
-            ..
-        }) => {
-            nonempty(asset_id, "inputs.operation.assetId")?;
-            if let Some(mask_asset_id) = mask_asset_id {
-                nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;
-            }
-        },
-        CreationOperation::Inpainting {
-            asset_id,
-            mask_asset_id,
-            ..
-        } => {
-            nonempty(asset_id, "inputs.operation.assetId")?;
-            nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;
-        },
-    }
+pub(crate) fn validate_presets(presets: &[PresetInstance]) -> Result<(), ValidationError> {
     let mut ids = HashSet::new();
-    for instance in &draft.presets {
+    for instance in presets {
         nonempty(&instance.id, "presets.id")?;
         if !ids.insert(&instance.id) {
             return Err(invalid("presets.id", "duplicate preset instance identity"));

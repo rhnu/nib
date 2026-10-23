@@ -3,6 +3,11 @@
 use novelai_bridge::{DirectorCommand, ValidationPolicy};
 use serde::{Deserialize, Serialize};
 
+use crate::prompt::{
+    ValidationError,
+    validation::{invalid, nonempty},
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
@@ -97,6 +102,34 @@ impl Default for DirectorWorkspace {
             })
             .collect(),
         }
+    }
+}
+
+impl DirectorWorkspace {
+    pub(crate) fn validate(&self) -> Result<(), ValidationError> {
+        let mut tools = Vec::new();
+        for state in &self.tools {
+            if tools.contains(&state.tool) {
+                return Err(invalid("director.tools", "duplicate tool identity"));
+            }
+            if state.tool != DirectorToolKind::from_command(&state.command) {
+                return Err(invalid(
+                    "director.tools.command",
+                    "command belongs to a different tool",
+                ));
+            }
+            tools.push(state.tool);
+            if let Some(id) = &state.asset_id {
+                nonempty(id, "director.tools.assetId")?;
+            }
+            if let Some(id) = &state.selected_result_id {
+                nonempty(id, "director.tools.selectedResultId")?;
+            }
+        }
+        if !tools.is_empty() && !tools.contains(&self.selected_tool) {
+            return Err(invalid("director.selectedTool", "selected tool is missing"));
+        }
+        Ok(())
     }
 }
 

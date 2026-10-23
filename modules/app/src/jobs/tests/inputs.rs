@@ -6,6 +6,54 @@ use super::*;
 use crate::session::{CreationOperation, VibeInput, VibeReferenceInput};
 
 #[test]
+fn one_local_quote_reads_each_source_once_for_generation_and_director() {
+    struct CountedAssets(Arc<std::sync::atomic::AtomicUsize>);
+    impl crate::media::AssetReader for CountedAssets {
+        fn image(&self, id: &str) -> Result<novelai_bridge::EncodedImage, PersistenceError> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            ImageAssets.image(id)
+        }
+
+        fn vibe(&self, id: &str) -> Result<novelai_bridge::VibeEncoding, PersistenceError> {
+            ImageAssets.vibe(id)
+        }
+    }
+    let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let queue_mut = Arc::get_mut(&mut queue).unwrap();
+    queue_mut.assets = Arc::new(CountedAssets(Arc::clone(&reads)));
+    queue_mut.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Text {
+        id: "prompt".into(),
+        enabled: true,
+        text: "a cat".into(),
+    });
+    draft.inputs.operation = CreationOperation::ImageToImage {
+        asset_id: "source".into(),
+        strength: 0.7,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: None,
+        add_original_image: false,
+        max_enhance: false,
+    };
+    let quote = queue.quote(&draft).unwrap();
+    assert_eq!(reads.load(Ordering::Relaxed), 1);
+    assert!(quote.geometry.is_some());
+    assert!(quote.estimated_anlas.is_some());
+    assert_eq!(quote.tokens.len(), 2);
+    draft.inputs.operation = CreationOperation::Director {
+        asset_id: "source".into(),
+        command: novelai_bridge::DirectorCommand::Lineart,
+    };
+    let quote = queue.quote(&draft).unwrap();
+    assert_eq!(reads.load(Ordering::Relaxed), 2);
+    assert!(quote.estimated_anlas.is_some());
+    assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
+#[test]
 fn standalone_vibe_quote_uses_encoder_model_independently_of_generation_model() {
     let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
     Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
@@ -120,16 +168,16 @@ fn curated_inpainting_freezes_quotes_and_restores_the_effective_model() {
     assert!(reopened.diagnostics().iter().any(|diagnostic| {
         diagnostic.field == "core.model" && diagnostic.change.contains(effective_model.as_str())
     }));
-    let quote = queue.quote_submission(reopened.clone()).unwrap();
-    assert_eq!(quote.resolved.unwrap().settings.model, effective_model);
-    assert_eq!(quote.tokens.len(), 2);
-    assert!(quote.tokens.iter().all(|usage| usage.limit == 512));
     let restored = crate::session::restore_generation(
         request(&reopened),
         reopened.resolved().unwrap().inputs.clone(),
     );
     assert_eq!(restored.settings.model, Some(effective_model));
     assert_eq!(restored.settings.transparent_background, Some(false));
+    let quote = queue.quote(&restored).unwrap();
+    assert_eq!(quote.resolved.unwrap().settings.model, effective_model);
+    assert_eq!(quote.tokens.len(), 2);
+    assert!(quote.tokens.iter().all(|usage| usage.limit == 512));
     let restored_submission = queue.freeze(&restored).unwrap();
     assert_eq!(request(&restored_submission).core.model, effective_model);
     assert!(

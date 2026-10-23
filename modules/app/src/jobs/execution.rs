@@ -88,24 +88,17 @@ impl JobQueue {
         let queue = Arc::clone(self);
         let id = record.id.clone();
         let execution = record.execution;
-        let client = tokio::task::spawn_blocking(move || {
+        let context = tokio::task::spawn_blocking(move || {
             if !queue.store.job_running(&id)? {
                 return Ok(None);
             }
-            queue.clients.client_for(execution).map(Some)
+            queue.clients.execution_context(execution).map(Some)
         })
         .await??;
-        let Some(client) = client else {
+        let Some((client, sample)) = context else {
             return Ok(());
         };
-        let account = client.last_subscription().as_ref().map(|info| {
-            let mut summary = crate::settings::AccountSummary::from(info);
-            summary.sampled_at = *self
-                .account_sampled_at
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            summary
-        });
+        let account = sample.as_ref().map(crate::settings::AccountSample::summary);
         let observer =
             super::observation::JobObserver::new(record.id.clone(), account, self.feedback.clone());
         let client =

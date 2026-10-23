@@ -13,6 +13,7 @@ pub use settings::*;
 pub use tags::TagQuery;
 pub use tokens::{TokenInspection, inspect_tokens};
 mod sqlite;
+pub use sqlite::ResourceSnapshot;
 pub(crate) mod validation;
 
 use novelai_bridge::CharacterPosition;

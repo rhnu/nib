@@ -3,6 +3,8 @@
 use novelai_bridge::{CharacterReferenceType, DirectorCommand, Model};
 use serde::{Deserialize, Serialize};
 
+use crate::prompt::{ValidationError, validation::nonempty};
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
@@ -369,6 +371,39 @@ impl VibeInput {
         match self {
             Self::Encoded { asset_id } | Self::Image { asset_id, .. } => asset_id,
         }
+    }
+}
+
+impl VibeEncodingInput {
+    pub(crate) fn validate(&self, field: &str) -> Result<(), ValidationError> {
+        nonempty(&self.asset_id, &format!("{field}.assetId"))?;
+        if let Some(id) = &self.mask_asset_id {
+            nonempty(id, &format!("{field}.maskAssetId"))?;
+        }
+        Ok(())
+    }
+}
+
+impl CreationOperation {
+    pub(crate) fn validate(&self) -> Result<(), ValidationError> {
+        match self {
+            Self::TextToImage => {},
+            Self::ImageToImage { asset_id, .. }
+            | Self::Upscale { asset_id, .. }
+            | Self::Director { asset_id, .. } => {
+                nonempty(asset_id, "inputs.operation.assetId")?;
+            },
+            Self::EncodeVibe(input) => input.validate("inputs.operation")?,
+            Self::Inpainting {
+                asset_id,
+                mask_asset_id,
+                ..
+            } => {
+                nonempty(asset_id, "inputs.operation.assetId")?;
+                nonempty(mask_asset_id, "inputs.operation.maskAssetId")?;
+            },
+        }
+        Ok(())
     }
 }
 

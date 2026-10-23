@@ -64,6 +64,10 @@ export type PresetInstance = { id: string, enabled: boolean, binding: PresetBind
 
 export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, director: DirectorWorkspace, pngTextEditor: PngTextEditorState, activePage: ActivePage, };
 
+export type DraftSaveReceipt = { revision: number, };
+
+export type DraftAnalysis = { resolved: ResolvedDraft, capabilities: ModelCapabilities | null, };
+
 export type ActivePage = "create" | "director" | "library" | "settings";
 
 export type DirectorToolKind = "lineart" | "sketch" | "bgRemoval" | "emotion" | "declutter" | "declutterKeepBubbles" | "colorize";
@@ -100,7 +104,7 @@ export type SettingsProvenance = { model: SettingSource, size: SettingSource, st
 
 export type ResolvedDraft = { positive: string, negative: string, fragments: Array<ResolvedFragment>, settings: ResolvedSettings, provenance: SettingsProvenance, issues: Array<ResolutionIssue>, characters: Array<ResolvedCharacter>, inputs: CreationInputs, inputSources: Array<InputProvenance>, };
 
-export type WorkspaceSnapshot = { info: AppInfo, resources: Array<ResourceSummary>, draft: Draft, models: Array<string>, };
+export type WorkspaceSnapshot = { info: AppInfo, resources: Array<Resource>, draft: Draft, models: Array<string>, };
 
 export type ErrorCode = "unavailable" | "notFound" | "conflict" | "invalid" | "unresolved";
 

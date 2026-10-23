@@ -2,9 +2,14 @@
 
 mod assets;
 mod metadata;
+mod query;
 mod sqlite;
 mod vibe;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
 pub use metadata::{
@@ -15,6 +20,8 @@ use novelai_bridge::{
     GenerateImageResult, GeneratedImage, GeneratedImageSource, RunDirectorToolResult,
     UpscaleImageResult, VibeEncoding,
 };
+use query::ListedOutput;
+pub use query::{ResultPage, ResultQuery, ResultSummary};
 use serde::{Deserialize, Serialize};
 pub use vibe::{
     VibeAssetInspection, VibeCacheSummary, VibeDocumentEntry, VibeDocumentInspection,
@@ -155,6 +162,7 @@ fn image_samples(images: Vec<GeneratedImage>) -> Result<Vec<GenerationSample>, P
 pub struct MediaLibrary {
     database: Arc<SqliteDatabase>,
     directory: PathBuf,
+    thumbnails: Mutex<()>,
 }
 
 /// Metadata import reports its partial nature alongside the usable editing fields.
@@ -180,6 +188,7 @@ impl MediaLibrary {
         Ok(Self {
             database,
             directory,
+            thumbnails: Mutex::new(()),
         })
     }
 
@@ -187,15 +196,25 @@ impl MediaLibrary {
     ///
     /// # Errors
     /// Returns record decoding or file inspection failures.
-    pub fn list(&self) -> Result<Vec<GenerationResult>, PersistenceError> {
-        self.database
-            .read_results(None)?
+    pub fn list(&self, query: &ResultQuery) -> Result<ResultPage, PersistenceError> {
+        let (outputs, next_cursor) = self.database.list_results(query)?;
+        let items = outputs
             .into_iter()
             .map(|mut output| {
                 output.result.available = self.asset_available(&output.asset)?;
                 Ok(output.result)
             })
-            .collect()
+            .collect::<Result<Vec<_>, PersistenceError>>()?;
+        Ok(ResultPage { items, next_cursor })
+    }
+
+    /// Reads full frozen inputs only when a result's details are requested.
+    /// # Errors
+    /// Returns an unknown result or backend failure.
+    pub fn get_result(&self, id: &str) -> Result<GenerationResult, PersistenceError> {
+        let mut output = self.get(id)?;
+        output.result.available = self.asset_available(&output.asset)?;
+        Ok(output.result)
     }
 
     /// Reads a final image or Vibe result by identity.
@@ -203,7 +222,7 @@ impl MediaLibrary {
     /// # Errors
     /// Returns unknown records, missing/truncated files or backend failures.
     pub fn read(&self, id: &str) -> Result<MediaContent, PersistenceError> {
-        self.content(&self.get(id)?.asset)
+        self.content(&self.database.read_result_asset(id)?)
     }
 
     /// Restores effective editing content without consulting old resource definitions.
@@ -337,14 +356,7 @@ impl MediaLibrary {
     }
 
     fn get(&self, id: &str) -> Result<RetainedOutput, PersistenceError> {
-        self.database
-            .read_results(Some(id))?
-            .into_iter()
-            .next()
-            .ok_or_else(|| PersistenceError::NotFound {
-                kind: "result",
-                id: id.to_owned(),
-            })
+        self.database.read_result(id)
     }
 
     fn stage_image(

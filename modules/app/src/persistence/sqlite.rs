@@ -8,15 +8,11 @@ use rusqlite::Connection;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::PersistenceError;
+use crate::prompt::ResourceSnapshot;
 
 /// One local database, shared by independent domain capabilities.
 pub struct SqliteDatabase {
     connection: Mutex<Connection>,
-}
-
-/// A read transaction used to resolve all dependencies from one database snapshot.
-pub struct ResourceSnapshot<'a> {
-    pub(crate) connection: &'a Connection,
 }
 
 impl SqliteDatabase {
@@ -84,9 +80,7 @@ impl SqliteDatabase {
         let transaction = connection
             .transaction()
             .map_err(|error| PersistenceError::failure("begin a resource snapshot", error))?;
-        let value = read(&ResourceSnapshot {
-            connection: &transaction,
-        })?;
+        let value = read(&ResourceSnapshot::new(&transaction))?;
         transaction
             .commit()
             .map_err(|error| PersistenceError::failure("finish a resource snapshot", error))?;

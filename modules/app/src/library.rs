@@ -1,7 +1,8 @@
 //! Resource queries, independent from resource write capabilities.
 
+mod definitions;
 mod sqlite;
-
+pub use definitions::{draft_resource_ids, resource_definitions};
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistenceError;

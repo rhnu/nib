@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use nib_app::{
     api::{ApiError, ErrorCode},
-    jobs::{GenerationQuote, JobError, JobRecord},
+    jobs::{GenerationQuote, JobError, JobPage, JobQuery, JobRecord},
     session::Draft,
     settings::{AccountStatus, CredentialError, CredentialStore as _},
 };
@@ -187,9 +187,21 @@ pub(crate) async fn submit_generation(
 #[tauri::command]
 pub(crate) async fn list_jobs(
     state: tauri::State<'_, DesktopState>,
-) -> Result<Vec<JobRecord>, ApiError> {
-    with_generation(state, |runtime| {
-        runtime.queue.list().map_err(generation_error)
+    query: JobQuery,
+) -> Result<JobPage, ApiError> {
+    with_generation(state, move |runtime| {
+        runtime.queue.list(&query).map_err(generation_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn get_job(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<JobRecord, ApiError> {
+    with_generation(state, move |runtime| {
+        runtime.queue.get(&id).map_err(generation_error)
     })
     .await
 }
@@ -220,7 +232,14 @@ pub(crate) async fn retry_job(
 pub(crate) async fn get_account_summary(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<Option<nib_app::settings::AccountSummary>, ApiError> {
-    with_generation(state, |runtime| Ok(runtime.queue.account())).await
+    let desktop = state.inner().clone();
+    blocking(move || {
+        Ok(desktop
+            .cached_sdk()
+            .map_err(generation_error)?
+            .and_then(|sdk| sdk.account()))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -228,12 +247,19 @@ pub(crate) async fn refresh_account_summary(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<nib_app::settings::AccountSummary, ApiError> {
     let desktop = state.inner().clone();
-    let runtime = blocking(move || desktop.generation().map_err(generation_error)).await?;
-    runtime
-        .queue
-        .refresh_account()
+    let sdk = blocking(move || desktop.sdk().map_err(generation_error)).await?;
+    let prepare = Arc::clone(&sdk);
+    let (client, id) =
+        blocking(move || prepare.begin_account_refresh().map_err(generation_error)).await?;
+    let info = client
+        .get_subscription()
         .await
-        .map_err(generation_error)
+        .map_err(|error| generation_error(error.into()))?;
+    blocking(move || {
+        sdk.finish_account_refresh(id, &info)
+            .map_err(generation_error)
+    })
+    .await
 }
 
 #[tauri::command]

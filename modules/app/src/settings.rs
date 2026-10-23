@@ -166,6 +166,23 @@ pub struct AccountSummary {
     pub v5_usage: Option<AllowanceSummary>,
 }
 
+/// One explicit sample keeps SDK account content and its observation time inseparable.
+#[derive(Clone)]
+pub struct AccountSample {
+    pub subscription: novelai_bridge::SubscriptionInfo,
+    pub sampled_at: i64,
+}
+
+impl AccountSample {
+    #[must_use]
+    pub fn summary(&self) -> AccountSummary {
+        AccountSummary {
+            sampled_at: Some(self.sampled_at),
+            ..AccountSummary::from(&self.subscription)
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]

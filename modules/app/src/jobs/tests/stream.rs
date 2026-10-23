@@ -49,7 +49,12 @@ struct MemoryClient(SdkClient);
 impl SdkClientProvider for MemoryClient {
     fn client(&self) -> Result<SdkClient, JobError> { Ok(self.0.clone()) }
 
-    fn cached_client(&self) -> Option<SdkClient> { Some(self.0.clone()) }
+    fn execution_context(
+        &self,
+        _execution: ExecutionPreferences,
+    ) -> Result<(SdkClient, Option<crate::settings::AccountSample>), JobError> {
+        Ok((self.0.clone(), Some(sampled_account(77))))
+    }
 }
 
 struct MemoryOutputs {
@@ -208,10 +213,12 @@ async fn final_event_is_not_completed_until_sdk_validates_eof() {
     .unwrap();
     assert_eq!(terminal(&jobs, &job.id).await, JobStatus::Completed);
     assert_eq!(*outputs.images.lock().unwrap(), [1]);
+    let observation = jobs.get_job(&job.id).unwrap().observation.unwrap();
     assert_eq!(
-        jobs.get_job(&job.id).unwrap().observation.unwrap().outcome,
+        observation.outcome,
         Some(RequestSettlement::Succeeded { image_count: 1 })
     );
+    assert_eq!(observation.account, Some(sampled_account(77).summary()));
     worker.abort();
     drop(worker.await);
 }

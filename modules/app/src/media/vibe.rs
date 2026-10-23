@@ -1,5 +1,7 @@
 //! Official Vibe documents keep their complete local representation alongside usable assets.
 
+mod reencoding;
+
 use novelai_bridge::{EncodedImage, PngTextEntry, VibeBundle, VibeDocument, VibeFile};
 use serde::Serialize;
 
@@ -75,9 +77,10 @@ impl MediaLibrary {
         &self,
         image_id: &str,
     ) -> Result<MediaAsset, PersistenceError> {
-        let image = self.image(image_id)?;
+        let asset = self.asset(image_id)?;
+        let image = self.image_content(&asset)?;
         let file = self
-            .source_vibe_file(&self.asset(image_id)?.source)?
+            .source_vibe_file(&asset.source)?
             .unwrap_or_else(|| VibeFile::image(image.to_base64()));
         self.retain_vibe_document(
             &VibeDocument::Single(Box::new(file)),
@@ -121,8 +124,17 @@ impl MediaLibrary {
     /// # Errors
     /// Returns unavailable encodings or source records.
     pub fn inspect_vibe_asset(&self, id: &str) -> Result<VibeAssetInspection, PersistenceError> {
-        self.vibe(id)?;
         let asset = self.asset(id)?;
+        self.vibe_content(&asset)?;
+        self.inspect_vibe_source(&asset).map(|(view, _)| view)
+    }
+
+    fn inspect_vibe_source(
+        &self,
+        asset: &MediaAsset,
+    ) -> Result<(VibeAssetInspection, Option<VibeFile>), PersistenceError> {
+        let id = &asset.id;
+        let mut source_file = None;
         let mut view = VibeAssetInspection {
             asset_id: id.to_owned(),
             model_key: None,
@@ -185,6 +197,7 @@ impl MediaLibrary {
                 let document = self.read_vibe_document(asset_id)?;
                 let file = document_file(&document, asset_id, *entry_index)?;
                 inspect_document_source(&mut view, &file, asset_id, *entry_index);
+                source_file = Some(file);
             },
             AssetSource::EmbeddedVibe {
                 asset_id,
@@ -200,57 +213,95 @@ impl MediaLibrary {
                 view.can_export_document = model.is_some();
                 if let Some(file) = self.source_vibe_file(&asset.source)? {
                     inspect_document_source(&mut view, &file, asset_id, *entry_index);
+                    source_file = Some(file);
                 }
             },
             _ => {},
         }
-        Ok(view)
+        Ok((view, source_file))
     }
 
     fn encoded_vibe_file(&self, id: &str) -> Result<VibeFile, PersistenceError> {
         let asset = self.asset(id)?;
-        self.vibe(id)?;
+        let encoding = self.vibe_content(&asset)?;
         if let Some(file) = self.source_vibe_file(&asset.source)? {
             return Ok(file);
         }
-        let view = self.inspect_vibe_asset(id)?;
-        let model = view
-            .model_key
-            .ok_or_else(|| PersistenceError::InvalidData {
+        let input = match &asset.source {
+            AssetSource::Job { job_id } => match self.database.get_job(job_id)?.submission {
+                FrozenSubmission::EncodeVibe {
+                    asset_id,
+                    model,
+                    information_extracted,
+                    mask_asset_id,
+                    ..
+                } => model.vibe_model_key().map(|model| {
+                    (
+                        Some(asset_id),
+                        model.to_owned(),
+                        Some(f64::from(information_extracted)),
+                        mask_asset_id,
+                    )
+                }),
+                _ => None,
+            },
+            AssetSource::EmbeddedVibe {
+                model: Some(model),
+                information_extracted,
+                ..
+            } => Some((
+                None,
+                model.clone(),
+                information_extracted.map(f64::from),
+                None,
+            )),
+            _ => None,
+        };
+        let (source_id, model, information_extracted, mask_id) =
+            input.ok_or_else(|| PersistenceError::InvalidData {
                 message: "编码没有已知模型身份，无法创建官方 Vibe 文档；请导出原始编码。"
                     .to_owned(),
             })?;
-        let mut file = VibeFile::encoded(&model, self.vibe(id)?.to_base64());
-        let key = view.parameter_key.as_deref().unwrap_or("unknown");
-        let mut record = file.encodings[&model]["unknown"].clone();
-        let mask_id = if let AssetSource::Job { job_id } = &asset.source {
-            if let FrozenSubmission::EncodeVibe { mask_asset_id, .. } =
-                self.database.get_job(job_id)?.submission
-            {
-                mask_asset_id
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let mut file = VibeFile::encoded(&model, encoding.to_base64());
+        let record = &mut file
+            .encodings
+            .get_mut(&model)
+            .expect("the SDK constructor retains its model key")["unknown"];
         record.params = Some(novelai_bridge::VibeEncodingParams {
-            information_extracted: view.information_extracted,
+            information_extracted,
             mask: mask_id
                 .as_deref()
                 .map(|id| self.image(id).map(|image| image.to_base64()))
                 .transpose()?,
         });
-        file.encodings
-            .insert(model, [(key.to_owned(), record)].into_iter().collect());
-        file.image = if view.has_source_image {
-            view.source_image_asset_id
-                .as_deref()
-                .map(|id| self.image(id).map(|image| image.to_base64()))
-                .transpose()?
-        } else {
-            None
-        };
+        if let AssetSource::EmbeddedVibe {
+            parameter_key: Some(key),
+            ..
+        } = &asset.source
+            && key != "unknown"
+        {
+            let records = file
+                .encodings
+                .get_mut(&model)
+                .expect("the SDK constructor retains its model key");
+            let record = records
+                .shift_remove("unknown")
+                .expect("the SDK constructor creates the unknown parameter key");
+            records.insert(key.clone(), record);
+        }
+        file.image = source_id
+            .as_deref()
+            .map(|id| {
+                let source = self.asset(id)?;
+                if source.available {
+                    self.image_content(&source)
+                        .map(|image| Some(image.to_base64()))
+                } else {
+                    Ok(None)
+                }
+            })
+            .transpose()?
+            .flatten();
         Ok(file)
     }
 
@@ -273,14 +324,17 @@ impl MediaLibrary {
                 if asset.mime_type != "image/png" || !asset.available {
                     return Ok(None);
                 }
-                let metadata = self.inspect_sdk_metadata(asset_id)?;
+                let content = self.content(&asset)?;
+                let metadata = novelai_bridge::inspect_generated_image_metadata(
+                    &content.bytes,
+                    Some(&content.mime_type),
+                );
                 let Some(document_index) = metadata.parsed().and_then(|metadata| {
                     embedded_document_index(&metadata.vibe_entries, *entry_index)
                 }) else {
                     return Ok(None);
                 };
-                let image = self.image(asset_id)?;
-                VibeDocument::from_png(image.as_bytes())
+                VibeDocument::from_png(&content.bytes)
                     .map_err(|error| {
                         PersistenceError::failure("read the source Vibe document from PNG", error)
                     })?
@@ -289,46 +343,6 @@ impl MediaLibrary {
             },
             _ => Ok(None),
         }
-    }
-
-    /// Materializes retained source content only after an explicit request to edit encoding.
-    ///
-    /// # Errors
-    /// Returns unavailable source media, unrecognized model identity or invalid embedded images.
-    pub fn prepare_vibe_reencoding(&self, id: &str) -> Result<VibeEncodingInput, PersistenceError> {
-        let view = self.inspect_vibe_asset(id)?;
-        if let Some(input) = view.encoding_input {
-            return Ok(input);
-        }
-        let source = self.asset(id)?.source;
-        let file =
-            self.source_vibe_file(&source)?
-                .ok_or_else(|| PersistenceError::InvalidData {
-                    message: "编码未保留可用原图，无法重新编码。".to_owned(),
-                })?;
-        let material = reencoding_material(
-            &file,
-            view.model_key.as_deref(),
-            view.parameter_key.as_deref(),
-        )?;
-        let image = self.import_image(material.image.as_bytes().to_vec(), source)?;
-        let mask = material
-            .mask
-            .map(|mask| {
-                self.import_image(
-                    mask.as_bytes().to_vec(),
-                    AssetSource::Asset {
-                        asset_id: id.to_owned(),
-                    },
-                )
-            })
-            .transpose()?;
-        let mut input = crate::session::create_vibe_encoding_input(self, image.id, material.model)?;
-        if let Some(extraction) = material.information_extracted {
-            input.information_extracted = extraction;
-        }
-        input.mask_asset_id = mask.map(|asset| asset.id);
-        Ok(input)
     }
 
     /// Combines complete files in the selected document order, retaining every cache.
@@ -395,8 +409,13 @@ impl MediaLibrary {
     /// # Errors
     /// Returns unknown/unavailable document assets or SDK parsing failures.
     pub fn read_vibe_document(&self, id: &str) -> Result<VibeDocument, PersistenceError> {
-        self.require_asset(id, AssetKind::VibeDocument)?;
-        VibeDocument::from_json(&self.read_asset(id)?.bytes)
+        let asset = self.asset(id)?;
+        if asset.kind != AssetKind::VibeDocument || !asset.available {
+            return Err(PersistenceError::InvalidData {
+                message: format!("所需媒体 {id} 不可用或类型不匹配。"),
+            });
+        }
+        VibeDocument::from_json(&self.content(&asset)?.bytes)
             .map_err(|error| PersistenceError::failure("read a retained Vibe document", error))
     }
 
@@ -431,8 +450,8 @@ impl MediaLibrary {
             .ok_or_else(|| missing_document_content(document_id, entry_index, "image"))?;
         let image = EncodedImage::from_base64(image)
             .map_err(|error| PersistenceError::failure("decode a Vibe document image", error))?;
-        self.import_image(
-            image.as_bytes().to_vec(),
+        self.retain_image(
+            &image,
             AssetSource::VibeDocumentEntry {
                 asset_id: document_id.to_owned(),
                 entry_index,
@@ -464,8 +483,8 @@ impl MediaLibrary {
                 PersistenceError::failure("select a Vibe document cache record", error)
             })?
             .ok_or_else(|| missing_document_content(document_id, entry_index, "encoding cache"))?;
-        self.import_vibe(
-            encoding.as_bytes().to_vec(),
+        self.retain_vibe(
+            &encoding,
             AssetSource::VibeDocumentEntry {
                 asset_id: document_id.to_owned(),
                 entry_index,
@@ -604,62 +623,6 @@ fn inspect_document_source(
     view.can_reencode =
         view.has_source_image && encoding_model(view.model_key.as_deref()).is_some();
     view.can_export_document = true;
-}
-
-struct ReencodingMaterial {
-    model: novelai_bridge::Model,
-    image: EncodedImage,
-    mask: Option<EncodedImage>,
-    information_extracted: Option<f32>,
-}
-
-fn reencoding_material(
-    file: &VibeFile,
-    model_key: Option<&str>,
-    parameter_key: Option<&str>,
-) -> Result<ReencodingMaterial, PersistenceError> {
-    let model = encoding_model(model_key).ok_or_else(|| PersistenceError::InvalidData {
-        message: "编码的模型身份没有对应的 SDK 编码能力，请另行选择原图和模型。".to_owned(),
-    })?;
-    let image = file
-        .image
-        .as_deref()
-        .ok_or_else(|| PersistenceError::InvalidData {
-            message: "Vibe 文档没有原图，无法重新编码。".to_owned(),
-        })?;
-    let image = EncodedImage::from_base64(image).map_err(|error| {
-        PersistenceError::failure("decode the retained Vibe source image", error)
-    })?;
-    let record = model_key
-        .and_then(|key| file.encodings.get(key))
-        .and_then(|records| parameter_key.and_then(|key| records.get(key)))
-        .ok_or_else(|| PersistenceError::InvalidData {
-            message: "Vibe 文档缺少所选编码缓存。".to_owned(),
-        })?;
-    let params = record.params.as_ref();
-    let mask = params
-        .and_then(|params| params.mask.as_deref())
-        .map(EncodedImage::from_base64)
-        .transpose()
-        .map_err(|error| PersistenceError::failure("decode the retained Vibe mask", error))?;
-    let information_extracted: Option<f32> = params
-        .and_then(|params| params.information_extracted)
-        .map(|value| serde_json::from_value(serde_json::json!(value)))
-        .transpose()
-        .map_err(|error| {
-            PersistenceError::failure("read Vibe extraction for the SDK encoder", error)
-        })?;
-    if information_extracted.is_some_and(|value| !value.is_finite()) {
-        return Err(PersistenceError::InvalidData {
-            message: "文档信息提取量无法表示为编码输入。".to_owned(),
-        });
-    }
-    Ok(ReencodingMaterial {
-        model,
-        image,
-        mask,
-        information_extracted,
-    })
 }
 
 fn document_inspection(id: &str, document: &VibeDocument) -> VibeDocumentInspection {
