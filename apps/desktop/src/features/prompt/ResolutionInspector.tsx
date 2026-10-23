@@ -12,6 +12,7 @@ export function ResolutionInspector({
   error,
   draft,
   resources,
+  tokenModel,
   diagnostics = [],
   onFocusField,
 }: {
@@ -20,6 +21,7 @@ export function ResolutionInspector({
   error: string;
   draft: Draft;
   resources: Map<string, Resource>;
+  tokenModel?: string;
   diagnostics?: ParameterDiagnostic[];
   onFocusField?: (field: string) => void;
 }) {
@@ -41,7 +43,7 @@ export function ResolutionInspector({
             <h3>负面提示</h3>
             <p className="resolved-text">{resolved.negative || "暂无负面提示"}</p>
           </section>
-          <ResolvedOutputs resolved={resolved} />
+          <ResolvedOutputs resolved={resolved} tokenModel={tokenModel} />
           <section>
             <h3>内容来源</h3>
             <ContentSources fragments={resolved.fragments} />

@@ -6,6 +6,52 @@ use super::*;
 use crate::session::{CreationOperation, VibeInput, VibeReferenceInput};
 
 #[test]
+fn standalone_vibe_quote_uses_encoder_model_independently_of_generation_model() {
+    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let mut draft = Draft::default();
+    draft.settings.model = Some(Model::NaiDiffusion5Full);
+    for model in Model::ALL {
+        draft.inputs.operation = CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
+            asset_id: "source".to_owned(),
+            model,
+            information_extracted: 0.7,
+            mask_asset_id: None,
+            crop_to_mask: None,
+            focus_seed: None,
+            info_extract_seed: None,
+        });
+        if !model.descriptor().can_encode_vibe() {
+            assert!(matches!(
+                queue.quote(&draft),
+                Err(JobError::Bridge(
+                    novelai_bridge::BridgeError::InvalidRequest(
+                        novelai_bridge::InvalidRequest::UnsupportedModelFeature {
+                            feature: novelai_bridge::RequestField::EncodeVibe,
+                            ..
+                        }
+                    )
+                ))
+            ));
+            continue;
+        }
+        let sdk_estimate =
+            novelai_bridge::estimate_anlas_cost(novelai_bridge::AnlasEstimateInput {
+                model,
+                pending_vibe_encodes: 1,
+                ..Default::default()
+            });
+        let quote = queue.quote(&draft).unwrap();
+        assert_eq!(quote.operation, OperationKind::EncodeVibe);
+        assert_eq!(quote.estimated_anlas, Some(sdk_estimate.vibe_encoding));
+        assert!(quote.estimated_anlas.is_some_and(|cost| cost > 0));
+        assert!(quote.resolved.is_none());
+        assert!(quote.tokens.is_empty());
+    }
+    assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
+#[test]
 fn upscale_freezes_only_its_source_and_options_and_reports_unknown_cost() {
     struct LargeImage;
     impl crate::media::AssetReader for LargeImage {
@@ -47,6 +93,65 @@ fn upscale_freezes_only_its_source_and_options_and_reports_unknown_cost() {
     assert!(!quote.too_expensive);
     assert!(quote.tokens.is_empty());
     assert!(quote.resolved.is_none());
+    assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
+#[test]
+fn curated_inpainting_freezes_quotes_and_restores_the_effective_model() {
+    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let queue_mut = Arc::get_mut(&mut queue).unwrap();
+    queue_mut.assets = Arc::new(ImageAssets);
+    queue_mut.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.settings.model = Model::NaiDiffusion5Curated;
+    resolved.settings.transparent_background = true;
+    resolved.inputs.operation = CreationOperation::Inpainting {
+        asset_id: "source".into(),
+        mask_asset_id: "source".into(),
+        img2img: None,
+        add_original_image: true,
+    };
+    let frozen = prepare_submission(resolved.clone(), &ImageAssets).unwrap();
+    let reopened = sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+    let effective_model = Model::NaiDiffusion45Curated;
+    assert_eq!(request(&reopened).core.model, effective_model);
+    assert_eq!(reopened.resolved().unwrap().settings.model, effective_model);
+    assert!(!request(&reopened).core.transparent_background);
+    assert!(reopened.diagnostics().iter().any(|diagnostic| {
+        diagnostic.field == "core.model" && diagnostic.change.contains(effective_model.as_str())
+    }));
+    let quote = queue.quote_submission(reopened.clone()).unwrap();
+    assert_eq!(quote.resolved.unwrap().settings.model, effective_model);
+    assert_eq!(quote.tokens.len(), 2);
+    assert!(quote.tokens.iter().all(|usage| usage.limit == 512));
+    let restored = crate::session::restore_generation(
+        request(&reopened),
+        reopened.resolved().unwrap().inputs.clone(),
+    );
+    assert_eq!(restored.settings.model, Some(effective_model));
+    assert_eq!(restored.settings.transparent_background, Some(false));
+    let restored_submission = queue.freeze(&restored).unwrap();
+    assert_eq!(request(&restored_submission).core.model, effective_model);
+    assert!(
+        !restored_submission
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.field == "core.model")
+    );
+    resolved.inputs.policy = novelai_bridge::ValidationPolicy::Reject;
+    assert!(matches!(
+        prepare_submission(resolved, &ImageAssets),
+        Err(JobError::Bridge(
+            novelai_bridge::BridgeError::InvalidRequest(
+                novelai_bridge::InvalidRequest::UnsupportedModelFeature {
+                    feature: novelai_bridge::RequestField::Generation(
+                        novelai_bridge::GenerationField::Model
+                    ),
+                    ..
+                }
+            )
+        ))
+    ));
     assert!(!unexpected_call.load(Ordering::Acquire));
 }
 

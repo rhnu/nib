@@ -68,7 +68,7 @@ export function PromptWorkspace({
         value={draft.composition}
         resources={resources}
         models={models}
-        model={resolved?.settings.model ?? draft.settings.model ?? undefined}
+        model={capabilities?.model ?? resolved?.settings.model ?? draft.settings.model ?? undefined}
         onChange={(composition) => edit({ ...draft, composition })}
         addChunk={openLibrary}
         toolbarActions={
@@ -133,6 +133,7 @@ export function PromptWorkspace({
           error={resolveError}
           draft={draft}
           resources={resources}
+          tokenModel={capabilities?.model}
           diagnostics={diagnostics}
           onFocusField={(field) => {
             setInspector(false);

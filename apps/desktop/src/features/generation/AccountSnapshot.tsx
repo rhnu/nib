@@ -34,7 +34,7 @@ export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
           <dt>订阅</dt>
           <dd>{summary.subscriptionActive ? `有效 · 等级 ${summary.tier}` : "未激活"}</dd>
         </div>
-        {summary.expiresAtMs !== null && (
+        {summary.expiresAtMs !== null && (summary.subscriptionActive || summary.tier > 0) && (
           <div>
             <dt>订阅到期</dt>
             <dd>{new Date(summary.expiresAtMs).toLocaleString()}</dd>

@@ -23,6 +23,9 @@
   margin: 0;
   font-size: 12px;
 }
+.generation-account-snapshot-details .generation-metadata > div {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
 .result-download {
   display: inline-flex;
   align-items: center;

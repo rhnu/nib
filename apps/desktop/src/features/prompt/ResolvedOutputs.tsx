@@ -198,7 +198,13 @@ function ResolvedReferenceDetails({
 }
 
 /** Resolved and frozen details consume the same retained facts, without live resource lookups. */
-export function ResolvedOutputs({ resolved }: { resolved: ResolvedDraft }) {
+export function ResolvedOutputs({
+  resolved,
+  tokenModel = resolved.settings.model,
+}: {
+  resolved: ResolvedDraft;
+  tokenModel?: string;
+}) {
   if (
     !resolved.characters.length &&
     !resolved.inputs.references.precise.length &&
@@ -224,7 +230,7 @@ export function ResolvedOutputs({ resolved }: { resolved: ResolvedDraft }) {
               key={character.id}
               character={character}
               index={index}
-              model={resolved.settings.model}
+              model={tokenModel}
               useCoords={resolved.settings.useCoords}
             />
           ))}

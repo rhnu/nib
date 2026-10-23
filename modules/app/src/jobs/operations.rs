@@ -145,11 +145,13 @@ impl JobQueue {
                 false,
                 Vec::new(),
             ),
-            FrozenSubmission::EncodeVibe { .. } => (
+            FrozenSubmission::EncodeVibe { model, .. } => (
                 None,
                 Some(
                     novelai_bridge::estimate_anlas_cost(novelai_bridge::AnlasEstimateInput {
+                        model,
                         pending_vibe_encodes: 1,
+                        context,
                         ..Default::default()
                     })
                     .vibe_encoding,
@@ -243,7 +245,11 @@ pub(crate) fn prepare_submission(
                     "所选模型不支持，已移除。".to_owned()
                 },
                 novelai_bridge::NormalizationChange::Fallback => {
-                    "已替换为所选模型支持的值。".to_owned()
+                    if diagnostic.field == novelai_bridge::GenerationField::Model {
+                        format!("已改用 {}。", normalized.request().core.model.as_str())
+                    } else {
+                        "已替换为所选模型支持的值。".to_owned()
+                    }
                 },
                 novelai_bridge::NormalizationChange::Conflict { retained_field } => {
                     format!("与 {retained_field} 冲突，已移除。")

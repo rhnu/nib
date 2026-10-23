@@ -219,11 +219,15 @@ fn project_capabilities(
     mode: GenerationMode,
     intent: ReferenceIntent,
 ) -> ModelCapabilities {
-    let model = settings.model;
+    let model = settings.model.descriptor().effective_model_for(mode);
+    let settings = ResolvedSettings {
+        model,
+        ..settings.clone()
+    };
     let descriptor = model.descriptor();
     let references = descriptor.resolve_references(mode, intent);
     let profile = descriptor.sampling();
-    let (sampler, samplers, noise_schedules) = sampling_options(settings, mode);
+    let (sampler, samplers, noise_schedules) = sampling_options(&settings, mode);
     ModelCapabilities {
         model: model.as_str().to_owned(),
         tokenizer: descriptor.prompt().tokenizer.as_str().to_owned(),
@@ -286,7 +290,7 @@ fn project_capabilities(
         defaults: ResolvedSettings::from_request(
             &novelai_bridge::GenerateImageRequest::builder("", model).build(),
         ),
-        ranges: generation_ranges(settings),
+        ranges: generation_ranges(&settings),
         transparent_background: descriptor.prompt().transparent_background,
         furry_mode: descriptor.prompt().furry_mode,
         smea: profile.supports_smea(mode, sampler),

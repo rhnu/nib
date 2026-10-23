@@ -115,6 +115,84 @@ fn inpainting_projects_conditioning_capability_and_its_distinct_strength_range()
 }
 
 #[test]
+fn curated_capabilities_follow_the_sdk_effective_model_for_each_operation() {
+    let submitted = crate::jobs::tests::submission();
+    let mut resolved = submitted.resolved().unwrap().clone();
+    resolved.settings.model = Model::NaiDiffusion5Curated;
+    for (operation, effective_model, positioning) in [
+        (
+            CreationOperation::TextToImage,
+            Model::NaiDiffusion5Curated,
+            "freeform",
+        ),
+        (
+            CreationOperation::ImageToImage {
+                asset_id: "source".into(),
+                strength: 0.7,
+                noise: 0.0,
+                color_correct: true,
+                extra_noise_seed: None,
+                add_original_image: true,
+                max_enhance: false,
+            },
+            Model::NaiDiffusion5Curated,
+            "freeform",
+        ),
+        (
+            CreationOperation::Inpainting {
+                asset_id: "source".into(),
+                mask_asset_id: "mask".into(),
+                img2img: None,
+                add_original_image: true,
+            },
+            Model::NaiDiffusion45Curated,
+            "grid5x5",
+        ),
+    ] {
+        resolved.inputs.operation = operation;
+        let capabilities = model_capabilities(&resolved).unwrap();
+        let descriptor = effective_model.descriptor();
+        assert_eq!(capabilities.model, effective_model.as_str());
+        assert_eq!(capabilities.defaults.model, effective_model);
+        assert_eq!(
+            capabilities.tokenizer,
+            descriptor.prompt().tokenizer.as_str()
+        );
+        assert_eq!(capabilities.token_limit, descriptor.prompt().token_limit);
+        assert_eq!(
+            capabilities.max_characters,
+            descriptor.prompt().max_characters()
+        );
+        assert_eq!(
+            capabilities.character_positioning.as_deref(),
+            Some(positioning)
+        );
+        assert_eq!(
+            capabilities.transparent_background,
+            descriptor.prompt().transparent_background
+        );
+        assert_eq!(
+            capabilities
+                .vibe_reference_options
+                .metadata_model_key
+                .as_deref(),
+            effective_model.vibe_model_key()
+        );
+        assert_eq!(
+            capabilities.can_add_precise_reference,
+            effective_model == Model::NaiDiffusion45Curated
+        );
+        assert_eq!(
+            capabilities
+                .noise_schedules
+                .contains(&NoiseSchedule::Exponential),
+            effective_model == Model::NaiDiffusion45Curated
+        );
+    }
+    assert_eq!(resolved.settings.model, Model::NaiDiffusion5Curated);
+}
+
+#[test]
 fn character_position_hints_follow_sdk_profiles_and_defaults() {
     let v4 = model_defaults_capabilities(Model::NaiDiffusion45Full, None);
     assert_eq!(v4.character_positioning.as_deref(), Some("grid5x5"));

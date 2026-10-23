@@ -13,7 +13,7 @@ nib-app = { path = "modules/app" }
 anyhow = "1.0.104"
 async-trait = "0.1.92"
 clap = { version = "4.6.7", features = ["derive"] }
-novelai-bridge = { version = "0.7.0", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
+novelai-bridge = { version = "0.7.2", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
 futures-util = "0.3.34"
 keyring-core = "1.0.1"
 windows-native-keyring-store = { version = "1.1.0", default-features = false }
