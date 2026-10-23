@@ -8,24 +8,20 @@ import { useResourceEditor } from "./useResourceEditor";
 export type InsertTarget = "positive" | "negative" | "preset";
 export function ResourceLibrary({
   open,
-  onClose,
   resources,
   models,
   onChanged,
   onInsert,
   target,
   onDirtyChange,
-  notice,
 }: {
   open: boolean;
-  onClose: () => void;
   resources: Map<string, Resource>;
   models: string[];
   onChanged: () => Promise<void>;
   onInsert: (resource: ResourceSummary) => void;
   target: InsertTarget;
   onDirtyChange: (dirty: boolean) => void;
-  notice: string;
 }) {
   const { query, setQuery, kind, setKind, items, loading, queryError, refreshSearch } =
     useResourceSearch(open);
@@ -47,17 +43,7 @@ export function ResourceLibrary({
   } = useResourceEditor(onChanged, refreshSearch, onDirtyChange);
   return (
     <>
-      <Modal
-        open={open}
-        onClose={() =>
-          leave(() => {
-            dismiss();
-            onClose();
-          })
-        }
-        title="资源库"
-        wide
-      >
+      <section className="library-page" hidden={!open} aria-label="资源库">
         <div className="library-toolbar">
           <div className="search-field">
             <Search size={15} />
@@ -92,11 +78,6 @@ export function ResourceLibrary({
             添加到配方列表。编辑资源原件后需保存；在创作中修改链接只影响本次实例。
           </HelpMarker>
         </div>
-        {notice && (
-          <div className="error-banner" role="alert">
-            {notice}
-          </div>
-        )}
         {(error || queryError) && (
           <div className="error-banner" role="alert">
             {error || queryError}
@@ -131,7 +112,7 @@ export function ResourceLibrary({
             />
           )}
         </div>
-      </Modal>
+      </section>
       <Modal open={confirm !== null} onClose={() => setConfirm(null)} title="确认操作">
         <p className="confirm-copy">{confirm?.title}</p>
         <div className="dialog-actions">

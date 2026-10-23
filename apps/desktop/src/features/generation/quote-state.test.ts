@@ -10,6 +10,9 @@ import {
 
 const draft: Draft = {
   vibeEncoder: null,
+  director: { selectedTool: "lineart", tools: [] },
+  pngTextEditor: { sessions: [] },
+  activePage: "create",
   revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: { positive: [], negative: [] },

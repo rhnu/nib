@@ -1,7 +1,108 @@
 use novelai_bridge::{DirectorCommand, GeneratedImageMetadata, ImageMetadata, Model};
 
 use super::*;
-use crate::prompt::PromptNode;
+use crate::{prompt::PromptNode, session::MaskEditorState};
+
+#[test]
+fn director_result_restore_leaves_generation_and_other_tool_edits_intact() {
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Text {
+        id: "main".into(),
+        enabled: true,
+        text: "keep the current prompt".into(),
+    });
+    draft.settings.seed = Some(42);
+    draft.inputs.operation = CreationOperation::ImageToImage {
+        asset_id: "main-source".into(),
+        strength: 0.6,
+        noise: 0.1,
+        color_correct: false,
+        extra_noise_seed: Some(0),
+        add_original_image: true,
+        max_enhance: false,
+    };
+    draft.director.tools[0].asset_id = Some("lineart-edits".into());
+    draft.director.tools[0].selected_result_id = Some("lineart-result".into());
+    let previous = draft.clone();
+    let command = DirectorCommand::Emotion {
+        prompt: "happy".into(),
+        defry: 2,
+    };
+    let submitted = FrozenSubmission::Director {
+        asset_id: "emotion-source".into(),
+        command: command.clone(),
+        policy: novelai_bridge::ValidationPolicy::Reject,
+        diagnostics: Vec::new(),
+    };
+    let draft = restore_submission(&submitted, None, draft, "emotion-result").unwrap();
+    assert_eq!(draft.composition, previous.composition);
+    assert_eq!(draft.settings, previous.settings);
+    assert_eq!(draft.inputs, previous.inputs);
+    assert_eq!(draft.mask_editor, previous.mask_editor);
+    assert_eq!(draft.vibe_encoder, previous.vibe_encoder);
+    assert_eq!(draft.png_text_editor, previous.png_text_editor);
+    assert_eq!(draft.director.tools[0], previous.director.tools[0]);
+    assert_eq!(draft.active_page, crate::session::ActivePage::Director);
+    let restored = draft
+        .director
+        .tools
+        .iter()
+        .find(|tool| tool.tool == crate::session::DirectorToolKind::Emotion)
+        .unwrap();
+    assert_eq!(restored.asset_id.as_deref(), Some("emotion-source"));
+    assert_eq!(
+        restored.selected_result_id.as_deref(),
+        Some("emotion-result")
+    );
+    assert_eq!(restored.command, command);
+    assert_eq!(restored.policy, novelai_bridge::ValidationPolicy::Reject);
+}
+
+#[test]
+fn png_text_inspection_preserves_unknown_keywords_and_all_duplicate_values() {
+    let metadata = ImageMetadata {
+        origin: Some(novelai_bridge::MetadataOrigin::PngText),
+        text_chunks: std::collections::BTreeMap::from([
+            (
+                "custom".to_owned(),
+                vec!["first".to_owned(), "第二个".to_owned()],
+            ),
+            ("unrecognized".to_owned(), vec![String::new()]),
+        ]),
+        ..ImageMetadata::default()
+    };
+    let report = metadata::png_text_inspection(metadata);
+    assert_eq!(
+        report.entries,
+        vec![
+            crate::session::PngTextValue {
+                keyword: "custom".into(),
+                text: "first".into()
+            },
+            crate::session::PngTextValue {
+                keyword: "custom".into(),
+                text: "第二个".into()
+            },
+            crate::session::PngTextValue {
+                keyword: "unrecognized".into(),
+                text: String::new()
+            },
+        ]
+    );
+}
+
+#[test]
+fn png_text_inspection_does_not_offer_synthetic_exif_entries_as_png_text() {
+    let metadata = ImageMetadata {
+        origin: Some(novelai_bridge::MetadataOrigin::ExifUserComment),
+        text_chunks: std::collections::BTreeMap::from([("prompt".into(), vec!["a cat".into()])]),
+        ..ImageMetadata::default()
+    };
+    assert_eq!(
+        metadata::png_text_inspection(metadata).entries,
+        Vec::<crate::session::PngTextValue>::new()
+    );
+}
 
 #[test]
 fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt_additions() {
@@ -12,7 +113,8 @@ fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt
     else {
         panic!("the fixture is a generation submission")
     };
-    let restored = restore_submission(&submitted, Some(42), MaskEditorState::default());
+    let restored =
+        restore_submission(&submitted, Some(42), Draft::default(), "restored-result").unwrap();
     assert_eq!(restored.revision, 0);
     assert_eq!(restored.presets.len(), 0);
     assert_eq!(restored.settings.seed, Some(42));
@@ -55,12 +157,21 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
             defry: 2,
         },
     };
-    let restored = restore_submission(&director, None, MaskEditorState::default());
+    let restored =
+        restore_submission(&director, None, Draft::default(), "restored-result").unwrap();
     assert_eq!(restored.composition.positive.len(), 0);
     assert_eq!(restored.presets.len(), 0);
-    assert!(matches!(restored.inputs.operation,
-        CreationOperation::Director { asset_id, command: DirectorCommand::Emotion { prompt, defry: 2 } }
-        if asset_id == "original" && prompt == "happy"));
+    assert_eq!(restored.inputs.operation, CreationOperation::TextToImage);
+    let state = restored
+        .director
+        .tools
+        .iter()
+        .find(|state| state.tool == crate::session::DirectorToolKind::Emotion)
+        .unwrap();
+    assert_eq!(state.asset_id.as_deref(), Some("original"));
+    assert!(
+        matches!(&state.command, DirectorCommand::Emotion { prompt, defry: 2 } if prompt == "happy")
+    );
     let vibe = FrozenSubmission::EncodeVibe {
         policy: novelai_bridge::ValidationPolicy::Reject,
         asset_id: "source".into(),
@@ -72,7 +183,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
         focus_seed: Some(41),
         info_extract_seed: Some(42),
     };
-    let restored = restore_submission(&vibe, None, MaskEditorState::default());
+    let restored = restore_submission(&vibe, None, Draft::default(), "restored-result").unwrap();
     assert!(
         matches!(restored.inputs.operation, CreationOperation::EncodeVibe(crate::session::VibeEncodingInput {
             asset_id, information_extracted, mask_asset_id: Some(mask), crop_to_mask: Some(true),
@@ -86,7 +197,7 @@ fn non_generation_restore_preserves_the_applicable_operation_and_source() {
         declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::Sigma040,
     };
     assert!(
-        matches!(restore_submission(&upscale, None, MaskEditorState::default()).inputs.operation,
+        matches!(restore_submission(&upscale, None, Draft::default(), "restored-result").unwrap().inputs.operation,
         CreationOperation::Upscale { asset_id, model: Model::NaiDiffusion5Curated,
             declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::Sigma040 }
         if asset_id == "upscale-source")
@@ -121,7 +232,8 @@ fn generation_restore_keeps_source_mask_and_reference_identities() {
         ..CreationInputs::default()
     };
     let expected_inputs = resolved.inputs.clone();
-    let restored = restore_submission(&submitted, Some(7), MaskEditorState::default());
+    let restored =
+        restore_submission(&submitted, Some(7), Draft::default(), "restored-result").unwrap();
     assert_eq!(restored.inputs, expected_inputs);
     assert_eq!(restored.settings.seed, Some(7));
     assert_eq!(restored.presets.len(), 0);
@@ -147,9 +259,20 @@ fn result_restoration_preserves_current_unapplied_mask_work() {
             pan_y: 20.0,
         }],
     };
-    let restored = restore_submission(&crate::jobs::tests::submission(), Some(9), editor.clone());
+    let restored = restore_submission(
+        &crate::jobs::tests::submission(),
+        Some(9),
+        Draft {
+            mask_editor: editor.clone(),
+            active_page: crate::session::ActivePage::Director,
+            ..Draft::default()
+        },
+        "restored-result",
+    )
+    .unwrap();
     assert_eq!(restored.mask_editor, editor);
     assert_eq!(restored.settings.seed, Some(9));
+    assert_eq!(restored.active_page, crate::session::ActivePage::Create);
 }
 
 #[test]
@@ -169,7 +292,8 @@ fn samples_without_seed_metadata_do_not_inherit_the_request_seed() {
     assert!(samples.iter().all(|sample| sample.seed.is_none()));
 
     let submitted = crate::jobs::tests::submission();
-    let restored = restore_submission(&submitted, None, MaskEditorState::default());
+    let restored =
+        restore_submission(&submitted, None, Draft::default(), "restored-result").unwrap();
     assert_eq!(restored.settings.seed, submitted.seed());
 }
 

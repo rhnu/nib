@@ -5,6 +5,7 @@ import { ParameterDiagnostics } from "./ParameterDiagnostics";
 import { SubmissionImageInput } from "./SubmissionImageInput";
 import { operationLabel } from "../workbench/image-operation";
 import { ResolvedOutputs } from "../prompt/ResolvedOutputs";
+import { commandTool, directorToolLabels } from "../director/model";
 
 export function SubmissionSummary({ submission }: { submission: JobRecord["submission"] }) {
   if (submission.kind !== "generation")
@@ -25,6 +26,37 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
               <dd>{submission.informationExtracted}</dd>
             </div>
           )}
+          {submission.kind === "director" && (
+            <>
+              <div>
+                <dt>工具</dt>
+                <dd>{directorToolLabels[commandTool(submission.command)]}</dd>
+              </div>
+              {typeof submission.command !== "string" &&
+                (() => {
+                  const options =
+                    "emotion" in submission.command
+                      ? submission.command.emotion
+                      : submission.command.colorize;
+                  return (
+                    <>
+                      <div>
+                        <dt>Prompt</dt>
+                        <dd>{options.prompt ?? "未设置"}</dd>
+                      </div>
+                      <div>
+                        <dt>Defry</dt>
+                        <dd>{options.defry}</dd>
+                      </div>
+                    </>
+                  );
+                })()}
+              <div>
+                <dt>参数校验</dt>
+                <dd>{submission.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
+              </div>
+            </>
+          )}
           {submission.kind === "upscale" && (
             <>
               <div>
@@ -38,7 +70,9 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
             </>
           )}
         </dl>
-        {submission.kind === "upscale" && <SubmissionImageInput operation={submission} />}
+        {(submission.kind === "upscale" || submission.kind === "director") && (
+          <SubmissionImageInput operation={submission} />
+        )}
         <ParameterDiagnostics diagnostics={submission.diagnostics} />
       </div>
     );

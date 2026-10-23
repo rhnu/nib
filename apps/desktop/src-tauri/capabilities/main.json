@@ -61,6 +61,8 @@
     "allow-import-document-encoding",
     "allow-import-embedded-vibes",
     "allow-write-png-text",
+    "allow-inspect-png-text",
+    "allow-get-director-options",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-is-maximized",

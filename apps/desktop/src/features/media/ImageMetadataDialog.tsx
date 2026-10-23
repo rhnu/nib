@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { KnownImageMetadata, MediaAsset, MetadataRestore } from "../../bindings/media";
 import type { Draft } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
-import { Button, Modal, Notice } from "../../shared/ui";
+import { ActionsMenu, Button, Modal, Notice } from "../../shared/ui";
+import { useMediaTools } from "./MediaToolsContext";
 import { mediaApi } from "./api";
 import { imageName, imageUnavailableReason } from "./model";
 import { useMediaQuery } from "./useMediaQuery";
@@ -153,11 +154,14 @@ function MetadataDialogContent({
   asset,
   onClose,
   onRestore,
+  onOpenTool,
 }: {
   asset: MediaAsset;
   onClose: () => void;
   onRestore?: (draft: Draft) => void;
+  onOpenTool?: () => void;
 }) {
+  const tools = useMediaTools();
   const unavailable = imageUnavailableReason(asset);
   const report = useMediaQuery(unavailable ? null : asset.id, mediaApi.metadata);
   const [restore, setRestore] = useState<MetadataRestore | null>(null);
@@ -192,6 +196,22 @@ function MetadataDialogContent({
         <p className="media-asset-heading">
           {imageName(asset)} · {asset.mimeType}
         </p>
+        {tools && asset.mimeType === "image/png" && (
+          <ActionsMenu
+            label="图片高级操作"
+            items={[
+              {
+                label: "PNG 文本",
+                disabled: Boolean(unavailable),
+                action: () => {
+                  onClose();
+                  onOpenTool?.();
+                  tools.onPngText(asset);
+                },
+              },
+            ]}
+          />
+        )}
         {unavailable && <Notice>{unavailable}</Notice>}
         {report.loading && <output>正在检查 PNG / JPEG / WebP 元信息…</output>}
         {report.error && (
@@ -242,6 +262,7 @@ export function ImageMetadataDialog(props: {
   asset: MediaAsset;
   onClose: () => void;
   onRestore?: (draft: Draft) => void;
+  onOpenTool?: () => void;
 }) {
   return <MetadataDialogContent key={props.asset.id} {...props} />;
 }

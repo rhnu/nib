@@ -137,6 +137,7 @@ function PickerContent({
         <ImageMetadataDialog
           asset={selected}
           onClose={() => setMetadataOpen(false)}
+          onOpenTool={onClose}
           onRestore={
             onRestore
               ? (draft) => {

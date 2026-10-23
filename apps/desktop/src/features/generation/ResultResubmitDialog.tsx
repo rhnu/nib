@@ -8,6 +8,7 @@ import { useGeneration } from "./generation-context";
 import { QuoteSummary } from "./QuoteSummary";
 import { SubmissionSummary } from "./SubmissionSummary";
 import { TokenUsageSummary } from "./TokenUsageSummary";
+import { prepareResubmission } from "./result-resubmit-model";
 
 export function ResultResubmitDialog({
   result,
@@ -38,9 +39,11 @@ export function ResultResubmitDialog({
     let cancelled = false;
     void generationApi
       .restore(result.id)
-      .then(async (draft) =>
-        cancelled ? null : { draft, quote: await generationApi.quote(draft) },
-      )
+      .then(async (restored) => {
+        if (cancelled) return null;
+        const draft = prepareResubmission(restored, result.submission.kind);
+        return { draft, quote: await generationApi.quote(draft) };
+      })
       .then(
         (value) => {
           if (!cancelled && value) {
@@ -55,7 +58,7 @@ export function ResultResubmitDialog({
     return () => {
       cancelled = true;
     };
-  }, [result.id, attempt, accountVersion]);
+  }, [result.id, result.submission.kind, attempt, accountVersion]);
   async function submit() {
     if (
       lock.current ||
@@ -80,7 +83,11 @@ export function ResultResubmitDialog({
     }
   }
   return (
-    <Modal open onClose={onClose} title="使用结果内容再次生成">
+    <Modal
+      open
+      onClose={onClose}
+      title={result.submission.kind === "director" ? "再次处理" : "使用结果内容再次生成"}
+    >
       <div className="generation-dialog-body">
         <p>用结果保存的内容、材料与有效设置创建新任务，不替换当前创作。</p>
         <SubmissionSummary submission={result.submission} />
@@ -125,7 +132,11 @@ export function ResultResubmitDialog({
             }
             onClick={() => void submit()}
           >
-            {pending ? "正在提交…" : "确认生成"}
+            {pending
+              ? "正在提交…"
+              : result.submission.kind === "director"
+                ? "确认处理"
+                : "确认生成"}
           </Button>
         </footer>
       </div>

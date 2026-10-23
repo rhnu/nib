@@ -9,6 +9,7 @@ use std::{fs, path::PathBuf, sync::Arc};
 pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
 pub use metadata::{
     ImageMetadataReport, ImageMetadataStatus, KnownCharacterMetadata, KnownImageMetadata,
+    PngTextInspection,
 };
 use novelai_bridge::{
     GenerateImageResult, GeneratedImage, GeneratedImageSource, RunDirectorToolResult,
@@ -23,7 +24,7 @@ pub use vibe::{
 use crate::{
     jobs::{FrozenSubmission, JobRecord},
     persistence::{PersistenceError, SqliteDatabase},
-    session::{CreationInputs, CreationOperation, Draft, DraftStore, MaskEditorState},
+    session::{CreationInputs, CreationOperation, Draft, DraftStore},
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -218,13 +219,13 @@ impl MediaLibrary {
             });
         }
         let current = self.database.get_draft()?;
-        let mut draft = restore_submission(
-            &output.result.submission,
-            output.result.seed,
-            current.mask_editor,
-        );
-        draft.vibe_encoder = current.vibe_encoder;
-        self.validate_inputs(&draft.inputs)?;
+        if let FrozenSubmission::Director { asset_id, .. } = &output.result.submission {
+            self.image(asset_id)?;
+        }
+        let draft = restore_submission(&output.result.submission, output.result.seed, current, id)?;
+        if !matches!(output.result.submission, FrozenSubmission::Director { .. }) {
+            self.validate_inputs(&draft.inputs)?;
+        }
         Ok(draft)
     }
 
@@ -262,6 +263,9 @@ impl MediaLibrary {
         let current = self.database.get_draft()?;
         draft.mask_editor = current.mask_editor;
         draft.vibe_encoder = current.vibe_encoder;
+        draft.director = current.director;
+        draft.png_text_editor = current.png_text_editor;
+        draft.active_page = crate::session::ActivePage::Create;
         if metadata.uc_preset.is_some() && metadata.negative_prompt.is_none() {
             notices.push("图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。".to_owned());
         }
@@ -370,6 +374,32 @@ impl MediaLibrary {
     }
 }
 
+/// Director restoration changes only its own workspace, retaining the current image creation.
+fn restore_director(
+    current: &mut Draft,
+    asset_id: &str,
+    command: &novelai_bridge::DirectorCommand,
+    policy: novelai_bridge::ValidationPolicy,
+    result_id: &str,
+) -> Result<(), PersistenceError> {
+    let tool = crate::session::DirectorToolKind::from_command(command);
+    let state = current
+        .director
+        .tools
+        .iter_mut()
+        .find(|state| state.tool == tool)
+        .ok_or_else(|| PersistenceError::InvalidData {
+            message: "Director 工具编辑状态缺失，请重新加载当前创作。".to_owned(),
+        })?;
+    state.asset_id = Some(asset_id.to_owned());
+    state.command = command.clone();
+    state.policy = policy;
+    state.selected_result_id = Some(result_id.to_owned());
+    current.director.selected_tool = tool;
+    current.active_page = crate::session::ActivePage::Director;
+    Ok(())
+}
+
 impl FinalOutputStore for MediaLibrary {
     fn retain(&self, job: &JobRecord, output: JobOutput) -> Result<(), PersistenceError> {
         let retained = match output {
@@ -432,8 +462,9 @@ fn retained(
 fn restore_submission(
     submission: &FrozenSubmission,
     seed: Option<i64>,
-    mask_editor: MaskEditorState,
-) -> Draft {
+    mut current: Draft,
+    result_id: &str,
+) -> Result<Draft, PersistenceError> {
     let mut draft = match submission {
         FrozenSubmission::Generation {
             request, resolved, ..
@@ -449,16 +480,9 @@ fn restore_submission(
             command,
             policy,
             ..
-        } => Draft {
-            inputs: CreationInputs {
-                policy: *policy,
-                operation: CreationOperation::Director {
-                    asset_id: asset_id.clone(),
-                    command: command.clone(),
-                },
-                ..CreationInputs::default()
-            },
-            ..Draft::default()
+        } => {
+            restore_director(&mut current, asset_id, command, *policy, result_id)?;
+            return Ok(current);
         },
         FrozenSubmission::EncodeVibe {
             asset_id,
@@ -504,8 +528,12 @@ fn restore_submission(
         },
     };
     // Canvas work is current application state, never part of a frozen submission.
-    draft.mask_editor = mask_editor;
-    draft
+    draft.mask_editor = current.mask_editor;
+    draft.vibe_encoder = current.vibe_encoder;
+    draft.director = current.director;
+    draft.png_text_editor = current.png_text_editor;
+    draft.active_page = crate::session::ActivePage::Create;
+    Ok(draft)
 }
 
 #[cfg(test)]

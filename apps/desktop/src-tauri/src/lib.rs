@@ -99,6 +99,8 @@ pub fn run() -> anyhow::Result<()> {
             media::export_vibe_document,
             media::embed_vibe_document,
             media::write_png_text,
+            media::inspect_png_text,
+            media::get_director_options,
             media::import_document_image,
             media::import_document_encoding,
             media::read_media_asset,

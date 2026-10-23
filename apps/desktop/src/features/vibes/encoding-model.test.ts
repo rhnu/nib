@@ -28,6 +28,9 @@ const draft: Draft = {
   },
   maskEditor: { activeSourceId: null, sessions: [] },
   vibeEncoder: input,
+  director: { selectedTool: "lineart", tools: [] },
+  pngTextEditor: { sessions: [] },
+  activePage: "create",
 };
 
 describe("independent Vibe encoding", () => {

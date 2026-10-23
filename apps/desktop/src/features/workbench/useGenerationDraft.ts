@@ -14,6 +14,9 @@ export function useGenerationDraft(draft: Draft): Draft {
       inputs,
       maskEditor: { activeSourceId: null, sessions: [] },
       vibeEncoder: null,
+      director: { selectedTool: "lineart", tools: [] },
+      pngTextEditor: { sessions: [] },
+      activePage: "create",
     }),
     [composition, presets, settings, characters, inputs],
   );

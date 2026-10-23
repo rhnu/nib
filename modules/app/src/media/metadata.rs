@@ -1,8 +1,17 @@
 use novelai_bridge::{GeneratedImageMetadata, ImageSize, MetadataOrigin};
 use serde::Serialize;
 
-use super::MediaLibrary;
-use crate::persistence::PersistenceError;
+use super::{AssetReader as _, MediaLibrary};
+use crate::{persistence::PersistenceError, session::PngTextValue};
+
+/// Complete SDK text values, including unrecognized keywords and repeated values.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct PngTextInspection {
+    pub entries: Vec<PngTextValue>,
+    pub warnings: Vec<String>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,12 +76,49 @@ pub struct ImageMetadataReport {
 }
 
 impl MediaLibrary {
+    /// Reads PNG text through the SDK without projecting it into known generation fields.
+    ///
+    /// # Errors
+    /// Returns unavailable/non-PNG media or SDK PNG validation failures.
+    pub fn inspect_png_text(&self, id: &str) -> Result<PngTextInspection, PersistenceError> {
+        let image = self.image(id)?;
+        let metadata = novelai_bridge::parse_png_metadata_from_bytes(image.as_bytes())
+            .map_err(|error| PersistenceError::failure("inspect retained PNG text", error))?;
+        Ok(png_text_inspection(metadata))
+    }
+
     /// Projects SDK metadata into a bounded application view; unknown values stay absent.
     ///
     /// # Errors
     /// Returns an unavailable asset, an incompatible kind or a file read failure.
     pub fn inspect_metadata(&self, id: &str) -> Result<ImageMetadataReport, PersistenceError> {
         Ok(metadata_report(&self.inspect_sdk_metadata(id)?))
+    }
+}
+
+pub(super) fn png_text_inspection(metadata: novelai_bridge::ImageMetadata) -> PngTextInspection {
+    // PNG parsing can fall back to Exif/stealth. Those carriers expose synthetic text
+    // keys for generation interpretation, not actual PNG text chunks.
+    let chunks = if metadata.origin == Some(MetadataOrigin::PngText) {
+        metadata.text_chunks
+    } else {
+        std::collections::BTreeMap::new()
+    };
+    PngTextInspection {
+        entries: chunks
+            .into_iter()
+            .flat_map(|(keyword, values)| {
+                values.into_iter().map(move |text| PngTextValue {
+                    keyword: keyword.clone(),
+                    text,
+                })
+            })
+            .collect(),
+        warnings: metadata
+            .warnings
+            .iter()
+            .map(|warning| format!("{warning:?}"))
+            .collect(),
     }
 }
 

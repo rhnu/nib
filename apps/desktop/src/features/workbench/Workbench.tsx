@@ -1,4 +1,5 @@
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { MediaAsset } from "../../bindings/media";
 import type {
   Draft,
   Resource,
@@ -9,7 +10,11 @@ import type {
 } from "../../bindings/workbench";
 import { Button, Field, Modal, Notice } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
-import { usePendingWork, waitForPendingWork } from "../../shared/host/pending-work";
+import {
+  trackPendingWork,
+  usePendingWork,
+  waitForPendingWork,
+} from "../../shared/host/pending-work";
 import type { CloseWriter } from "../../shared/host/useCloseGuard";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
@@ -31,6 +36,12 @@ import { collectOutputIssues, focusOutputField } from "./output-issues";
 import { usePendingInputTransition } from "./usePendingInputTransition";
 import { GenerationParameterPanel } from "./GenerationParameterPanel";
 import { VibeEncoderPanel } from "../vibes/VibeEncoderPanel";
+import { encodingApi } from "../vibes/encoding-api";
+import { DirectorWorkspace } from "../director";
+import { PngTextDialog } from "../png-text";
+import { MediaToolsContext } from "../media/MediaToolsContext";
+import { mediaApi } from "../media/api";
+import { referenceApi } from "../references/api";
 export type WorkbenchExtension = {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -69,7 +80,7 @@ export function Workbench({
   settingsWriter: CloseWriter;
   initialPage?: "create" | "settings";
 }) {
-  const state = useWorkbench(workspace, initialResources, settingsWriter);
+  const state = useWorkbench(workspace, initialResources, settingsWriter, initialPage);
   const {
     writer,
     setBeforeClose,
@@ -83,7 +94,6 @@ export function Workbench({
     error,
     setError,
     library,
-    setLibrary,
     insertTarget,
     setResourceDirty,
     edit,
@@ -99,6 +109,11 @@ export function Workbench({
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const [encoderOpen, setEncoderOpen] = useState(false);
+  const [pngAsset, setPngAsset] = useState<MediaAsset | null>(null);
+  const [directorHandoff, setDirectorHandoff] = useState<{ id: number; assetId: string } | null>(
+    null,
+  );
+  const handoffSequence = useRef(0);
   const quoteRefreshKey = [resourceVersion, accountVersion];
   const estimate = useGenerationQuote(
     generationDraft,
@@ -120,7 +135,8 @@ export function Workbench({
     onError: setError,
     contextVersion: restoreVersion,
   });
-  const [page, setPage] = useState<"create" | "settings">(initialPage);
+  const page = draft.activePage;
+  const setPage = (activePage: Draft["activePage"]) => edit({ ...readCurrentDraft(), activePage });
   const mask = useMaskEditor({ draft, readCurrentDraft, edit, onError: setError });
   const pendingInputs = usePendingWork();
   const afterInputs = usePendingInputTransition(setError);
@@ -150,13 +166,85 @@ export function Workbench({
     } else
       guard(() => {
         setPositioning(null);
+        setPage("create");
         imageOperation.request(id, kind);
       });
   };
   const guardedRestore = (value: Draft) =>
     guard(() => {
       setPositioning(null);
-      restore(value);
+      if (value.activePage === "director") {
+        const incoming = value.director.tools.find(
+          (tool) => tool.tool === value.director.selectedTool,
+        );
+        const current = readCurrentDraft();
+        edit({
+          ...current,
+          activePage: "director",
+          director: {
+            ...current.director,
+            selectedTool: value.director.selectedTool,
+            tools: current.director.tools.map((tool) =>
+              tool.tool === incoming?.tool ? incoming : tool,
+            ),
+          },
+        });
+      } else restore(value);
+    });
+  const sendToDirector = (assetId: string) =>
+    guard(() => {
+      setDirectorHandoff({ id: ++handoffSequence.current, assetId });
+      setPage("director");
+    });
+  const addImageReference = (assetId: string, kind: "precise" | "vibe") =>
+    guard(() => {
+      void trackPendingWork(
+        (async () => {
+          const referenceType = editorCapabilities?.preciseReferenceOptions.referenceTypes[0];
+          if (kind === "precise" && !referenceType) throw new Error("当前生成模型不支持精确参考。");
+          const reference =
+            kind === "vibe"
+              ? await mediaApi.createVibeReference(assetId)
+              : await referenceApi.create(assetId, crypto.randomUUID(), referenceType!);
+          const current = readCurrentDraft();
+          const references = current.inputs.references;
+          edit({
+            ...current,
+            activePage: "create",
+            inputs: {
+              ...current.inputs,
+              references:
+                kind === "vibe"
+                  ? { ...references, vibes: [...references.vibes, reference as VibeReferenceInput] }
+                  : {
+                      ...references,
+                      precise: [
+                        ...references.precise,
+                        reference as (typeof references.precise)[number],
+                      ],
+                    },
+            },
+          });
+        })(),
+      ).catch((cause: unknown) => setError(errorMessage(cause)));
+    });
+  const encodeImage = (assetId: string) =>
+    afterInputs(() => {
+      void trackPendingWork(
+        (async () => {
+          const options = await encodingApi.options();
+          const previous = readCurrentDraft().vibeEncoder;
+          const model = previous?.model ?? options.models[0];
+          if (!model) throw new Error("当前 SDK 没有可用的 Vibe 编码模型。");
+          const created = await encodingApi.create(assetId, model);
+          const current = readCurrentDraft();
+          edit({
+            ...current,
+            vibeEncoder: current.vibeEncoder ? { ...current.vibeEncoder, assetId } : created,
+          });
+          setEncoderOpen(true);
+        })(),
+      ).catch((cause: unknown) => setError(errorMessage(cause)));
     });
   const guardedLibrary = (target: Parameters<typeof openLibrary>[0]) =>
     guard(() => openLibrary(target));
@@ -228,298 +316,341 @@ export function Workbench({
       ),
   };
   return (
-    <div className="workbench">
-      {renderHeader(
-        <nav className="desktop-navigation" aria-label="主导航">
-          <Button
-            aria-current={!library && page === "create" ? "page" : undefined}
-            disabled={library}
-            onClick={() => {
-              if (page !== "create") guard(() => setPage("create"));
-            }}
+    <MediaToolsContext
+      value={{
+        onDirector: sendToDirector,
+        onPngText: (asset) => afterInputs(() => setPngAsset(asset)),
+      }}
+    >
+      <div className="workbench">
+        {renderHeader(
+          <nav className="desktop-navigation" aria-label="主导航">
+            <Button
+              aria-current={page === "create" ? "page" : undefined}
+              onClick={() => {
+                if (page !== "create") guard(() => setPage("create"));
+              }}
+            >
+              创作
+            </Button>
+            <Button
+              aria-current={page === "director" ? "page" : undefined}
+              onClick={() => {
+                if (page !== "director") guard(() => setPage("director"));
+              }}
+            >
+              导演工具
+            </Button>
+            <Button
+              aria-current={library ? "page" : undefined}
+              onClick={() => guardedLibrary("positive")}
+            >
+              资源库
+            </Button>
+            <Button
+              aria-current={page === "settings" ? "page" : undefined}
+              onClick={() => guard(() => setPage("settings"))}
+            >
+              设置
+            </Button>
+          </nav>,
+        )}
+        {Boolean(error || written.error) && (
+          <Notice
+            actions={
+              <>
+                {Boolean(written.error) && (
+                  <Button onClick={() => void writer.flush().catch(() => {})}>重试保存</Button>
+                )}
+                {error && (
+                  <Button className="quiet" onClick={() => setError("")}>
+                    关闭提示
+                  </Button>
+                )}
+              </>
+            }
           >
-            创作
-          </Button>
-          <Button
-            aria-current={library ? "page" : undefined}
-            disabled={library}
-            onClick={() => guardedLibrary("positive")}
-          >
-            资源库
-          </Button>
-          <Button
-            aria-current={!library && page === "settings" ? "page" : undefined}
-            disabled={library}
-            onClick={() => guard(() => setPage("settings"))}
-          >
-            设置
-          </Button>
-        </nav>,
-      )}
-      {Boolean(error || written.error) && (
-        <Notice
-          actions={
-            <>
-              {Boolean(written.error) && (
-                <Button onClick={() => void writer.flush().catch(() => {})}>重试保存</Button>
+            {error || errorMessage(written.error)}
+          </Notice>
+        )}
+        <div className="workspace-body" hidden={page !== "create"}>
+          <aside className="generation-sidebar" aria-label="生成侧栏">
+            <div className="generation-sidebar-scroll">
+              {draft.inputs.operation.kind !== "upscale" && (
+                <PromptWorkspace
+                  draft={draft}
+                  resources={resources}
+                  models={workspace.models}
+                  capabilities={model.capabilities}
+                  diagnostics={estimate.quote?.diagnostics ?? []}
+                  tokens={estimate.quote?.tokens ?? []}
+                  errorFields={estimate.fields}
+                  resolved={resolved}
+                  resolving={resolving}
+                  resolveError={resolveError}
+                  openLibrary={guardedLibrary}
+                  edit={edit}
+                  setError={setError}
+                  onFocusField={focusField}
+                />
               )}
-              {error && (
-                <Button className="quiet" onClick={() => setError("")}>
-                  关闭提示
-                </Button>
+              {model.error && (
+                <Notice actions={<Button onClick={model.retry}>重试模型查询</Button>}>
+                  {model.error}
+                </Notice>
               )}
-            </>
-          }
-        >
-          {error || errorMessage(written.error)}
-        </Notice>
-      )}
-      <div className="workspace-body" hidden={page !== "create"}>
-        <aside className="generation-sidebar" aria-label="生成侧栏">
-          <div className="generation-sidebar-scroll">
-            {draft.inputs.operation.kind !== "upscale" && (
-              <PromptWorkspace
+              <ContextRail
                 draft={draft}
                 resources={resources}
                 models={workspace.models}
-                capabilities={model.capabilities}
-                diagnostics={estimate.quote?.diagnostics ?? []}
-                tokens={estimate.quote?.tokens ?? []}
-                errorFields={estimate.fields}
                 resolved={resolved}
-                resolving={resolving}
-                resolveError={resolveError}
-                openLibrary={guardedLibrary}
+                capabilities={editorCapabilities}
+                diagnostics={estimate.quote?.diagnostics ?? []}
+                errorFields={estimate.fields}
+                readCurrentDraft={readCurrentDraft}
                 edit={edit}
+                onAddPreset={() => guardedLibrary("preset")}
                 setError={setError}
-                onFocusField={focusField}
+                estimate={estimate.quote}
+                onRestore={guardedRestore}
+                onRequestOperation={requestOperation}
+                onReturnToText={() => guard(imageOperation.returnToText)}
+                onEditMask={editMask}
+                imageInputVersion={restoreVersion}
+                onPosition={openPositions}
+                outputIssues={outputIssues}
+                onEncodeVibe={openEncoder}
+              />
+            </div>
+            {draft.inputs.operation.kind !== "upscale" && (
+              <GenerationParameterPanel
+                value={draft.settings}
+                models={workspace.models}
+                capabilities={editorCapabilities}
+                diagnostics={estimate.quote?.diagnostics ?? []}
+                errorFields={estimate.fields}
+                resolved={resolved?.settings}
+                onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
+                advancedContent={
+                  <div data-setting-field="policy">
+                    <Field label="参数校验">
+                      <select
+                        value={draft.inputs.policy}
+                        onChange={(event) => {
+                          const current = readCurrentDraft();
+                          edit({
+                            ...current,
+                            inputs: {
+                              ...current.inputs,
+                              policy: event.target.value === "reject" ? "reject" : "normalize",
+                            },
+                          });
+                        }}
+                      >
+                        <option value="normalize">自动调整</option>
+                        <option value="reject">严格拒绝</option>
+                      </select>
+                    </Field>
+                  </div>
+                }
               />
             )}
-            {model.error && (
-              <Notice actions={<Button onClick={model.retry}>重试模型查询</Button>}>
-                {model.error}
-              </Notice>
+            {renderActions && (
+              <div className="generation-actions-slot">{renderActions(extension)}</div>
             )}
-            <ContextRail
-              draft={draft}
-              resources={resources}
-              models={workspace.models}
-              resolved={resolved}
-              capabilities={editorCapabilities}
-              diagnostics={estimate.quote?.diagnostics ?? []}
-              errorFields={estimate.fields}
-              readCurrentDraft={readCurrentDraft}
-              edit={edit}
-              onAddPreset={() => guardedLibrary("preset")}
-              setError={setError}
-              estimate={estimate.quote}
-              onRestore={guardedRestore}
-              onRequestOperation={requestOperation}
-              onReturnToText={() => guard(imageOperation.returnToText)}
-              onEditMask={editMask}
-              imageInputVersion={restoreVersion}
-              onPosition={openPositions}
-              outputIssues={outputIssues}
-              onEncodeVibe={openEncoder}
-            />
-          </div>
-          {draft.inputs.operation.kind !== "upscale" && (
-            <GenerationParameterPanel
-              value={draft.settings}
-              models={workspace.models}
-              capabilities={editorCapabilities}
-              diagnostics={estimate.quote?.diagnostics ?? []}
-              errorFields={estimate.fields}
-              resolved={resolved?.settings}
-              onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
-              advancedContent={
-                <div data-setting-field="policy">
-                  <Field label="参数校验">
-                    <select
-                      value={draft.inputs.policy}
-                      onChange={(event) => {
-                        const current = readCurrentDraft();
-                        edit({
-                          ...current,
-                          inputs: {
-                            ...current.inputs,
-                            policy: event.target.value === "reject" ? "reject" : "normalize",
-                          },
-                        });
-                      }}
-                    >
-                      <option value="normalize">自动调整</option>
-                      <option value="reject">严格拒绝</option>
-                    </select>
-                  </Field>
-                </div>
-              }
-            />
-          )}
-          {renderActions && (
-            <div className="generation-actions-slot">{renderActions(extension)}</div>
-          )}
-        </aside>
-        <main className="main-workspace flex min-h-0 min-w-0 flex-col">
-          <div
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-            style={{ display: mask.active || positioning ? "none" : undefined }}
-          >
-            {renderResults?.(extension)}
-          </div>
-          {mask.active && (
-            <InpaintCanvasWorkspace
-              key={mask.active.sourceAssetId}
-              value={mask.active}
-              onChange={mask.change}
-              onApply={() => {
-                void mask.apply();
-              }}
-              onClose={mask.close}
-              onDiscard={mask.requestDiscard}
-              pending={mask.pending || mask.transition !== null || mask.discarding}
-            />
-          )}
-          {positioning && !mask.active && positionSize && (
-            <CharacterPositionWorkspace
-              characters={positionCharacters}
-              capabilities={model.capabilities ?? generationTarget.capabilities}
-              size={positionSize}
-              sourceId={operationSourceId(draft.inputs.operation) ?? viewedAssetId}
-              selectedKey={positioning.selected}
-              onSelect={(selected) => setPositioning({ selected })}
-              onChange={(character, position) => {
-                const current = readCurrentDraft();
-                const next = applyCharacterPosition(current, resources, character, position);
-                if (next !== current) edit(next);
-              }}
-              useCoords={draft.settings.useCoords}
-              effectiveUseCoords={
-                estimate.quote?.resolved?.settings.useCoords ?? resolved?.settings.useCoords
-              }
-              onModeChange={(useCoords) => {
-                const current = readCurrentDraft();
-                edit({ ...current, settings: { ...current.settings, useCoords } });
-              }}
-              onClose={() => setPositioning(null)}
-            />
-          )}
-          {positioning && !mask.active && !positionSize && (
-            <div>
-              <output>正在读取画布设置…</output>
-              <Button onClick={() => setPositioning(null)}>返回图像</Button>
+          </aside>
+          <main className="main-workspace flex min-h-0 min-w-0 flex-col">
+            <div
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              style={{ display: mask.active || positioning ? "none" : undefined }}
+            >
+              {renderResults?.(extension)}
+            </div>
+            {mask.active && (
+              <InpaintCanvasWorkspace
+                key={mask.active.sourceAssetId}
+                value={mask.active}
+                onChange={mask.change}
+                onApply={() => {
+                  void mask.apply();
+                }}
+                onClose={mask.close}
+                onDiscard={mask.requestDiscard}
+                pending={mask.pending || mask.transition !== null || mask.discarding}
+              />
+            )}
+            {positioning && !mask.active && positionSize && (
+              <CharacterPositionWorkspace
+                characters={positionCharacters}
+                capabilities={model.capabilities ?? generationTarget.capabilities}
+                size={positionSize}
+                sourceId={operationSourceId(draft.inputs.operation) ?? viewedAssetId}
+                selectedKey={positioning.selected}
+                onSelect={(selected) => setPositioning({ selected })}
+                onChange={(character, position) => {
+                  const current = readCurrentDraft();
+                  const next = applyCharacterPosition(current, resources, character, position);
+                  if (next !== current) edit(next);
+                }}
+                useCoords={draft.settings.useCoords}
+                effectiveUseCoords={
+                  estimate.quote?.resolved?.settings.useCoords ?? resolved?.settings.useCoords
+                }
+                onModeChange={(useCoords) => {
+                  const current = readCurrentDraft();
+                  edit({ ...current, settings: { ...current.settings, useCoords } });
+                }}
+                onClose={() => setPositioning(null)}
+              />
+            )}
+            {positioning && !mask.active && !positionSize && (
+              <div>
+                <output>正在读取画布设置…</output>
+                <Button onClick={() => setPositioning(null)}>返回图像</Button>
+              </div>
+            )}
+          </main>
+        </div>
+        <div className="settings-page-slot" hidden={page !== "settings"}>
+          {settings}
+        </div>
+        <div className="director-page-slot" hidden={page !== "director"}>
+          <DirectorWorkspace
+            draft={draft}
+            readCurrentDraft={readCurrentDraft}
+            onChange={(director) => edit({ ...readCurrentDraft(), director })}
+            refreshKey={quoteRefreshKey}
+            onUseImage={requestOperation}
+            onReference={addImageReference}
+            onEncodeImage={encodeImage}
+            onRestore={guardedRestore}
+            handoff={directorHandoff}
+            onHandoffComplete={() => setDirectorHandoff(null)}
+            canMaxEnhance={editorCapabilities?.maxEnhance ?? false}
+            canInpaint={editorCapabilities?.inpainting ?? false}
+            canUsePreciseReference={editorCapabilities?.canAddPreciseReference ?? false}
+            canUseVibeReference={Boolean(
+              editorCapabilities?.canAddVibeReference &&
+              editorCapabilities.vibeInputPath === "image",
+            )}
+          />
+        </div>
+        <ResourceLibrary
+          open={library}
+          resources={resources}
+          models={workspace.models}
+          onChanged={refreshResources}
+          onInsert={insert}
+          target={insertTarget}
+          onDirtyChange={setResourceDirty}
+        />
+        {pngAsset && (
+          <PngTextDialog
+            asset={pngAsset}
+            readState={() => readCurrentDraft().pngTextEditor}
+            onChange={(pngTextEditor) => edit({ ...readCurrentDraft(), pngTextEditor })}
+            onClose={() => afterInputs(() => setPngAsset(null))}
+            onUseImage={(asset) => {
+              setPngAsset(null);
+              requestOperation(asset.id, "imageToImage");
+            }}
+          />
+        )}
+        <Modal
+          open={encoderOpen}
+          onClose={() => afterInputs(() => setEncoderOpen(false))}
+          title="编码 Vibe"
+          className="vibe-encoder-modal"
+        >
+          <VibeEncoderPanel
+            draft={draft}
+            readCurrentDraft={readCurrentDraft}
+            refreshKey={quoteRefreshKey}
+            onChange={(vibeEncoder) => edit({ ...readCurrentDraft(), vibeEncoder })}
+          />
+        </Modal>
+        {(imageOperation.busy || pendingInputs > 0) && (
+          <output className="generation-muted image-operation-progress">正在准备图像输入…</output>
+        )}
+        <Modal
+          open={imageOperation.candidate !== null}
+          onClose={imageOperation.cancel}
+          title="更改当前图像操作？"
+        >
+          {imageOperation.candidate && (
+            <div className="generation-dialog-body">
+              <p>
+                将切换到{operationLabel(imageOperation.candidate.operation)}
+                ，替换当前图像操作。
+              </p>
+              {imageOperation.candidate.operation.kind === "imageToImage" &&
+                imageOperation.candidate.operation.maxEnhance && <p>输入尺寸将采用源图尺寸。</p>}
+              <footer className="generation-dialog-actions">
+                <Button onClick={imageOperation.cancel}>保留当前操作</Button>
+                <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
+                  应用更改
+                </Button>
+              </footer>
             </div>
           )}
-        </main>
-      </div>
-      <div className="settings-page-slot" hidden={page !== "settings"}>
-        {settings}
-      </div>
-      <ResourceLibrary
-        open={library}
-        onClose={() => setLibrary(false)}
-        resources={resources}
-        models={workspace.models}
-        onChanged={refreshResources}
-        onInsert={insert}
-        target={insertTarget}
-        onDirtyChange={setResourceDirty}
-        notice={error || (written.error ? errorMessage(written.error) : "")}
-      />
-      <Modal
-        open={encoderOpen}
-        onClose={() => afterInputs(() => setEncoderOpen(false))}
-        title="编码 Vibe"
-        className="vibe-encoder-modal"
-      >
-        <VibeEncoderPanel
-          draft={draft}
-          readCurrentDraft={readCurrentDraft}
-          refreshKey={quoteRefreshKey}
-          onChange={(vibeEncoder) => edit({ ...readCurrentDraft(), vibeEncoder })}
-        />
-      </Modal>
-      {(imageOperation.busy || pendingInputs > 0) && (
-        <output className="generation-muted image-operation-progress">正在准备图像输入…</output>
-      )}
-      <Modal
-        open={imageOperation.candidate !== null}
-        onClose={imageOperation.cancel}
-        title="更改当前图像操作？"
-      >
-        {imageOperation.candidate && (
+        </Modal>
+        <Modal open={mask.transition !== null} onClose={mask.cancel} title="遮罩尚未应用">
           <div className="generation-dialog-body">
-            <p>
-              将切换到{operationLabel(imageOperation.candidate.operation)}
-              ，替换当前图像操作。
-            </p>
-            {imageOperation.candidate.operation.kind === "imageToImage" &&
-              imageOperation.candidate.operation.maxEnhance && <p>输入尺寸将采用源图尺寸。</p>}
+            <p>保留编辑可在下次打开这张源图时继续。</p>
             <footer className="generation-dialog-actions">
-              <Button onClick={imageOperation.cancel}>保留当前操作</Button>
-              <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
-                应用更改
+              <Button disabled={mask.pending} onClick={mask.cancel}>
+                取消
+              </Button>
+              <Button disabled={mask.pending} onClick={mask.discardAndContinue}>
+                放弃编辑
+              </Button>
+              <Button disabled={mask.pending} onClick={mask.keep}>
+                保留编辑
+              </Button>
+              <Button
+                className="primary"
+                disabled={mask.pending}
+                onClick={() => {
+                  void mask.applyAndContinue();
+                }}
+              >
+                {mask.pending ? "正在应用…" : "应用遮罩"}
               </Button>
             </footer>
           </div>
-        )}
-      </Modal>
-      <Modal open={mask.transition !== null} onClose={mask.cancel} title="遮罩尚未应用">
-        <div className="generation-dialog-body">
-          <p>保留编辑可在下次打开这张源图时继续。</p>
-          <footer className="generation-dialog-actions">
-            <Button disabled={mask.pending} onClick={mask.cancel}>
-              取消
-            </Button>
-            <Button disabled={mask.pending} onClick={mask.discardAndContinue}>
-              放弃编辑
-            </Button>
-            <Button disabled={mask.pending} onClick={mask.keep}>
-              保留编辑
-            </Button>
-            <Button
-              className="primary"
-              disabled={mask.pending}
-              onClick={() => {
-                void mask.applyAndContinue();
-              }}
-            >
-              {mask.pending ? "正在应用…" : "应用遮罩"}
-            </Button>
-          </footer>
-        </div>
-      </Modal>
-      <Modal
-        open={mask.applyConfirmation !== null}
-        onClose={() => mask.confirmApply(false)}
-        title="切换为局部重绘？"
-      >
-        <div className="generation-dialog-body">
-          <p>
-            将替换当前{mask.applyConfirmation && operationLabel(mask.applyConfirmation.operation)}
-            {mask.applyConfirmation &&
-            operationSourceId(mask.applyConfirmation.operation) !== mask.active?.sourceAssetId
-              ? "的源图与专有参数。"
-              : "的专有参数。"}
-          </p>
-          <footer className="generation-dialog-actions">
-            <Button onClick={() => mask.confirmApply(false)}>取消</Button>
-            <Button className="primary" onClick={() => mask.confirmApply(true)}>
-              应用遮罩并切换
-            </Button>
-          </footer>
-        </div>
-      </Modal>
-      <Modal open={mask.discarding} onClose={mask.cancelDiscard} title="放弃未应用的遮罩编辑？">
-        <div className="generation-dialog-body">
-          <footer className="generation-dialog-actions">
-            <Button onClick={mask.cancelDiscard}>取消</Button>
-            <Button className="primary" onClick={mask.confirmDiscard}>
-              放弃编辑
-            </Button>
-          </footer>
-        </div>
-      </Modal>
-    </div>
+        </Modal>
+        <Modal
+          open={mask.applyConfirmation !== null}
+          onClose={() => mask.confirmApply(false)}
+          title="切换为局部重绘？"
+        >
+          <div className="generation-dialog-body">
+            <p>
+              将替换当前{mask.applyConfirmation && operationLabel(mask.applyConfirmation.operation)}
+              {mask.applyConfirmation &&
+              operationSourceId(mask.applyConfirmation.operation) !== mask.active?.sourceAssetId
+                ? "的源图与专有参数。"
+                : "的专有参数。"}
+            </p>
+            <footer className="generation-dialog-actions">
+              <Button onClick={() => mask.confirmApply(false)}>取消</Button>
+              <Button className="primary" onClick={() => mask.confirmApply(true)}>
+                应用遮罩并切换
+              </Button>
+            </footer>
+          </div>
+        </Modal>
+        <Modal open={mask.discarding} onClose={mask.cancelDiscard} title="放弃未应用的遮罩编辑？">
+          <div className="generation-dialog-body">
+            <footer className="generation-dialog-actions">
+              <Button onClick={mask.cancelDiscard}>取消</Button>
+              <Button className="primary" onClick={mask.confirmDiscard}>
+                放弃编辑
+              </Button>
+            </footer>
+          </div>
+        </Modal>
+      </div>
+    </MediaToolsContext>
   );
 }

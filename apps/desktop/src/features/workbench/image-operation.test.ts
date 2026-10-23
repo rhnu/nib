@@ -33,6 +33,9 @@ const imageOperation = (
 });
 const creation = (operation: CreationOperation): Draft => ({
   vibeEncoder: null,
+  director: { selectedTool: "lineart", tools: [] },
+  pngTextEditor: { sessions: [] },
+  activePage: "create",
   revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: emptyComposition(),

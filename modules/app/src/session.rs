@@ -1,11 +1,15 @@
 //! Automatically retained current creation. The frontend owns high-frequency edits.
 
+mod director;
 mod inputs;
 mod mask_editor;
+mod png_text;
 mod restore;
 mod sqlite;
+pub use director::*;
 pub use inputs::*;
 pub use mask_editor::*;
+pub use png_text::*;
 pub use restore::*;
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +34,20 @@ pub struct Draft {
     pub mask_editor: MaskEditorState,
     // Separately retained encoder edits never replace the active image operation.
     pub vibe_encoder: Option<VibeEncodingInput>,
+    pub director: DirectorWorkspace,
+    pub png_text_editor: PngTextEditorState,
+    pub active_page: ActivePage,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ActivePage {
+    #[default]
+    Create,
+    Director,
+    Library,
+    Settings,
 }
 
 pub trait DraftStore {

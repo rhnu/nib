@@ -27,6 +27,9 @@ const character: CharacterComposition = {
 };
 const draft = (): Draft => ({
   vibeEncoder: null,
+  director: { selectedTool: "lineart", tools: [] },
+  pngTextEditor: { sessions: [] },
+  activePage: "create",
   revision: 0,
   composition: emptyComposition(),
   settings: emptySettings(),

@@ -1,0 +1,63 @@
+.png-text-dialog {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 17px;
+}
+.png-text-dialog > section + section {
+  margin-top: 18px;
+}
+.png-text-dialog h3 {
+  margin: 0;
+}
+.png-text-heading,
+.png-text-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.png-text-heading {
+  margin-bottom: 9px;
+}
+.png-text-inspection {
+  margin-top: 9px;
+}
+.png-text-inspection-entry {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.png-text-inspection-entry summary {
+  overflow-wrap: anywhere;
+}
+.png-text-inspection-entry pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 9px;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  background: var(--input);
+}
+.png-text-editor {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.png-text-editor-entry {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.png-text-editor-entry textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+.png-text-editor-entry > button {
+  justify-self: start;
+}
+.png-text-output {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}

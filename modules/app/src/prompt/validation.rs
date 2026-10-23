@@ -130,12 +130,52 @@ pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
     Ok(())
 }
 
+fn tool_editors(draft: &Draft) -> Result<(), ValidationError> {
+    let mut tools = Vec::new();
+    for state in &draft.director.tools {
+        if tools.contains(&state.tool) {
+            return Err(invalid("director.tools", "duplicate tool identity"));
+        }
+        if state.tool != crate::session::DirectorToolKind::from_command(&state.command) {
+            return Err(invalid(
+                "director.tools.command",
+                "command belongs to a different tool",
+            ));
+        }
+        tools.push(state.tool);
+        if let Some(id) = &state.asset_id {
+            nonempty(id, "director.tools.assetId")?;
+        }
+        if let Some(id) = &state.selected_result_id {
+            nonempty(id, "director.tools.selectedResultId")?;
+        }
+    }
+    if !tools.is_empty() && !tools.contains(&draft.director.selected_tool) {
+        return Err(invalid("director.selectedTool", "selected tool is missing"));
+    }
+    let mut images = HashSet::new();
+    for session in &draft.png_text_editor.sessions {
+        nonempty(&session.asset_id, "pngTextEditor.sessions.assetId")?;
+        if !images.insert(&session.asset_id) {
+            return Err(invalid(
+                "pngTextEditor.sessions.assetId",
+                "duplicate image identity",
+            ));
+        }
+        if let Some(id) = &session.selected_output_asset_id {
+            nonempty(id, "pngTextEditor.sessions.selectedOutputAssetId")?;
+        }
+    }
+    Ok(())
+}
+
 /// Checks composition entry identities and instance override structure.
 ///
 /// # Errors
 /// Returns the field and reason for the first structural violation.
 pub fn validate_draft(draft: &Draft) -> Result<(), ValidationError> {
     draft.mask_editor.validate()?;
+    tool_editors(draft)?;
     if let Some(encoder) = &draft.vibe_encoder {
         nonempty(&encoder.asset_id, "vibeEncoder.assetId")?;
         if let Some(id) = &encoder.mask_asset_id {

@@ -14,10 +14,13 @@ export function useWorkbench(
   workspace: WorkspaceSnapshot,
   initialResources: Map<string, Resource>,
   settingsWriter: CloseWriter,
+  initialPage: "create" | "settings" = "create",
 ) {
   const [writer] = useState(() => {
     const value = new DraftWriter<Draft>(workbenchApi.saveDraft);
-    value.replace(workspace.draft);
+    value.replace(
+      initialPage === "settings" ? { ...workspace.draft, activePage: "settings" } : workspace.draft,
+    );
     return value;
   });
   const written = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
@@ -27,7 +30,11 @@ export function useWorkbench(
   const generationDraft = useGenerationDraft(draft);
   const resolution = useResolution(generationDraft, resources);
   const [error, setError] = useState("");
-  const [library, setLibrary] = useState(false);
+  const library = draft.activePage === "library";
+  const setLibrary = (open: boolean) => {
+    const current = writer.getSnapshot().value!;
+    writer.edit({ ...current, activePage: open ? "library" : "create" });
+  };
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
   const [resourceDirty, updateResourceDirty] = useState(false);
   const resourceDirtyRef = useRef(false);
@@ -80,6 +87,9 @@ export function useWorkbench(
       revision: current.revision,
       maskEditor: current.maskEditor,
       vibeEncoder: current.vibeEncoder,
+      director: current.director,
+      pngTextEditor: current.pngTextEditor,
+      activePage: value.activePage,
     });
   };
   const openLibrary = (target: InsertTarget) => {

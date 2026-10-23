@@ -62,7 +62,21 @@ export type PresetBinding = { "kind": "linked", resourceId: string, overrides: A
 
 export type PresetInstance = { id: string, enabled: boolean, binding: PresetBinding, };
 
-export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, };
+export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, director: DirectorWorkspace, pngTextEditor: PngTextEditorState, activePage: ActivePage, };
+
+export type ActivePage = "create" | "director" | "library" | "settings";
+
+export type DirectorToolKind = "lineart" | "sketch" | "bgRemoval" | "emotion" | "declutter" | "declutterKeepBubbles" | "colorize";
+
+export type DirectorToolState = { tool: DirectorToolKind, assetId: string | null, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, policy: "normalize" | "reject", selectedResultId: string | null, };
+
+export type DirectorWorkspace = { selectedTool: DirectorToolKind, tools: Array<DirectorToolState>, };
+
+export type PngTextEditorState = { sessions: Array<PngTextSession>, };
+
+export type PngTextSession = { assetId: string, entries: Array<PngTextValue>, selectedOutputAssetId: string | null, };
+
+export type PngTextValue = { keyword: string, text: string, };
 
 export type ValidationError = { field: string, message: string, };
 

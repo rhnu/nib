@@ -60,6 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "import_document_encoding",
             "import_embedded_vibes",
             "write_png_text",
+            "inspect_png_text",
+            "get_director_options",
         ]));
     tauri_build::try_build(attributes)?;
     Ok(())

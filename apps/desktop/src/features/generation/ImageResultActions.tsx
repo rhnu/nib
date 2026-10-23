@@ -4,6 +4,7 @@ import type { ImageOperationAction } from "../workbench/image-operation";
 import { Button } from "../../shared/ui";
 import { ImageMetadataDialog } from "../media/ImageMetadataDialog";
 import { useMediaAsset } from "../media/useMediaAsset";
+import { useMediaTools } from "../media/MediaToolsContext";
 
 /** Result tools use the original immutable asset, never a canvas screenshot. */
 export function ImageResultActions({
@@ -13,6 +14,7 @@ export function ImageResultActions({
   onRestore,
   canMaxEnhance,
   canInpaint,
+  showDirector = true,
 }: {
   assetId: string;
   available: boolean;
@@ -20,7 +22,9 @@ export function ImageResultActions({
   onRestore: (draft: Draft) => void;
   canMaxEnhance: boolean;
   canInpaint: boolean;
+  showDirector?: boolean;
 }) {
+  const tools = useMediaTools();
   const [metadataOpen, setMetadataOpen] = useState(false);
   const media = useMediaAsset(metadataOpen ? assetId : null);
   return (
@@ -57,6 +61,11 @@ export function ImageResultActions({
         <Button className="quiet" disabled={!available} onClick={() => setMetadataOpen(true)}>
           图片元信息
         </Button>
+        {tools && showDirector && (
+          <Button className="quiet" disabled={!available} onClick={() => tools.onDirector(assetId)}>
+            导演工具
+          </Button>
+        )}
       </div>
       {metadataOpen && !media.asset && (
         <div className="generation-muted">

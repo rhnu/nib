@@ -24,11 +24,12 @@ export function ResultDetail({
   result: GenerationResult;
   onClose: () => void;
   onRestore: (draft: Draft) => void;
-  onUseSeed: (seed: number) => void;
+  onUseSeed?: (seed: number) => void;
   onImageOperation: (id: string, kind: ImageOperationAction) => void;
   canMaxEnhance: boolean;
   canInpaint: boolean;
 }) {
+  const isDirector = result.submission.kind === "director";
   const image = useResultImage(result.id, result.mimeType, result.available);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [resubmitOpen, setResubmitOpen] = useState(false);
@@ -62,7 +63,16 @@ export function ResultDetail({
   }
 
   return (
-    <Modal open onClose={onClose} title={`生成结果 · 样本 ${result.sampleIndex + 1}`} wide>
+    <Modal
+      open
+      onClose={onClose}
+      title={
+        isDirector
+          ? `导演工具结果 · 输出 ${result.sampleIndex + 1}`
+          : `生成结果 · 样本 ${result.sampleIndex + 1}`
+      }
+      wide
+    >
       <div className="generation-detail">
         <div className="generation-detail-image">
           {!result.available ? (
@@ -117,7 +127,7 @@ export function ResultDetail({
                 下载原图
               </a>
             )}
-            {result.seed !== null && result.available && (
+            {onUseSeed && result.seed !== null && result.available && (
               <Button
                 onClick={() => {
                   onUseSeed(result.seed!);
@@ -135,25 +145,27 @@ export function ResultDetail({
               disabled={restoring || !result.available}
             >
               <ArrowUpLeft size={14} />
-              恢复到当前创作
+              {isDirector ? "恢复工具输入" : "恢复到当前创作"}
             </Button>
             <Button onClick={() => setResubmitOpen(true)} disabled={restoring || !result.available}>
               <RotateCw size={14} />
-              再次生成
+              {isDirector ? "再次处理" : "再次生成"}
             </Button>
           </div>
           {confirmRestore && (
             <fieldset className="generation-restore-confirm">
-              <legend>替换当前创作？</legend>
+              <legend>{isDirector ? "替换工具输入？" : "替换当前创作？"}</legend>
               <p>
-                当前提示词、配方与设置将替换为此结果保存的独立内容，并自动保存。此操作不会发起生成。
+                {isDirector
+                  ? "将恢复此结果使用的工具、源图和参数。"
+                  : "当前提示词、配方与设置将替换为此结果保存的独立内容，并自动保存。此操作不会发起生成。"}
               </p>
               <div className="generation-dialog-actions">
                 <Button disabled={restoring} onClick={() => setConfirmRestore(false)}>
-                  保留当前创作
+                  {isDirector ? "保留工具输入" : "保留当前创作"}
                 </Button>
                 <Button className="primary" disabled={restoring} onClick={() => void restore()}>
-                  {restoring ? "正在恢复…" : "替换当前创作"}
+                  {restoring ? "正在恢复…" : isDirector ? "恢复工具输入" : "替换当前创作"}
                 </Button>
               </div>
             </fieldset>

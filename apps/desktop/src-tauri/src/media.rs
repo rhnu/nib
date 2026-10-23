@@ -16,6 +16,34 @@ use nib_app::{
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
 
+/// PNG SDK validation is a rejected edit; storage failures keep the common persistence path.
+fn png_text_error(error: nib_app::persistence::PersistenceError) -> ApiError {
+    use std::error::Error as _;
+
+    if let nib_app::persistence::PersistenceError::Failure { source, .. } = &error
+        && let Some(bridge) = source.downcast_ref::<novelai_bridge::BridgeError>()
+        && matches!(
+            bridge,
+            novelai_bridge::BridgeError::Metadata(_)
+                | novelai_bridge::BridgeError::InvalidRequest(_)
+        )
+    {
+        let mut message = bridge.to_string();
+        let mut cause = bridge.source();
+        while let Some(source) = cause {
+            message.push_str(": ");
+            message.push_str(&source.to_string());
+            cause = source.source();
+        }
+        return ApiError {
+            code: nib_app::api::ErrorCode::Invalid,
+            validation_fields: Vec::new(),
+            message,
+        };
+    }
+    persistence_error(error)
+}
+
 async fn with_media<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
@@ -288,6 +316,22 @@ pub(crate) async fn embed_vibe_document(
 }
 
 #[tauri::command]
+pub(crate) fn get_director_options() -> nib_app::session::DirectorWorkspace {
+    nib_app::session::DirectorWorkspace::default()
+}
+
+#[tauri::command]
+pub(crate) async fn inspect_png_text(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<nib_app::media::PngTextInspection, ApiError> {
+    with_media(state, move |media| {
+        media.inspect_png_text(&id).map_err(png_text_error)
+    })
+    .await
+}
+
+#[tauri::command]
 pub(crate) async fn write_png_text(
     state: tauri::State<'_, DesktopState>,
     image_id: String,
@@ -300,7 +344,7 @@ pub(crate) async fn write_png_text(
             .collect::<Vec<_>>();
         media
             .write_png_text(&image_id, &entries)
-            .map_err(persistence_error)
+            .map_err(png_text_error)
     })
     .await
 }
@@ -411,3 +455,6 @@ pub(crate) async fn restore_result(
     })
     .await
 }
+
+#[cfg(test)]
+mod tests;

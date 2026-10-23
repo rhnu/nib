@@ -51,6 +51,9 @@ const resource: Resource = {
 const resources = new Map([[resource.id, resource]]);
 const creation = (): Draft => ({
   vibeEncoder: null,
+  director: { selectedTool: "lineart", tools: [] },
+  pngTextEditor: { sessions: [] },
+  activePage: "create",
   revision: 1,
   composition: emptyComposition(),
   characters: [character("direct")],
