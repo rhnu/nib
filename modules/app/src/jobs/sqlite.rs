@@ -2,8 +2,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::{FrozenSubmission, JobRecord, JobStore, ParameterDiagnostic, SubmissionResolver};
-use crate::persistence::{PersistenceError, SqliteDatabase, decode, encode};
+use super::{
+    FrozenSubmission, JobObservation, JobRecord, JobStore, ParameterDiagnostic, SubmissionResolver,
+};
+use crate::{
+    persistence::{PersistenceError, SqliteDatabase, decode, encode},
+    settings::ExecutionPreferences,
+};
 
 /// Only one SDK parameter set is retained, with immutable media identities and source metadata.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -267,15 +272,17 @@ pub(crate) fn timestamp() -> Result<i64, PersistenceError> {
 }
 
 fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceError> {
-    let (status, submitted_at, finished_at, error, submission): (
+    let (status, submitted_at, finished_at, error, submission, execution, observation): (
         String,
         i64,
         Option<i64>,
         Option<String>,
         String,
+        String,
+        Option<String>,
     ) = connection
         .query_row(
-            "SELECT status, submitted_at, finished_at, error, submission FROM jobs WHERE id = ?1",
+            "SELECT status, submitted_at, finished_at, error, submission, execution, observation FROM jobs WHERE id = ?1",
             [id],
             |row| {
                 Ok((
@@ -284,6 +291,8 @@ fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceEr
                     row.get(2)?,
                     row.get(3)?,
                     row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
                 ))
             },
         )
@@ -312,6 +321,8 @@ fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceEr
         error,
         result_ids,
         submission: decode_submission(&submission)?,
+        execution: decode(&execution)?,
+        observation: observation.as_deref().map(decode).transpose()?,
     })
 }
 
@@ -335,7 +346,11 @@ impl SubmissionResolver for SqliteDatabase {
 }
 
 impl JobStore for SqliteDatabase {
-    fn insert_job(&self, submission: &FrozenSubmission) -> Result<JobRecord, PersistenceError> {
+    fn insert_job(
+        &self,
+        submission: &FrozenSubmission,
+        execution: ExecutionPreferences,
+    ) -> Result<JobRecord, PersistenceError> {
         let content = encode_submission(submission)?;
         let now = timestamp()?;
         let mut connection = self.connection()?;
@@ -344,8 +359,8 @@ impl JobStore for SqliteDatabase {
         })?;
         transaction
             .execute(
-                "INSERT INTO jobs (status, submitted_at, submission) VALUES ('queued', ?1, ?2)",
-                params![now, content],
+                "INSERT INTO jobs (status, submitted_at, submission, execution) VALUES ('queued', ?1, ?2, ?3)",
+                params![now, content, encode(&execution)?],
             )
             .map_err(|error| {
                 PersistenceError::failure("retain a submitted generation job", error)
@@ -355,6 +370,16 @@ impl JobStore for SqliteDatabase {
             PersistenceError::failure("commit a submitted generation job", error)
         })?;
         Ok(record)
+    }
+
+    fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError> {
+        self.connection()?
+            .execute(
+                "UPDATE jobs SET observation = ?2 WHERE id = ?1",
+                params![parse_id(id)?, encode(observation)?],
+            )
+            .map_err(|error| PersistenceError::failure("retain SDK request observation", error))?;
+        Ok(())
     }
 
     fn get_job(&self, id: &str) -> Result<JobRecord, PersistenceError> {

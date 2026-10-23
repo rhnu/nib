@@ -25,6 +25,7 @@ import { useModelCapabilities } from "./useModelCapabilities";
 import { useImageOperationRequest } from "./useImageOperationRequest";
 import { operationLabel, operationSourceId, type ImageOperationAction } from "./image-operation";
 import { useGeneration } from "../generation/generation-context";
+import { StreamModeSelect } from "../generation";
 import { useGenerationQuote } from "../generation/use-generation-quote";
 import { isQuoteEligible } from "../generation/quote-state";
 import { useMaskEditor } from "./useMaskEditor";
@@ -432,26 +433,37 @@ export function Workbench({
                 resolved={resolved?.settings}
                 onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
                 advancedContent={
-                  <div data-setting-field="policy">
-                    <Field label="参数校验">
-                      <select
-                        value={draft.inputs.policy}
-                        onChange={(event) => {
-                          const current = readCurrentDraft();
-                          edit({
-                            ...current,
-                            inputs: {
-                              ...current.inputs,
-                              policy: event.target.value === "reject" ? "reject" : "normalize",
-                            },
-                          });
-                        }}
-                      >
-                        <option value="normalize">自动调整</option>
-                        <option value="reject">严格拒绝</option>
-                      </select>
-                    </Field>
-                  </div>
+                  <>
+                    <StreamModeSelect
+                      value={draft.inputs.stream}
+                      supported={editorCapabilities?.streaming ?? null}
+                      modes={editorCapabilities?.streamModes ?? null}
+                      onChange={(stream) => {
+                        const current = readCurrentDraft();
+                        edit({ ...current, inputs: { ...current.inputs, stream } });
+                      }}
+                    />
+                    <div data-setting-field="policy">
+                      <Field label="参数校验">
+                        <select
+                          value={draft.inputs.policy}
+                          onChange={(event) => {
+                            const current = readCurrentDraft();
+                            edit({
+                              ...current,
+                              inputs: {
+                                ...current.inputs,
+                                policy: event.target.value === "reject" ? "reject" : "normalize",
+                              },
+                            });
+                          }}
+                        >
+                          <option value="normalize">自动调整</option>
+                          <option value="reject">严格拒绝</option>
+                        </select>
+                      </Field>
+                    </div>
+                  </>
                 }
               />
             )}

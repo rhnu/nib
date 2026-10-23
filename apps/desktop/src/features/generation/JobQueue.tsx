@@ -7,18 +7,11 @@ import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { JobRetryDialog } from "./JobRetryDialog";
 import { submissionLabel } from "./operation";
+import { jobFeedbackText } from "./feedback-state";
+import { JobCostSummary } from "./JobCostSummary";
 
-const statusText: Record<JobRecord["status"], string> = {
-  queued: "排队中",
-  running: "执行中",
-  completed: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-  interrupted: "已中断",
-};
-
-export function JobQueue() {
-  const { jobs, acceptJob, queryError } = useGeneration();
+export function JobQueue({ onViewJob }: { onViewJob?: (id: string) => void }) {
+  const { jobs, acceptJob, queryError, feedback } = useGeneration();
   const [pending, setPending] = useState<string[]>([]);
   const pendingRef = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
@@ -69,16 +62,26 @@ export function JobQueue() {
             return (
               <li key={job.id} className={`generation-job generation-job-${job.status}`}>
                 <div className="generation-job-description">
-                  <strong>{statusText[job.status]}</strong>
+                  <strong>{jobFeedbackText(job, feedback[job.id])}</strong>
                   <time dateTime={new Date(job.submittedAt).toISOString()}>
                     {new Date(job.submittedAt).toLocaleString()}
                   </time>
                   <span>{submissionLabel(job.submission)}</span>
+                  <span>
+                    任务 {job.id.slice(0, 8)}
+                    {job.status === "completed" ? ` · ${job.resultIds.length} 个已保存结果` : ""}
+                  </span>
                   {job.error && <span className="generation-danger">{job.error}</span>}
                   {job.status === "interrupted" && (
                     <small>应用中断后已停止，需手动再次提交。</small>
                   )}
+                  <JobCostSummary job={job} />
                 </div>
+                {onViewJob && (
+                  <Button className="quiet" onClick={() => onViewJob(job.id)}>
+                    查看
+                  </Button>
+                )}
                 {cancellable && (
                   <Button
                     className="quiet"

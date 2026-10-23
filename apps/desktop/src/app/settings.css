@@ -38,6 +38,20 @@
   justify-content: space-between;
   gap: 12px;
 }
+.execution-settings summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.execution-settings-fields {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+.execution-setting-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .storage-settings {
   display: grid;
   gap: 12px;

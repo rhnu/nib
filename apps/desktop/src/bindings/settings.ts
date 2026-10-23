@@ -2,7 +2,11 @@
 
 export type Theme = "dark" | "light";
 
-export type ApplicationPreferences = { theme: Theme, };
+export type ImageRequestEncoding = "json" | "multipart";
+
+export type ExecutionPreferences = { imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
+
+export type ApplicationPreferences = { theme: Theme, execution: ExecutionPreferences, };
 
 export type StorageLocations = { configDirectory: string, dataDirectory: string, pendingDataDirectory: string | null, defaultDataDirectory: string, development: boolean, };
 

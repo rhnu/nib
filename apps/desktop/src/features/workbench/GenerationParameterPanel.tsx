@@ -26,7 +26,7 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
           !["model", "quality", "ucPreset", "furryMode", "size", "nSamples", "useCoords"].includes(
             key,
           )) ||
-        field.split(".").includes("policy")
+        field.split(".").some((part) => part === "policy" || part === "stream")
       );
     },
   );

@@ -4,9 +4,21 @@ import { errorMessage } from "../shared/host/error";
 import { hasDesktopHost } from "../shared/host/invoke";
 import { PreferencesWriter } from "./preferences-writer";
 import { settingsApi } from "./settings-api";
+import { prepareSubmissionPreferences } from "./submission-preferences";
 
 export function useApplicationSettings() {
-  const [writer] = useState(() => new PreferencesWriter(settingsApi.savePreferences));
+  const [executionVersion, setExecutionVersion] = useState(0);
+  const [writer] = useState(
+    () =>
+      new PreferencesWriter(settingsApi.savePreferences, (saved, previous) => {
+        if (
+          previous &&
+          (previous.execution.imageRequestEncoding !== saved.execution.imageRequestEncoding ||
+            previous.execution.serverImageCache !== saved.execution.serverImageCache)
+        )
+          setExecutionVersion((version) => version + 1);
+      }),
+  );
   const preferences = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
   const [storage, setStorage] = useState<StorageLocations | null>(null);
   const [loading, setLoading] = useState(hasDesktopHost);
@@ -75,7 +87,11 @@ export function useApplicationSettings() {
     }),
     [writer],
   );
+  const prepareSubmission = useCallback(() => prepareSubmissionPreferences(writer), [writer]);
   return {
+    prepareSubmission,
+    submissionBlocked: preferences.dirty || preferences.saving || Boolean(preferences.error),
+    executionVersion,
     preferences,
     writer,
     storage,

@@ -17,7 +17,14 @@ export function ResultResubmitDialog({
   result: GenerationResult;
   onClose: () => void;
 }) {
-  const { account, acceptJob, accountVersion, accountSummaryLoading } = useGeneration();
+  const {
+    account,
+    acceptJob,
+    accountVersion,
+    accountSummaryLoading,
+    submit: submitGeneration,
+    submissionBlocked,
+  } = useGeneration();
   const [response, setPrepared] = useState<{
     draft: Draft;
     quote: GenerationQuote;
@@ -62,6 +69,7 @@ export function ResultResubmitDialog({
   async function submit() {
     if (
       lock.current ||
+      submissionBlocked ||
       !prepared ||
       prepared.quote.tooExpensive ||
       prepared.quote.tokens.some((token) => token.overLimit) ||
@@ -73,7 +81,7 @@ export function ResultResubmitDialog({
     setPending(true);
     setError(null);
     try {
-      acceptJob(await generationApi.submit(prepared.draft));
+      acceptJob(await submitGeneration(prepared.draft));
       if (active.current) onClose();
     } catch (cause) {
       if (active.current) setError(errorMessage(cause));
@@ -124,6 +132,7 @@ export function ResultResubmitDialog({
             className="primary"
             disabled={
               pending ||
+              submissionBlocked ||
               !prepared ||
               prepared.quote.tooExpensive ||
               prepared.quote.tokens.some((token) => token.overLimit) ||
@@ -134,9 +143,11 @@ export function ResultResubmitDialog({
           >
             {pending
               ? "正在提交…"
-              : result.submission.kind === "director"
-                ? "确认处理"
-                : "确认生成"}
+              : submissionBlocked
+                ? "正在保存设置…"
+                : result.submission.kind === "director"
+                  ? "确认处理"
+                  : "确认生成"}
           </Button>
         </footer>
       </div>

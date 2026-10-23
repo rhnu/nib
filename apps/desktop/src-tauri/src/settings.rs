@@ -29,11 +29,19 @@ pub(crate) async fn save_application_preferences(
     preferences: ApplicationPreferences,
 ) -> Result<ApplicationPreferences, ApiError> {
     let storage = Arc::clone(&state.storage);
+    let desktop = state.inner().clone();
     crate::generation::blocking(move || {
-        storage
+        let previous = storage.settings.preferences().map_err(persistence_error)?;
+        let saved = storage
             .settings
             .save_preferences(&preferences)
-            .map_err(persistence_error)
+            .map_err(persistence_error)?;
+        if previous.execution != saved.execution {
+            desktop
+                .invalidate_sdk()
+                .map_err(crate::generation::generation_error)?;
+        }
+        Ok(saved)
     })
     .await
 }

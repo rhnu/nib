@@ -29,6 +29,8 @@ pub struct ModelCapabilities {
     pub precise_reference_options: PreciseReferenceOptions,
     pub vibe_reference_options: VibeReferenceOptions,
     pub streaming: bool,
+    #[cfg_attr(feature = "typegen", ts(type = "(\"sse\" | \"msgpack\")[]"))]
+    pub stream_modes: Vec<novelai_bridge::StreamMode>,
     pub inpainting: bool,
     pub inpainting_image_to_image: bool,
     pub max_enhance: bool,
@@ -244,6 +246,7 @@ fn project_capabilities(
         precise_reference_options: precise_reference_options(),
         vibe_reference_options: vibe_reference_options(model),
         streaming: descriptor.support().streaming,
+        stream_modes: stream_modes(descriptor.support().streaming),
         inpainting: descriptor.support().inpainting.is_some(),
         inpainting_image_to_image: descriptor
             .support()
@@ -311,6 +314,17 @@ fn project_capabilities(
             .is_available(),
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
+    }
+}
+
+fn stream_modes(supported: bool) -> Vec<novelai_bridge::StreamMode> {
+    if supported {
+        vec![
+            novelai_bridge::StreamMode::Sse,
+            novelai_bridge::StreamMode::MessagePack,
+        ]
+    } else {
+        Vec::new()
     }
 }
 

@@ -119,7 +119,8 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
   const tail = field.split(".").at(-1) ?? "";
   const key = field.startsWith("operation.input.")
     ? inputFields[tail]
-    : (diagnosticSetting(field) ?? (field.split(".").includes("policy") ? "policy" : null));
+    : (diagnosticSetting(field) ??
+      field.split(".").find((part) => part === "policy" || part === "stream"));
   if (!key) return false;
   const selector = `[data-setting-field="${key}"]`;
   const target =

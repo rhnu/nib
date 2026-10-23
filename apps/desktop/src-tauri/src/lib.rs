@@ -112,7 +112,7 @@ pub fn run() -> anyhow::Result<()> {
             if matches!(event, tauri::WindowEvent::Destroyed)
                 && let Err(error) = window
                     .state::<state::DesktopState>()
-                    .stop_feedback(window.label())
+                    .stop_feedback(window.label(), None)
             {
                 tracing::warn!(error = %error, "cannot release window feedback subscription");
             }

@@ -16,9 +16,10 @@ export const generationApi = {
   deleteKey: () => invokeHost<AccountStatus>("delete_account_key"),
   accountSummary: () => invokeHost<AccountSummary | null>("get_account_summary"),
   refreshAccountSummary: () => invokeHost<AccountSummary>("refresh_account_summary"),
-  subscribeFeedback: (onEvent: Channel<JobFeedback>) =>
-    invokeHost<void>("subscribe_job_feedback", { onEvent }),
-  unsubscribeFeedback: () => invokeHost<void>("unsubscribe_job_feedback"),
+  subscribeFeedback: (subscriptionId: string, onEvent: Channel<JobFeedback>) =>
+    invokeHost<void>("subscribe_job_feedback", { subscriptionId, onEvent }),
+  unsubscribeFeedback: (subscriptionId: string) =>
+    invokeHost<void>("unsubscribe_job_feedback", { subscriptionId }),
   quote: (draft: Draft) => invokeHost<GenerationQuote>("quote_generation", { draft }),
   submit: (draft: Draft) => invokeHost<JobRecord>("submit_generation", { draft }),
   jobs: () => invokeHost<JobRecord[]>("list_jobs"),

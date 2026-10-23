@@ -29,6 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "list_jobs",
             "cancel_job",
             "retry_job",
+            "subscribe_job_feedback",
+            "unsubscribe_job_feedback",
             "list_results",
             "read_result_content",
             "restore_result",

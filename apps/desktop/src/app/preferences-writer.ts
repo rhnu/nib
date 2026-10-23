@@ -14,9 +14,18 @@ export class PreferencesWriter {
   private pending: Promise<void> | null = null;
   private listeners = new Set<() => void>();
   private write: (value: ApplicationPreferences) => Promise<ApplicationPreferences>;
+  private saved: ApplicationPreferences | null = null;
+  private onSaved?: (
+    value: ApplicationPreferences,
+    previous: ApplicationPreferences | null,
+  ) => void;
 
-  constructor(write: (value: ApplicationPreferences) => Promise<ApplicationPreferences>) {
+  constructor(
+    write: (value: ApplicationPreferences) => Promise<ApplicationPreferences>,
+    onSaved?: (value: ApplicationPreferences, previous: ApplicationPreferences | null) => void,
+  ) {
     this.write = write;
+    this.onSaved = onSaved;
   }
 
   subscribe = (listener: () => void) => {
@@ -26,12 +35,14 @@ export class PreferencesWriter {
     };
   };
   getSnapshot = () => this.state;
+  getSavedSnapshot = () => this.saved;
   private publish(state: PreferenceState) {
     this.state = state;
     this.listeners.forEach((listener) => listener());
   }
   initialize(value: ApplicationPreferences) {
     if (this.state.value) throw new Error("应用设置已经加载。");
+    this.saved = value;
     this.publish({ value, dirty: false, saving: false, error: null });
   }
   edit(value: ApplicationPreferences) {
@@ -49,6 +60,9 @@ export class PreferencesWriter {
         while (this.state.dirty && this.state.value) {
           const version = this.version;
           const saved = await this.write(this.state.value);
+          const previous = this.saved;
+          this.saved = saved;
+          this.onSaved?.(saved, previous);
           this.publish({
             ...this.state,
             value: version === this.version ? saved : this.state.value,

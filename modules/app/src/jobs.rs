@@ -1,6 +1,7 @@
 //! Frozen submissions and one sequential queue for all `NovelAI` operations.
 
 mod execution;
+mod observation;
 mod operations;
 mod sqlite;
 
@@ -10,6 +11,7 @@ use std::sync::{
 };
 
 use novelai_bridge::{Client, GenerateImageRequest, Tokenizers};
+pub use observation::{JobObservation, RequestSettlement};
 use serde::{Deserialize, Serialize};
 pub(crate) use sqlite::{decode_submission, timestamp};
 use tokio::sync::{Notify, broadcast};
@@ -19,7 +21,7 @@ use crate::{
     persistence::PersistenceError,
     prompt::ResolvedDraft,
     session::Draft,
-    settings::{AccountSummary, CredentialError, CredentialStore},
+    settings::{AccountSummary, CredentialError, CredentialStore, ExecutionPreferences},
 };
 
 /// Only applicable operation data is frozen. Generation images remain immutable asset references.
@@ -155,6 +157,8 @@ pub struct JobRecord {
     pub error: Option<String>,
     pub result_ids: Vec<String>,
     pub submission: FrozenSubmission,
+    pub execution: ExecutionPreferences,
+    pub observation: Option<JobObservation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,11 +204,16 @@ pub struct GenerationQuote {
 )]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub enum JobFeedback {
+    ResyncRequired,
+    Started {
+        job_id: String,
+    },
     Preview {
         job_id: String,
         sample_index: u32,
         step_index: u32,
         image_bytes: Vec<u8>,
+        mime_type: Option<String>,
     },
     FinalReceived {
         job_id: String,
@@ -212,6 +221,13 @@ pub enum JobFeedback {
     },
     Finished {
         job_id: String,
+        status: JobStatus,
+        error: Option<String>,
+        observation: Option<JobObservation>,
+    },
+    Observation {
+        job_id: String,
+        observation: JobObservation,
     },
 }
 
@@ -254,6 +270,20 @@ pub trait SdkClientProvider: Send + Sync {
     fn client(&self) -> Result<SdkClient, JobError>;
 
     fn cached_client(&self) -> Option<SdkClient>;
+
+    /// Captures global execution options without opening a connection.
+    /// # Errors
+    /// Returns a settings read failure.
+    fn execution_preferences(&self) -> Result<ExecutionPreferences, JobError> {
+        Ok(ExecutionPreferences::default())
+    }
+
+    /// Uses the options retained with a queued job rather than the latest preferences.
+    /// # Errors
+    /// Returns credential or SDK transport configuration errors.
+    fn client_for(&self, _execution: ExecutionPreferences) -> Result<SdkClient, JobError> {
+        self.client()
+    }
 }
 
 struct ActiveJob {
@@ -264,7 +294,16 @@ struct ActiveJob {
 pub trait JobStore: Send + Sync {
     /// # Errors
     /// Returns a backend failure retaining fixed input.
-    fn insert_job(&self, submission: &FrozenSubmission) -> Result<JobRecord, PersistenceError>;
+    fn insert_job(
+        &self,
+        submission: &FrozenSubmission,
+        execution: ExecutionPreferences,
+    ) -> Result<JobRecord, PersistenceError>;
+
+    /// Retains SDK lifecycle evidence independently from application success or cancellation.
+    /// # Errors
+    /// Returns a backend failure.
+    fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError>;
 
     /// # Errors
     /// Returns missing task or backend failure.
@@ -415,7 +454,7 @@ impl JobQueue {
                 "只能重试失败、取消或中断的任务。".to_owned(),
             ));
         }
-        self.enqueue(&record.submission)
+        self.enqueue_with(&record.submission, record.execution)
     }
 
     fn check_credentials(&self) -> Result<(), JobError> {
@@ -429,6 +468,14 @@ impl JobQueue {
     }
 
     fn enqueue(&self, submission: &FrozenSubmission) -> Result<JobRecord, JobError> {
+        self.enqueue_with(submission, self.clients.execution_preferences()?)
+    }
+
+    fn enqueue_with(
+        &self,
+        submission: &FrozenSubmission,
+        execution: ExecutionPreferences,
+    ) -> Result<JobRecord, JobError> {
         let _gate = self
             .submission_gate
             .lock()
@@ -436,7 +483,7 @@ impl JobQueue {
         if self.failed.load(Ordering::Acquire) {
             return Err(JobError::Unavailable);
         }
-        let record = self.store.insert_job(submission)?;
+        let record = self.store.insert_job(submission, execution)?;
         self.wake.notify_one();
         Ok(record)
     }

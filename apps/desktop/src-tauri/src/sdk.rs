@@ -5,41 +5,48 @@ use std::sync::{Arc, Mutex};
 use nib_app::{
     jobs::{JobError, SdkClientProvider},
     persistence::PersistenceError,
-    settings::CredentialStore as _,
+    settings::{CredentialStore as _, ExecutionPreferences},
 };
 use novelai_bridge::{
-    ApiKeySource, Client, ClientConfig, CreditEvent, CreditObserver, ReqwestOptions,
-    ReqwestTransport, SecretString, Tokenizers, Transport,
+    ApiKeySource, Client, CreditEvent, CreditObserver, ReqwestOptions, ReqwestTransport,
+    SecretString, Tokenizers, Transport,
 };
 use secrecy::ExposeSecret as _;
 
-use crate::credentials::NativeCredentials;
+use crate::{credentials::NativeCredentials, storage::StorageManager};
 
 struct CachedClient {
     key: SecretString,
     client: Client<dyn Transport>,
+    execution: ExecutionPreferences,
 }
 
 pub(crate) struct SdkClients {
     credentials: Arc<NativeCredentials>,
     tokenizers: Arc<Tokenizers>,
-    cached: Mutex<Option<CachedClient>>,
+    storage: Arc<StorageManager>,
+    cached: Mutex<Vec<CachedClient>>,
 }
 
 impl SdkClients {
-    pub(crate) fn new(credentials: Arc<NativeCredentials>, tokenizers: Arc<Tokenizers>) -> Self {
+    pub(crate) fn new(
+        credentials: Arc<NativeCredentials>,
+        tokenizers: Arc<Tokenizers>,
+        storage: Arc<StorageManager>,
+    ) -> Self {
         Self {
             credentials,
             tokenizers,
-            cached: Mutex::new(None),
+            storage,
+            cached: Mutex::new(Vec::new()),
         }
     }
 
     pub(crate) fn invalidate(&self) -> Result<(), JobError> {
-        *self
-            .cached
+        self.cached
             .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)? = None;
+            .map_err(|_poisoned| PersistenceError::Locked)?
+            .clear();
         Ok(())
     }
 
@@ -48,16 +55,31 @@ impl SdkClients {
 
 impl SdkClientProvider for SdkClients {
     fn client(&self) -> Result<Client<dyn Transport>, JobError> {
-        let key = self
-            .credentials
-            .load()?
-            .ok_or(JobError::MissingCredentials)?;
+        self.client_for(self.execution_preferences()?)
+    }
+
+    fn execution_preferences(&self) -> Result<ExecutionPreferences, JobError> {
+        Ok(self.storage.settings.preferences()?.execution)
+    }
+
+    fn client_for(
+        &self,
+        execution: ExecutionPreferences,
+    ) -> Result<Client<dyn Transport>, JobError> {
         let mut cached = self
             .cached
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?;
-        if let Some(existing) = cached.as_ref()
-            && existing.key.expose_secret() == key.expose_secret()
+        // Credential writes release their own lock before invalidation takes this one.
+        // Reading under this lock prevents an old key from repopulating an invalidated cache.
+        let key = self
+            .credentials
+            .load()?
+            .ok_or(JobError::MissingCredentials)?;
+        cached.retain(|existing| existing.key.expose_secret() == key.expose_secret());
+        if let Some(existing) = cached
+            .iter()
+            .find(|existing| existing.execution == execution)
         {
             return Ok(existing.client.clone());
         }
@@ -67,21 +89,25 @@ impl SdkClientProvider for SdkClients {
         })
         .map_err(novelai_bridge::BridgeError::from)?;
         let transport: Arc<dyn Transport> = Arc::new(transport);
-        let client = Client::new(transport, ClientConfig::default())
+        let client = Client::new(transport, execution.client_config())
             .with_tokenizers(Arc::clone(&self.tokenizers))
             .with_credit_observer(Arc::new(CreditDiagnostics));
-        *cached = Some(CachedClient {
+        // The two binary execution switches permit at most four clients. Frozen queued
+        // jobs keep their own cache without displacing the current preference's account.
+        cached.push(CachedClient {
             key,
             client: client.clone(),
+            execution,
         });
         Ok(client)
     }
 
     fn cached_client(&self) -> Option<Client<dyn Transport>> {
-        self.cached
-            .lock()
-            .ok()?
-            .as_ref()
+        let cached = self.cached.lock().ok()?;
+        let execution = self.storage.settings.preferences().ok()?.execution;
+        cached
+            .iter()
+            .find(|value| value.execution == execution)
             .map(|value| value.client.clone())
     }
 }

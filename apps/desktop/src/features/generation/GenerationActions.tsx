@@ -5,7 +5,6 @@ import { Button } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { hasPendingWork } from "../../shared/host/pending-work";
 import { AccountDialog } from "./AccountDialog";
-import { generationApi } from "./api";
 import { useGeneration } from "./generation-context";
 import { QuoteHelp } from "./QuoteSummary";
 import { useGenerationQuote, validationFields } from "./use-generation-quote";
@@ -39,6 +38,8 @@ export function GenerationActions({
     refreshAccount,
     acceptJob,
     accountSummaryLoading,
+    submit: submitGeneration,
+    submissionBlocked,
   } = useGeneration();
   const hasPrompt = isQuoteEligible(draft, resolved);
   const effectiveOperation = isOperationEffective(
@@ -63,6 +64,7 @@ export function GenerationActions({
   async function submit() {
     if (
       submittingRef.current ||
+      submissionBlocked ||
       hasPendingWork() ||
       operationPending ||
       !effectiveOperation ||
@@ -84,7 +86,7 @@ export function GenerationActions({
     setSubmitError(null);
     setSubmitted(false);
     try {
-      acceptJob(await generationApi.submit(snapshot));
+      acceptJob(await submitGeneration(snapshot));
       setSubmitted(true);
     } catch (cause) {
       setSubmitError({ key: estimate.key, message: errorMessage(cause) });
@@ -105,6 +107,7 @@ export function GenerationActions({
           className="primary"
           disabled={
             submitting ||
+            submissionBlocked ||
             operationPending ||
             (Boolean(estimate.quote) && !effectiveOperation) ||
             accountLoading ||
@@ -123,11 +126,13 @@ export function GenerationActions({
             {account?.configured ? <Play size={14} /> : <KeyRound size={14} />}
             {submitting
               ? "正在提交…"
-              : accountLoading
-                ? "读取账户…"
-                : account?.configured
-                  ? actionLabel
-                  : "配置账户"}
+              : submissionBlocked
+                ? "正在保存设置…"
+                : accountLoading
+                  ? "读取账户…"
+                  : account?.configured
+                    ? actionLabel
+                    : "配置账户"}
           </span>
           {estimate.quote && !effectiveOperation ? (
             <span className="generation-submit-cost">操作未生效</span>

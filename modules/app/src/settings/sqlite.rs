@@ -44,7 +44,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 1 {
+        if version != 0 && version != 2 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

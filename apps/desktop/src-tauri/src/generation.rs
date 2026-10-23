@@ -240,10 +240,22 @@ pub(crate) async fn refresh_account_summary(
 pub(crate) async fn subscribe_job_feedback(
     state: tauri::State<'_, DesktopState>,
     window: tauri::WebviewWindow,
+    subscription_id: String,
     on_event: tauri::ipc::Channel<nib_app::jobs::JobFeedback>,
 ) -> Result<(), ApiError> {
     let desktop = state.inner().clone();
-    let runtime = with_generation(state, Ok).await?;
+    desktop
+        .begin_feedback(window.label().to_owned(), subscription_id.clone())
+        .map_err(crate::commands::persistence_error)?;
+    let runtime = match with_generation(state, Ok).await {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            desktop
+                .stop_feedback(window.label(), Some(&subscription_id))
+                .map_err(crate::commands::persistence_error)?;
+            return Err(error);
+        },
+    };
     let mut feedback = runtime.queue.subscribe();
     let worker = tauri::async_runtime::spawn(async move {
         loop {
@@ -253,13 +265,20 @@ pub(crate) async fn subscribe_job_feedback(
                         break;
                     }
                 },
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {},
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                    if on_event
+                        .send(nib_app::jobs::JobFeedback::ResyncRequired)
+                        .is_err()
+                    {
+                        break;
+                    }
+                },
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
         }
     });
     desktop
-        .replace_feedback(window.label().to_owned(), worker)
+        .attach_feedback(window.label(), &subscription_id, worker)
         .map_err(crate::commands::persistence_error)
 }
 
@@ -271,8 +290,9 @@ pub(crate) async fn subscribe_job_feedback(
 pub(crate) fn unsubscribe_job_feedback(
     state: tauri::State<'_, DesktopState>,
     window: tauri::WebviewWindow,
+    subscription_id: String,
 ) -> Result<(), ApiError> {
     state
-        .stop_feedback(window.label())
+        .stop_feedback(window.label(), Some(&subscription_id))
         .map_err(crate::commands::persistence_error)
 }

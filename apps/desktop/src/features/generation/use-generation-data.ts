@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { GenerationResult, JobRecord } from "../../bindings/generation";
+import type { Draft } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
 import { useAccountData } from "./use-account-data";
+import { useJobFeedback } from "./use-job-feedback";
 
-export function useGenerationData() {
-  const account = useAccountData();
+export function useGenerationData(
+  executionVersion = 0,
+  beforeSubmit?: () => Promise<void>,
+  submissionBlocked = false,
+) {
+  const account = useAccountData(executionVersion);
   const [jobs, setJobs] = useState<JobRecord[] | null>(null);
   const [results, setResults] = useState<GenerationResult[] | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -14,15 +20,30 @@ export function useGenerationData() {
   const pending = useRef<Promise<void> | null>(null);
   const jobsRef = useRef<JobRecord[]>([]);
   const mutationRevision = useRef(0);
+  const lifetime = useRef(0);
+  const beforeSubmitRef = useRef(beforeSubmit);
+  useLayoutEffect(() => {
+    beforeSubmitRef.current = beforeSubmit;
+  }, [beforeSubmit]);
+  const submit = useCallback(async (draft: Draft) => {
+    await beforeSubmitRef.current?.();
+    return generationApi.submit(draft);
+  }, []);
 
   const refresh = useCallback((): Promise<void> => {
     if (!active.current) return Promise.resolve();
     if (pending.current) return pending.current;
     setRefreshing(true);
     const revision = mutationRevision.current;
+    const requestedLifetime = lifetime.current;
     const request = Promise.allSettled([generationApi.jobs(), generationApi.results()])
       .then(([nextJobs, nextResults]) => {
-        if (!active.current || revision !== mutationRevision.current) return;
+        if (
+          !active.current ||
+          requestedLifetime !== lifetime.current ||
+          revision !== mutationRevision.current
+        )
+          return;
         const errors: string[] = [];
         if (nextJobs.status === "fulfilled") {
           jobsRef.current = nextJobs.value;
@@ -33,8 +54,8 @@ export function useGenerationData() {
         setQueryError(errors.length ? errors.join("；") : null);
       })
       .finally(() => {
-        pending.current = null;
-        if (active.current) setRefreshing(false);
+        if (pending.current === request) pending.current = null;
+        if (active.current && requestedLifetime === lifetime.current) setRefreshing(false);
       });
     pending.current = request;
     return request;
@@ -56,9 +77,22 @@ export function useGenerationData() {
     return () => {
       stopped = true;
       active.current = false;
+      lifetime.current += 1;
+      pending.current = null;
       clearTimeout(timer);
     };
   }, [refresh]);
+
+  const feedback = useJobFeedback(jobs, refresh);
+  const observedJobs = useMemo(
+    () =>
+      jobs?.map((job) =>
+        feedback.jobObservations[job.id] && (job.status === "queued" || job.status === "running")
+          ? { ...job, observation: feedback.jobObservations[job.id]! }
+          : job,
+      ) ?? null,
+    [jobs, feedback.jobObservations],
+  );
 
   const acceptJob = useCallback(
     (value: JobRecord) => {
@@ -78,11 +112,14 @@ export function useGenerationData() {
 
   return {
     ...account,
-    jobs,
+    ...feedback,
+    jobs: observedJobs,
     results,
     queryError,
     refreshing,
     refresh,
     acceptJob,
+    submit,
+    submissionBlocked,
   };
 }

@@ -2,6 +2,7 @@
 
 import type { ResolvedDraft } from "./workbench";
 import type { AssetKind, ResultImageSource } from "./media";
+import type { ExecutionPreferences } from "./settings";
 
 export type AccountStatus = { configured: boolean, };
 
@@ -13,7 +14,11 @@ export type FrozenSubmission = { "kind": "generation", resolved: ResolvedDraft, 
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
-export type JobRecord = { id: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, submission: FrozenSubmission, };
+export type JobObservation = { requestId: number, estimatedAnlas: number | null, outcome: RequestSettlement | null, account: AccountSummary | null, };
+
+export type RequestSettlement = { "kind": "succeeded", imageCount: number, } | { "kind": "failed", failure: string, httpStatus: number | null, } | { "kind": "cancelled" };
+
+export type JobRecord = { id: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, submission: FrozenSubmission, execution: ExecutionPreferences, observation: JobObservation | null, };
 
 export type GenerationQuote = { operation: OperationKind, resolved: ResolvedDraft | null, estimatedAnlas: number | null, geometry: { input_size: { width: number; height: number }; output_size: { width: number; height: number }; pricing_size: { width: number; height: number } } | null, accountSpecific: boolean, tooExpensive: boolean, tokens: Array<TokenFieldUsage>, diagnostics: Array<ParameterDiagnostic>, accountSampledAt: number | null, };
 
@@ -23,6 +28,6 @@ export type TokenFieldUsage = { field: string, used: number, limit: number, over
 
 export type ParameterDiagnostic = { field: string, change: string, };
 
-export type JobFeedback = { "kind": "preview", jobId: string, sampleIndex: number, stepIndex: number, imageBytes: Array<number>, } | { "kind": "finalReceived", jobId: string, sampleIndex: number, } | { "kind": "finished", jobId: string, };
+export type JobFeedback = { "kind": "resyncRequired" } | { "kind": "started", jobId: string, } | { "kind": "preview", jobId: string, sampleIndex: number, stepIndex: number, imageBytes: Array<number>, mimeType: string | null, } | { "kind": "finalReceived", jobId: string, sampleIndex: number, } | { "kind": "finished", jobId: string, status: JobStatus, error: string | null, observation: JobObservation | null, } | { "kind": "observation", jobId: string, observation: JobObservation, };
 
 export type GenerationResult = { id: string, jobId: string, sampleIndex: number, assetId: string, kind: AssetKind, imageSource: ResultImageSource | null, seed: number | null, createdAt: number, mimeType: string, available: boolean, submission: FrozenSubmission, };

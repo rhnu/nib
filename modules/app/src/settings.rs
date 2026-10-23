@@ -24,6 +24,41 @@ pub enum Theme {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ApplicationPreferences {
     pub theme: Theme,
+    pub execution: ExecutionPreferences,
+}
+
+/// Host transport choices captured independently from creative inputs at submission.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct ExecutionPreferences {
+    pub image_request_encoding: ImageRequestEncoding,
+    pub server_image_cache: bool,
+}
+
+/// Persisted projection of the SDK's image request encoding option.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ImageRequestEncoding {
+    #[default]
+    Json,
+    Multipart,
+}
+
+impl ExecutionPreferences {
+    pub fn client_config(self) -> novelai_bridge::ClientConfig {
+        novelai_bridge::ClientConfig {
+            image_request_encoding: match self.image_request_encoding {
+                ImageRequestEncoding::Json => novelai_bridge::ImageRequestEncoding::Json,
+                ImageRequestEncoding::Multipart => novelai_bridge::ImageRequestEncoding::Multipart,
+            },
+            image_cache: self
+                .server_image_cache
+                .then(novelai_bridge::ImageCacheConfig::default),
+            ..novelai_bridge::ClientConfig::default()
+        }
+    }
 }
 
 /// Resolved host directories displayed by the storage settings screen.
@@ -116,7 +151,7 @@ pub fn validate_api_key(secret: &SecretString) -> Result<(), CredentialError> {
 }
 
 /// Deliberately selected account fields; original provider responses never cross IPC.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct AccountSummary {
@@ -131,7 +166,7 @@ pub struct AccountSummary {
     pub v5_usage: Option<AllowanceSummary>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct AllowanceSummary {
@@ -159,3 +194,6 @@ impl From<&novelai_bridge::SubscriptionInfo> for AccountSummary {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

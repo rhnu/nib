@@ -1,5 +1,5 @@
 import { RotateCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   CreationOperation,
   Draft,
@@ -15,6 +15,8 @@ import { SourceImageView } from "./SourceImageView";
 import { ImageResultActions } from "./ImageResultActions";
 import { useMediaAsset } from "../media/useMediaAsset";
 import { VibeResults } from "../vibes/VibeResults";
+import { LivePreview } from "./LivePreview";
+import { initialGenerationViewState, type GenerationViewState } from "./generation-view-state";
 
 export function GenerationResults({
   onRestore,
@@ -26,6 +28,8 @@ export function GenerationResults({
   onViewedAssetChange,
   onAddVibeReference,
   onEncodeVibe,
+  viewState,
+  onViewStateChange,
 }: {
   onRestore: (draft: Draft) => void;
   onUseSeed: (seed: number) => void;
@@ -36,59 +40,75 @@ export function GenerationResults({
   onViewedAssetChange?: (id: string | null) => void;
   onAddVibeReference?: (reference: VibeReferenceInput) => void;
   onEncodeVibe?: (input: VibeEncodingInput) => void;
+  viewState?: GenerationViewState;
+  onViewStateChange?: (value: GenerationViewState) => void;
 }) {
-  const { results, queryError, refreshing, refresh } = useGeneration();
+  const { jobs, results, queryError, refreshing, refresh, feedbackError, reconnectFeedback } =
+    useGeneration();
   const sourceId = operationSourceId(operation);
   const source = useMediaAsset(sourceId);
-  const [view, setView] = useState<"source" | "results">("results");
-  const [resultKind, setResultKind] = useState<"image" | "vibe">("image");
+  const [localView, setLocalView] = useState(initialGenerationViewState);
+  const state = viewState ?? localView;
+  const updateView = (patch: Partial<GenerationViewState>) => {
+    const next = { ...state, ...patch };
+    setLocalView(next);
+    onViewStateChange?.(next);
+  };
+  const { view, resultKind } = state;
   const imageResults = results?.filter((result) => result.kind === "image") ?? null;
   const vibeResults = results?.filter((result) => result.kind === "vibe") ?? [];
   const showVibes = resultKind === "vibe" || (imageResults?.length === 0 && vibeResults.length > 0);
-  const showSource = Boolean(sourceId && (view === "source" || results?.length === 0));
+  const hasActiveJobs =
+    jobs?.some((job) => job.status === "queued" || job.status === "running") ?? false;
+  const showLive = view === "live";
+  const showSource = !showLive && Boolean(sourceId && (view === "source" || results?.length === 0));
+  useEffect(() => {
+    if (showLive || showVibes || showSource) onViewedAssetChange?.(showSource ? sourceId : null);
+  }, [showLive, showVibes, showSource, sourceId, onViewedAssetChange]);
   return (
     <section className="generation-results" aria-label="生成任务与结果">
       <header className="generation-results-heading">
         <h2>生成结果</h2>
-        {vibeResults.length > 0 && (
-          <div className="button-group" aria-label="结果类型">
+        <div className="button-group" aria-label="画布内容">
+          {(hasActiveJobs || state.liveJobId !== null) && (
             <Button
               className="quiet"
-              aria-pressed={!showVibes && view === "results"}
-              onClick={() => {
-                setView("results");
-                setResultKind("image");
-              }}
+              aria-pressed={showLive}
+              onClick={() => updateView({ view: "live" })}
             >
-              图像 {imageResults?.length ?? 0}
+              执行预览
             </Button>
+          )}
+          {sourceId && (
+            <Button
+              className="quiet"
+              aria-pressed={showSource}
+              onClick={() => updateView({ view: "source" })}
+            >
+              源图
+            </Button>
+          )}
+          <Button
+            className="quiet"
+            aria-pressed={!showSource && !showLive && !showVibes}
+            onClick={() => {
+              updateView({ view: "results", resultKind: "image" });
+            }}
+          >
+            结果 {imageResults?.length ?? 0}
+          </Button>
+          {vibeResults.length > 0 && (
             <Button
               className="quiet"
               aria-pressed={showVibes && view === "results"}
               onClick={() => {
-                setView("results");
-                setResultKind("vibe");
+                updateView({ view: "results", resultKind: "vibe" });
               }}
             >
               Vibe {vibeResults.length}
             </Button>
-          </div>
-        )}
-        {sourceId && (
-          <div className="button-group" aria-label="画布内容">
-            <Button className="quiet" aria-pressed={showSource} onClick={() => setView("source")}>
-              源图
-            </Button>
-            <Button
-              className="quiet"
-              aria-pressed={!showSource}
-              disabled={results?.length === 0}
-              onClick={() => setView("results")}
-            >
-              结果
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
         <Button className="quiet" disabled={refreshing} onClick={() => void refresh()}>
           <RotateCw size={13} />
           {refreshing ? "正在刷新…" : "刷新"}
@@ -105,8 +125,26 @@ export function GenerationResults({
           {queryError}
         </Notice>
       )}
+      {feedbackError && (
+        <Notice actions={<Button onClick={reconnectFeedback}>重新连接预览</Button>}>
+          执行反馈连接失败：{feedbackError}
+        </Notice>
+      )}
       <div className="generation-results-content">
-        {showSource && sourceId ? (
+        {showLive ? (
+          <LivePreview
+            jobId={state.liveJobId}
+            sampleIndex={state.liveSampleIndex}
+            onSelect={(liveJobId, liveSampleIndex) => updateView({ liveJobId, liveSampleIndex })}
+            onOpenResult={(result) =>
+              updateView({
+                view: "results",
+                resultKind: result.kind === "vibe" ? "vibe" : "image",
+                selectedResultId: result.id,
+              })
+            }
+          />
+        ) : showSource && sourceId ? (
           <>
             <ImageResultActions
               assetId={sourceId}
@@ -134,9 +172,13 @@ export function GenerationResults({
             canMaxEnhance={canMaxEnhance}
             canInpaint={canInpaint}
             onViewedAssetChange={onViewedAssetChange}
+            selectedResultId={state.selectedResultId}
+            onSelectResult={(selectedResultId) => updateView({ selectedResultId })}
           />
         )}
-        <JobQueue />
+        <JobQueue
+          onViewJob={(liveJobId) => updateView({ view: "live", liveJobId, liveSampleIndex: 0 })}
+        />
       </div>
     </section>
   );

@@ -1,9 +1,56 @@
 import { useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "../features/generation";
-import { Button, Field, Notice } from "../shared/ui";
+import { Button, Field, HelpMarker, Notice, Toggle } from "../shared/ui";
 import { errorMessage } from "../shared/host/error";
 import type { ApplicationSettingsState } from "./useApplicationSettings";
+
+function ExecutionSettings({ settings }: { settings: ApplicationSettingsState }) {
+  const value = settings.preferences.value;
+  if (!value) return null;
+  const execution = value.execution;
+  return (
+    <section className="preference-section">
+      <details className="execution-settings">
+        <summary>高级执行设置</summary>
+        <div className="execution-settings-fields">
+          <Field label="图像请求编码">
+            <select
+              value={execution.imageRequestEncoding}
+              onChange={(event) =>
+                settings.writer.edit({
+                  ...value,
+                  execution: {
+                    ...execution,
+                    imageRequestEncoding: event.target.value === "multipart" ? "multipart" : "json",
+                  },
+                })
+              }
+            >
+              <option value="json">JSON</option>
+              <option value="multipart">Multipart</option>
+            </select>
+          </Field>
+          <div className="preference-row">
+            <span className="execution-setting-label">
+              服务端图像缓存
+              <HelpMarker label="服务端图像缓存说明">
+                复用上传到 NovelAI 的图像。更改后对新提交的任务生效。
+              </HelpMarker>
+            </span>
+            <Toggle
+              label="服务端图像缓存"
+              checked={execution.serverImageCache}
+              onChange={(serverImageCache) =>
+                settings.writer.edit({ ...value, execution: { ...execution, serverImageCache } })
+              }
+            />
+          </div>
+        </div>
+      </details>
+    </section>
+  );
+}
 
 function StorageSettings({ settings }: { settings: ApplicationSettingsState }) {
   const { storage, setDataDirectory } = settings;
@@ -135,10 +182,8 @@ export function SettingsPage({
               {theme === "dark" ? "切换浅色" : "切换深色"}
             </Button>
           </div>
-          {preferences.saving && (
-            <output className="settings-description">正在同步外观设置…</output>
-          )}
         </section>
+        <ExecutionSettings settings={settings} />
         <StorageSettings
           key={`${settings.storage?.dataDirectory}:${settings.storage?.pendingDataDirectory}`}
           settings={settings}

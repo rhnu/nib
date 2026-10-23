@@ -1,5 +1,9 @@
 //! SDK execution preserves request settlement and commits streamed finals only after clean EOF.
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use futures_util::StreamExt;
 use novelai_bridge::{
@@ -23,6 +27,10 @@ impl JobQueue {
                 continue;
             };
             let id = next.id.clone();
+            drop(
+                self.feedback
+                    .send(JobFeedback::Started { job_id: id.clone() }),
+            );
             let cancel = Arc::new(Notify::new());
             *self
                 .active
@@ -61,7 +69,14 @@ impl JobQueue {
                 .active
                 .lock()
                 .map_err(|_poisoned| PersistenceError::Locked)? = None;
-            drop(self.feedback.send(JobFeedback::Finished { job_id: id }));
+            let store = Arc::clone(&self.store);
+            let finished = tokio::task::spawn_blocking(move || store.get_job(&id)).await??;
+            drop(self.feedback.send(JobFeedback::Finished {
+                job_id: finished.id,
+                status: finished.status,
+                error: finished.error,
+                observation: finished.observation,
+            }));
         }
     }
 
@@ -72,16 +87,44 @@ impl JobQueue {
     ) -> Result<(), JobError> {
         let queue = Arc::clone(self);
         let id = record.id.clone();
+        let execution = record.execution;
         let client = tokio::task::spawn_blocking(move || {
             if !queue.store.job_running(&id)? {
                 return Ok(None);
             }
-            queue.clients.client().map(Some)
+            queue.clients.client_for(execution).map(Some)
         })
         .await??;
         let Some(client) = client else {
             return Ok(());
         };
+        let account = client.last_subscription().as_ref().map(|info| {
+            let mut summary = crate::settings::AccountSummary::from(info);
+            summary.sampled_at = *self
+                .account_sampled_at
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            summary
+        });
+        let observer =
+            super::observation::JobObserver::new(record.id.clone(), account, self.feedback.clone());
+        let client =
+            client.with_credit_observer(Arc::<super::observation::JobObserver>::clone(&observer));
+        let outcome = self.execute_operation(record, cancel, client).await;
+        if let Some(observation) = observer.snapshot() {
+            let store = Arc::clone(&self.store);
+            let id = record.id.clone();
+            tokio::task::spawn_blocking(move || store.observe_job(&id, &observation)).await??;
+        }
+        outcome
+    }
+
+    async fn execute_operation(
+        self: &Arc<Self>,
+        record: &JobRecord,
+        cancel: Arc<Notify>,
+        client: super::SdkClient,
+    ) -> Result<(), JobError> {
         let queue = Arc::clone(self);
         let submission = record.submission.clone();
         let prepared = tokio::task::spawn_blocking(move || {
@@ -100,6 +143,7 @@ impl JobQueue {
                     let mut stream = client.generate_stream_prepared(*prepared, mode).await?;
                     let seed = stream.resolved_seed;
                     let mut finals = BTreeMap::new();
+                    let mut previews = PreviewBudget::default();
                     loop {
                         tokio::select! {
                             biased;
@@ -107,7 +151,14 @@ impl JobQueue {
                             chunk=stream.next()=>{
                                 let Some(chunk)=chunk else {break;};
                                 match chunk?.event {
-                                    ImageStreamEvent::Intermediate {samp_ix,step_ix,image,..} => {drop(self.feedback.send(JobFeedback::Preview {job_id:record.id.clone(),sample_index:samp_ix,step_index:step_ix,image_bytes:image}));},
+                                    ImageStreamEvent::Intermediate {samp_ix,step_ix,image,..} => {
+                                        if previews.accept(samp_ix, image.len(), Instant::now()) {
+                                            drop(self.feedback.send(JobFeedback::Preview {
+                                                job_id:record.id.clone(),sample_index:samp_ix,step_index:step_ix,
+                                                mime_type: preview_mime(&image).map(str::to_owned), image_bytes:image,
+                                            }));
+                                        }
+                                    },
                                     ImageStreamEvent::Final {samp_ix,image,..} => {finals.insert(samp_ix,image);drop(self.feedback.send(JobFeedback::FinalReceived {job_id:record.id.clone(),sample_index:samp_ix}));},
                                     ImageStreamEvent::Error {..}|ImageStreamEvent::Unknown {..}=>{},
                                 }
@@ -140,6 +191,41 @@ impl JobQueue {
         Ok(())
     }
 }
+
+/// The SDK bounds protocol payloads; this smaller display budget also bounds the IPC ring.
+#[derive(Default)]
+struct PreviewBudget(BTreeMap<u32, Instant>);
+
+impl PreviewBudget {
+    fn accept(&mut self, sample: u32, bytes: usize, now: Instant) -> bool {
+        if bytes > 4 * 1024 * 1024
+            || bytes == 0
+            || self
+                .0
+                .get(&sample)
+                .is_some_and(|last| now.duration_since(*last) < Duration::from_millis(100))
+        {
+            return false;
+        }
+        self.0.insert(sample, now);
+        true
+    }
+}
+
+fn preview_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        Some("image/jpeg")
+    } else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests;
 
 enum PreparedOperation {
     Generation {

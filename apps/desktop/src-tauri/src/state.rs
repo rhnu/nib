@@ -18,6 +18,11 @@ pub(crate) struct GenerationRuntime {
     pub(crate) queue: Arc<JobQueue>,
 }
 
+struct FeedbackSubscription {
+    id: String,
+    worker: Option<tauri::async_runtime::JoinHandle<()>>,
+}
+
 #[derive(Clone)]
 pub(crate) struct DesktopState {
     pub(crate) storage: Arc<StorageManager>,
@@ -25,7 +30,7 @@ pub(crate) struct DesktopState {
     media: Arc<Mutex<Option<Arc<MediaLibrary>>>>,
     sdk: Arc<Mutex<Option<Arc<SdkClients>>>>,
     generation: Arc<Mutex<Option<Arc<GenerationRuntime>>>>,
-    feedback: Arc<Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>>,
+    feedback: Arc<Mutex<HashMap<String, FeedbackSubscription>>>,
     pub(crate) credentials: Arc<NativeCredentials>,
 }
 
@@ -97,32 +102,68 @@ impl DesktopState {
         let tokenizers = Arc::new(
             novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
         );
-        let clients = Arc::new(SdkClients::new(Arc::clone(&self.credentials), tokenizers));
+        let clients = Arc::new(SdkClients::new(
+            Arc::clone(&self.credentials),
+            tokenizers,
+            Arc::clone(&self.storage),
+        ));
         *slot = Some(Arc::clone(&clients));
         Ok(clients)
     }
 
-    pub(crate) fn replace_feedback(
+    pub(crate) fn begin_feedback(&self, label: String, id: String) -> Result<(), PersistenceError> {
+        let mut feedback = self
+            .feedback
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if let Some(FeedbackSubscription {
+            worker: Some(previous),
+            ..
+        }) = feedback.insert(label, FeedbackSubscription { id, worker: None })
+        {
+            previous.abort();
+        }
+        Ok(())
+    }
+
+    pub(crate) fn attach_feedback(
         &self,
-        label: String,
+        label: &str,
+        id: &str,
         worker: tauri::async_runtime::JoinHandle<()>,
     ) -> Result<(), PersistenceError> {
         let Ok(mut feedback) = self.feedback.lock() else {
             worker.abort();
             return Err(PersistenceError::Locked);
         };
-        if let Some(previous) = feedback.insert(label, worker) {
-            previous.abort();
+        if let Some(subscription) = feedback.get_mut(label)
+            && subscription.id == id
+        {
+            if let Some(previous) = subscription.worker.replace(worker) {
+                previous.abort();
+            }
+        } else {
+            worker.abort();
         }
         Ok(())
     }
 
-    pub(crate) fn stop_feedback(&self, label: &str) -> Result<(), PersistenceError> {
-        if let Some(worker) = self
+    pub(crate) fn stop_feedback(
+        &self,
+        label: &str,
+        id: Option<&str>,
+    ) -> Result<(), PersistenceError> {
+        let mut feedback = self
             .feedback
             .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?
-            .remove(label)
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if feedback
+            .get(label)
+            .is_some_and(|subscription| id.is_none_or(|id| subscription.id == id))
+            && let Some(FeedbackSubscription {
+                worker: Some(worker),
+                ..
+            }) = feedback.remove(label)
         {
             worker.abort();
         }

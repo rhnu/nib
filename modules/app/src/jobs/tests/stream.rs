@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream};
 use novelai_bridge::{
-    CreditEvent, CreditObserver, RequestOutcome, Transport, TransportHeader, TransportRequest,
-    TransportResponse, TransportSseEvent,
+    Transport, TransportHeader, TransportRequest, TransportResponse, TransportSseEvent,
 };
 
 use super::*;
@@ -12,7 +11,7 @@ const PNG: &str =
 
 struct MemoryTransport {
     events: Vec<TransportSseEvent>,
-    eof: Option<Arc<Notify>>,
+    eof: Mutex<Option<Arc<Notify>>>,
 }
 
 #[async_trait]
@@ -24,7 +23,7 @@ impl Transport for MemoryTransport {
         let events = stream::iter(self.events.clone().into_iter().map(|event| {
             Ok(format!("event: {}\ndata: {}\n\n", event.event, event.data).into_bytes())
         }));
-        let eof = self.eof.clone();
+        let eof = self.eof.lock().unwrap().take();
         let tail = stream::unfold(eof, |gate| async move {
             if let Some(gate) = gate {
                 gate.notified().await;
@@ -42,22 +41,6 @@ impl Transport for MemoryTransport {
             }],
             body: Box::pin(events.chain(tail)),
         })
-    }
-}
-
-#[derive(Default)]
-struct MemoryObserver {
-    outcomes: Mutex<Vec<RequestOutcome>>,
-    changed: Notify,
-}
-
-#[async_trait]
-impl CreditObserver for MemoryObserver {
-    async fn observe(&self, event: CreditEvent) {
-        if let CreditEvent::RequestSettled { outcome, .. } = event {
-            self.outcomes.lock().unwrap().push(outcome);
-            self.changed.notify_one();
-        }
     }
 }
 
@@ -120,21 +103,17 @@ fn event(kind: &str) -> TransportSseEvent {
 fn streaming_queue(
     events: Vec<TransportSseEvent>,
     eof: Option<Arc<Notify>>,
-) -> (
-    Arc<JobQueue>,
-    Arc<MemoryJobs>,
-    Arc<MemoryOutputs>,
-    Arc<MemoryObserver>,
-) {
+) -> (Arc<JobQueue>, Arc<MemoryJobs>, Arc<MemoryOutputs>) {
     let jobs = Arc::new(MemoryJobs::default());
     let outputs = Arc::new(MemoryOutputs {
         jobs: Arc::clone(&jobs),
         images: Mutex::new(Vec::new()),
     });
-    let observer = Arc::new(MemoryObserver::default());
-    let transport: Arc<dyn Transport> = Arc::new(MemoryTransport { events, eof });
-    let client = novelai_bridge::Client::new(transport, novelai_bridge::ClientConfig::default())
-        .with_credit_observer(Arc::<MemoryObserver>::clone(&observer));
+    let transport: Arc<dyn Transport> = Arc::new(MemoryTransport {
+        events,
+        eof: Mutex::new(eof),
+    });
+    let client = novelai_bridge::Client::new(transport, novelai_bridge::ClientConfig::default());
     let queue = JobQueue::new(
         Arc::<MemoryJobs>::clone(&jobs),
         Arc::new(Resources {
@@ -157,7 +136,7 @@ fn streaming_queue(
         Arc::new(Tokenizers::new()),
     )
     .unwrap();
-    (queue, jobs, outputs, observer)
+    (queue, jobs, outputs)
 }
 
 fn streamed_submission() -> FrozenSubmission {
@@ -190,7 +169,7 @@ async fn terminal(jobs: &MemoryJobs, id: &str) -> JobStatus {
 #[tokio::test]
 async fn final_event_is_not_completed_until_sdk_validates_eof() {
     let eof = Arc::new(Notify::new());
-    let (queue, jobs, outputs, observer) = streaming_queue(
+    let (queue, jobs, outputs) = streaming_queue(
         vec![event("intermediate"), event("final")],
         Some(Arc::clone(&eof)),
     );
@@ -210,6 +189,9 @@ async fn final_event_is_not_completed_until_sdk_validates_eof() {
                     break;
                 },
                 JobFeedback::Finished { .. } => panic!("stream ended before its final event"),
+                JobFeedback::Started { .. }
+                | JobFeedback::Observation { .. }
+                | JobFeedback::ResyncRequired => {},
             }
         }
     })
@@ -217,13 +199,18 @@ async fn final_event_is_not_completed_until_sdk_validates_eof() {
     .unwrap();
     assert_eq!(jobs.get_job(&job.id).unwrap().status, JobStatus::Running);
     assert!(outputs.images.lock().unwrap().is_empty());
-    assert!(observer.outcomes.lock().unwrap().is_empty());
+    assert!(jobs.get_job(&job.id).unwrap().observation.is_none());
     eof.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !matches!(feedback.recv().await.unwrap(), JobFeedback::Finished { .. }) {}
+    })
+    .await
+    .unwrap();
     assert_eq!(terminal(&jobs, &job.id).await, JobStatus::Completed);
     assert_eq!(*outputs.images.lock().unwrap(), [1]);
     assert_eq!(
-        *observer.outcomes.lock().unwrap(),
-        [RequestOutcome::Succeeded { image_count: 1 }]
+        jobs.get_job(&job.id).unwrap().observation.unwrap().outcome,
+        Some(RequestSettlement::Succeeded { image_count: 1 })
     );
     worker.abort();
     drop(worker.await);
@@ -231,18 +218,28 @@ async fn final_event_is_not_completed_until_sdk_validates_eof() {
 
 #[tokio::test]
 async fn incomplete_eof_and_error_after_final_do_not_retain_outputs() {
-    for events in [
-        vec![event("intermediate")],
-        vec![event("final"), event("error")],
+    for (events, samples) in [
+        (vec![event("intermediate")], 1),
+        (vec![event("final"), event("error")], 1),
+        (vec![event("final")], 2),
     ] {
-        let (queue, jobs, outputs, observer) = streaming_queue(events, None);
-        let job = queue.enqueue(&streamed_submission()).unwrap();
+        let (queue, jobs, outputs) = streaming_queue(events, None);
+        let mut frozen = streamed_submission();
+        let FrozenSubmission::Generation {
+            request, resolved, ..
+        } = &mut frozen
+        else {
+            unreachable!()
+        };
+        request.core.n_samples = samples;
+        resolved.settings.n_samples = samples;
+        let job = queue.enqueue(&frozen).unwrap();
         let worker = tokio::spawn(Arc::clone(&queue).run());
         assert_eq!(terminal(&jobs, &job.id).await, JobStatus::Failed);
         assert!(outputs.images.lock().unwrap().is_empty());
         assert!(matches!(
-            observer.outcomes.lock().unwrap().as_slice(),
-            [RequestOutcome::Failed { .. }]
+            jobs.get_job(&job.id).unwrap().observation.unwrap().outcome,
+            Some(RequestSettlement::Failed { .. })
         ));
         assert!(
             !jobs
@@ -259,8 +256,10 @@ async fn incomplete_eof_and_error_after_final_do_not_retain_outputs() {
 
 #[tokio::test]
 async fn active_cancel_awaits_sdk_observation_and_releases_the_queue() {
-    let (queue, jobs, outputs, observer) =
-        streaming_queue(vec![event("intermediate")], Some(Arc::new(Notify::new())));
+    let (queue, jobs, outputs) = streaming_queue(
+        vec![event("intermediate"), event("final")],
+        Some(Arc::new(Notify::new())),
+    );
     let mut feedback = queue.subscribe();
     let first = queue.enqueue(&streamed_submission()).unwrap();
     let worker = tokio::spawn(Arc::clone(&queue).run());
@@ -274,9 +273,10 @@ async fn active_cancel_awaits_sdk_observation_and_releases_the_queue() {
     .await
     .unwrap();
     queue.cancel(&first.id).unwrap();
+    let second = queue.enqueue(&streamed_submission()).unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            if matches!(feedback.recv().await.unwrap(), JobFeedback::Finished { .. }) {
+            if matches!(feedback.recv().await.unwrap(), JobFeedback::Finished { job_id, .. } if job_id == first.id) {
                 break;
             }
         }
@@ -284,10 +284,16 @@ async fn active_cancel_awaits_sdk_observation_and_releases_the_queue() {
     .await
     .unwrap();
     assert_eq!(
-        *observer.outcomes.lock().unwrap(),
-        [RequestOutcome::Cancelled]
+        jobs.get_job(&first.id)
+            .unwrap()
+            .observation
+            .unwrap()
+            .outcome,
+        Some(RequestSettlement::Cancelled)
     );
-    assert!(outputs.images.lock().unwrap().is_empty());
+    assert_eq!(terminal(&jobs, &second.id).await, JobStatus::Completed);
+    assert_eq!(*outputs.images.lock().unwrap(), [1]);
+    assert_eq!(*jobs.claimed.lock().unwrap(), [first.id.clone(), second.id]);
     assert_eq!(
         jobs.get_job(&first.id).unwrap().status,
         JobStatus::Cancelled
@@ -298,7 +304,7 @@ async fn active_cancel_awaits_sdk_observation_and_releases_the_queue() {
 
 #[tokio::test]
 async fn unavailable_frozen_input_fails_one_job_and_allows_the_next() {
-    let (queue, jobs, outputs, _) = streaming_queue(vec![event("final")], None);
+    let (queue, jobs, outputs) = streaming_queue(vec![event("final")], None);
     let mut bad = streamed_submission();
     let FrozenSubmission::Generation { resolved, .. } = &mut bad else {
         unreachable!()
@@ -351,7 +357,7 @@ async fn upscale_executes_its_frozen_options_and_retains_returned_images() {
     let transport = Arc::new(UpscaleTransport::default());
     let erased: Arc<dyn Transport> = Arc::<UpscaleTransport>::clone(&transport);
     let client = novelai_bridge::Client::new(erased, novelai_bridge::ClientConfig::default());
-    let (mut queue, jobs, outputs, _) = streaming_queue(Vec::new(), None);
+    let (mut queue, jobs, outputs) = streaming_queue(Vec::new(), None);
     let mutable = Arc::get_mut(&mut queue).unwrap();
     mutable.assets = Arc::new(ImageAssets);
     mutable.clients = Arc::new(MemoryClient(client));

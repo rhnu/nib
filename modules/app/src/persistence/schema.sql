@@ -28,7 +28,9 @@ CREATE TABLE jobs (
     submitted_at INTEGER NOT NULL,
     finished_at INTEGER,
     error TEXT,
-    submission TEXT NOT NULL CHECK (json_valid(submission))
+    submission TEXT NOT NULL CHECK (json_valid(submission)),
+    execution TEXT NOT NULL CHECK (json_valid(execution)),
+    observation TEXT CHECK (observation IS NULL OR json_valid(observation))
 );
 CREATE INDEX jobs_status_id ON jobs(status, id);
 
@@ -54,4 +56,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 9;
+PRAGMA user_version = 10;

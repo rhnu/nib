@@ -30,6 +30,8 @@
     "allow-list-jobs",
     "allow-cancel-job",
     "allow-retry-job",
+    "allow-subscribe-job-feedback",
+    "allow-unsubscribe-job-feedback",
     "allow-list-results",
     "allow-read-result-content",
     "allow-restore-result",

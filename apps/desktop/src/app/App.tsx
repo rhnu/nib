@@ -36,7 +36,7 @@ export default function App() {
             <Button onClick={() => void settings.writer.flush().catch(() => {})}>重试同步</Button>
           }
         >
-          外观设置尚未保存：{errorMessage(settings.preferences.error)}
+          应用设置尚未保存：{errorMessage(settings.preferences.error)}
         </Notice>
       )}
       {closeError && (
@@ -98,7 +98,11 @@ export default function App() {
           )}
         </>
       ) : (
-        <GenerationProvider>
+        <GenerationProvider
+          executionVersion={settings.executionVersion}
+          beforeSubmit={settings.prepareSubmission}
+          submissionBlocked={settings.submissionBlocked}
+        >
           <Workbench
             workspace={workspace.snapshot}
             initialResources={workspace.resources}

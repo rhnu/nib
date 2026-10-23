@@ -5,4 +5,4 @@ CREATE TABLE global_settings (
     pending_directory_json TEXT CHECK (pending_directory_json IS NULL OR json_valid(pending_directory_json))
 );
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;

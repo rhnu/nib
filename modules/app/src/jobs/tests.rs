@@ -177,7 +177,11 @@ struct MemoryJobs {
 }
 
 impl JobStore for MemoryJobs {
-    fn insert_job(&self, submission: &FrozenSubmission) -> Result<JobRecord, PersistenceError> {
+    fn insert_job(
+        &self,
+        submission: &FrozenSubmission,
+        execution: ExecutionPreferences,
+    ) -> Result<JobRecord, PersistenceError> {
         let mut records = self.records.lock().unwrap();
         let record = JobRecord {
             id: (records.len() + 1).to_string(),
@@ -187,9 +191,23 @@ impl JobStore for MemoryJobs {
             error: None,
             result_ids: Vec::new(),
             submission: submission.clone(),
+            execution,
+            observation: None,
         };
         records.push(record.clone());
         Ok(record)
+    }
+
+    fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError> {
+        self.records
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .find(|record| record.id == id)
+            .unwrap()
+            .observation = Some(observation.clone());
+        self.changed.notify_one();
+        Ok(())
     }
 
     fn get_job(&self, id: &str) -> Result<JobRecord, PersistenceError> {
@@ -337,7 +355,11 @@ fn memory_queue(store: Arc<MemoryJobs>, configured: bool) -> (Arc<JobQueue>, Arc
 #[test]
 fn recovery_interrupts_pending_work_and_explicit_retry_keeps_frozen_input() {
     let store = Arc::new(MemoryJobs::default());
-    let original = store.insert_job(&submission()).unwrap();
+    let execution = ExecutionPreferences {
+        image_request_encoding: crate::settings::ImageRequestEncoding::Multipart,
+        server_image_cache: true,
+    };
+    let original = store.insert_job(&submission(), execution).unwrap();
     let (queue, unexpected_call) = memory_queue(Arc::clone(&store), true);
     assert_eq!(
         store.get_job(&original.id).unwrap().status,
@@ -347,6 +369,7 @@ fn recovery_interrupts_pending_work_and_explicit_retry_keeps_frozen_input() {
     assert_ne!(retried.id, original.id);
     assert_eq!(retried.status, JobStatus::Queued);
     assert_eq!(retried.submission, original.submission);
+    assert_eq!(retried.execution, execution);
     assert_eq!(request(&retried.submission).core.prompt, "a cat");
     assert_eq!(
         store.claimed.lock().unwrap().len(),
@@ -361,10 +384,16 @@ async fn credential_failures_release_the_queue_and_cancelled_jobs_are_skipped() 
     let store = Arc::new(MemoryJobs::default());
     let (queue, unexpected_call) = memory_queue(Arc::clone(&store), false);
     let frozen = submission();
-    let cancelled = store.insert_job(&frozen).unwrap();
+    let cancelled = store
+        .insert_job(&frozen, ExecutionPreferences::default())
+        .unwrap();
     queue.cancel(&cancelled.id).unwrap();
-    let first = store.insert_job(&frozen).unwrap();
-    let second = store.insert_job(&frozen).unwrap();
+    let first = store
+        .insert_job(&frozen, ExecutionPreferences::default())
+        .unwrap();
+    let second = store
+        .insert_job(&frozen, ExecutionPreferences::default())
+        .unwrap();
     let worker = tokio::spawn(Arc::clone(&queue).run());
     let completion = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {

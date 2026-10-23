@@ -54,7 +54,7 @@ function ResultTile({
   );
 }
 
-function ResultCanvas({
+export function ResultCanvas({
   result,
   onOpen,
   onUseSeed,
@@ -173,6 +173,8 @@ export function ResultGallery({
   canMaxEnhance,
   canInpaint,
   onViewedAssetChange,
+  selectedResultId,
+  onSelectResult,
 }: {
   results: GenerationResult[] | null;
   onRestore: (draft: Draft) => void;
@@ -182,16 +184,27 @@ export function ResultGallery({
   canMaxEnhance: boolean;
   canInpaint: boolean;
   onViewedAssetChange?: (id: string | null) => void;
+  selectedResultId?: string | null;
+  onSelectResult?: (id: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(12);
-  const selected = results?.find((result) => result.id === selectedId) ?? results?.[0];
+  const selected =
+    results?.find((result) => result.id === (selectedResultId ?? selectedId)) ?? results?.[0];
+  const selectResult = (id: string) => {
+    setSelectedId(id);
+    onSelectResult?.(id);
+  };
   const detail = results?.find((result) => result.id === detailId);
   const selectedAssetId = selected?.available ? selected.assetId : null;
+  if (selected && selectedId === null && !selectedResultId) setSelectedId(selected.id);
   useEffect(() => {
     onViewedAssetChange?.(selectedAssetId);
   }, [selectedAssetId, onViewedAssetChange]);
+  useEffect(() => {
+    if (selected && !selectedResultId) onSelectResult?.(selected.id);
+  }, [selected, selectedResultId, onSelectResult]);
   return (
     <section className="generation-gallery" aria-label="已保存的生成结果">
       {results === null ? (
@@ -228,7 +241,7 @@ export function ResultGallery({
                   key={result.id}
                   result={result}
                   selected={result.id === selected?.id}
-                  onSelect={() => setSelectedId(result.id)}
+                  onSelect={() => selectResult(result.id)}
                 />
               ))}
               {results.length > visibleCount && (

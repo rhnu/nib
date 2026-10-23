@@ -4,7 +4,7 @@ import { errorMessage } from "../../shared/host/error";
 import { generationApi } from "./api";
 
 /** Opening reads local state; only the explicit refresh samples the remote account. */
-export function useAccountData() {
+export function useAccountData(executionVersion = 0) {
   const [account, setAccount] = useState<AccountStatus | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
@@ -17,6 +17,7 @@ export function useAccountData() {
   const summaryRevision = useRef(0);
   const localPending = useRef<Promise<void> | null>(null);
   const summaryPending = useRef<Promise<void> | null>(null);
+  const currentExecutionVersion = useRef(executionVersion);
 
   const refreshAccount = useCallback((): Promise<void> => {
     if (!active.current) return Promise.resolve();
@@ -100,6 +101,20 @@ export function useAccountData() {
       summaryPending.current = null;
     };
   }, [refreshAccount]);
+
+  useEffect(() => {
+    if (executionVersion === currentExecutionVersion.current) return;
+    currentExecutionVersion.current = executionVersion;
+    revision.current += 1;
+    summaryRevision.current += 1;
+    localPending.current = null;
+    summaryPending.current = null;
+    setAccountSummary(null);
+    setAccountSummaryError(null);
+    setAccountSummaryLoading(false);
+    setAccountVersion((value) => value + 1);
+    void refreshAccount();
+  }, [executionVersion, refreshAccount]);
 
   return {
     account,

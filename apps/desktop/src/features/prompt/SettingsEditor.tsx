@@ -54,7 +54,8 @@ export function SettingsEditor({
     (field) => {
       const key = diagnosticSetting(field);
       return (
-        (key !== null && advancedSettingKeys.includes(key)) || field.split(".").includes("policy")
+        (key !== null && advancedSettingKeys.includes(key)) ||
+        field.split(".").some((part) => part === "policy" || part === "stream")
       );
     },
   );
