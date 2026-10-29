@@ -3,7 +3,10 @@ import type { ApplicationPreferences } from "../bindings/settings";
 import { PreferencesWriter } from "./preferences-writer";
 
 function preferences(theme: ApplicationPreferences["theme"]): ApplicationPreferences {
-  return { theme, execution: { imageRequestEncoding: "json", serverImageCache: false } };
+  return {
+    theme,
+    execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
+  };
 }
 
 describe("PreferencesWriter", () => {
@@ -31,7 +34,7 @@ describe("PreferencesWriter", () => {
     await Promise.resolve();
     const latest: ApplicationPreferences = {
       theme: "light",
-      execution: { imageRequestEncoding: "multipart", serverImageCache: true },
+      execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     };
     writer.edit(latest);
     expect(writer.flush()).toBe(pending);

@@ -28,10 +28,12 @@ pub struct ApplicationPreferences {
 }
 
 /// Host transport choices captured independently from creative inputs at submission.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ExecutionPreferences {
+    /// Absence uses the SDK default for image operations and account/tag queries.
+    pub image_base_url: Option<String>,
     pub image_request_encoding: ImageRequestEncoding,
     pub server_image_cache: bool,
 }
@@ -47,8 +49,12 @@ pub enum ImageRequestEncoding {
 }
 
 impl ExecutionPreferences {
-    pub fn client_config(self) -> novelai_bridge::ClientConfig {
+    pub fn client_config(&self) -> novelai_bridge::ClientConfig {
         novelai_bridge::ClientConfig {
+            image_base_url: self
+                .image_base_url
+                .clone()
+                .unwrap_or_else(|| novelai_bridge::ClientConfig::default().image_base_url),
             image_request_encoding: match self.image_request_encoding {
                 ImageRequestEncoding::Json => novelai_bridge::ImageRequestEncoding::Json,
                 ImageRequestEncoding::Multipart => novelai_bridge::ImageRequestEncoding::Multipart,

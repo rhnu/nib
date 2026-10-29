@@ -40,6 +40,10 @@ pub(crate) async fn save_application_preferences(
             desktop
                 .invalidate_sdk()
                 .map_err(crate::generation::generation_error)?;
+            tracing::debug!(
+                custom_api_endpoint = saved.execution.image_base_url.is_some(),
+                "SDK execution preferences changed; clients and account snapshots invalidated"
+            );
         }
         Ok(saved)
     })

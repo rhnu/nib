@@ -5,17 +5,14 @@ import { hasDesktopHost } from "../shared/host/invoke";
 import { PreferencesWriter } from "./preferences-writer";
 import { settingsApi } from "./settings-api";
 import { prepareSubmissionPreferences } from "./submission-preferences";
+import { sameExecutionPreferences } from "./execution-preferences";
 
 export function useApplicationSettings() {
   const [executionVersion, setExecutionVersion] = useState(0);
   const [writer] = useState(
     () =>
       new PreferencesWriter(settingsApi.savePreferences, (saved, previous) => {
-        if (
-          previous &&
-          (previous.execution.imageRequestEncoding !== saved.execution.imageRequestEncoding ||
-            previous.execution.serverImageCache !== saved.execution.serverImageCache)
-        )
+        if (previous && !sameExecutionPreferences(previous.execution, saved.execution))
           setExecutionVersion((version) => version + 1);
       }),
   );

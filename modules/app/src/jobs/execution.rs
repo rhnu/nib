@@ -87,7 +87,7 @@ impl JobQueue {
     ) -> Result<(), JobError> {
         let queue = Arc::clone(self);
         let id = record.id.clone();
-        let execution = record.execution;
+        let execution = record.execution.clone();
         let context = tokio::task::spawn_blocking(move || {
             if !queue.store.job_running(&id)? {
                 return Ok(None);

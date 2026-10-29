@@ -5,10 +5,22 @@ import { prepareSubmissionPreferences } from "./submission-preferences";
 
 const initial: ApplicationPreferences = {
   theme: "dark",
-  execution: { imageRequestEncoding: "json", serverImageCache: false },
+  execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
 };
 
 describe("submission preference barrier", () => {
+  it.each([
+    { from: null, to: "https://example.test/novelai" },
+    { from: "https://example.test/novelai", to: null },
+  ])("requires a new quote when changing the endpoint from $from to $to", async ({ from, to }) => {
+    const writer = new PreferencesWriter(async (value) => value);
+    writer.initialize({ ...initial, execution: { ...initial.execution, imageBaseUrl: from } });
+    writer.edit({ ...initial, execution: { ...initial.execution, imageBaseUrl: to } });
+    await expect(prepareSubmissionPreferences(writer)).rejects.toThrow("等待费用重新估算");
+    await expect(prepareSubmissionPreferences(writer)).resolves.toBeUndefined();
+    expect(writer.getSavedSnapshot()?.execution.imageBaseUrl).toBe(to);
+  });
+
   it("awaits a pending execution write and requires a fresh quote before submission", async () => {
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {
@@ -23,7 +35,7 @@ describe("submission preference barrier", () => {
     writer.initialize(initial);
     writer.edit({
       ...initial,
-      execution: { imageRequestEncoding: "multipart", serverImageCache: true },
+      execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     });
     const submit = vi.fn();
     const ready = prepareSubmissionPreferences(writer).then(submit);

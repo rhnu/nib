@@ -108,6 +108,7 @@ impl SdkClients {
     }
 
     fn select_client(&self, execution: ExecutionPreferences) -> Result<SelectedClient, JobError> {
+        let current_execution = self.execution_preferences()?;
         let mut cached = self
             .cached
             .lock()
@@ -118,7 +119,12 @@ impl SdkClients {
             .credentials
             .load()?
             .ok_or(JobError::MissingCredentials)?;
-        cached.retain(|existing| existing.key.expose_secret() == key.expose_secret());
+        // Keep the current account context and the selected job's client. Custom URLs
+        // make the number of possible frozen configurations unbounded.
+        cached.retain(|existing| {
+            existing.key.expose_secret() == key.expose_secret()
+                && (existing.execution == current_execution || existing.execution == execution)
+        });
         if let Some(existing) = cached
             .iter()
             .find(|existing| existing.execution == execution)
@@ -138,8 +144,6 @@ impl SdkClients {
         let client = Client::new(transport, execution.client_config())
             .with_tokenizers(Arc::clone(&self.tokenizers))
             .with_credit_observer(Arc::new(CreditDiagnostics));
-        // The two binary execution switches permit at most four clients. Frozen queued
-        // jobs keep their own cache without displacing the current preference's account.
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         cached.push(CachedClient {
             id,

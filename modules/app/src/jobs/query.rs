@@ -121,7 +121,7 @@ impl From<&JobRecord> for JobSummary {
             error: record.error.clone(),
             result_ids: record.result_ids.clone(),
             operation: OperationSummary::from(&record.submission),
-            execution: record.execution,
+            execution: record.execution.clone(),
             observation: record.observation.clone(),
         }
     }

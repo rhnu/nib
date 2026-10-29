@@ -384,10 +384,11 @@ fn memory_queue(store: Arc<MemoryJobs>, configured: bool) -> (Arc<JobQueue>, Arc
 fn recovery_interrupts_pending_work_and_explicit_retry_keeps_frozen_input() {
     let store = Arc::new(MemoryJobs::default());
     let execution = ExecutionPreferences {
+        image_base_url: Some("https://example.test/novelai".to_owned()),
         image_request_encoding: crate::settings::ImageRequestEncoding::Multipart,
         server_image_cache: true,
     };
-    let original = store.insert_job(&submission(), execution).unwrap();
+    let original = store.insert_job(&submission(), execution.clone()).unwrap();
     let (queue, unexpected_call) = memory_queue(Arc::clone(&store), true);
     assert_eq!(
         store.get_job(&original.id).unwrap().status,

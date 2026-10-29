@@ -12,7 +12,7 @@ function job(id: string, status: JobSummary["status"], submittedAt = 1): JobSumm
     error: null,
     resultIds: [],
     operation: { kind: "upscale", assetId: "source" },
-    execution: { imageRequestEncoding: "json", serverImageCache: false },
+    execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
     observation: null,
   };
 }

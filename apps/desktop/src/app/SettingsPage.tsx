@@ -14,6 +14,25 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
       <details className="execution-settings">
         <summary>高级执行设置</summary>
         <div className="execution-settings-fields">
+          <Field label="API 端点基址">
+            <input
+              type="url"
+              value={execution.imageBaseUrl ?? ""}
+              placeholder="留空使用 bridge 默认端点"
+              spellCheck={false}
+              aria-describedby="api-base-url-help"
+              onChange={(event) =>
+                settings.writer.edit({
+                  ...value,
+                  execution: { ...execution, imageBaseUrl: event.target.value.trim() || null },
+                })
+              }
+            />
+          </Field>
+          <p className="settings-description" id="api-base-url-help">
+            图像操作、标签查询与账户查询共用此基址，无需追加具体 API 路径。留空恢复默认。
+            更改后自动保存，已有任务及其重试继续使用原端点。
+          </p>
           <Field label="图像请求编码">
             <select
               value={execution.imageRequestEncoding}

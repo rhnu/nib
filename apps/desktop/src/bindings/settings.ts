@@ -4,7 +4,11 @@ export type Theme = "dark" | "light";
 
 export type ImageRequestEncoding = "json" | "multipart";
 
-export type ExecutionPreferences = { imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
+export type ExecutionPreferences = {
+/**
+ * Absence uses the SDK default for image operations and account/tag queries.
+ */
+imageBaseUrl: string | null, imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
 
 export type ApplicationPreferences = { theme: Theme, execution: ExecutionPreferences, };
 
