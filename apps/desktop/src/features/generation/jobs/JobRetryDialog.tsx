@@ -68,7 +68,7 @@ export function JobRetryDialog({
   job: Pick<JobRecord, "id">;
   onClose: () => void;
 }) {
-  const detail = useMediaQuery(job.id, jobsApi.get);
+  const detail = useMediaQuery(["job", job.id], job.id, jobsApi.get, 0);
   if (detail.value) return <JobRetryDialogContent job={detail.value} onClose={onClose} />;
   return (
     <Modal open onClose={onClose} title="再次提交这个任务">

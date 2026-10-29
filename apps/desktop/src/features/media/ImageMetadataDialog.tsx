@@ -8,6 +8,7 @@ import { mediaApi } from "./api";
 import { imageName, imageUnavailableReason } from "./model";
 import { useMediaQuery } from "./useMediaQuery";
 import "./media.css";
+import { PromptTextEditor } from "../prompt/PromptTextEditor";
 import { settingLabels, settingValue, type SettingKey } from "../prompt/settings";
 
 const statusLabels = {
@@ -63,9 +64,23 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
       </dl>
       <section className="media-literal-content">
         <h3>图片记录的正面提示词</h3>
-        <pre>{metadata.prompt ?? "（未记录）"}</pre>
+        <PromptTextEditor
+          value={metadata.prompt ?? ""}
+          label="图片记录的正面提示词"
+          placeholder="未记录"
+          model={metadata.model ?? undefined}
+          readOnly
+          tokenUnavailableLabel="图片未记录模型"
+        />
         <h3>图片记录的负面提示词</h3>
-        <pre>{metadata.negativePrompt ?? "（未记录）"}</pre>
+        <PromptTextEditor
+          value={metadata.negativePrompt ?? ""}
+          label="图片记录的负面提示词"
+          placeholder="未记录"
+          model={metadata.model ?? undefined}
+          readOnly
+          tokenUnavailableLabel="图片未记录模型"
+        />
       </section>
       {metadata.characters.length > 0 && (
         <section className="media-literal-content">
@@ -75,9 +90,21 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
             <div key={index}>
               <h4>源角色索引 {character.sourceIndex}</h4>
               <span className="muted">正面</span>
-              <pre>{character.prompt ?? "（未记录）"}</pre>
+              <PromptTextEditor
+                value={character.prompt ?? ""}
+                label={`角色 ${character.sourceIndex + 1} 正面提示词`}
+                model={metadata.model ?? undefined}
+                readOnly
+                tokenUnavailableLabel="图片未记录模型"
+              />
               <span className="muted">负面</span>
-              <pre>{character.negativePrompt ?? "（未记录）"}</pre>
+              <PromptTextEditor
+                value={character.negativePrompt ?? ""}
+                label={`角色 ${character.sourceIndex + 1} 负面提示词`}
+                model={metadata.model ?? undefined}
+                readOnly
+                tokenUnavailableLabel="图片未记录模型"
+              />
             </div>
           ))}
         </section>
@@ -108,21 +135,25 @@ function RestorePreview({
       <details open className="media-literal-content">
         <summary>即将使用的内容</summary>
         <h4>正面提示词</h4>
-        <pre>
-          {draft.composition.positive
-            .map((node) =>
-              node.kind === "text" ? node.text : (node.overrideText ?? `Chunk ${node.resourceId}`),
-            )
-            .join("\n") || "（空）"}
-        </pre>
+        <PromptTextEditor
+          value={draft.composition.positive
+            .map((node) => (node.kind === "text" ? node.text : (node.overrideText ?? "Chunk 引用")))
+            .join("\n")}
+          label="恢复正面提示词"
+          model={draft.settings.model ?? undefined}
+          readOnly
+          tokenUnavailableLabel="图片未记录模型"
+        />
         <h4>负面提示词</h4>
-        <pre>
-          {draft.composition.negative
-            .map((node) =>
-              node.kind === "text" ? node.text : (node.overrideText ?? `Chunk ${node.resourceId}`),
-            )
-            .join("\n") || "（空）"}
-        </pre>
+        <PromptTextEditor
+          value={draft.composition.negative
+            .map((node) => (node.kind === "text" ? node.text : (node.overrideText ?? "Chunk 引用")))
+            .join("\n")}
+          label="恢复负面提示词"
+          model={draft.settings.model ?? undefined}
+          readOnly
+          tokenUnavailableLabel="图片未记录模型"
+        />
         <h4>已知设置</h4>
         <dl className="media-metadata-fields">
           {Object.entries(draft.settings)
@@ -163,7 +194,11 @@ function MetadataDialogContent({
 }) {
   const tools = useMediaTools();
   const unavailable = imageUnavailableReason(asset);
-  const report = useMediaQuery(unavailable ? null : asset.id, mediaApi.metadata);
+  const report = useMediaQuery(
+    ["media", "metadata", asset.id],
+    unavailable ? null : asset.id,
+    mediaApi.metadata,
+  );
   const [restore, setRestore] = useState<MetadataRestore | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);

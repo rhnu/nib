@@ -9,12 +9,11 @@ use rusqlite::{Connection, params};
 use super::ApplicationPreferences;
 use crate::persistence::{PersistenceError, decode, encode};
 
-/// The effective storage location and a change waiting for the next startup.
+/// The selected creation-data directory, independent of the current process handles.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataDirectories {
     /// Absence selects the host's default data directory.
     pub current: Option<PathBuf>,
-    pub pending: Option<PathBuf>,
 }
 
 /// A fixed configuration database, separate from movable creation data.
@@ -44,7 +43,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 2 {
+        if version != 0 && version != 3 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -77,6 +76,167 @@ impl GlobalSettingsStore {
         self.connection
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)
+    }
+
+    /// Lists names and the active account without loading any secret.
+    ///
+    /// # Errors
+    /// Returns a database failure or invalid stored account metadata.
+    pub fn credentials(&self) -> Result<super::AccountStatus, PersistenceError> {
+        let connection = self.connection()?;
+        let mut query = connection
+            .prepare("SELECT id, name, active FROM credentials ORDER BY rowid")
+            .map_err(|error| PersistenceError::failure("list account names", error))?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((
+                    super::CredentialProfile {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                    },
+                    row.get::<_, bool>(2)?,
+                ))
+            })
+            .map_err(|error| PersistenceError::failure("read account names", error))?;
+        let mut credentials = Vec::new();
+        let mut active_id = None;
+        for row in rows {
+            let (profile, active) =
+                row.map_err(|error| PersistenceError::failure("read account metadata", error))?;
+            if active {
+                active_id = Some(profile.id.clone());
+            }
+            credentials.push(profile);
+        }
+        Ok(super::AccountStatus {
+            configured: active_id.is_some(),
+            active_id,
+            credentials,
+        })
+    }
+
+    /// Returns the immutable native-keyring identity selected for new operations.
+    ///
+    /// # Errors
+    /// Returns a database failure while reading the selected version.
+    pub fn active_credential(&self) -> Result<Option<String>, PersistenceError> {
+        use rusqlite::OptionalExtension as _;
+        self.connection()?
+            .query_row(
+                "SELECT secret_id FROM credentials WHERE active = 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| PersistenceError::failure("read the active account", error))
+    }
+
+    /// Stores a new profile or publishes a new secret version without altering old jobs.
+    ///
+    /// # Errors
+    /// Returns a database failure, a version identity conflict or a missing profile for rename.
+    pub fn save_credential(
+        &self,
+        id: &str,
+        name: &str,
+        secret_id: Option<&str>,
+    ) -> Result<(), PersistenceError> {
+        let mut connection = self.connection()?;
+        let transaction = connection
+            .transaction()
+            .map_err(|error| PersistenceError::failure("begin account update", error))?;
+        if let Some(secret_id) = secret_id {
+            transaction.execute("INSERT INTO credentials(id,name,secret_id,active) VALUES (?1,?2,?3,0) ON CONFLICT(id) DO UPDATE SET name=excluded.name,secret_id=excluded.secret_id", params![id,name,secret_id])
+                .map_err(|error| PersistenceError::failure("save account metadata", error))?;
+            transaction
+                .execute(
+                    "INSERT INTO credential_versions(id,credential_id) VALUES (?1,?2)",
+                    params![secret_id, id],
+                )
+                .map_err(|error| PersistenceError::failure("retain account version", error))?;
+            transaction.execute("UPDATE credentials SET active=1 WHERE id=?1 AND NOT EXISTS (SELECT 1 FROM credentials WHERE active=1)", [id])
+                .map_err(|error| PersistenceError::failure("select the first account", error))?;
+        } else {
+            let updated = transaction
+                .execute(
+                    "UPDATE credentials SET name=?2 WHERE id=?1",
+                    params![id, name],
+                )
+                .map_err(|error| PersistenceError::failure("rename account", error))?;
+            if updated == 0 {
+                return Err(PersistenceError::InvalidData {
+                    message: "账户不存在。".into(),
+                });
+            }
+        }
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit account update", error))
+    }
+
+    /// Selects exactly one existing profile for future operations.
+    ///
+    /// # Errors
+    /// Returns a database failure or rejects an unknown account.
+    pub fn activate_credential(&self, id: &str) -> Result<(), PersistenceError> {
+        let mut connection = self.connection()?;
+        let transaction = connection
+            .transaction()
+            .map_err(|error| PersistenceError::failure("begin account selection", error))?;
+        transaction
+            .execute("UPDATE credentials SET active=0", [])
+            .map_err(|error| PersistenceError::failure("clear active account", error))?;
+        if transaction
+            .execute("UPDATE credentials SET active=1 WHERE id=?1", [id])
+            .map_err(|error| PersistenceError::failure("select account", error))?
+            == 0
+        {
+            return Err(PersistenceError::InvalidData {
+                message: "账户不存在。".into(),
+            });
+        }
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit account selection", error))
+    }
+
+    /// Retained immutable versions must be checked against unfinished tasks before deletion.
+    ///
+    /// # Errors
+    /// Returns a database failure or invalid stored version metadata.
+    pub fn credential_versions(&self, id: &str) -> Result<Vec<String>, PersistenceError> {
+        let connection = self.connection()?;
+        let mut query = connection
+            .prepare("SELECT id FROM credential_versions WHERE credential_id=?1")
+            .map_err(|error| PersistenceError::failure("list account versions", error))?;
+        query
+            .query_map([id], |row| row.get(0))
+            .map_err(|error| PersistenceError::failure("read account versions", error))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| PersistenceError::failure("decode account versions", error))
+    }
+
+    /// Removes metadata after the native secrets were removed successfully.
+    ///
+    /// # Errors
+    /// Returns a database failure without publishing a partial metadata removal.
+    pub fn delete_credential(&self, id: &str) -> Result<(), PersistenceError> {
+        let mut connection = self.connection()?;
+        let transaction = connection
+            .transaction()
+            .map_err(|error| PersistenceError::failure("begin account removal", error))?;
+        transaction
+            .execute(
+                "DELETE FROM credential_versions WHERE credential_id=?1",
+                [id],
+            )
+            .map_err(|error| PersistenceError::failure("remove account versions", error))?;
+        transaction
+            .execute("DELETE FROM credentials WHERE id=?1", [id])
+            .map_err(|error| PersistenceError::failure("remove account metadata", error))?;
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit account removal", error))
     }
 
     /// Reads the global preferences without opening the creation database.
@@ -121,34 +281,7 @@ impl GlobalSettingsStore {
         read_directories(&connection)
     }
 
-    /// Records a move for the next startup, or cancels it when given `None`.
-    ///
-    /// # Errors
-    /// Returns a serialization or database failure.
-    pub fn set_pending_directory(
-        &self,
-        path: Option<&Path>,
-    ) -> Result<DataDirectories, PersistenceError> {
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction().map_err(|error| {
-            PersistenceError::failure("begin a data directory change request", error)
-        })?;
-        transaction
-            .execute(
-                "UPDATE global_settings SET pending_directory_json = ?1 WHERE id = 1",
-                [path.map(|path| encode(&path)).transpose()?],
-            )
-            .map_err(|error| {
-                PersistenceError::failure("save the requested data directory", error)
-            })?;
-        let directories = read_directories(&transaction)?;
-        transaction.commit().map_err(|error| {
-            PersistenceError::failure("commit the data directory change request", error)
-        })?;
-        Ok(directories)
-    }
-
-    /// Records the active directory without consuming a move requested in this process.
+    /// Records the initially selected directory.
     ///
     /// # Errors
     /// Returns a serialization or database failure.
@@ -164,7 +297,7 @@ impl GlobalSettingsStore {
         Ok(())
     }
 
-    /// Publishes the successfully prepared directory and clears the pending request atomically.
+    /// Publishes the successfully copied and verified directory atomically.
     ///
     /// The host calls this only after the data has reached the destination.
     ///
@@ -174,7 +307,7 @@ impl GlobalSettingsStore {
         self.connection()?
             .execute(
                 "UPDATE global_settings
-                 SET current_directory_json = ?1, pending_directory_json = NULL WHERE id = 1",
+                 SET current_directory_json = ?1 WHERE id = 1",
                 params![encode(&path)?],
             )
             .map_err(|error| {
@@ -185,15 +318,17 @@ impl GlobalSettingsStore {
 }
 
 fn read_directories(connection: &Connection) -> Result<DataDirectories, PersistenceError> {
-    let (current, pending): (Option<String>, Option<String>) = connection
+    let current: Option<String> = connection
         .query_row(
-            "SELECT current_directory_json, pending_directory_json FROM global_settings WHERE id = 1",
+            "SELECT current_directory_json FROM global_settings WHERE id = 1",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| row.get(0),
         )
         .map_err(|error| PersistenceError::failure("read data directory settings", error))?;
     Ok(DataDirectories {
         current: current.as_deref().map(decode).transpose()?,
-        pending: pending.as_deref().map(decode).transpose()?,
     })
 }
+
+#[cfg(test)]
+mod tests;

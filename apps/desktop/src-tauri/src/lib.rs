@@ -23,18 +23,16 @@ pub fn run() -> anyhow::Result<()> {
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let development = tauri::is_dev();
-            let base = if development {
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .ancestors()
-                    .nth(3)
-                    .context("the desktop host must be inside the nib workspace")?
-                    .join(".dev")
-            } else {
-                app.path().app_data_dir()?
-            };
-            app.manage(state::DesktopState::new(&base, development)?);
+            let base = application_base(app.handle(), development)?;
+            let desktop = state::DesktopState::new(&base, development)?;
+            if let Err(error) = desktop.sdk() {
+                tracing::warn!(error = %error, "cannot initialize account sampling");
+            }
+            app.manage(desktop);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -52,13 +50,14 @@ pub fn run() -> anyhow::Result<()> {
             commands::get_model_defaults_capabilities,
             commands::expand_chunk,
             commands::expand_preset,
-            commands::suggest_tags,
             commands::inspect_tokens,
             generation::get_account_status,
             generation::save_account_key,
+            generation::activate_account,
             generation::delete_account_key,
             generation::quote_generation,
             generation::submit_generation,
+            generation::ensure_vibe_encoding,
             generation::list_jobs,
             generation::get_job,
             generation::cancel_job,
@@ -81,7 +80,6 @@ pub fn run() -> anyhow::Result<()> {
             media::create_vibe_reference,
             media::inspect_vibe_document,
             media::inspect_vibe_asset,
-            media::prepare_vibe_reencoding,
             media::get_media_asset,
             media::import_image_asset,
             media::import_vibe_asset,
@@ -125,4 +123,27 @@ fn initialize_tracing() -> anyhow::Result<()> {
         .try_init()
         .map_err(anyhow::Error::from_boxed)
         .context("initialize the desktop tracing subscriber")
+}
+
+/// Select a development data root without replacing an existing retained creation.
+fn application_base(
+    app: &tauri::AppHandle,
+    development: bool,
+) -> anyhow::Result<std::path::PathBuf> {
+    if !development {
+        return Ok(app.path().app_data_dir()?);
+    }
+    if let Some(path) = std::env::var_os("NIB_DEVELOPMENT_HOME") {
+        let path = std::path::PathBuf::from(path);
+        anyhow::ensure!(
+            path.is_absolute(),
+            "NIB_DEVELOPMENT_HOME must be an absolute path"
+        );
+        return Ok(path);
+    }
+    Ok(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .context("the desktop host must be inside the nib workspace")?
+        .join(".dev"))
 }

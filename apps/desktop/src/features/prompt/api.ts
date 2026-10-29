@@ -5,8 +5,6 @@ import type {
   PresetInstance,
   PromptNode,
   DraftAnalysis,
-  SuggestTagsRequest,
-  SuggestTagsResult,
   TokenInspection,
 } from "../../bindings/workbench";
 export const promptApi = {
@@ -14,8 +12,6 @@ export const promptApi = {
   expandChunk: (node: PromptNode) => invokeHost<PromptNode>("expand_chunk", { node }),
   expandPreset: (instance: PresetInstance) =>
     invokeHost<PresetInstance>("expand_preset", { instance }),
-  suggestTags: (request: SuggestTagsRequest) =>
-    invokeHost<SuggestTagsResult>("suggest_tags", { request }),
   inspectTokens: (model: string, text: string, framing: FramingPolicy) =>
     invokeHost<TokenInspection>("inspect_tokens", { model, text, framing }),
 };

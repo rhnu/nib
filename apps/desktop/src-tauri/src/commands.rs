@@ -2,7 +2,6 @@
 
 use nib_app::{
     api::{ApiError, DraftAnalysis, ErrorCode, WorkspaceSnapshot},
-    jobs::SdkClientProvider as _,
     library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{
@@ -66,20 +65,29 @@ async fn with_database<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let access = state.read_access().await;
+    run_database(state.inner().clone(), access, action).await
+}
+
+async fn with_database_write<T: Send + 'static>(
+    state: tauri::State<'_, DesktopState>,
+    action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    let access = state.write_access().await.map_err(persistence_error)?;
+    run_database(state.inner().clone(), access, action).await
+}
+
+async fn run_database<T: Send + 'static>(
+    state: DesktopState,
+    access: tokio::sync::OwnedRwLockReadGuard<()>,
+    action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    crate::generation::blocking(move || {
+        let _access = access;
         let database = state.database().map_err(persistence_error)?;
         action(&database)
     })
     .await
-    .map_err(|error| {
-        tracing::error!(error = ?error, "database worker failed");
-        ApiError {
-            validation_fields: Vec::new(),
-            code: ErrorCode::Unavailable,
-            message: "本地数据操作未完成，请重试。".to_owned(),
-        }
-    })?
 }
 
 #[tauri::command]
@@ -182,7 +190,7 @@ pub(crate) async fn save_resource(
     state: tauri::State<'_, DesktopState>,
     resource: Resource,
 ) -> Result<Resource, ApiError> {
-    with_database(state, move |database| {
+    with_database_write(state, move |database| {
         database.save_resource(&resource).map_err(persistence_error)
     })
     .await
@@ -194,7 +202,7 @@ pub(crate) async fn delete_resource(
     id: String,
     revision: u32,
 ) -> Result<(), ApiError> {
-    with_database(state, move |database| {
+    with_database_write(state, move |database| {
         database
             .delete_resource(&id, revision)
             .map_err(persistence_error)
@@ -207,7 +215,7 @@ pub(crate) async fn save_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
 ) -> Result<nib_app::session::DraftSaveReceipt, ApiError> {
-    with_database(state, move |database| {
+    with_database_write(state, move |database| {
         database.save_draft(&draft).map_err(persistence_error)
     })
     .await
@@ -259,22 +267,4 @@ pub(crate) async fn expand_preset(
             .map_err(expansion_error)
     })
     .await
-}
-
-#[tauri::command]
-pub(crate) async fn suggest_tags(
-    state: tauri::State<'_, DesktopState>,
-    request: novelai_bridge::SuggestTagsRequest,
-) -> Result<novelai_bridge::SuggestTagsResult, ApiError> {
-    let desktop = state.inner().clone();
-    let client = crate::generation::blocking(move || {
-        desktop
-            .sdk()
-            .and_then(|clients| clients.client())
-            .map_err(crate::generation::generation_error)
-    })
-    .await?;
-    prompt::TagQuery::suggest_tags(&client, request)
-        .await
-        .map_err(|error| crate::generation::generation_error(error.into()))
 }

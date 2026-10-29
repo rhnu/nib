@@ -47,11 +47,14 @@ impl Transport for MemoryTransport {
 struct MemoryClient(SdkClient);
 
 impl SdkClientProvider for MemoryClient {
+    fn credential_id(&self) -> Result<String, JobError> { Ok("test-account".to_owned()) }
+
     fn client(&self) -> Result<SdkClient, JobError> { Ok(self.0.clone()) }
 
     fn execution_context(
         &self,
         _execution: ExecutionPreferences,
+        _credential_id: &str,
     ) -> Result<(SdkClient, Option<crate::settings::AccountSample>), JobError> {
         Ok((self.0.clone(), Some(sampled_account(77))))
     }
@@ -392,4 +395,45 @@ async fn upscale_executes_its_frozen_options_and_retains_returned_images() {
     }
     worker.abort();
     drop(worker.await);
+}
+
+#[tokio::test]
+async fn relocation_drain_waits_for_final_storage_and_does_not_claim_the_next_request() {
+    let eof = Arc::new(Notify::new());
+    let (queue, jobs, outputs) = streaming_queue(vec![event("final")], Some(Arc::clone(&eof)));
+    let first = queue.enqueue(&streamed_submission()).unwrap();
+    let second = queue.enqueue(&streamed_submission()).unwrap();
+    let mut feedback = queue.subscribe();
+    let worker = tokio::spawn(Arc::clone(&queue).run());
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            if matches!(
+                feedback.recv().await.unwrap(),
+                JobFeedback::FinalReceived { .. }
+            ) {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let mut drain = Box::pin(queue.pause_and_drain());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), &mut drain)
+            .await
+            .is_err()
+    );
+    assert_eq!(jobs.get_job(&first.id).unwrap().status, JobStatus::Running);
+    eof.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(5), drain)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        jobs.get_job(&first.id).unwrap().status,
+        JobStatus::Completed
+    );
+    assert_eq!(jobs.get_job(&second.id).unwrap().status, JobStatus::Queued);
+    assert_eq!(*outputs.images.lock().unwrap(), vec![1]);
+    worker.abort();
 }

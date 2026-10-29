@@ -10,7 +10,7 @@
   width: min(430px, 100%);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 24px;
 }
 .brand-mark {
@@ -21,7 +21,7 @@
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   font-size: 26px;
   font-weight: 500;
   margin-bottom: 20px;

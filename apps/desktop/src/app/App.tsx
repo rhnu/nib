@@ -29,8 +29,15 @@ export default function App() {
   useEffect(() => {
     if (workspace) void refreshStorage();
   }, [workspace, refreshStorage]);
+  const readOnly = settings.migrationPending || Boolean(settings.storage?.restartRequired);
   const settingsNotice = (
     <>
+      {settings.migrationPending && (
+        <Notice>正在保存编辑、等待已发出的任务完成并迁移数据，请保持窗口打开。</Notice>
+      )}
+      {settings.storage?.restartRequired && (
+        <Notice>数据已迁移并验证。请重启应用；当前窗口已停止保存修改。</Notice>
+      )}
       {Boolean(settings.preferences.error) && (
         <Notice
           actions={
@@ -75,7 +82,9 @@ export default function App() {
             {settingsNotice}
             {settings.ready ? (
               startupPage === "settings" ? (
-                <SettingsPage settings={settings} />
+                <div inert={readOnly} style={{ display: "contents" }}>
+                  <SettingsPage settings={settings} />
+                </div>
               ) : (
                 <>
                   {error && (
@@ -84,7 +93,7 @@ export default function App() {
                         <Button onClick={() => setStartupPage("settings")}>更改存储位置</Button>
                       }
                     >
-                      创作数据无法打开。可在设置中检查存储位置，取消待迁移更改后重试；新的目录设置于下次启动生效。
+                      创作数据无法打开。请在设置中检查存储位置与错误信息。原有数据仍保留。
                     </Notice>
                   )}
                   <StartupScreen loading={loading} error={error} retry={retry} />
@@ -115,7 +124,14 @@ export default function App() {
                   {settingsNotice}
                 </>
               )}
-              settings={<SettingsPage settings={settings} />}
+              readOnly={readOnly}
+              renderSettings={({ beforeMigrate, onOpenTasks }) => (
+                <SettingsPage
+                  settings={settings}
+                  beforeMigrate={beforeMigrate}
+                  onOpenTasks={onOpenTasks}
+                />
+              )}
               renderActions={({
                 draft,
                 readCurrentDraft,
@@ -135,26 +151,31 @@ export default function App() {
                   onFocusField={onFocusField}
                 />
               )}
-              renderResults={({
-                draft,
-                onRestore,
-                readCurrentDraft,
-                onImageOperation,
-                canMaxEnhance,
-                canInpaint,
-                onViewedAssetChange,
-                onAddVibeReference,
-                onEncodeVibe,
-              }) => (
+              renderResults={(
+                {
+                  draft,
+                  onRestore,
+                  readCurrentDraft,
+                  onImageOperation,
+                  canMaxEnhance,
+                  canInpaint,
+                  onViewedAssetChange,
+                },
+                gallery,
+              ) => (
                 <GenerationResults
                   onRestore={onRestore}
                   operation={draft.inputs.operation}
                   onImageOperation={onImageOperation}
                   canMaxEnhance={canMaxEnhance}
                   canInpaint={canInpaint}
-                  onViewedAssetChange={onViewedAssetChange}
-                  onAddVibeReference={onAddVibeReference}
-                  onEncodeVibe={onEncodeVibe}
+                  onViewedAssetChange={
+                    draft.activePage === (gallery ? "gallery" : "create")
+                      ? onViewedAssetChange
+                      : undefined
+                  }
+                  gallery={gallery}
+                  recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
                   onUseSeed={(seed) => {
                     const current = readCurrentDraft();
                     onRestore({ ...current, settings: { ...current.settings, seed } });

@@ -24,6 +24,11 @@ CREATE TABLE current_creation (
 
 CREATE TABLE jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id TEXT NOT NULL,
+    request_index INTEGER NOT NULL CHECK (request_index >= 0),
+    request_count INTEGER NOT NULL CHECK (request_count BETWEEN 1 AND 8),
+    retry_of_job_id TEXT,
+    credential_id TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
     submitted_at INTEGER NOT NULL,
     finished_at INTEGER,
@@ -33,6 +38,8 @@ CREATE TABLE jobs (
     observation TEXT CHECK (observation IS NULL OR json_valid(observation))
 );
 CREATE INDEX jobs_status_id ON jobs(status, id);
+CREATE UNIQUE INDEX jobs_batch_request ON jobs(batch_id, request_index);
+CREATE INDEX jobs_credential_status ON jobs(credential_id, status);
 
 CREATE TABLE media_assets (
     id TEXT PRIMARY KEY NOT NULL,
@@ -56,4 +63,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 10;
+PRAGMA user_version = 11;

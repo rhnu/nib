@@ -4,14 +4,12 @@ import type {
   PreciseReferenceInput,
   ResolvedCharacter,
   ResolvedDraft,
-  TokenInspection,
 } from "../../bindings/workbench";
 import { Button, Notice } from "../../shared/ui";
 import { AssetImage, useMediaAsset } from "../media";
 import { imageName } from "../media/model";
-import { promptApi } from "./api";
+import { PromptTextEditor } from "./PromptTextEditor";
 import { ContentSources } from "./ResolutionSources";
-import { useAssistRequest } from "./useAssistRequest";
 import "./resolved-outputs.css";
 import { ResolvedVibes } from "../vibes";
 
@@ -20,10 +18,6 @@ function OutputSource({ source }: { source: InputProvenance | ResolvedCharacter 
   return (
     <dl className="resolved-output-metadata">
       <div>
-        <dt>输出身份</dt>
-        <dd>{source.id}</dd>
-      </div>
-      <div>
         <dt>来源</dt>
         <dd>
           {source.presetInstanceId ? "配方输出" : "当前创作"}
@@ -31,63 +25,7 @@ function OutputSource({ source }: { source: InputProvenance | ResolvedCharacter 
           {source.overridden ? " · 实例覆盖" : ""}
         </dd>
       </div>
-      {source.presetInstanceId && (
-        <div>
-          <dt>配方实例</dt>
-          <dd>{source.presetInstanceId}</dd>
-        </div>
-      )}
-      {source.resourceId && (
-        <div>
-          <dt>资源</dt>
-          <dd>{source.resourceId}</dd>
-        </div>
-      )}
     </dl>
-  );
-}
-
-function CharacterTokens({ character, model }: { character: ResolvedCharacter; model: string }) {
-  const request = useAssistRequest<{ positive: TokenInspection; negative: TokenInspection }>(
-    JSON.stringify([
-      model,
-      character.id,
-      character.enabled,
-      character.positive,
-      character.negative,
-    ]),
-  );
-  const inspect = () => {
-    if (!character.enabled) return;
-    void request.run(async () => {
-      const [positive, negative] = await Promise.all([
-        promptApi.inspectTokens(model, character.positive, "model_input"),
-        promptApi.inspectTokens(model, character.negative, "model_input"),
-      ]);
-      return { positive, negative };
-    });
-  };
-  if (!character.enabled) return null;
-  return (
-    <div className="resolved-character-tokens" aria-busy={request.pending}>
-      <Button disabled={request.pending} onClick={inspect}>
-        {request.pending ? "正在检视 Token…" : "检视角色 Token"}
-      </Button>
-      {request.value && (
-        <output aria-live="polite">
-          {(["positive", "negative"] as const).map((scope) => {
-            const { used, limit } = request.value![scope].count;
-            return (
-              <span key={scope} className={used > limit ? "resolved-output-warning" : undefined}>
-                {scope === "positive" ? "正面" : "负面"} {used} / {limit}
-                {used > limit ? " · 超限" : ""}
-              </span>
-            );
-          })}
-        </output>
-      )}
-      {request.error && <Notice>{request.error}</Notice>}
-    </div>
   );
 }
 
@@ -117,14 +55,25 @@ function ResolvedCharacterDetails({
         </div>
       </dl>
       <h5>正面提示</h5>
-      <p className="resolved-output-text">{character.positive || "（空）"}</p>
+      <PromptTextEditor
+        label="角色正面提示"
+        value={character.positive}
+        model={model}
+        readOnly
+        placeholder="（空）"
+      />
       <h5>负面提示</h5>
-      <p className="resolved-output-text">{character.negative || "（空）"}</p>
-      <CharacterTokens character={character} model={model} />
+      <PromptTextEditor
+        label="角色负面提示"
+        value={character.negative}
+        model={model}
+        readOnly
+        placeholder="（空）"
+      />
       <details>
         <summary>角色内容来源</summary>
         <OutputSource source={character} />
-        <ContentSources fragments={character.fragments} />
+        <ContentSources fragments={character.fragments} model={model} />
       </details>
     </article>
   );
@@ -182,10 +131,6 @@ function ResolvedReferenceDetails({
         <div>
           <dt>信息提取量</dt>
           <dd>{reference.informationExtracted}</dd>
-        </div>
-        <div>
-          <dt>媒体身份</dt>
-          <dd>{reference.assetId}</dd>
         </div>
       </dl>
       <OutputSource source={source} />

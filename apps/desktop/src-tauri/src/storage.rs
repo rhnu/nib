@@ -4,7 +4,10 @@ use std::{
     fs::{self, File, OpenOptions},
     io::Write as _,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use nib_app::{
@@ -25,7 +28,7 @@ pub(crate) struct StorageManager {
     config_directory: PathBuf,
     default_data_directory: PathBuf,
     development: bool,
-    startup_pending: Option<PathBuf>,
+    restart_required: AtomicBool,
     pub(crate) settings: GlobalSettingsStore,
     active: Mutex<Option<ActiveData>>,
     _lock: File,
@@ -39,21 +42,21 @@ impl StorageManager {
         })?;
         let lock = lock_directory(&config_directory.join(".nib.lock"))?;
         let settings = GlobalSettingsStore::open(&config_directory.join("settings.sqlite3"))?;
-        let startup_pending = settings.directories()?.pending;
+
         Ok(Self {
             config_directory: fs::canonicalize(&config_directory).map_err(|error| {
                 PersistenceError::failure("resolve the configuration directory", error)
             })?,
             default_data_directory: base.join("data"),
             development,
-            startup_pending,
+            restart_required: AtomicBool::new(false),
             settings,
             active: Mutex::new(None),
             _lock: lock,
         })
     }
 
-    /// Runs deferred relocation before opening SQLite or starting generation.
+    /// Locks the selected creation-data directory before opening SQLite or media.
     pub(crate) fn data_directory(&self) -> Result<PathBuf, PersistenceError> {
         let mut active = self
             .active
@@ -75,24 +78,8 @@ impl StorageManager {
         })?;
         let source = canonical_directory(source)?;
         let source_lock = lock_directory(&source.join(DATA_LOCK))?;
-        let pending = migration_target(
-            self.startup_pending.as_deref(),
-            directories.pending.as_deref(),
-        );
-        let (directory, lock) = if let Some(target) = pending {
-            let target = self.target_directory(target, &source)?;
-            let target_lock = lock_directory(&target.join(DATA_LOCK))?;
-            copy_data(&source, &target)?;
-            self.settings.complete_directory_change(&target)?;
-            // A failed marker cleanup cannot invalidate the committed destination.
-            if let Err(error) = fs::remove_file(target.join(COPY_MARKER)) {
-                tracing::warn!(error = ?error, "cannot remove the completed relocation marker");
-            }
-            (target, target_lock)
-        } else {
-            self.settings.retain_current_directory(&source)?;
-            (source, source_lock)
-        };
+        self.settings.retain_current_directory(&source)?;
+        let (directory, lock) = (source, source_lock);
         *active = Some(ActiveData {
             directory: directory.clone(),
             _lock: lock,
@@ -100,39 +87,34 @@ impl StorageManager {
         Ok(directory)
     }
 
-    /// Scheduling a directory change never swaps a running database or worker.
-    pub(crate) fn set_directory(
+    /// Copies only after the caller has stopped every data writer and drained generation.
+    pub(crate) fn migrate_directory(
         &self,
         directory: Option<&Path>,
     ) -> Result<StorageLocations, PersistenceError> {
-        let active = self
-            .active
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?;
-        let directories = self.settings.directories()?;
-        let source = active
-            .as_ref()
-            .map(|active| &active.directory)
-            .or(directories.current.as_ref())
-            .unwrap_or(&self.default_data_directory);
-        let requested = directory.unwrap_or(&self.default_data_directory);
-        if same_path(requested, source) {
-            self.settings.set_pending_directory(None)?;
-        } else {
-            let source = if source.exists() {
-                canonical_directory(source)?
-            } else {
-                source.clone()
-            };
-            let target = self.target_directory(requested, &source)?;
-            if same_path(&target, &source) {
-                self.settings.set_pending_directory(None)?;
-            } else {
-                self.settings.set_pending_directory(Some(&target))?;
-            }
+        let source = self.data_directory()?;
+        let target =
+            self.target_directory(directory.unwrap_or(&self.default_data_directory), &source)?;
+        if same_path(&target, &source) {
+            return self.locations();
         }
-        drop(active);
-        self.locations()
+        let _target_lock = lock_directory(&target.join(DATA_LOCK))?;
+        copy_data(&source, &target)?;
+        verify_directory(&source, &target)?;
+        if target.join("nib.sqlite3").is_file() {
+            nib_app::persistence::SqliteDatabase::verify_copy(&target.join("nib.sqlite3"))?;
+        }
+        // Resolve every fallible display/read operation before publishing the new path.
+        let mut locations = self.locations()?;
+        locations.relocated_data_directory = Some(display_path(&target)?);
+        locations.restart_required = true;
+        self.settings.complete_directory_change(&target)?;
+        self.restart_required.store(true, Ordering::Release);
+        if let Err(error) = fs::remove_file(target.join(COPY_MARKER)) {
+            tracing::warn!(error = ?error, "cannot remove completed relocation marker");
+        }
+        tracing::info!("creation data copied and verified; restart required");
+        Ok(locations)
     }
 
     pub(crate) fn locations(&self) -> Result<StorageLocations, PersistenceError> {
@@ -149,13 +131,18 @@ impl StorageManager {
         Ok(StorageLocations {
             config_directory: display_path(&self.config_directory)?,
             data_directory: display_path(current)?,
-            pending_data_directory: directories
-                .pending
-                .as_deref()
-                .map(display_path)
-                .transpose()?,
+            relocated_data_directory: if self.restart_required.load(Ordering::Acquire) {
+                directories
+                    .current
+                    .as_deref()
+                    .map(display_path)
+                    .transpose()?
+            } else {
+                None
+            },
             default_data_directory: display_path(&self.default_data_directory)?,
             development: self.development,
+            restart_required: self.restart_required.load(Ordering::Acquire),
         })
     }
 
@@ -267,10 +254,6 @@ fn comparable_path(path: &Path) -> PathBuf {
     }
 }
 
-fn migration_target<'a>(startup: Option<&Path>, pending: Option<&'a Path>) -> Option<&'a Path> {
-    pending.filter(|pending| startup.is_some_and(|startup| same_path(startup, pending)))
-}
-
 fn validate_directory_relationship(
     target: &Path,
     source: &Path,
@@ -378,6 +361,67 @@ fn copy_directory(source: &Path, target: &Path) -> Result<(), PersistenceError> 
                 })?;
         } else {
             return Err(invalid("数据目录含符号链接或不支持的文件，无法迁移。"));
+        }
+    }
+    Ok(())
+}
+
+/// Compares every copied byte before publishing the destination as the next active directory.
+fn verify_directory(source: &Path, target: &Path) -> Result<(), PersistenceError> {
+    use std::io::Read as _;
+    for entry in fs::read_dir(source)
+        .map_err(|error| PersistenceError::failure("verify relocation source", error))?
+    {
+        let entry =
+            entry.map_err(|error| PersistenceError::failure("verify relocation entry", error))?;
+        if entry.file_name() == DATA_LOCK || entry.file_name() == COPY_MARKER {
+            continue;
+        }
+        let destination = target.join(entry.file_name());
+        if entry
+            .file_type()
+            .map_err(|error| PersistenceError::failure("verify relocated type", error))?
+            .is_dir()
+        {
+            verify_directory(&entry.path(), &destination)?;
+            continue;
+        }
+        let mut input = File::open(entry.path())
+            .map_err(|error| PersistenceError::failure("verify source data", error))?;
+        let mut output = File::open(&destination)
+            .map_err(|error| PersistenceError::failure("verify copied data", error))?;
+        let mut remaining = input
+            .metadata()
+            .map_err(|error| {
+                PersistenceError::failure("inspect source verification length", error)
+            })?
+            .len();
+        if output
+            .metadata()
+            .map_err(|error| {
+                PersistenceError::failure("inspect copied verification length", error)
+            })?
+            .len()
+            != remaining
+        {
+            return Err(invalid("复制后的文件长度与原数据不一致，已保留原目录。"));
+        }
+        let mut left = vec![0_u8; 65536];
+        let mut right = vec![0_u8; 65536];
+        while remaining > 0 {
+            let length = usize::try_from(remaining.min(65536)).map_err(|error| {
+                PersistenceError::failure("represent the verification chunk length", error)
+            })?;
+            input.read_exact(&mut left[..length]).map_err(|error| {
+                PersistenceError::failure("read source verification data", error)
+            })?;
+            output.read_exact(&mut right[..length]).map_err(|error| {
+                PersistenceError::failure("read copied verification data", error)
+            })?;
+            if left[..length] != right[..length] {
+                return Err(invalid("复制后的文件与原数据不一致，已保留原目录。"));
+            }
+            remaining = remaining.saturating_sub(65536);
         }
     }
     Ok(())

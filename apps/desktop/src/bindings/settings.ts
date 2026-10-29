@@ -10,8 +10,8 @@ export type ExecutionPreferences = {
  */
 imageBaseUrl: string | null, imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
 
-export type ApplicationPreferences = { theme: Theme, execution: ExecutionPreferences, };
+export type ApplicationPreferences = { theme: Theme, recentImageLimit: number, execution: ExecutionPreferences, };
 
-export type StorageLocations = { configDirectory: string, dataDirectory: string, pendingDataDirectory: string | null, defaultDataDirectory: string, development: boolean, };
+export type StorageLocations = { configDirectory: string, dataDirectory: string, relocatedDataDirectory: string | null, defaultDataDirectory: string, development: boolean, restartRequired: boolean, };
 
 export type ApplicationSettingsSnapshot = { preferences: ApplicationPreferences, storage: StorageLocations, };

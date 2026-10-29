@@ -3,7 +3,6 @@ import { RotateCcw } from "lucide-react";
 import type {
   ModelCapabilities,
   NumericRange,
-  VibeEncodingInput,
   VibeReferenceInput,
   VibeReferenceOverride,
 } from "../../bindings/workbench";
@@ -12,6 +11,7 @@ import { AssetImage, useMediaAsset } from "../media";
 import { VibeMaterialDialog } from "./VibeMaterialDialog";
 import { VibeAssetDetails } from "./VibeAssetDetails";
 import { vibeMaterialName, type VibePatch } from "./model";
+import { InlineVibeEncoding } from "./InlineVibeEncoding";
 
 export function VibeNumber({
   value,
@@ -54,7 +54,6 @@ export function VibeReferenceRow({
   override,
   onReset,
   issues = [],
-  onEncode,
 }: {
   value: VibeReferenceInput;
   index: number;
@@ -64,7 +63,6 @@ export function VibeReferenceRow({
   override?: VibeReferenceOverride;
   onReset?: (field: keyof VibePatch) => void;
   issues?: { field: string; message: string }[];
-  onEncode?: (input?: VibeEncodingInput) => void;
 }) {
   const media = useMediaAsset(value.input.assetId);
   const [picking, setPicking] = useState(false);
@@ -109,13 +107,14 @@ export function VibeReferenceRow({
           )}
           <div className="button-group">
             <Button onClick={() => setPicking(true)}>替换材料</Button>
+            {value.input.kind === "image" && capabilities?.encodeVibe && (
+              <InlineVibeEncoding value={value} capabilities={capabilities} onChange={onChange} />
+            )}
             {reset("input")}
           </div>
         </div>
       </div>
-      {value.input.kind === "encoded" ? (
-        <VibeAssetDetails id={value.input.assetId} onEncode={onEncode} />
-      ) : null}
+      {value.input.kind === "encoded" ? <VibeAssetDetails id={value.input.assetId} /> : null}
       <div className="vibe-fields">
         <div data-vibe-field="strength">
           <Field label="强度">

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { MediaAsset, VibeDocumentInspection } from "../../bindings/media";
 import type { ModelCapabilities, VibeReferenceInput } from "../../bindings/workbench";
-import { ActionsMenu, Button, Modal, Notice } from "../../shared/ui";
+import { ActionsMenu, Button, FilePicker, Modal, Notice } from "../../shared/ui";
 import { ImagePickerDialog } from "../media";
 import { mediaApi } from "../media/api";
 import { useMediaQuery } from "../media/useMediaQuery";
@@ -32,7 +32,7 @@ function Materials({
   initialAssetId,
   single = false,
 }: Omit<VibeMaterialDialogProps, "open">) {
-  const assets = useMediaQuery("vibes", mediaApi.assets);
+  const assets = useMediaQuery(["media", "assets"], "all", mediaApi.assets, 0);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssetId ?? null);
   const [selection, setSelection] = useState<DocumentSelection[]>([]);
   const [bundleIds, setBundleIds] = useState<string[]>([]);
@@ -40,18 +40,18 @@ function Materials({
     null,
   );
   const action = useVibeAction();
-  const fileInput = useRef<HTMLInputElement>(null);
-  const encodingFileInput = useRef<HTMLInputElement>(null);
   const latest = useRef({ onSelect, onClose });
   useLayoutEffect(() => {
     Object.assign(latest.current, { onSelect, onClose });
   }, [onSelect, onClose]);
   const selected = assets.value?.find((asset) => asset.id === selectedId) ?? null;
   const document = useMediaQuery(
+    ["media", "vibe-document", selected?.id],
     selected?.kind === "vibeDocument" ? selected.id : null,
     mediaApi.inspectVibeDocument,
   );
   const encoding = useMediaQuery(
+    ["media", "vibe-inspection", selected?.id],
     selected?.kind === "vibe" ? selected.id : null,
     mediaApi.inspectVibeAsset,
   );
@@ -169,28 +169,21 @@ function Materials({
     >
       <div className="vibe-dialog" aria-busy={action.busy}>
         <div className="vibe-toolbar">
-          <Button disabled={action.busy} onClick={() => fileInput.current?.click()}>
-            导入文件
-          </Button>
-          <input
-            ref={fileInput}
-            hidden
-            type="file"
+          <FilePicker
+            label="导入文档"
+            disabled={action.busy}
             accept=".naiv4vibe,.naiv4vibebundle,.json"
-            onChange={(event) => {
-              const chosen = event.currentTarget.files?.[0];
-              event.currentTarget.value = "";
-              if (chosen) void file(chosen);
-            }}
+            onChoose={(chosen) => void file(chosen)}
+          />
+          <FilePicker
+            label="导入编码"
+            disabled={action.busy}
+            accept=".bin,.vibe"
+            onChoose={(chosen) => void file(chosen, "encoded")}
           />
           <ActionsMenu
             label="Vibe 文件操作"
             items={[
-              {
-                label: "导入原始编码",
-                action: () => encodingFileInput.current?.click(),
-                disabled: action.busy,
-              },
               {
                 label: "从原图创建文档",
                 action: () => setImageAction("document"),
@@ -207,17 +200,6 @@ function Materials({
                 disabled: action.busy,
               },
             ]}
-          />
-          <input
-            ref={encodingFileInput}
-            hidden
-            type="file"
-            accept=".bin,.vibe"
-            onChange={(event) => {
-              const chosen = event.currentTarget.files?.[0];
-              event.currentTarget.value = "";
-              if (chosen) void file(chosen, "encoded");
-            }}
           />
           <Button
             disabled={action.busy || bundleIds.length === 0}
@@ -330,9 +312,7 @@ function Materials({
                         {encoding.error}
                       </Notice>
                     )}
-                    {encoding.value && (
-                      <VibeAssetInformation id={selected.id} inspection={encoding.value} />
-                    )}
+                    {encoding.value && <VibeAssetInformation inspection={encoding.value} />}
                     <Button
                       disabled={action.busy || !encoding.value?.canExportDocument}
                       onClick={() =>
@@ -352,7 +332,7 @@ function Materials({
                         void action.run(async (active) => {
                           const bytes = await mediaApi.content(selected.id);
                           if (active())
-                            downloadBytes(bytes, `${selected.id}.bin`, "application/octet-stream");
+                            downloadBytes(bytes, "nib-vibe.bin", "application/octet-stream");
                         })
                       }
                     >
@@ -365,7 +345,7 @@ function Materials({
                       原图 · {selected.width} × {selected.height}
                     </p>
                     {capabilities?.vibeInputPath !== "image" && (
-                      <p className="vibe-message">当前模型使用编码参考，请通过“编码”准备材料。</p>
+                      <p className="vibe-message">添加原图后，可在参考槽中编码。</p>
                     )}
                   </>
                 )}
@@ -474,7 +454,6 @@ function DocumentEntries({
                 },
                 `${cache.modelKey} · 提取量 ${cache.informationExtracted ?? "未记录"}${cache.hasMask ? " · 遮罩" : ""}${cache.modelKey === capabilities?.vibeReferenceOptions.metadataModelKey ? " · 当前模型" : ""}`,
               )}
-              <code className="vibe-cache-key">{cache.parameterKey}</code>
             </div>
           ))}
           {!entry.caches.length && <p className="vibe-status">无可用编码</p>}

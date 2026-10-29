@@ -12,7 +12,7 @@ export type GenerationSettings = { model: string | null, size: { width: number; 
 
 export type CharacterComposition = { id: string, enabled: boolean, composition: Composition, position: { x: number; y: number }, };
 
-export type CreationInputs = { operation: CreationOperation, policy: "normalize" | "reject", stream: "sse" | "msgpack" | null, references: ReferenceInputs, };
+export type CreationInputs = { requestCount: number, operation: CreationOperation, policy: "normalize" | "reject", stream: "sse" | "msgpack" | null, references: ReferenceInputs, };
 
 export type CreationOperation = { "kind": "textToImage" } | { "kind": "imageToImage", assetId: string, strength: number, noise: number, colorCorrect: boolean, extraNoiseSeed: number | null, addOriginalImage: boolean, maxEnhance: boolean, } | { "kind": "inpainting", assetId: string, maskAssetId: string, img2img: { strength: number; noise: number; color_correct: boolean; extra_noise_seed: number | null } | null, addOriginalImage: boolean, } | { "kind": "director", assetId: string, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe" } & VibeEncodingInput | { "kind": "upscale", assetId: string, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
 
@@ -68,7 +68,7 @@ export type DraftSaveReceipt = { revision: number, };
 
 export type DraftAnalysis = { resolved: ResolvedDraft, capabilities: ModelCapabilities | null, };
 
-export type ActivePage = "create" | "director" | "library" | "settings";
+export type ActivePage = "create" | "director" | "gallery" | "library" | "settings";
 
 export type DirectorToolKind = "lineart" | "sketch" | "bgRemoval" | "emotion" | "declutter" | "declutterKeepBubbles" | "colorize";
 
@@ -122,16 +122,10 @@ export type VibeReferenceOptions = { strength: NumericRange | null, informationE
 
 export type GenerationRanges = { dimension: NumericRange, dimensionMultiple: number, maxPixels: number, steps: NumericRange, scale: NumericRange, nSamples: NumericRange, cfgRescale: NumericRange, img2imgStrength: NumericRange, img2imgNoise: NumericRange, inpaintStrength: NumericRange, };
 
-export type ModelCapabilities = { model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, characterPositionOptions: CharacterPositionOptions, preciseReferenceOptions: PreciseReferenceOptions, vibeReferenceOptions: VibeReferenceOptions, streaming: boolean, streamModes: ("sse" | "msgpack")[], inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
+export type ModelCapabilities = { sizePresets: Array<SizePreset>, model: string, tokenizer: string, tokenLimit: number, maxCharacters: number, characterPositioning: string | null, characterPositionOptions: CharacterPositionOptions, preciseReferenceOptions: PreciseReferenceOptions, vibeReferenceOptions: VibeReferenceOptions, streaming: boolean, streamModes: ("sse" | "msgpack")[], inpainting: boolean, inpaintingImageToImage: boolean, maxEnhance: boolean, encodeVibe: boolean, vibeInputPath: string | null, customNegativePrompts: boolean, legacyUc: boolean, qualityPresets: string[], ucPresets: string[], fixedSampler: string | null, fixedNoiseSchedule: string | null, samplers: string[], noiseSchedules: string[], imageFormats: string[], alphaModes: ("straight" | "premultiplied")[], responseFormats: ("zip" | "json")[], defaults: ResolvedSettings, ranges: GenerationRanges, transparentBackground: boolean, furryMode: boolean, smea: boolean, decrisp: boolean, varietyBoost: boolean, canAddPreciseReference: boolean, canAddVibeReference: boolean, preciseReference: ReferenceStatus, vibeReference: ReferenceStatus, };
+
+export type SizePreset = { id: string, label: string, width: number, height: number, };
 
 export type TokenInspection = { model: string, tokenizer: string, framing: "content_only" | "model_input", count: { used: number; limit: number }, tokenIds: Array<number>, };
 
 export type FramingPolicy = "content_only" | "model_input";
-
-export type SuggestTagsRequest = { model: string; prompt: string; language: "en" | "jp" };
-
-export type TagSuggestion = { tag: string; count: number; confidence: number };
-
-export type JapaneseTagSuggestion = { jp_tag: string; en_tag: string; power: number };
-
-export type SuggestTagsResult = { tags: TagSuggestion[] } | JapaneseTagSuggestion[];

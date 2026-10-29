@@ -16,7 +16,6 @@ export function CompositionEditor({
   compact = false,
   allowChunk = true,
   toolbarActions,
-  models,
   model,
 }: {
   value: Composition;
@@ -27,7 +26,6 @@ export function CompositionEditor({
   compact?: boolean;
   allowChunk?: boolean;
   toolbarActions?: ReactNode;
-  models?: string[];
   model?: string;
 }) {
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
@@ -89,7 +87,6 @@ export function CompositionEditor({
             <NodeEditor
               key={node.id}
               node={node}
-              models={models}
               model={model}
               resource={node.kind === "chunk" ? resources.get(node.resourceId) : undefined}
               onChange={(next) =>

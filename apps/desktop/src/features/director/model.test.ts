@@ -39,6 +39,7 @@ const draft: Draft = {
   characters: [],
   settings: { ...emptySettings(), steps: 28 },
   inputs: {
+    requestCount: 1,
     operation: { kind: "textToImage" },
     policy: "normalize",
     stream: "sse",
@@ -55,6 +56,7 @@ describe("independent Director state", () => {
   it("freezes the selected tool while leaving the editable creation intact", () => {
     const submitted = directorSubmission(draft)!;
     expect(submitted.inputs).toEqual({
+      requestCount: 1,
       operation: {
         kind: "director",
         assetId: "face",

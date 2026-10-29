@@ -1,7 +1,9 @@
 import type { MediaAsset } from "../../bindings/media";
 
 export function imageName(asset: MediaAsset): string {
-  return asset.source.kind === "import" && asset.source.name ? asset.source.name : asset.id;
+  if (asset.source.kind === "import" && asset.source.name) return asset.source.name;
+  if (asset.source.kind === "job") return "生成图片";
+  return asset.kind === "image" ? "图片材料" : asset.kind === "vibe" ? "Vibe 编码" : "Vibe 文档";
 }
 
 export function imageUnavailableReason(

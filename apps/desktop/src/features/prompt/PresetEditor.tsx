@@ -217,7 +217,6 @@ export function PresetEditor({
                 overrides={binding.overrides}
                 resources={resources}
                 name={name}
-                models={models}
                 model={model}
                 onChange={override}
               />
@@ -228,7 +227,6 @@ export function PresetEditor({
                   allowChunk={false}
                   value={binding.composition}
                   resources={resources}
-                  models={models}
                   model={model}
                   onChange={(composition) => updateExpanded({ composition })}
                   expandChunk={async (node) => {
@@ -347,7 +345,6 @@ export function PresetEditor({
                   }
                   onTextChange={override}
                   resources={resources}
-                  models={models}
                   capabilities={outputCapabilities}
                   onPosition={onPosition}
                   name={name}
@@ -359,7 +356,6 @@ export function PresetEditor({
                 value={binding.characters}
                 onChange={(characters) => updateExpanded({ characters })}
                 resources={resources}
-                models={models}
                 capabilities={outputCapabilities}
                 onError={onError}
                 onPosition={onPosition}

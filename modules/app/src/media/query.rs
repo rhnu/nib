@@ -9,6 +9,8 @@ use crate::jobs::OperationSummary;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ResultQuery {
+    pub kind: Option<AssetKind>,
+    pub job_id: Option<String>,
     pub limit: u32,
     pub before: Option<String>,
 }

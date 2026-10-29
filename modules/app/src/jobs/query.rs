@@ -99,6 +99,11 @@ pub struct JobQuery {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct JobSummary {
     pub id: String,
+    pub batch_id: String,
+    pub request_index: u32,
+    pub request_count: u32,
+    pub retry_of_job_id: Option<String>,
+    pub credential_id: String,
     pub status: JobStatus,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
     pub submitted_at: i64,
@@ -115,6 +120,11 @@ impl From<&JobRecord> for JobSummary {
     fn from(record: &JobRecord) -> Self {
         Self {
             id: record.id.clone(),
+            batch_id: record.batch_id.clone(),
+            request_index: record.request_index,
+            request_count: record.request_count,
+            retry_of_job_id: record.retry_of_job_id.clone(),
+            credential_id: record.credential_id.clone(),
             status: record.status,
             submitted_at: record.submitted_at,
             finished_at: record.finished_at,

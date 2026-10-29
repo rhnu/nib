@@ -1,103 +1,44 @@
 .prompt-text-editor {
+  position: relative;
   min-width: 0;
 }
 .prompt-text-editor > textarea {
   display: block;
   width: 100%;
+  padding-right: 34px;
+  font-family: "Maple Mono", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.75;
+  font-variant-ligatures: contextual;
 }
-.prompt-assist-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding: 3px 5px;
-  border-top: 1px solid var(--line-subtle);
+.prompt-text-readonly > textarea {
+  min-height: 88px;
+  field-sizing: content;
+  resize: vertical;
+  max-height: 320px;
 }
-.prompt-assist-toolbar .ui-button {
-  min-height: 27px;
-  font-size: 11px;
-}
-.tag-assistance {
-  display: grid;
-  gap: 8px;
-  padding: 9px;
-  border-top: 1px solid var(--line-subtle);
-}
-.tag-assistance .field,
-.token-inspector .field {
-  min-width: 0;
-}
-.tag-assistance select,
-.token-inspector select {
-  width: 100%;
-}
-.tag-query-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.tag-query-field {
-  flex: 1 1 130px;
-}
-.tag-assist-help {
-  margin: 0;
-  font-size: 11px;
-}
-.tag-query-status:empty {
-  display: none;
-}
-.tag-suggestions {
-  list-style: none;
-  margin: 0;
+.prompt-token-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
   padding: 0;
-  max-height: 240px;
-  overflow: auto;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--input);
+}
+.prompt-token-popup {
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 7px 10px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-.tag-suggestions button {
-  display: grid;
-  width: 100%;
-  gap: 2px;
-  padding: 7px 9px;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--line-subtle);
+  border-radius: var(--radius-overlay);
+  background: var(--raised);
   color: var(--text);
-  text-align: left;
-  overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
+  font-size: 12px;
 }
-.tag-suggestions button:hover,
-.tag-suggestions button:focus-visible {
-  background: var(--accent-soft);
-}
-.tag-suggestions small {
-  color: var(--muted);
-}
-.token-inspector {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  min-height: 0;
-  overflow: auto;
-}
-.token-inspector > p {
+.prompt-token-popup p {
   margin: 0;
-}
-.token-inspector textarea {
-  width: 100%;
-  min-height: 90px;
-  font-family: ui-monospace, monospace;
-}
-.token-inspection-summary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 5px 14px;
-  margin: 0;
-}
-.token-inspection-summary dt {
-  color: var(--muted);
-}
-.token-inspection-summary dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }

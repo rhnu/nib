@@ -10,7 +10,6 @@ export function PresetOverrides({
   overrides,
   resources,
   name,
-  models,
   model,
   onChange: override,
   errorScopes = [],
@@ -19,7 +18,6 @@ export function PresetOverrides({
   overrides: InstanceOverride[];
   resources: Map<string, Resource>;
   name: string;
-  models?: string[];
   model?: string;
   onChange: (value: InstanceOverride) => void;
   errorScopes?: string[];
@@ -82,7 +80,6 @@ export function PresetOverrides({
                 </header>
                 <PromptTextEditor
                   label={`${name} ${scope === "positive" ? "基础" : "负面"}提示本次覆盖`}
-                  models={models}
                   model={model}
                   value={local.text ?? original}
                   onChange={(text) => update(node.id, { text })}

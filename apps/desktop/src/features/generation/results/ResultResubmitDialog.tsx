@@ -1,11 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { resultsApi } from "./api";
 import { useAccount } from "../account/account-context";
 import { useJobData } from "../jobs/job-context";
 import { useSubmission } from "../submission/submission-context";
 import { submissionApi } from "../submission/api";
 import { useEffect, useRef, useState } from "react";
-import type { Draft } from "../../../bindings/workbench";
-import type { GenerationQuote, GenerationResult } from "../../../bindings/generation";
+import type { GenerationResult } from "../../../bindings/generation";
 import { Button, Modal, Notice } from "../../../shared/ui";
 import { errorMessage } from "../../../shared/host/error";
 import { QuoteSummary } from "../submission/QuoteSummary";
@@ -21,16 +21,27 @@ export function ResultResubmitDialog({
   onClose: () => void;
 }) {
   const { account, accountVersion, accountSummaryLoading } = useAccount();
-  const { acceptJob } = useJobData();
+  const { acceptBatch } = useJobData();
   const { submit: submitGeneration, submissionBlocked } = useSubmission();
-  const [response, setPrepared] = useState<{
-    draft: Draft;
-    quote: GenerationQuote;
-    version: number;
-  } | null>(null);
-  const prepared = response?.version === accountVersion ? response : null;
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const [submitError, setSubmitError] = useState<{ version: number; message: string } | null>(null);
+  const preview = useQuery({
+    queryKey: ["results", "resubmit", result.id, result.submission.kind, accountVersion],
+    queryFn: async () => {
+      const restored = await resultsApi.restore(result.id);
+      const draft = prepareResubmission(restored, result.submission.kind);
+      return { draft, quote: await submissionApi.quote(draft) };
+    },
+    enabled: !accountSummaryLoading,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const prepared = accountSummaryLoading ? null : (preview.data ?? null);
+  const error =
+    submitError?.version === accountVersion
+      ? submitError.message
+      : preview.error
+        ? errorMessage(preview.error)
+        : null;
   const [pending, setPending] = useState(false);
   const active = useRef(true);
   const lock = useRef(false);
@@ -40,30 +51,6 @@ export function ResultResubmitDialog({
       active.current = false;
     };
   }, []);
-  useEffect(() => {
-    let cancelled = false;
-    void resultsApi
-      .restore(result.id)
-      .then(async (restored) => {
-        if (cancelled) return null;
-        const draft = prepareResubmission(restored, result.submission.kind);
-        return { draft, quote: await submissionApi.quote(draft) };
-      })
-      .then(
-        (value) => {
-          if (!cancelled && value) {
-            setPrepared({ ...value, version: accountVersion });
-            setError(null);
-          }
-        },
-        (cause: unknown) => {
-          if (!cancelled) setError(errorMessage(cause));
-        },
-      );
-    return () => {
-      cancelled = true;
-    };
-  }, [result.id, result.submission.kind, attempt, accountVersion]);
   async function submit() {
     if (
       lock.current ||
@@ -77,12 +64,12 @@ export function ResultResubmitDialog({
       return;
     lock.current = true;
     setPending(true);
-    setError(null);
+    setSubmitError(null);
     try {
-      acceptJob(await submitGeneration(prepared.draft));
+      acceptBatch(await submitGeneration(prepared.draft));
       if (active.current) onClose();
     } catch (cause) {
-      if (active.current) setError(errorMessage(cause));
+      if (active.current) setSubmitError({ version: accountVersion, message: errorMessage(cause) });
     } finally {
       lock.current = false;
       if (active.current) setPending(false);
@@ -112,8 +99,8 @@ export function ResultResubmitDialog({
               !prepared && (
                 <Button
                   onClick={() => {
-                    setError(null);
-                    setAttempt((value) => value + 1);
+                    setSubmitError(null);
+                    void preview.refetch();
                   }}
                 >
                   重试查询

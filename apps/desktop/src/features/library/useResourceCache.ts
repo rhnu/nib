@@ -1,77 +1,100 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { isCancelledError, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Draft, Resource } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
-import { libraryApi } from "./api";
 import { draftResourceIds } from "./resource-dependencies";
+import { resourceQuery } from "./resource-queries";
 
-/** Cache only definitions requested by creation and resource editors, never the entire library. */
-export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
-  const [resources, setResources] = useState(initial);
-  const [resourceVersion, setResourceVersion] = useState(0);
-  const [resourceError, setResourceError] = useState("");
-  const state = useRef({
-    active: true,
-    epoch: 0,
-    checked: new Set(initial.keys()),
-    resources: initial,
-  });
-  const pending = useRef(new Map<string, Promise<void>>());
-  useEffect(() => {
-    const current = state.current;
-    current.active = true;
-    return () => {
-      current.active = false;
-      current.epoch++;
-    };
-  }, []);
-  const ensureResources = useCallback((ids: string[], force = false): Promise<void> => {
-    const current = state.current;
-    const needed = [...new Set(ids)].filter((id) => force || !current.checked.has(id)).sort();
-    if (!needed.length) return Promise.resolve();
-    const key = JSON.stringify([current.epoch, needed]);
-    const existing = pending.current.get(key);
-    if (existing) return existing;
-    const epoch = current.epoch;
-    const request = libraryApi
-      .definitions(needed)
-      .then((fetched) => {
-        if (!current.active || epoch !== current.epoch) return;
-        const next = new Map(current.resources);
-        for (const id of needed) {
-          next.delete(id);
-          current.checked.add(id);
+function resourceSnapshot(client: QueryClient) {
+  const queries = client.getQueryCache().findAll({ queryKey: ["resource"] });
+  return {
+    resources: new Map(
+      queries.flatMap((query) => {
+        const resource = query.state.data as Resource | null | undefined;
+        return resource ? [[resource.id, resource] as const] : [];
+      }),
+    ),
+    resourceError: queries
+      .map((query) => query.state.error)
+      .filter(Boolean)
+      .map(errorMessage)
+      .join("；"),
+  };
+}
+
+/** Subscribe to Query's resource facts without maintaining a second writable definition store. */
+function resourceStore(client: QueryClient) {
+  let snapshot = resourceSnapshot(client);
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: (notify: () => void) => {
+      snapshot = resourceSnapshot(client);
+      return client.getQueryCache().subscribe((event) => {
+        if (
+          event.query.queryKey[0] === "resource" &&
+          (event.type === "updated" || event.type === "removed")
+        ) {
+          snapshot = resourceSnapshot(client);
+          notify();
         }
-        for (const resource of fetched) {
-          next.set(resource.id, resource);
-          current.checked.add(resource.id);
-        }
-        current.resources = next;
-        setResources(next);
-        setResourceError("");
-      })
-      .catch((cause: unknown) => {
-        if (current.active && epoch === current.epoch) throw cause;
-      })
-      .finally(() => {
-        pending.current.delete(key);
       });
-    pending.current.set(key, request);
-    return request;
-  }, []);
+    },
+  };
+}
+
+/** Query owns fetched definitions; the returned map is a read-only projection for prompt consumers. */
+export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
+  const client = useQueryClient();
+  const [resourceVersion, setResourceVersion] = useState(0);
+  useState(() => {
+    client.setQueryDefaults(["resource"], { staleTime: Infinity, gcTime: Infinity });
+    for (const [id, resource] of initial) {
+      if (client.getQueryData(["resource", id]) === undefined)
+        client.setQueryData(["resource", id], resource);
+    }
+    return true;
+  });
+  const store = useMemo(() => resourceStore(client), [client]);
+  const { resources, resourceError } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const ensureResources = useCallback(
+    async (ids: string[], force = false) => {
+      const unique = [...new Set(ids)];
+      if (force)
+        await Promise.all(
+          unique.map((id) =>
+            client.invalidateQueries({
+              queryKey: ["resource", id],
+              exact: true,
+              refetchType: "none",
+            }),
+          ),
+        );
+      await Promise.all(
+        unique.map((id) =>
+          client.fetchQuery(resourceQuery(client, id)).catch((cause: unknown) => {
+            if (!isCancelledError(cause)) throw cause;
+          }),
+        ),
+      );
+    },
+    [client],
+  );
   const refreshResources = useCallback(
     async (id: string) => {
-      state.current.epoch++;
-      state.current.checked.delete(id);
-      // A successful write invalidates resolved data even when refreshing definitions fails.
+      await client.cancelQueries({ queryKey: ["resource"] });
       setResourceVersion((version) => version + 1);
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["draft-analysis"], refetchType: "none" }),
+        client.invalidateQueries({ queryKey: ["quote"], refetchType: "none" }),
+      ]);
       await ensureResources([id], true);
     },
-    [ensureResources],
+    [client, ensureResources],
   );
   const dependencyKey = JSON.stringify(draftResourceIds(draft));
   useEffect(() => {
-    void ensureResources(JSON.parse(dependencyKey) as string[]).catch((cause: unknown) => {
-      if (state.current.active) setResourceError(errorMessage(cause));
+    void ensureResources(JSON.parse(dependencyKey) as string[]).catch(() => {
+      // Query retains read errors; callers can retry without replacing the current draft.
     });
   }, [dependencyKey, ensureResources, resourceVersion]);
   return {
@@ -80,6 +103,9 @@ export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
     resourceError,
     refreshResources,
     ensureResources,
-    retryResources: () => setResourceVersion((version) => version + 1),
+    retryResources: () => {
+      setResourceVersion((version) => version + 1);
+      void ensureResources(JSON.parse(dependencyKey) as string[], true).catch(() => {});
+    },
   };
 }

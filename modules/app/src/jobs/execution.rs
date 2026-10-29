@@ -21,8 +21,15 @@ use crate::{media::JobOutput, persistence::PersistenceError};
 impl JobQueue {
     pub(super) async fn run_inner(self: &Arc<Self>) -> Result<(), JobError> {
         loop {
+            let claim = self.claim_gate.lock().await;
+            if self.paused.load(std::sync::atomic::Ordering::Acquire) {
+                drop(claim);
+                self.wake.notified().await;
+                continue;
+            }
             let store = Arc::clone(&self.store);
             let Some(next) = tokio::task::spawn_blocking(move || store.claim_job()).await?? else {
+                drop(claim);
                 self.wake.notified().await;
                 continue;
             };
@@ -39,6 +46,7 @@ impl JobQueue {
                 id: id.clone(),
                 cancel: Arc::clone(&cancel),
             });
+            drop(claim);
             let queue = Arc::clone(self);
             // An explicit cancel does not abort this future. Streaming cancel must finish
             // SDK observation; ordinary requests settle before the next queue item starts.
@@ -69,6 +77,7 @@ impl JobQueue {
                 .active
                 .lock()
                 .map_err(|_poisoned| PersistenceError::Locked)? = None;
+            self.idle.notify_one();
             let store = Arc::clone(&self.store);
             let finished = tokio::task::spawn_blocking(move || store.get_job(&id)).await??;
             drop(self.feedback.send(JobFeedback::Finished {
@@ -88,11 +97,15 @@ impl JobQueue {
         let queue = Arc::clone(self);
         let id = record.id.clone();
         let execution = record.execution.clone();
+        let credential_id = record.credential_id.clone();
         let context = tokio::task::spawn_blocking(move || {
             if !queue.store.job_running(&id)? {
                 return Ok(None);
             }
-            queue.clients.execution_context(execution).map(Some)
+            queue
+                .clients
+                .execution_context(execution, &credential_id)
+                .map(Some)
         })
         .await??;
         let Some((client, sample)) = context else {
@@ -108,6 +121,8 @@ impl JobQueue {
             let store = Arc::clone(&self.store);
             let id = record.id.clone();
             tokio::task::spawn_blocking(move || store.observe_job(&id, &observation)).await??;
+            self.clients
+                .request_settled(&record.credential_id, &record.execution);
         }
         outcome
     }

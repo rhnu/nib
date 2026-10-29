@@ -29,7 +29,7 @@ function PickerContent({
   onRestore,
   title = "选择底图",
 }: Omit<PickerProps, "open">) {
-  const assets = useMediaQuery("images", listImages);
+  const assets = useMediaQuery(["media", "images"], "images", listImages, 0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [imported, setImported] = useState<MediaAsset | null>(null);
   const [metadataOpen, setMetadataOpen] = useState(false);

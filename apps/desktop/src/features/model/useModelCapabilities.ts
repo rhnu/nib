@@ -1,43 +1,31 @@
-import { useEffect, useState } from "react";
-import type { GenerationSettings, ModelCapabilities } from "../../bindings/workbench";
+import { useQuery } from "@tanstack/react-query";
+import type { GenerationSettings } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
+import { useDebouncedValue } from "../../shared/query/useDebouncedValue";
 import { modelApi } from "./api";
 
-/** Editable choices come from the SDK descriptor, including for a sparse preset. */
+/** SDK descriptor reads share cached choices and retain controls while the same model refreshes. */
 export function useModelCapabilities(
   model?: string,
   settings?: GenerationSettings | null,
   enabled = true,
 ) {
-  const [attempt, setAttempt] = useState(0);
   const key = JSON.stringify([model ?? null, settings ?? null]);
-  const [response, setResponse] = useState<{
-    key: string;
-    attempt: number;
-    capabilities: ModelCapabilities | null;
-    error: string | null;
-  } | null>(null);
-  useEffect(() => {
-    if (!enabled) return;
-    let active = true;
-    void modelApi.capabilities(model, settings).then(
-      (capabilities) => {
-        if (active) setResponse({ key, attempt, capabilities, error: null });
-      },
-      (cause: unknown) => {
-        if (active) setResponse({ key, attempt, capabilities: null, error: errorMessage(cause) });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [key, model, settings, attempt, enabled]);
-  const current =
-    enabled && response && response.key === key && response.attempt === attempt ? response : null;
+  const settledKey = useDebouncedValue(key, 150);
+  const ready = settledKey === key;
+  const query = useQuery({
+    queryKey: ["model-capabilities", model ?? null, settings ?? null],
+    queryFn: () => modelApi.capabilities(model, settings),
+    enabled: enabled && ready,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === (model ?? null) ? previous : undefined,
+  });
   return {
-    capabilities: current?.capabilities ?? null,
-    error: current?.error ?? null,
-    loading: enabled && current === null,
-    retry: () => setAttempt((value) => value + 1),
+    capabilities: enabled ? (query.data ?? null) : null,
+    error: enabled && ready && query.error ? errorMessage(query.error) : null,
+    loading: enabled && (!ready || query.isPending || query.isFetching),
+    retry: () => {
+      if (enabled && ready) void query.refetch();
+    },
   };
 }

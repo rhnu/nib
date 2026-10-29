@@ -53,20 +53,6 @@
 .resolved-output-item details[open] > summary {
   margin-bottom: 10px;
 }
-.resolved-character-tokens {
-  display: grid;
-  justify-items: start;
-  gap: 6px;
-  font-size: 11px;
-}
-.resolved-character-tokens output {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.resolved-output-warning {
-  color: var(--danger);
-}
 .resolved-reference-image {
   display: block;
   width: 100%;

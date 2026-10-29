@@ -1,15 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Resource, ResourceKind } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
 import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
 import { libraryApi } from "./api";
 import { mergeResourceSave } from "./resource-edit";
 import { hasPendingWork, waitForPendingWork } from "../../shared/host/pending-work";
+import { resourceQuery } from "./resource-queries";
 export function useResourceEditor(
   onChanged: (id: string) => Promise<void>,
   refreshSearch: () => void,
   onDirtyChange: (dirty: boolean) => void,
 ) {
+  const client = useQueryClient();
   const [error, setError] = useState("");
   const [editor, setEditor] = useState<Resource | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -109,11 +112,15 @@ export function useResourceEditor(
     leave(() => {
       const operation = ++latest.current.operation;
       setWorking(true);
-      void libraryApi
-        .resource(id)
+      void client
+        .fetchQuery(resourceQuery(client, id))
         .then(
           (resource) => {
             if (!isCurrent(operation)) return;
+            if (!resource) {
+              setError("资源不存在，请刷新列表后重试。");
+              return;
+            }
             latest.current.version++;
             publish(resource, false);
             setError("");
@@ -151,6 +158,7 @@ export function useResourceEditor(
     try {
       const saved = await libraryApi.saveResource({ ...snapshot, name: snapshot.name.trim() });
       if (!isCurrent(operation)) return;
+      client.setQueryData(["resource", saved.id], saved);
       const merged = mergeResourceSave(current.editor, current.version, request, saved);
       if (merged) publish(merged.editor, merged.dirty);
       try {
@@ -178,6 +186,7 @@ export function useResourceEditor(
           .deleteResource(editor.id, editor.revision)
           .then(async () => {
             if (!isCurrent(operation)) return;
+            client.setQueryData(["resource", editor.id], null);
             publish(null, false);
             await refresh(editor.id);
           })

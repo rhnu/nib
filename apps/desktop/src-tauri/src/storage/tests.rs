@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{migration_target, readable_path, validate_directory_relationship};
+use super::{readable_path, validate_directory_relationship};
 
 #[test]
 fn relocation_rejects_overlapping_directories() {
@@ -30,17 +30,4 @@ fn displayed_windows_paths_remain_usable_as_absolute_paths() {
         readable_path(r"\\?\UNC\server\share\data"),
         r"\\server\share\data"
     );
-}
-
-#[test]
-fn only_an_unchanged_startup_request_can_relocate_data() {
-    let original = Path::new("/storage/original");
-    let new = Path::new("/storage/new");
-    assert_eq!(
-        migration_target(Some(original), Some(original)),
-        Some(original)
-    );
-    assert_eq!(migration_target(None, Some(new)), None);
-    assert_eq!(migration_target(Some(original), Some(new)), None);
-    assert_eq!(migration_target(Some(original), None), None);
 }

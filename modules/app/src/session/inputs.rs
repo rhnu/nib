@@ -223,16 +223,29 @@ pub fn create_image_operation(
     })
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct CreationInputs {
+    pub request_count: u32,
     pub operation: CreationOperation,
     #[cfg_attr(feature = "typegen", ts(type = "\"normalize\" | \"reject\""))]
     pub policy: novelai_bridge::ValidationPolicy,
     #[cfg_attr(feature = "typegen", ts(type = "\"sse\" | \"msgpack\" | null"))]
     pub stream: Option<novelai_bridge::StreamMode>,
     pub references: ReferenceInputs,
+}
+
+impl Default for CreationInputs {
+    fn default() -> Self {
+        Self {
+            request_count: 1,
+            operation: CreationOperation::default(),
+            policy: novelai_bridge::ValidationPolicy::default(),
+            stream: Some(novelai_bridge::StreamMode::Sse),
+            references: ReferenceInputs::default(),
+        }
+    }
 }
 
 /// Independently retained Vibe encoder editing inputs, separate from generation references.

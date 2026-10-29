@@ -1,0 +1,4 @@
+Maple Mono v7.9, regular WOFF2, unmodified.
+Upstream: https://github.com/subframe7536/maple-font/releases/tag/v7.9
+Archive: MapleMono-Woff2.zip
+License: SIL Open Font License 1.1, see MapleMono-LICENSE.txt.

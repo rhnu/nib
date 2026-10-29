@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { Clapperboard, ImagePlus, Paintbrush, ScanLine, Sparkles, Maximize } from "lucide-react";
 import type { Draft } from "../../../bindings/workbench";
 import type { ImageOperationAction } from "../../inputs/image-operation";
-import { Button } from "../../../shared/ui";
+import { Button, IconButton, Modal, Notice } from "../../../shared/ui";
 import { ImageMetadataDialog } from "../../media/ImageMetadataDialog";
 import { useMediaAsset } from "../../media/useMediaAsset";
 import { useMediaTools } from "../../media/MediaToolsContext";
 
-/** Result tools use the original immutable asset, never a canvas screenshot. */
+/** Overlay tools operate on the original asset; visible labels stay in tooltips. */
 export function ImageResultActions({
   assetId,
   available,
@@ -30,57 +31,59 @@ export function ImageResultActions({
   return (
     <>
       <div className="generation-image-actions" aria-label="基于图片继续创作">
-        <Button
-          className="quiet"
+        <IconButton
+          label="用作底图"
           disabled={!available}
           onClick={() => onImageOperation(assetId, "imageToImage")}
         >
-          用作底图
-        </Button>
-        <Button
-          className="quiet"
+          <ImagePlus size={17} />
+        </IconButton>
+        <IconButton
+          label="局部重绘"
           disabled={!available || !canInpaint}
           onClick={() => onImageOperation(assetId, "inpainting")}
         >
-          局部重绘
-        </Button>
-        <Button
-          className="quiet"
+          <Paintbrush size={17} />
+        </IconButton>
+        <IconButton
+          label="Max Enhance"
           disabled={!available || !canMaxEnhance}
           onClick={() => onImageOperation(assetId, "maxEnhance")}
         >
-          Max Enhance
-        </Button>
-        <Button
-          className="quiet"
+          <Sparkles size={17} />
+        </IconButton>
+        <IconButton
+          label="放大图片"
           disabled={!available}
           onClick={() => onImageOperation(assetId, "upscale")}
         >
-          放大
-        </Button>
-        <Button className="quiet" disabled={!available} onClick={() => setMetadataOpen(true)}>
-          图片元信息
-        </Button>
+          <Maximize size={17} />
+        </IconButton>
         {tools && showDirector && (
-          <Button className="quiet" disabled={!available} onClick={() => tools.onDirector(assetId)}>
-            导演工具
-          </Button>
+          <IconButton
+            label="发送到导演工具"
+            disabled={!available}
+            onClick={() => tools.onDirector(assetId)}
+          >
+            <Clapperboard size={17} />
+          </IconButton>
         )}
+        <IconButton
+          label="图片信息与恢复"
+          disabled={!available}
+          onClick={() => setMetadataOpen(true)}
+        >
+          <ScanLine size={17} />
+        </IconButton>
       </div>
       {metadataOpen && !media.asset && (
-        <div className="generation-muted">
+        <Modal open title="图片信息" onClose={() => setMetadataOpen(false)}>
           {media.error ? (
-            <>
-              <span role="alert">{media.error}</span>
-              <Button onClick={media.retry}>重试读取</Button>
-            </>
+            <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
           ) : (
             <output>正在读取图片信息…</output>
           )}
-          <Button className="quiet" onClick={() => setMetadataOpen(false)}>
-            关闭
-          </Button>
-        </div>
+        </Modal>
       )}
       {metadataOpen && media.asset && (
         <ImageMetadataDialog

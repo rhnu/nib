@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftRight, RotateCcw } from "lucide-react";
 import type {
   GenerationSettings,
@@ -46,6 +46,10 @@ export function SettingsEditor({
   const prefix = useId();
   const advanced = useRef<HTMLDetailsElement>(null);
   const effective = resolved ?? capabilities?.defaults;
+  const [customSize, setCustomSize] = useState(false);
+  const sizePreset = capabilities?.sizePresets.find(
+    (preset) => preset.width === value.size?.width && preset.height === value.size?.height,
+  );
   const diagnosticSignature = diagnostics
     .map(({ field, change }) => `${field}:${change}`)
     .join("|");
@@ -245,78 +249,151 @@ export function SettingsEditor({
         <div className="settings-fields settings-image">
           {wrapper(
             "size",
-            <div className="size-inputs">
-              <input
-                {...controlProps("size")}
-                aria-label="宽度"
-                type="number"
-                min={capabilities?.ranges.dimension.min}
-                max={capabilities?.ranges.dimension.max}
-                step={capabilities?.ranges.dimensionMultiple}
-                value={value.size?.width ?? ""}
-                placeholder={effective ? String(effective.size.width) : "继承宽度"}
-                onChange={(event) => {
-                  if (event.target.value !== "" && !Number.isFinite(event.target.valueAsNumber))
-                    return;
-                  change(
-                    "size",
-                    event.target.value === ""
-                      ? null
-                      : {
-                          width: event.target.valueAsNumber,
-                          height:
-                            value.size?.height ??
-                            effective?.size.height ??
-                            event.target.valueAsNumber,
-                        },
-                  );
-                }}
-              />
-              <span>×</span>
-              <input
-                aria-label="高度"
-                type="number"
-                min={capabilities?.ranges.dimension.min}
-                max={capabilities?.ranges.dimension.max}
-                step={capabilities?.ranges.dimensionMultiple}
-                value={value.size?.height ?? ""}
-                placeholder={effective ? String(effective.size.height) : "继承高度"}
-                aria-describedby={
-                  diagnosticsFor("size").length ? `${prefix}-size-diagnostic` : undefined
+            <div className="size-editor">
+              <select
+                aria-label="尺寸预设"
+                value={
+                  value.size === null ? "" : customSize ? "custom" : (sizePreset?.id ?? "custom")
                 }
                 onChange={(event) => {
-                  if (event.target.value !== "" && !Number.isFinite(event.target.valueAsNumber))
-                    return;
-                  change(
-                    "size",
-                    event.target.value === ""
-                      ? null
-                      : {
-                          height: event.target.valueAsNumber,
-                          width:
-                            value.size?.width ??
-                            effective?.size.width ??
-                            event.target.valueAsNumber,
-                        },
-                  );
-                }}
-              />
-              <IconButton
-                label="交换宽高"
-                disabled={!value.size && !effective}
-                onClick={() => {
-                  const size = value.size ?? effective?.size;
-                  if (size) change("size", { width: size.height, height: size.width });
+                  const selected = event.target.value;
+                  setCustomSize(selected === "custom");
+                  if (!selected) change("size", null);
+                  else if (selected === "custom") {
+                    if (!value.size && effective) change("size", effective.size);
+                  } else {
+                    const preset = capabilities?.sizePresets.find(
+                      (preset) => preset.id === selected,
+                    );
+                    if (preset) change("size", { width: preset.width, height: preset.height });
+                  }
                 }}
               >
-                <ArrowLeftRight size={13} />
-              </IconButton>
+                <option value="">{inherited("size")}</option>
+                {capabilities?.sizePresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label} · {preset.width} × {preset.height}
+                  </option>
+                ))}
+                <option value="custom">Custom · 自定义</option>
+              </select>
+              <div className="size-inputs">
+                <input
+                  {...controlProps("size")}
+                  aria-label="宽度"
+                  type="number"
+                  min={capabilities?.ranges.dimension.min}
+                  max={capabilities?.ranges.dimension.max}
+                  step={capabilities?.ranges.dimensionMultiple}
+                  value={value.size?.width ?? ""}
+                  placeholder={effective ? String(effective.size.width) : "继承宽度"}
+                  onChange={(event) => {
+                    if (event.target.value !== "" && !Number.isFinite(event.target.valueAsNumber))
+                      return;
+                    setCustomSize(true);
+                    change(
+                      "size",
+                      event.target.value === ""
+                        ? null
+                        : {
+                            width: event.target.valueAsNumber,
+                            height:
+                              value.size?.height ??
+                              effective?.size.height ??
+                              event.target.valueAsNumber,
+                          },
+                    );
+                  }}
+                />
+                <span>×</span>
+                <input
+                  aria-label="高度"
+                  type="number"
+                  min={capabilities?.ranges.dimension.min}
+                  max={capabilities?.ranges.dimension.max}
+                  step={capabilities?.ranges.dimensionMultiple}
+                  value={value.size?.height ?? ""}
+                  placeholder={effective ? String(effective.size.height) : "继承高度"}
+                  aria-describedby={
+                    diagnosticsFor("size").length ? `${prefix}-size-diagnostic` : undefined
+                  }
+                  onChange={(event) => {
+                    if (event.target.value !== "" && !Number.isFinite(event.target.valueAsNumber))
+                      return;
+                    setCustomSize(true);
+                    change(
+                      "size",
+                      event.target.value === ""
+                        ? null
+                        : {
+                            height: event.target.valueAsNumber,
+                            width:
+                              value.size?.width ??
+                              effective?.size.width ??
+                              event.target.valueAsNumber,
+                          },
+                    );
+                  }}
+                />
+                <IconButton
+                  label="交换宽高"
+                  disabled={!value.size && !effective}
+                  onClick={() => {
+                    const size = value.size ?? effective?.size;
+                    if (size) change("size", { width: size.height, height: size.width });
+                  }}
+                >
+                  <ArrowLeftRight size={13} />
+                </IconButton>
+              </div>
             </div>,
             capabilities
               ? `尺寸步进 ${capabilities.ranges.dimensionMultiple}；最大像素 ${capabilities.ranges.maxPixels.toLocaleString()}。`
               : undefined,
           )}
-          {number("nSamples", "一次生成的图片数量，上限随尺寸变化。")}
+          {capabilities
+            ? wrapper(
+                "nSamples",
+                <fieldset className="sample-options" aria-label="样本数">
+                  <button
+                    id={`${prefix}-nSamples`}
+                    type="button"
+                    className="sample-inherit"
+                    title={inherited("nSamples")}
+                    aria-pressed={value.nSamples === null}
+                    onClick={() => change("nSamples", null)}
+                  >
+                    继承
+                  </button>
+                  {Array.from(
+                    {
+                      length: Math.max(
+                        0,
+                        Math.floor(capabilities.ranges.nSamples.max) -
+                          Math.ceil(capabilities.ranges.nSamples.min) +
+                          1,
+                      ),
+                    },
+                    (_, index) => Math.ceil(capabilities.ranges.nSamples.min) + index,
+                  ).map((count) => (
+                    <button
+                      type="button"
+                      key={count}
+                      aria-pressed={value.nSamples === count}
+                      onClick={() => change("nSamples", count)}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                  {value.nSamples !== null &&
+                    (value.nSamples < capabilities.ranges.nSamples.min ||
+                      value.nSamples > capabilities.ranges.nSamples.max) && (
+                      <output className="sample-saved">{value.nSamples} · 已保存</output>
+                    )}
+                </fieldset>,
+                "一次生成的图片数量，上限随尺寸变化。",
+              )
+            : number("nSamples", "一次生成的图片数量，上限随尺寸变化。")}
         </div>
       )}
       {(fields === "all" || fields === "parameters") && (

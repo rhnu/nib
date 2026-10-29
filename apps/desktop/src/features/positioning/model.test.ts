@@ -60,6 +60,7 @@ const creation = (): Draft => ({
   settings: emptySettings(),
   maskEditor: { activeSourceId: null, sessions: [] },
   inputs: {
+    requestCount: 1,
     operation: { kind: "textToImage" },
     policy: "normalize",
     stream: null,
@@ -233,6 +234,7 @@ describe("SDK output field ownership", () => {
     issues: [],
     characters: [{ ...resolvedCharacter("direct", null), enabled: false }, resolvedCharacter()],
     inputs: {
+      requestCount: 1,
       operation: { kind: "textToImage" },
       stream: null,
       policy: "normalize",

@@ -6,8 +6,8 @@ pub(crate) use query::{OPERATION_SUMMARY_SQL, decode_operation_summary};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
-    FrozenSubmission, JobObservation, JobPage, JobQuery, JobRecord, JobStore, ParameterDiagnostic,
-    SubmissionResolver,
+    FrozenSubmission, GenerationBatch, JobObservation, JobPage, JobQuery, JobRecord, JobStore,
+    ParameterDiagnostic, SubmissionResolver, VibeEncodingCandidate,
 };
 use crate::{
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
@@ -306,6 +306,10 @@ fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceEr
             kind: "job",
             id: id.to_string(),
         })?;
+    let (batch_id, request_index, request_count, retry_of_job_id, credential_id) = connection.query_row(
+        "SELECT batch_id, request_index, request_count, retry_of_job_id, credential_id FROM jobs WHERE id = ?1",
+        [id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?, row.get::<_, u32>(2)?, row.get::<_, Option<String>>(3)?, row.get::<_, String>(4)?))
+    ).map_err(|error| PersistenceError::failure("read the request batch identity", error))?;
     let status = decode(&encode(&status)?)?;
     let mut statement = connection
         .prepare("SELECT id FROM generation_results WHERE job_id = ?1 ORDER BY sample_index")
@@ -319,6 +323,11 @@ fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceEr
         .map_err(|error| PersistenceError::failure("decode generation result identities", error))?;
     Ok(JobRecord {
         id: id.to_string(),
+        batch_id,
+        request_index,
+        request_count,
+        retry_of_job_id,
+        credential_id,
         status,
         submitted_at,
         finished_at,
@@ -350,30 +359,78 @@ impl SubmissionResolver for SqliteDatabase {
 }
 
 impl JobStore for SqliteDatabase {
-    fn insert_job(
+    fn insert_jobs(
         &self,
-        submission: &FrozenSubmission,
+        submissions: &[FrozenSubmission],
         execution: ExecutionPreferences,
-    ) -> Result<JobRecord, PersistenceError> {
-        let content = encode_submission(submission)?;
+        credential_id: &str,
+        retry_of_job_id: Option<&str>,
+    ) -> Result<GenerationBatch, PersistenceError> {
+        if submissions.is_empty() || submissions.len() > 8 {
+            return Err(PersistenceError::InvalidData {
+                message: "一次生成必须包含 1 到 8 个请求。".to_owned(),
+            });
+        }
+        let contents = submissions
+            .iter()
+            .map(encode_submission)
+            .collect::<Result<Vec<_>, _>>()?;
         let now = timestamp()?;
         let mut connection = self.connection()?;
         let transaction = connection.transaction().map_err(|error| {
-            PersistenceError::failure("begin retaining a submitted generation job", error)
+            PersistenceError::failure("begin retaining a generation batch", error)
         })?;
-        transaction
-            .execute(
-                "INSERT INTO jobs (status, submitted_at, submission, execution) VALUES ('queued', ?1, ?2, ?3)",
-                params![now, content, encode(&execution)?],
+        // The first monotonic job identity also identifies this atomically inserted batch.
+        let batch_id: String = transaction
+            .query_row(
+                "SELECT CAST(COALESCE(MAX(id), 0) + 1 AS TEXT) FROM jobs",
+                [],
+                |row| row.get(0),
             )
             .map_err(|error| {
-                PersistenceError::failure("retain a submitted generation job", error)
+                PersistenceError::failure("allocate the generation batch identity", error)
             })?;
-        let record = read_job(&transaction, transaction.last_insert_rowid())?;
-        transaction.commit().map_err(|error| {
-            PersistenceError::failure("commit a submitted generation job", error)
-        })?;
-        Ok(record)
+        let request_count = u32::try_from(submissions.len()).expect("batch size is bounded");
+        let mut jobs = Vec::with_capacity(submissions.len());
+        let execution = encode(&execution)?;
+        for (index, content) in contents.iter().enumerate() {
+            transaction.execute(
+                "INSERT INTO jobs (status, submitted_at, submission, execution, batch_id, request_index, request_count, retry_of_job_id, credential_id) VALUES ('queued', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![now, content, execution, batch_id, u32::try_from(index).expect("batch size is bounded"), request_count, retry_of_job_id, credential_id],
+            ).map_err(|error| PersistenceError::failure("retain a generation batch request", error))?;
+            jobs.push(read_job(&transaction, transaction.last_insert_rowid())?);
+        }
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit a generation batch", error))?;
+        Ok(GenerationBatch { batch_id, jobs })
+    }
+
+    fn unfinished_credential_jobs(
+        &self,
+        credential_id: &str,
+    ) -> Result<Vec<String>, PersistenceError> {
+        self.unfinished_credential_jobs(credential_id)
+    }
+
+    fn vibe_encodings(&self) -> Result<Vec<VibeEncodingCandidate>, PersistenceError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare("SELECT j.submission, r.asset_id FROM jobs j JOIN generation_results r ON r.job_id = j.id JOIN media_assets a ON a.id = r.asset_id WHERE j.status = 'completed' AND json_extract(j.submission, '$.kind') = 'encodeVibe' AND a.kind = 'vibe' ORDER BY j.id DESC")
+            .map_err(|error| PersistenceError::failure("prepare known Vibe encodings", error))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| PersistenceError::failure("query known Vibe encodings", error))?;
+        rows.map(|row| {
+            let (submission, asset_id) = row
+                .map_err(|error| PersistenceError::failure("read a known Vibe encoding", error))?;
+            Ok(VibeEncodingCandidate {
+                submission: decode_submission(&submission)?,
+                asset_id,
+            })
+        })
+        .collect()
     }
 
     fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError> {
@@ -458,5 +515,28 @@ impl JobStore for SqliteDatabase {
         self.connection()?.execute("UPDATE jobs SET status = 'failed', finished_at = ?2, error = ?3 WHERE id = ?1 AND status = 'running'", params![parse_id(id)?, timestamp()?, message])
             .map_err(|error| PersistenceError::failure("retain generation failure", error))?;
         Ok(())
+    }
+}
+
+impl SqliteDatabase {
+    /// Credentials referenced by work that has not reached a terminal state cannot be deleted.
+    /// # Errors
+    /// Returns a query or record decoding failure.
+    pub fn unfinished_credential_jobs(
+        &self,
+        credential_id: &str,
+    ) -> Result<Vec<String>, PersistenceError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare("SELECT CAST(id AS TEXT) FROM jobs WHERE credential_id = ?1 AND status IN ('queued', 'running') ORDER BY id")
+            .map_err(|error| PersistenceError::failure("prepare unfinished credential requests", error))?;
+        statement
+            .query_map([credential_id], |row| row.get(0))
+            .map_err(|error| {
+                PersistenceError::failure("query unfinished credential requests", error)
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                PersistenceError::failure("read unfinished credential requests", error)
+            })
     }
 }

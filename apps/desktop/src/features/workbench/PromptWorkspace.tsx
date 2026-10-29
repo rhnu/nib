@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Popover } from "@base-ui/react/popover";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
 import type { ParameterDiagnostic, TokenFieldUsage } from "../../bindings/generation";
-import { ScanText } from "lucide-react";
+import { ScanText, Settings2, X } from "lucide-react";
 import { HelpMarker, IconButton, Modal } from "../../shared/ui";
 import { CompositionEditor } from "../prompt/CompositionEditor";
 import { SettingsEditor, focusSetting } from "../prompt/SettingsEditor";
@@ -44,14 +45,20 @@ export function PromptWorkspace({
 }) {
   const [inspector, setInspector] = useState(false);
   const issueCount = resolved?.issues.length ?? 0;
-  const promptOptions = useRef<HTMLDetailsElement>(null);
-  const optionIssue = [...diagnostics.map((item) => item.field), ...errorFields].some((field) =>
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
+  const optionIssue = [...errorFields, ...diagnostics.map((item) => item.field)].find((field) =>
     ["quality", "ucPreset", "furryMode"].includes(diagnosticSetting(field) ?? ""),
   );
   const diagnosticSignature = JSON.stringify([diagnostics, errorFields]);
+  const showOptions =
+    optionsOpen || (Boolean(optionIssue) && dismissedIssue !== diagnosticSignature);
   useEffect(() => {
-    if (optionIssue && promptOptions.current) promptOptions.current.open = true;
-  }, [optionIssue, diagnosticSignature]);
+    if (optionIssue && showOptions) {
+      const frame = requestAnimationFrame(() => focusSetting(optionIssue));
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [optionIssue, diagnosticSignature, showOptions]);
   return (
     <section className="prompt-workspace">
       <SettingsEditor
@@ -67,12 +74,54 @@ export function PromptWorkspace({
       <CompositionEditor
         value={draft.composition}
         resources={resources}
-        models={models}
         model={capabilities?.model ?? resolved?.settings.model ?? draft.settings.model ?? undefined}
         onChange={(composition) => edit({ ...draft, composition })}
         addChunk={openLibrary}
         toolbarActions={
           <>
+            <Popover.Root
+              open={showOptions}
+              onOpenChange={(open) => {
+                setOptionsOpen(open);
+                if (!open) setDismissedIssue(diagnosticSignature);
+              }}
+            >
+              <Popover.Trigger
+                className="icon-button"
+                aria-label="提示词设置"
+                title="提示词设置"
+                data-prompt-options-trigger
+              >
+                <Settings2 size={15} aria-hidden />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Positioner
+                  side="bottom"
+                  align="end"
+                  sideOffset={6}
+                  className="prompt-options-positioner"
+                >
+                  <Popover.Popup className="prompt-options-popup" initialFocus={false}>
+                    <header>
+                      <Popover.Title>提示词设置</Popover.Title>
+                      <Popover.Close className="icon-button" aria-label="关闭提示词设置">
+                        <X size={14} aria-hidden />
+                      </Popover.Close>
+                    </header>
+                    <SettingsEditor
+                      fields="promptOptions"
+                      value={draft.settings}
+                      models={models}
+                      capabilities={capabilities}
+                      diagnostics={diagnostics}
+                      errorFields={errorFields}
+                      resolved={resolved?.settings}
+                      onChange={(settings) => edit({ ...draft, settings })}
+                    />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
             <IconButton
               label={
                 resolveError
@@ -104,19 +153,6 @@ export function PromptWorkspace({
           }
         }}
       />
-      <details className="prompt-options" ref={promptOptions}>
-        <summary>提示词选项</summary>
-        <SettingsEditor
-          fields="promptOptions"
-          value={draft.settings}
-          models={models}
-          capabilities={capabilities}
-          diagnostics={diagnostics}
-          errorFields={errorFields}
-          resolved={resolved?.settings}
-          onChange={(settings) => edit({ ...draft, settings })}
-        />
-      </details>
       <TokenUsageSummary tokens={tokens} />
       {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
         <output className="inline-warning">此模型不接受自定义负面提示，已保留编辑内容。</output>

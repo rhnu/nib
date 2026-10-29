@@ -1,11 +1,5 @@
 import { Plus } from "lucide-react";
-import type {
-  Draft,
-  ModelCapabilities,
-  Resource,
-  ResolvedDraft,
-  VibeEncodingInput,
-} from "../../bindings/workbench";
+import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
 import { Button, HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
@@ -38,7 +32,6 @@ export function ContextRail({
   onEditMask,
   onPosition,
   outputIssues,
-  onEncodeVibe,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -60,7 +53,6 @@ export function ContextRail({
   onEditMask: (assetId: string) => void;
   onPosition: (characterId?: string, presetInstanceId?: string) => void;
   outputIssues: ScopedOutputIssues;
-  onEncodeVibe: (input?: VibeEncodingInput) => void;
 }) {
   return (
     <div className="context-rail">
@@ -177,7 +169,6 @@ export function ContextRail({
                 }}
                 capabilities={capabilities}
                 contextKey={imageInputVersion}
-                onEncode={onEncodeVibe}
                 issues={outputIssues.draft.vibes}
               />
             </div>
@@ -186,7 +177,6 @@ export function ContextRail({
                 value={draft.characters}
                 onChange={(characters) => edit({ ...readCurrentDraft(), characters })}
                 resources={resources}
-                models={models}
                 capabilities={capabilities}
                 onError={setError}
                 onPosition={(id) => onPosition(id)}
@@ -229,6 +219,27 @@ export function ContextRail({
               resolved={resolved?.settings}
               onChange={(settings) => edit({ ...draft, settings })}
             />
+            <div className="request-count-control">
+              <span>
+                生成请求{" "}
+                <HelpMarker>依次提交的独立请求数。每个请求按样本数同时生成多张图片。</HelpMarker>
+              </span>
+              <fieldset className="sample-options" aria-label="生成请求数">
+                {Array.from({ length: 8 }, (_, index) => index + 1).map((count) => (
+                  <button
+                    type="button"
+                    key={count}
+                    aria-pressed={draft.inputs.requestCount === count}
+                    onClick={() => {
+                      const current = readCurrentDraft();
+                      edit({ ...current, inputs: { ...current.inputs, requestCount: count } });
+                    }}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </fieldset>
+            </div>
           </section>
         </>
       )}

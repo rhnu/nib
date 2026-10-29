@@ -14,6 +14,7 @@ function restoredDraft(): Draft {
     characters: [],
     settings: { ...emptySettings(), steps: 28 },
     inputs: {
+      requestCount: 1,
       operation: {
         kind: "imageToImage",
         assetId: "main-source",

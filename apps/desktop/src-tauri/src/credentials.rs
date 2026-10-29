@@ -1,65 +1,71 @@
 //! The desktop selects the secret backend; no secret is part of retained app data.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use nib_app::settings::{CredentialError, CredentialStore};
 use novelai_bridge::SecretString;
 use secrecy::ExposeSecret as _;
 
+use crate::storage::StorageManager;
+
 /// Serializes access to the one `NovelAI` API key in the OS credential store.
 pub(crate) struct NativeCredentials {
-    entry: Mutex<Option<keyring_core::Entry>>,
+    entry: Mutex<()>,
+    storage: Arc<StorageManager>,
     development: bool,
 }
 
 impl NativeCredentials {
-    pub(crate) fn new(development: bool) -> Self {
+    pub(crate) fn new(development: bool, storage: Arc<StorageManager>) -> Self {
         Self {
-            entry: Mutex::new(None),
+            entry: Mutex::new(()),
+            storage,
             development,
         }
     }
 
     fn with_entry<T>(
         &self,
+        id: &str,
         action: impl FnOnce(&keyring_core::Entry) -> Result<T, keyring_core::Error>,
     ) -> Result<T, CredentialError> {
-        let mut slot = self
+        let _guard = self
             .entry
             .lock()
             .map_err(|_poisoned| CredentialError::Locked)?;
-        if slot.is_none() {
-            *slot = Some(create_entry(self.development).map_err(|error| {
-                CredentialError::failure("open the native credential store", error)
-            })?);
-        }
-        action(slot.as_ref().expect("the credential entry was initialized")).map_err(|error| {
-            match error {
-                // These variants retain raw secret bytes, so discard their payload at this boundary.
-                keyring_core::Error::BadEncoding(_) | keyring_core::Error::BadDataFormat(..) => {
-                    CredentialError::InvalidKey
-                },
-                error => CredentialError::failure("access the NovelAI credential", error),
-            }
+        let entry = create_entry(self.development, id)
+            .map_err(|error| CredentialError::failure("open the native credential store", error))?;
+        action(&entry).map_err(|error| match error {
+            keyring_core::Error::BadEncoding(_) | keyring_core::Error::BadDataFormat(..) => {
+                CredentialError::InvalidKey
+            },
+            error => CredentialError::failure("access the NovelAI credential", error),
         })
     }
 }
 
 impl CredentialStore for NativeCredentials {
-    fn load(&self) -> Result<Option<SecretString>, CredentialError> {
-        self.with_entry(|entry| match entry.get_password() {
+    fn active_id(&self) -> Result<Option<String>, CredentialError> {
+        self.storage
+            .settings
+            .active_credential()
+            .map_err(|error| CredentialError::failure("read the active account", error))
+    }
+
+    fn load(&self, id: &str) -> Result<Option<SecretString>, CredentialError> {
+        self.with_entry(id, |entry| match entry.get_password() {
             Ok(value) => Ok(Some(SecretString::from(value))),
             Err(keyring_core::Error::NoEntry) => Ok(None),
             Err(error) => Err(error),
         })
     }
 
-    fn save(&self, key: SecretString) -> Result<(), CredentialError> {
-        self.with_entry(|entry| entry.set_password(key.expose_secret()))
+    fn save(&self, id: &str, key: SecretString) -> Result<(), CredentialError> {
+        self.with_entry(id, |entry| entry.set_password(key.expose_secret()))
     }
 
-    fn delete(&self) -> Result<(), CredentialError> {
-        self.with_entry(|entry| match entry.delete_credential() {
+    fn delete(&self, id: &str) -> Result<(), CredentialError> {
+        self.with_entry(id, |entry| match entry.delete_credential() {
             Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
             Err(error) => Err(error),
         })
@@ -67,7 +73,7 @@ impl CredentialStore for NativeCredentials {
 }
 
 #[cfg(windows)]
-fn create_entry(development: bool) -> Result<keyring_core::Entry, keyring_core::Error> {
+fn create_entry(development: bool, id: &str) -> Result<keyring_core::Entry, keyring_core::Error> {
     use keyring_core::api::CredentialStoreApi as _;
     // Keep credentials local to this machine rather than roaming with a Windows account.
     windows_native_keyring_store::Store::new()?.build(
@@ -76,12 +82,12 @@ fn create_entry(development: bool) -> Result<keyring_core::Entry, keyring_core::
         } else {
             "dev.rhynia.nib"
         },
-        "novelai-api-key",
+        id,
         Some(&std::collections::HashMap::from([("persistence", "Local")])),
     )
 }
 
 #[cfg(not(windows))]
-fn create_entry(_development: bool) -> Result<keyring_core::Entry, keyring_core::Error> {
+fn create_entry(_development: bool, _id: &str) -> Result<keyring_core::Entry, keyring_core::Error> {
     Err(keyring_core::Error::NoDefaultStore)
 }

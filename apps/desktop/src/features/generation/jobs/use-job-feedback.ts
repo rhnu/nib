@@ -3,7 +3,12 @@ import { Channel } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JobFeedback, JobSummary } from "../../../bindings/generation";
 import { errorMessage } from "../../../shared/host/error";
-import { emptyFeedback, receiveFeedback, reconcileFeedback } from "./feedback-state";
+import {
+  emptyFeedback,
+  receiveFeedback,
+  reconcileFeedback,
+  releaseFeedbackFrame,
+} from "./feedback-state";
 import { createFeedbackSubscriptions } from "./feedback-subscription";
 
 // Serialize window subscription commands across effect cleanup/remount and reconnects.
@@ -67,10 +72,14 @@ export function useJobFeedback(
     setFeedbackError(null);
     setAttempt((value) => value + 1);
   }, []);
+  const releasePreview = useCallback((jobId: string, sampleIndex: number) => {
+    setFeedback((state) => releaseFeedbackFrame(state, jobId, sampleIndex));
+  }, []);
   return {
     feedback: feedback.samples,
     jobObservations: feedback.observations,
     feedbackError,
     reconnectFeedback,
+    releasePreview,
   };
 }

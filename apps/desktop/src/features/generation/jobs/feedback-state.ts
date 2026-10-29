@@ -38,7 +38,8 @@ export function receiveFeedback(
   jobs: readonly FeedbackJob[],
 ): FeedbackState {
   if (event.kind === "resyncRequired") return { ...state, samples: {}, observations: {} };
-  if (event.kind === "finished") return finishFeedback(state, event.jobId);
+  if (event.kind === "finished")
+    return finishFeedback(state, event.jobId, event.status === "completed");
   if (event.kind === "started") return state;
   const job = jobs.find((value) => value.id === event.jobId);
   if (state.finishedIds.includes(event.jobId) || (job && isTerminal(job.status))) return state;
@@ -101,12 +102,21 @@ export function receiveFeedback(
   return { ...state, samples };
 }
 
-export function finishFeedback(state: FeedbackState, jobId: string): FeedbackState {
-  if (!state.samples[jobId] && !state.observations[jobId] && state.finishedIds.includes(jobId))
+export function finishFeedback(
+  state: FeedbackState,
+  jobId: string,
+  retainFrames = true,
+): FeedbackState {
+  if (
+    (retainFrames || !state.samples[jobId]) &&
+    !state.observations[jobId] &&
+    state.finishedIds.includes(jobId)
+  )
     return state;
   const samples = { ...state.samples };
   const observations = { ...state.observations };
-  delete samples[jobId];
+  // A completed stream keeps its last frame until the persisted image has decoded.
+  if (!retainFrames) delete samples[jobId];
   delete observations[jobId];
   return {
     samples,
@@ -119,10 +129,24 @@ export function reconcileFeedback(state: FeedbackState, jobs: readonly FeedbackJ
   return jobs.reduce(
     (next, job) =>
       isTerminal(job.status) && (next.samples[job.id] || next.observations[job.id])
-        ? finishFeedback(next, job.id)
+        ? finishFeedback(next, job.id, job.status === "completed")
         : next,
     state,
   );
+}
+
+export function releaseFeedbackFrame(
+  state: FeedbackState,
+  jobId: string,
+  sampleIndex: number,
+): FeedbackState {
+  const existing = state.samples[jobId];
+  if (!existing?.some((sample) => sample.sampleIndex === sampleIndex)) return state;
+  const samples = { ...state.samples };
+  const remaining = existing.filter((sample) => sample.sampleIndex !== sampleIndex);
+  if (remaining.length) samples[jobId] = remaining;
+  else delete samples[jobId];
+  return { ...state, samples };
 }
 
 export function jobFeedbackText(

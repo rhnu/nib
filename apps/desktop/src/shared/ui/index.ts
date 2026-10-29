@@ -5,3 +5,4 @@ export { ActionsMenu } from "./ActionsMenu";
 export { Toggle } from "./Toggle";
 export { Notice } from "./Notice";
 export { HelpMarker } from "./HelpMarker";
+export { FilePicker } from "./FilePicker";

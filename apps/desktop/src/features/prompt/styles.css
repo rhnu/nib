@@ -66,7 +66,7 @@
 .settings-fields input,
 .settings-fields select {
   height: 30px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 12px;
 }
 .prompt-workspace {
@@ -108,7 +108,7 @@
 .prompt-tabs > button {
   min-height: 30px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--muted);
   padding: 3px 8px;
@@ -132,7 +132,7 @@
   right: -2px;
   min-width: 13px;
   padding: 0 2px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--danger);
   color: var(--surface);
   font-size: 9px;
@@ -144,14 +144,14 @@
   justify-content: center;
   min-height: 116px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: var(--muted);
   background: var(--input);
 }
 .prompt-node {
   margin-top: 8px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--surface);
   overflow: hidden;
 }
@@ -273,7 +273,7 @@
 .preset-instance {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -367,15 +367,62 @@
 .prompt-workspace .settings-model .setting-note {
   grid-column: 1 / -1;
 }
-.prompt-options {
-  margin-top: 8px;
+.prompt-options-positioner {
+  z-index: 65;
 }
-.prompt-options > summary {
-  padding: 5px 0;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 11px;
+.prompt-options-popup {
+  width: min(340px, calc(100vw - 24px));
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
-.prompt-options > .settings-editor {
-  margin: 4px 0 8px;
+.prompt-options-popup > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.prompt-options-popup h2 {
+  font-size: 13px;
+}
+.settings-prompt,
+.advanced-settings > .settings-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.size-editor {
+  display: grid;
+  gap: 6px;
+}
+.sample-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.sample-options > button {
+  flex: 1 0 28px;
+  padding-inline: 5px;
+}
+.sample-options > button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.sample-options .sample-inherit {
+  flex: 0 0 auto;
+}
+
+.sample-saved {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+}
+.prompt-text-editor > textarea {
+  font-size: 13px;
 }

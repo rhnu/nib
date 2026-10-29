@@ -70,7 +70,7 @@ fn read_summaries(
     parameters: &[&dyn rusqlite::ToSql],
 ) -> Result<Vec<JobSummary>, PersistenceError> {
     let sql = format!(
-        "SELECT j.id, j.status, j.submitted_at, j.finished_at, j.error, j.execution, j.observation, {OPERATION_SUMMARY_SQL}, (SELECT json_group_array(id) FROM (SELECT id FROM generation_results WHERE job_id = j.id ORDER BY sample_index)) FROM jobs j {filter}"
+        "SELECT j.id, j.status, j.submitted_at, j.finished_at, j.error, j.execution, j.observation, {OPERATION_SUMMARY_SQL}, (SELECT json_group_array(id) FROM (SELECT id FROM generation_results WHERE job_id = j.id ORDER BY sample_index)), j.batch_id, j.request_index, j.request_count, j.retry_of_job_id, j.credential_id FROM jobs j {filter}"
     );
     let mut statement = connection
         .prepare(&sql)
@@ -87,6 +87,11 @@ fn read_summaries(
                 row.get::<_, Option<String>>(6)?,
                 row.get::<_, String>(7)?,
                 row.get::<_, String>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, u32>(10)?,
+                row.get::<_, u32>(11)?,
+                row.get::<_, Option<String>>(12)?,
+                row.get::<_, String>(13)?,
             ))
         })
         .map_err(|error| PersistenceError::failure("query task summaries", error))?;
@@ -101,9 +106,19 @@ fn read_summaries(
             observation,
             operation,
             result_ids,
+            batch_id,
+            request_index,
+            request_count,
+            retry_of_job_id,
+            credential_id,
         ) = row.map_err(|error| PersistenceError::failure("read a task summary", error))?;
         Ok(JobSummary {
             id: id.to_string(),
+            batch_id,
+            request_index,
+            request_count,
+            retry_of_job_id,
+            credential_id,
             status: decode(&encode(&status)?)?,
             submitted_at,
             finished_at,

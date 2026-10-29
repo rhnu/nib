@@ -1,13 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
-import { Image, Info, Paintbrush } from "lucide-react";
+import { Info, Paintbrush } from "lucide-react";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
 import type { MediaAsset } from "../../bindings/media";
-import type {
-  CreationOperation,
-  Draft,
-  ImageOperationOptions,
-  ModelCapabilities,
-} from "../../bindings/workbench";
+import type { CreationOperation, Draft, ModelCapabilities } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
 import { Button, Field, HelpMarker, Toggle } from "../../shared/ui";
 import { ImageImporter } from "../media/ImageImporter";
@@ -75,27 +71,14 @@ export function ImageOperationPanel({
   const mask = useMediaAsset(operation.kind === "inpainting" ? operation.maskAssetId : null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [metadataAsset, setMetadataAsset] = useState<MediaAsset | null>(null);
-  const [options, setOptions] = useState<ImageOperationOptions | null>(null);
-  const [optionsError, setOptionsError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const optionsQuery = useQuery({
+    queryKey: ["model", "image-operation-options"],
+    queryFn: imageOperationApi.options,
+    staleTime: Infinity,
+  });
+  const options = optionsQuery.data ?? null;
+  const optionsError = optionsQuery.error ? errorMessage(optionsQuery.error) : null;
   const advanced = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    let active = true;
-    void imageOperationApi.options().then(
-      (value) => {
-        if (active) {
-          setOptions(value);
-          setOptionsError(null);
-        }
-      },
-      (cause: unknown) => {
-        if (active) setOptionsError(errorMessage(cause));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
 
   const diagnostics = providedDiagnostics ?? estimate?.diagnostics ?? [];
   const diagnosticSignature = diagnostics.map((item) => `${item.field}:${item.change}`).join("|");
@@ -215,30 +198,31 @@ export function ImageOperationPanel({
             ))}
         </div>
       )}
-      <div data-setting-field="maxEnhance">
-        <Field label="操作">
-          <select
-            {...controlProps("maxEnhance")}
-            value={action ?? operation.kind}
-            onChange={(event) => selectAction(event.target.value)}
-          >
-            <option value="textToImage">文生图</option>
-            <option value="imageToImage">图生图</option>
-            <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
-              Max Enhance
-            </option>
-            <option value="upscale">独立放大</option>
-            <option value="inpainting" disabled={capabilities?.inpainting === false}>
-              局部重绘
-            </option>
-            {currentAction === null && (
-              <option value={operation.kind}>{operationLabel(operation)}</option>
-            )}
-          </select>
-        </Field>
-        {messages("maxEnhance")}
-      </div>
-      <div className="image-source-actions">
+      <div className={`image-source-actions${sourceId ? " has-source" : ""}`}>
+        {sourceId && (
+          <div className="image-source-operation" data-setting-field="maxEnhance">
+            <select
+              {...controlProps("maxEnhance")}
+              aria-label="图像操作"
+              value={action ?? operation.kind}
+              onChange={(event) => selectAction(event.target.value)}
+            >
+              <option value="textToImage">文生图</option>
+              <option value="imageToImage">图生图</option>
+              <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
+                Max Enhance
+              </option>
+              <option value="upscale">独立放大</option>
+              <option value="inpainting" disabled={capabilities?.inpainting === false}>
+                局部重绘
+              </option>
+              {currentAction === null && (
+                <option value={operation.kind}>{operationLabel(operation)}</option>
+              )}
+            </select>
+            {messages("maxEnhance")}
+          </div>
+        )}
         <ImageImporter
           key={JSON.stringify([
             operation.kind,
@@ -248,11 +232,9 @@ export function ImageOperationPanel({
             inputVersion,
           ])}
           onImported={prepareImportedSource}
+          label={sourceId ? "换图" : "选择文件"}
+          onChooseExisting={() => setPickerOpen(true)}
         />
-        <Button onClick={() => setPickerOpen(true)}>
-          <Image size={13} />
-          已有媒体
-        </Button>
       </div>
       {sourceId && (
         <div className="image-source" data-setting-field="sourceImage">
@@ -351,8 +333,7 @@ export function ImageOperationPanel({
             defaults={options?.inpaintConditioning ?? null}
             optionsError={optionsError}
             retryOptions={() => {
-              setOptionsError(null);
-              setAttempt((value) => value + 1);
+              void optionsQuery.refetch();
             }}
             diagnostics={diagnostics}
             errorFields={errorFields}
@@ -567,8 +548,7 @@ export function ImageOperationPanel({
               <Button
                 className="quiet"
                 onClick={() => {
-                  setOptionsError(null);
-                  setAttempt((value) => value + 1);
+                  void optionsQuery.refetch();
                 }}
               >
                 重试

@@ -19,7 +19,6 @@ type EditorProps = {
   value: CharacterComposition[];
   onChange: (value: CharacterComposition[]) => void;
   resources: Map<string, Resource>;
-  models: string[];
   capabilities: ModelCapabilities | null;
   onError: (message: string) => void;
   onPosition?: (characterId: string) => void;
@@ -32,7 +31,6 @@ function CharacterRow({
   character,
   index,
   resources,
-  models,
   capabilities,
   onError,
   onPosition,
@@ -96,7 +94,6 @@ function CharacterRow({
           compact
           value={character.composition}
           resources={resources}
-          models={models}
           model={capabilities?.model}
           allowChunk={allowChunk}
           onChange={(composition) => update({ composition })}
@@ -126,7 +123,6 @@ export function CharacterListEditor({
   value,
   onChange,
   resources,
-  models,
   capabilities,
   onError,
   onPosition,
@@ -183,7 +179,6 @@ export function CharacterListEditor({
           character={character}
           index={index}
           resources={resources}
-          models={models}
           capabilities={capabilities}
           onError={onError}
           onPosition={onPosition}

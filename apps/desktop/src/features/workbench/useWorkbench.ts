@@ -150,8 +150,22 @@ export function useWorkbench(
     if (!resources.has(resource.id))
       void ensureResources([resource.id]).catch((cause) => setError(errorMessage(cause)));
   };
+  const prepareMigration = async () => {
+    if (resourceDirtyRef.current) {
+      setLibrary(true);
+      const message = "资源中有未保存的修改。请先保存资源，再更改存储位置。";
+      setError(message);
+      throw new Error(message);
+    }
+    do {
+      await waitForPendingWork();
+      await writer.flush();
+    } while (hasPendingWork() || writer.getSnapshot().dirty);
+    if (resourceDirtyRef.current) throw new Error("资源中有未保存的修改，请先保存后重试。");
+  };
   return {
     writer,
+    prepareMigration,
     setBeforeClose,
     written,
     draft,

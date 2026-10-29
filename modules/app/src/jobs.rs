@@ -5,7 +5,7 @@ mod observation;
 mod operations;
 mod query;
 mod sqlite;
-
+mod vibe;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -19,6 +19,7 @@ pub(crate) use sqlite::{
     OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission, timestamp,
 };
 use tokio::sync::{Notify, broadcast};
+pub use vibe::{VibeEncodingCandidate, VibeEncodingOutcome};
 
 use crate::{
     media::{AssetReader, FinalOutputStore},
@@ -153,6 +154,11 @@ pub enum JobStatus {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct JobRecord {
     pub id: String,
+    pub batch_id: String,
+    pub request_index: u32,
+    pub request_count: u32,
+    pub retry_of_job_id: Option<String>,
+    pub credential_id: String,
     pub status: JobStatus,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
     pub submitted_at: i64,
@@ -175,11 +181,24 @@ pub struct TokenFieldUsage {
     pub over_limit: bool,
 }
 
+/// One explicit operation creates all of its sequential request jobs atomically.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct GenerationBatch {
+    pub batch_id: String,
+    pub jobs: Vec<JobRecord>,
+}
+
 /// Estimates use SDK account context only when it has previously been sampled explicitly.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct GenerationQuote {
+    pub request_count: u32,
+    pub total_samples: u32,
+    pub sample_limit: Option<u32>,
+    pub per_request_estimated_anlas: Option<u32>,
     pub operation: OperationKind,
     pub resolved: Option<ResolvedDraft>,
     pub estimated_anlas: Option<u32>,
@@ -273,6 +292,14 @@ pub trait SdkClientProvider: Send + Sync {
     /// Returns credential or SDK transport configuration errors.
     fn client(&self) -> Result<SdkClient, JobError>;
 
+    /// Captures the immutable secret version selected for new submissions.
+    /// # Errors
+    /// Returns missing credentials or host settings failures.
+    fn credential_id(&self) -> Result<String, JobError>;
+
+    /// Schedules a fresh account sample after the request settles.
+    fn request_settled(&self, _credential_id: &str, _execution: &ExecutionPreferences) {}
+
     /// Pricing and its sampling time are read from one immutable host-owned snapshot.
     fn account_sample(&self) -> Option<crate::settings::AccountSample> { None }
 
@@ -286,7 +313,11 @@ pub trait SdkClientProvider: Send + Sync {
     /// Uses the options retained with a queued job rather than the latest preferences.
     /// # Errors
     /// Returns credential or SDK transport configuration errors.
-    fn client_for(&self, _execution: ExecutionPreferences) -> Result<SdkClient, JobError> {
+    fn client_for(
+        &self,
+        _execution: ExecutionPreferences,
+        _credential_id: &str,
+    ) -> Result<SdkClient, JobError> {
         self.client()
     }
 
@@ -296,8 +327,9 @@ pub trait SdkClientProvider: Send + Sync {
     fn execution_context(
         &self,
         execution: ExecutionPreferences,
+        credential_id: &str,
     ) -> Result<(SdkClient, Option<crate::settings::AccountSample>), JobError> {
-        Ok((self.client_for(execution)?, None))
+        Ok((self.client_for(execution, credential_id)?, None))
     }
 }
 
@@ -309,11 +341,26 @@ struct ActiveJob {
 pub trait JobStore: Send + Sync {
     /// # Errors
     /// Returns a backend failure retaining fixed input.
-    fn insert_job(
+    fn insert_jobs(
         &self,
-        submission: &FrozenSubmission,
+        submissions: &[FrozenSubmission],
         execution: ExecutionPreferences,
-    ) -> Result<JobRecord, PersistenceError>;
+        credential_id: &str,
+        retry_of_job_id: Option<&str>,
+    ) -> Result<GenerationBatch, PersistenceError>;
+
+    /// Lists unfinished requests holding the given secret version.
+    /// # Errors
+    /// Returns a storage query or decoding failure.
+    fn unfinished_credential_jobs(
+        &self,
+        credential_id: &str,
+    ) -> Result<Vec<String>, PersistenceError>;
+
+    /// Reads completed local encodings with their full frozen input.
+    /// # Errors
+    /// Returns a storage query or decoding failure.
+    fn vibe_encodings(&self) -> Result<Vec<VibeEncodingCandidate>, PersistenceError>;
 
     /// Retains SDK lifecycle evidence independently from application success or cancellation.
     /// # Errors
@@ -371,6 +418,9 @@ pub struct JobQueue {
     wake: Notify,
     worker_started: AtomicBool,
     failed: AtomicBool,
+    paused: AtomicBool,
+    idle: Notify,
+    claim_gate: tokio::sync::Mutex<()>,
     submission_gate: Mutex<()>,
     active: Mutex<Option<ActiveJob>>,
 }
@@ -402,6 +452,9 @@ impl JobQueue {
             wake: Notify::new(),
             worker_started: AtomicBool::new(false),
             failed: AtomicBool::new(false),
+            paused: AtomicBool::new(false),
+            idle: Notify::new(),
+            claim_gate: tokio::sync::Mutex::new(()),
             submission_gate: Mutex::new(()),
             active: Mutex::new(None),
         }))
@@ -419,18 +472,24 @@ impl JobQueue {
     /// Persists fixed inputs before waking the sole worker.
     /// # Errors
     /// Returns missing credentials, validation or storage failures.
-    pub fn submit(&self, draft: &Draft) -> Result<JobRecord, JobError> {
-        self.check_credentials()?;
-        let submission = self.freeze(draft)?;
-        self.enqueue(&submission)
+    pub fn submit(&self, draft: &Draft) -> Result<GenerationBatch, JobError> {
+        let credential_id = self.clients.credential_id()?;
+        self.check_credentials(&credential_id)?;
+        let submissions = self.freeze_batch(draft)?;
+        self.enqueue_with(
+            &submissions,
+            self.clients.execution_preferences()?,
+            &credential_id,
+            None,
+        )
     }
 
-    /// Retries only terminal unsuccessful jobs, using their frozen inputs.
+    /// A retry is a new single-request batch retaining the original account and input.
     /// # Errors
-    /// Returns missing credentials, invalid state or storage failures.
+    /// Returns unavailable original credentials, an ineligible state or storage failure.
     pub fn retry(&self, id: &str) -> Result<JobRecord, JobError> {
-        self.check_credentials()?;
         let record = self.store.get_job(id)?;
+        self.check_credentials(&record.credential_id)?;
         if !matches!(
             record.status,
             JobStatus::Failed | JobStatus::Cancelled | JobStatus::Interrupted
@@ -439,38 +498,91 @@ impl JobQueue {
                 "只能重试失败、取消或中断的任务。".to_owned(),
             ));
         }
-        self.enqueue_with(&record.submission, record.execution)
+        let batch = self.enqueue_with(
+            &[record.submission],
+            record.execution,
+            &record.credential_id,
+            Some(id),
+        )?;
+        batch.jobs.into_iter().next().ok_or_else(|| {
+            PersistenceError::InvalidData {
+                message: "任务存储未返回已提交的重试任务。".to_owned(),
+            }
+            .into()
+        })
     }
 
-    fn check_credentials(&self) -> Result<(), JobError> {
-        if self.failed.load(Ordering::Acquire) {
+    fn check_credentials(&self, credential_id: &str) -> Result<(), JobError> {
+        if self.failed.load(Ordering::Acquire) || self.paused.load(Ordering::Acquire) {
             return Err(JobError::Unavailable);
         }
-        if self.credentials.load()?.is_none() {
+        if self.credentials.load(credential_id)?.is_none() {
             return Err(JobError::MissingCredentials);
         }
         Ok(())
     }
 
-    fn enqueue(&self, submission: &FrozenSubmission) -> Result<JobRecord, JobError> {
-        self.enqueue_with(submission, self.clients.execution_preferences()?)
-    }
-
     fn enqueue_with(
         &self,
-        submission: &FrozenSubmission,
+        submissions: &[FrozenSubmission],
         execution: ExecutionPreferences,
-    ) -> Result<JobRecord, JobError> {
+        credential_id: &str,
+        retry_of_job_id: Option<&str>,
+    ) -> Result<GenerationBatch, JobError> {
         let _gate = self
             .submission_gate
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?;
-        if self.failed.load(Ordering::Acquire) {
+        if self.failed.load(Ordering::Acquire) || self.paused.load(Ordering::Acquire) {
             return Err(JobError::Unavailable);
         }
-        let record = self.store.insert_job(submission, execution)?;
+        let batch =
+            self.store
+                .insert_jobs(submissions, execution, credential_id, retry_of_job_id)?;
+        tracing::info!(
+            batch_id = batch.batch_id,
+            request_count = batch.jobs.len(),
+            "queued generation operation"
+        );
         self.wake.notify_one();
-        Ok(record)
+        Ok(batch)
+    }
+
+    /// Stops claiming requests and waits for the active request and durable result to settle.
+    /// # Errors
+    /// Returns a stopped worker or poisoned execution state.
+    pub async fn pause_and_drain(&self) -> Result<(), JobError> {
+        let gate = self.claim_gate.lock().await;
+        self.paused.store(true, Ordering::Release);
+        drop(gate);
+        loop {
+            let idle = self.idle.notified();
+            if self.failed.load(Ordering::Acquire) {
+                return Err(JobError::Unavailable);
+            }
+            if self
+                .active
+                .lock()
+                .map_err(|_poisoned| PersistenceError::Locked)?
+                .is_none()
+            {
+                break;
+            }
+            idle.await;
+        }
+        Ok(())
+    }
+
+    pub fn resume(&self) {
+        self.paused.store(false, Ordering::Release);
+        self.wake.notify_one();
+    }
+
+    /// Lists unfinished requests that require the given immutable secret version.
+    /// # Errors
+    /// Returns a storage failure.
+    pub fn unfinished_credential_jobs(&self, credential_id: &str) -> Result<Vec<String>, JobError> {
+        Ok(self.store.unfinished_credential_jobs(credential_id)?)
     }
 
     /// # Errors
@@ -520,6 +632,11 @@ impl JobQueue {
         if let Err(error) = self.store.interrupt_jobs() {
             tracing::error!(error=%error,"cannot interrupt retained jobs after queue failure");
         }
+        *self
+            .active
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)? = None;
+        self.idle.notify_one();
         result
     }
 }

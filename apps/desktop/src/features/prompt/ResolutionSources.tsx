@@ -5,6 +5,7 @@ import type {
   SettingsProvenance,
 } from "../../bindings/workbench";
 import { settingKeys, settingLabels, settingValue } from "./settings";
+import { PromptTextEditor } from "./PromptTextEditor";
 
 function sourceLabel(source: SettingSource): string {
   if (source.kind === "draft") return "创作覆盖";
@@ -14,7 +15,13 @@ function sourceLabel(source: SettingSource): string {
 }
 
 /** Render resolved facts directly; historical callers never consult the live resource cache. */
-export function ContentSources({ fragments }: { fragments: ResolvedFragment[] }) {
+export function ContentSources({
+  fragments,
+  model,
+}: {
+  fragments: ResolvedFragment[];
+  model?: string;
+}) {
   if (fragments.length === 0) return <p className="muted">没有内容来源。</p>;
   return (
     <ol className="fragment-list">
@@ -28,7 +35,7 @@ export function ContentSources({ fragments }: { fragments: ResolvedFragment[] })
             {fragment.overridden && <span className="accent-text">覆盖</span>}
             {fragment.expanded && <span className="muted">已展开</span>}
           </div>
-          <p>{fragment.text}</p>
+          <PromptTextEditor label="来源提示词" value={fragment.text} model={model} readOnly />
         </li>
       ))}
     </ol>

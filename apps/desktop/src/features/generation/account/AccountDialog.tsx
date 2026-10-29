@@ -1,65 +1,70 @@
 import { useAccount } from "./account-context";
 import { accountApi } from "./api";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { KeyRound, Trash2 } from "lucide-react";
 import { Button, Field, Modal, Notice } from "../../../shared/ui";
 import { errorMessage } from "../../../shared/host/error";
 
-export function AccountDialog({ onClose }: { onClose: () => void }) {
+export function AccountDialog({
+  id = null,
+  onClose,
+  onOpenTasks,
+}: {
+  id?: string | null;
+  onClose: () => void;
+  onOpenTasks?: () => void;
+}) {
   const { account, accountChanged } = useAccount();
+  const [name, setName] = useState(
+    () => account?.credentials.find((profile) => profile.id === id)?.name ?? "",
+  );
   const [key, setKey] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const active = useRef(true);
-  useEffect(() => {
-    active.current = true;
-    return () => {
-      active.current = false;
-    };
-  }, []);
-
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState("");
+  const [blockedByTasks, setBlockedByTasks] = useState(false);
   async function save() {
-    if (!key.trim() || pending) return;
+    if (!name.trim() || (!id && !key.trim()) || pending) return;
     setPending(true);
-    setError(null);
+    setError("");
     try {
-      const status = await accountApi.saveKey(key.trim());
-      accountChanged(status);
-      if (!active.current) return;
+      accountChanged(await accountApi.saveKey(id, name.trim(), key.trim() || null));
       setKey("");
       onClose();
     } catch (cause) {
-      if (active.current) setError(errorMessage(cause));
+      setError(errorMessage(cause));
     } finally {
-      if (active.current) setPending(false);
+      setPending(false);
     }
   }
-
   async function remove() {
-    if (pending) return;
+    if (!id || pending) return;
     setPending(true);
-    setError(null);
+    setError("");
+    setBlockedByTasks(false);
     try {
-      accountChanged(await accountApi.deleteKey());
-      if (active.current) {
-        setKey("");
-        onClose();
-      }
+      accountChanged(await accountApi.deleteKey(id));
+      setKey("");
+      onClose();
     } catch (cause) {
-      if (active.current) setError(errorMessage(cause));
+      setError(errorMessage(cause));
+      setBlockedByTasks(
+        typeof cause === "object" && cause !== null && "code" in cause && cause.code === "conflict",
+      );
     } finally {
-      if (active.current) setPending(false);
+      setPending(false);
     }
   }
-
   return (
     <Modal
       open
       onClose={() => {
-        setKey("");
-        onClose();
+        if (!pending) {
+          setKey("");
+          onClose();
+        }
       }}
-      title="NovelAI 账户凭据"
+      title={id ? "编辑账户" : "添加账户"}
     >
       <form
         className="generation-dialog-body"
@@ -68,40 +73,73 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
           void save();
         }}
       >
-        <p className="generation-muted">
-          API Key 由系统凭据后端保存。输入内容仅用于本次保存，不保留在界面中。
-        </p>
-        <p>
-          {account?.configured
-            ? "已配置 API Key；可以替换或移除。"
-            : "配置 API Key 后才能提交生成。"}
-        </p>
-        <Field label="NovelAI API Key">
+        <Field label="账户名称">
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            disabled={pending}
+            required
+          />
+        </Field>
+        <Field label={id ? "新的 API Key（留空保留）" : "NovelAI API Key"}>
           <input
             type="password"
             value={key}
             onChange={(event) => setKey(event.target.value)}
             autoComplete="off"
-            autoCapitalize="none"
             spellCheck={false}
             disabled={pending}
-            required
-            aria-describedby="generation-key-help"
+            required={!id}
           />
         </Field>
-        <p id="generation-key-help" className="generation-muted">
-          保存凭据不会发起生成，也不会验证远程账户余额。
+        <p className="generation-muted">
+          API Key 仅保存在 Windows 凭据管理器。更换后，已有任务继续使用提交时的凭据。
         </p>
-        {error && <Notice>{error}</Notice>}
+        {error && (
+          <Notice
+            actions={
+              blockedByTasks && onOpenTasks ? (
+                <Button
+                  onClick={() => {
+                    setKey("");
+                    onClose();
+                    onOpenTasks();
+                  }}
+                >
+                  查看任务
+                </Button>
+              ) : undefined
+            }
+          >
+            {error}
+          </Notice>
+        )}
+        {confirmDelete && (
+          <Notice
+            actions={
+              <>
+                <Button disabled={pending} onClick={() => setConfirmDelete(false)}>
+                  取消删除
+                </Button>
+                <Button className="danger" disabled={pending} onClick={() => void remove()}>
+                  确认删除
+                </Button>
+              </>
+            }
+          >
+            删除“{name}”及其保存的凭据？有未完成任务时须先处理任务。
+          </Notice>
+        )}
         <footer className="generation-dialog-actions">
-          {account?.configured && (
-            <Button className="danger" disabled={pending} onClick={() => void remove()}>
+          {id && (
+            <Button className="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
               <Trash2 size={14} />
-              移除凭据
+              删除账户
             </Button>
           )}
           <span className="generation-spacer" />
           <Button
+            disabled={pending}
             onClick={() => {
               setKey("");
               onClose();
@@ -109,9 +147,13 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
           >
             取消
           </Button>
-          <Button type="submit" className="primary" disabled={!key.trim() || pending}>
+          <Button
+            type="submit"
+            className="primary"
+            disabled={pending || !name.trim() || (!id && !key.trim())}
+          >
             <KeyRound size={14} />
-            {pending ? "正在保存…" : "保存凭据"}
+            {pending ? "正在保存…" : "保存"}
           </Button>
         </footer>
       </form>

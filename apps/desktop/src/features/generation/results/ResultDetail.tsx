@@ -9,18 +9,12 @@ import { errorMessage } from "../../../shared/host/error";
 import { ResultResubmitDialog } from "./ResultResubmitDialog";
 import { SubmissionSummary } from "../submission/SubmissionSummary";
 import { useMediaContent } from "../../media/useMediaContent";
-import { resultFilename } from "./result-file";
-import { ImageResultActions } from "./ImageResultActions";
 import type { ImageOperationAction } from "../../inputs/image-operation";
 
 function ResultDetailContent({
   result,
   onClose,
   onRestore,
-  onUseSeed,
-  onImageOperation,
-  canMaxEnhance,
-  canInpaint,
 }: {
   result: GenerationResult;
   onClose: () => void;
@@ -95,26 +89,7 @@ function ResultDetailContent({
           )}
         </div>
         <div className="generation-detail-info">
-          <p className="generation-muted">
-            <time dateTime={new Date(result.createdAt).toISOString()}>
-              {new Date(result.createdAt).toLocaleString()}
-            </time>
-          </p>
           <SubmissionSummary submission={result.submission} />
-          <ImageResultActions
-            assetId={result.assetId}
-            available={result.available}
-            onRestore={(draft) => {
-              onRestore(draft);
-              onClose();
-            }}
-            onImageOperation={(id, kind) => {
-              onImageOperation(id, kind);
-              onClose();
-            }}
-            canMaxEnhance={canMaxEnhance}
-            canInpaint={canInpaint}
-          />
           {result.submission.kind === "generation" && (
             <p className="generation-muted">
               {result.seed === null
@@ -123,21 +98,6 @@ function ResultDetailContent({
             </p>
           )}
           <div className="generation-detail-actions">
-            {image.url && (
-              <a className="result-download" href={image.url} download={resultFilename(result)}>
-                下载原图
-              </a>
-            )}
-            {onUseSeed && result.seed !== null && result.available && (
-              <Button
-                onClick={() => {
-                  onUseSeed(result.seed!);
-                  onClose();
-                }}
-              >
-                仅使用样本种子
-              </Button>
-            )}
             <Button
               onClick={() => {
                 setConfirmRestore(true);
@@ -187,7 +147,11 @@ export function ResultDetail(
     result: Pick<GenerationResult, "id">;
   },
 ) {
-  const detail = useMediaQuery(props.result.id, resultsApi.get);
+  const detail = useMediaQuery(
+    ["results", "detail", props.result.id],
+    props.result.id,
+    resultsApi.get,
+  );
   if (detail.value) return <ResultDetailContent {...props} result={detail.value} />;
   return (
     <Modal open onClose={props.onClose} title="生成结果">

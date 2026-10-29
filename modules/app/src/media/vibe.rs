@@ -1,7 +1,5 @@
 //! Official Vibe documents keep their complete local representation alongside usable assets.
 
-mod reencoding;
-
 use novelai_bridge::{EncodedImage, PngTextEntry, VibeBundle, VibeDocument, VibeFile};
 use serde::Serialize;
 

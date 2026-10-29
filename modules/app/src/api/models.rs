@@ -20,6 +20,7 @@ use crate::{
     reason = "IPC projects independent SDK capability switches"
 )]
 pub struct ModelCapabilities {
+    pub size_presets: Vec<SizePreset>,
     pub model: String,
     pub tokenizer: String,
     pub token_limit: u32,
@@ -67,6 +68,36 @@ pub struct ModelCapabilities {
     pub can_add_vibe_reference: bool,
     pub precise_reference: ReferenceStatus,
     pub vibe_reference: ReferenceStatus,
+}
+
+/// Named SDK canvases exposed as editor choices; custom dimensions remain supported.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct SizePreset {
+    pub id: String,
+    pub label: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+fn size_presets() -> Vec<SizePreset> {
+    use novelai_bridge::ImageSize;
+    [
+        ("portrait", "竖图", ImageSize::portrait()),
+        ("landscape", "横图", ImageSize::landscape()),
+        ("square", "方图", ImageSize::square()),
+        ("largePortrait", "大尺寸竖图", ImageSize::large_portrait()),
+        ("largeLandscape", "大尺寸横图", ImageSize::large_landscape()),
+    ]
+    .into_iter()
+    .map(|(id, label, size)| SizePreset {
+        id: id.to_owned(),
+        label: label.to_owned(),
+        width: size.width,
+        height: size.height,
+    })
+    .collect()
 }
 
 /// Numeric editor hints copied from SDK descriptors; validation stays in the SDK.
@@ -229,6 +260,7 @@ fn project_capabilities(
     let profile = descriptor.sampling();
     let (sampler, samplers, noise_schedules) = sampling_options(&settings, mode);
     ModelCapabilities {
+        size_presets: size_presets(),
         model: model.as_str().to_owned(),
         tokenizer: descriptor.prompt().tokenizer.as_str().to_owned(),
         token_limit: descriptor.prompt().token_limit,
@@ -287,9 +319,7 @@ fn project_capabilities(
         image_formats: vec![ImageFormat::Png, ImageFormat::Webp],
         alpha_modes: vec![AlphaMode::Straight, AlphaMode::Premultiplied],
         response_formats: vec![ImageResponseFormat::Zip, ImageResponseFormat::Json],
-        defaults: ResolvedSettings::from_request(
-            &novelai_bridge::GenerateImageRequest::builder("", model).build(),
-        ),
+        defaults: generation_defaults(model),
         ranges: generation_ranges(&settings),
         transparent_background: descriptor.prompt().transparent_background,
         furry_mode: descriptor.prompt().furry_mode,
@@ -319,6 +349,13 @@ fn project_capabilities(
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
     }
+}
+
+/// Projects the SDK constructor's defaults into the editable application settings.
+fn generation_defaults(model: Model) -> ResolvedSettings {
+    ResolvedSettings::from_request(
+        &novelai_bridge::GenerateImageRequest::builder("", model).build(),
+    )
 }
 
 fn stream_modes(supported: bool) -> Vec<novelai_bridge::StreamMode> {

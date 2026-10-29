@@ -76,6 +76,7 @@ export function directorToolSubmission(
     characters: [],
     settings: emptySettings(),
     inputs: {
+      requestCount: 1,
       operation: { kind: "director", assetId, command },
       policy,
       stream: null,

@@ -73,10 +73,15 @@ function PngTextDialogContent({
   const unavailable =
     imageUnavailableReason(asset) ??
     (asset.mimeType !== "image/png" ? "PNG 文本操作需要 PNG 图片。" : null);
-  const original = useMediaQuery(unavailable ? null : asset.id, pngTextApi.inspect);
+  const original = useMediaQuery(
+    ["media", "png-text", asset.id],
+    unavailable ? null : asset.id,
+    pngTextApi.inspect,
+  );
   const output = useMediaAsset(session.selectedOutputAssetId);
   const outputUnavailable = output.asset ? imageUnavailableReason(output.asset) : null;
   const written = useMediaQuery(
+    ["media", "png-text", output.asset?.id],
     output.asset && !outputUnavailable ? output.asset.id : null,
     pngTextApi.inspect,
   );

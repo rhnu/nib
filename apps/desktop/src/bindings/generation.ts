@@ -4,7 +4,11 @@ import type { ResolvedDraft, DirectorToolKind, VibeEncodingInput } from "./workb
 import type { AssetKind, ResultImageSource } from "./media";
 import type { ExecutionPreferences } from "./settings";
 
-export type AccountStatus = { configured: boolean, };
+export type AccountStatus = { configured: boolean, activeId: string | null, credentials: Array<CredentialProfile>, };
+
+export type CredentialProfile = { id: string, name: string, };
+
+export type AccountSnapshot = { summary: AccountSummary | null, refreshing: boolean, stale: boolean, error: string | null, revision: number, };
 
 export type AccountSummary = { sampledAt: number | null, anlasBalance: number, subscriptionActive: boolean, tier: number, expiresAtMs: number | null, v5Usage: AllowanceSummary | null, };
 
@@ -18,11 +22,11 @@ export type JobObservation = { requestId: number, estimatedAnlas: number | null,
 
 export type RequestSettlement = { "kind": "succeeded", imageCount: number, } | { "kind": "failed", failure: string, httpStatus: number | null, } | { "kind": "cancelled" };
 
-export type JobRecord = { id: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, submission: FrozenSubmission, execution: ExecutionPreferences, observation: JobObservation | null, };
+export type JobRecord = { id: string, batchId: string, requestIndex: number, requestCount: number, retryOfJobId: string | null, credentialId: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, submission: FrozenSubmission, execution: ExecutionPreferences, observation: JobObservation | null, };
 
 export type OperationSummary = { "kind": "generation", sampleCount: number, sourceAssetId: string | null, } | { "kind": "director", tool: DirectorToolKind, assetId: string, } | { "kind": "encodeVibe", input: VibeEncodingInput, } | { "kind": "upscale", assetId: string, };
 
-export type JobSummary = { id: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, operation: OperationSummary, execution: ExecutionPreferences, observation: JobObservation | null, };
+export type JobSummary = { id: string, batchId: string, requestIndex: number, requestCount: number, retryOfJobId: string | null, credentialId: string, status: JobStatus, submittedAt: number, finishedAt: number | null, error: string | null, resultIds: Array<string>, operation: OperationSummary, execution: ExecutionPreferences, observation: JobObservation | null, };
 
 export type JobQuery = { limit: number, before: string | null, };
 
@@ -34,11 +38,15 @@ items: Array<JobSummary>, active: Array<JobSummary>, nextCursor: string | null, 
 
 export type ResultSummary = { id: string, jobId: string, sampleIndex: number, assetId: string, kind: AssetKind, imageSource: ResultImageSource | null, seed: number | null, createdAt: number, mimeType: string, available: boolean, operation: OperationSummary, };
 
-export type ResultQuery = { limit: number, before: string | null, };
+export type ResultQuery = { kind: AssetKind | null, jobId: string | null, limit: number, before: string | null, };
 
 export type ResultPage = { items: Array<ResultSummary>, nextCursor: string | null, };
 
-export type GenerationQuote = { operation: OperationKind, resolved: ResolvedDraft | null, estimatedAnlas: number | null, geometry: { input_size: { width: number; height: number }; output_size: { width: number; height: number }; pricing_size: { width: number; height: number } } | null, accountSpecific: boolean, tooExpensive: boolean, tokens: Array<TokenFieldUsage>, diagnostics: Array<ParameterDiagnostic>, accountSampledAt: number | null, };
+export type GenerationQuote = { requestCount: number, totalSamples: number, sampleLimit: number | null, perRequestEstimatedAnlas: number | null, operation: OperationKind, resolved: ResolvedDraft | null, estimatedAnlas: number | null, geometry: { input_size: { width: number; height: number }; output_size: { width: number; height: number }; pricing_size: { width: number; height: number } } | null, accountSpecific: boolean, tooExpensive: boolean, tokens: Array<TokenFieldUsage>, diagnostics: Array<ParameterDiagnostic>, accountSampledAt: number | null, };
+
+export type GenerationBatch = { batchId: string, jobs: Array<JobRecord>, };
+
+export type VibeEncodingOutcome = { "kind": "reused", assetId: string, } | { "kind": "queued", job: JobRecord, };
 
 export type OperationKind = "generation" | "director" | "encodeVibe" | "upscale";
 

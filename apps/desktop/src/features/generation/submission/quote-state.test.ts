@@ -20,6 +20,7 @@ const draft: Draft = {
   settings: emptySettings(),
   characters: [],
   inputs: {
+    requestCount: 1,
     operation: { kind: "textToImage" },
     references: emptyReferences(),
     stream: null,

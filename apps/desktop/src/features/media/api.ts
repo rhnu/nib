@@ -5,7 +5,7 @@ import type {
   VibeAssetInspection,
   VibeDocumentInspection,
 } from "../../bindings/media";
-import type { VibeEncodingInput, VibeReferenceInput } from "../../bindings/workbench";
+import type { VibeReferenceInput } from "../../bindings/workbench";
 import { invokeHost } from "../../shared/host/invoke";
 
 export const mediaApi = {
@@ -24,8 +24,6 @@ export const mediaApi = {
   inspectVibeDocument: (id: string) =>
     invokeHost<VibeDocumentInspection>("inspect_vibe_document", { id }),
   inspectVibeAsset: (id: string) => invokeHost<VibeAssetInspection>("inspect_vibe_asset", { id }),
-  prepareVibeReencoding: (id: string) =>
-    invokeHost<VibeEncodingInput>("prepare_vibe_reencoding", { id }),
   createVibeReference: (id: string) =>
     invokeHost<VibeReferenceInput>("create_vibe_reference", {
       id,

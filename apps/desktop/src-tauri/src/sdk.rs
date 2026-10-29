@@ -1,38 +1,41 @@
-//! Host-owned SDK clients share tokenizers and account state until credentials change.
+//! Immutable credential clients and one automatic account sampler shared by the host.
 
 use std::{
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::{Arc, Mutex, Weak},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use nib_app::{
     jobs::{JobError, SdkClientProvider},
     persistence::PersistenceError,
-    settings::{AccountSample, CredentialStore as _, ExecutionPreferences},
+    settings::{AccountSample, AccountSnapshot, CredentialStore as _, ExecutionPreferences},
 };
 use novelai_bridge::{
     ApiKeySource, Client, CreditEvent, CreditObserver, ReqwestOptions, ReqwestTransport,
-    SecretString, Tokenizers, Transport,
+    Tokenizers, Transport,
 };
-use secrecy::ExposeSecret as _;
 
 use crate::{credentials::NativeCredentials, storage::StorageManager};
 
 struct CachedClient {
-    id: u64,
-    sample: Option<AccountSample>,
-    key: SecretString,
-    client: Client<dyn Transport>,
+    credential_id: String,
     execution: ExecutionPreferences,
+    client: Client<dyn Transport>,
 }
 
-struct SelectedClient {
+struct AccountRefresh {
+    identity: (String, String),
+    epoch: u64,
     client: Client<dyn Transport>,
-    id: u64,
-    account: Option<AccountSample>,
+}
+
+#[derive(Default)]
+struct SamplingState {
+    identity: Option<(String, String)>,
+    sample: Option<AccountSample>,
+    snapshot: AccountSnapshot,
+    epoch: u64,
+    refresh_pending: bool,
 }
 
 pub(crate) struct SdkClients {
@@ -40,7 +43,8 @@ pub(crate) struct SdkClients {
     tokenizers: Arc<Tokenizers>,
     storage: Arc<StorageManager>,
     cached: Mutex<Vec<CachedClient>>,
-    next_id: AtomicU64,
+    sampling: Mutex<SamplingState>,
+    weak: Weak<Self>,
 }
 
 impl SdkClients {
@@ -48,14 +52,27 @@ impl SdkClients {
         credentials: Arc<NativeCredentials>,
         tokenizers: Arc<Tokenizers>,
         storage: Arc<StorageManager>,
-    ) -> Self {
-        Self {
+    ) -> Arc<Self> {
+        let sdk = Arc::new_cyclic(|weak| Self {
             credentials,
             tokenizers,
             storage,
             cached: Mutex::new(Vec::new()),
-            next_id: AtomicU64::new(1),
-        }
+            sampling: Mutex::new(SamplingState::default()),
+            weak: Weak::clone(weak),
+        });
+        let weak = Arc::downgrade(&sdk);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                let Some(sdk) = weak.upgrade() else {
+                    break;
+                };
+                sdk.refresh_account(false).await;
+                drop(sdk);
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+        });
+        sdk
     }
 
     pub(crate) fn invalidate(&self) -> Result<(), JobError> {
@@ -63,106 +80,222 @@ impl SdkClients {
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?
             .clear();
+        let identity = self.active_identity()?;
+        let mut state = self
+            .sampling
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if state.identity != identity {
+            let revision = state.snapshot.revision.wrapping_add(1);
+            let epoch = state.epoch.wrapping_add(1);
+            *state = SamplingState {
+                identity,
+                epoch,
+                refresh_pending: false,
+                snapshot: AccountSnapshot {
+                    revision,
+                    ..AccountSnapshot::default()
+                },
+                sample: None,
+            };
+        }
+        drop(state);
+        self.request_refresh();
         Ok(())
     }
 
     pub(crate) fn tokenizers(&self) -> Arc<Tokenizers> { Arc::clone(&self.tokenizers) }
 
-    /// Account reads and explicit sampling do not construct the generation queue.
-    pub(crate) fn account(&self) -> Option<nib_app::settings::AccountSummary> {
-        self.account_sample().map(|sample| sample.summary())
-    }
-
-    pub(crate) fn begin_account_refresh(&self) -> Result<(Client<dyn Transport>, u64), JobError> {
-        self.select_client(self.execution_preferences()?)
-            .map(|selected| (selected.client, selected.id))
-    }
-
-    pub(crate) fn finish_account_refresh(
-        &self,
-        id: u64,
-        info: &novelai_bridge::SubscriptionInfo,
-    ) -> Result<nib_app::settings::AccountSummary, JobError> {
-        let millis = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| PersistenceError::failure("sample the account clock", error))?
-            .as_millis();
-        let sampled_at = i64::try_from(millis).map_err(|error| {
-            PersistenceError::failure("represent the account sampling time", error)
-        })?;
-        let mut cached = self
-            .cached
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?;
-        let current = cached
-            .iter_mut()
-            .find(|value| value.id == id)
-            .ok_or_else(|| JobError::Invalid("账户配置已改变，请重新刷新。".to_owned()))?;
-        let sample = AccountSample {
-            subscription: info.clone(),
-            sampled_at,
+    fn active_identity(&self) -> Result<Option<(String, String)>, JobError> {
+        let Some(id) = self.credentials.active_id()? else {
+            return Ok(None);
         };
-        let summary = sample.summary();
-        current.sample = Some(sample);
-        Ok(summary)
+        Ok(Some((
+            id,
+            self.storage
+                .settings
+                .preferences()?
+                .execution
+                .client_config()
+                .image_base_url,
+        )))
     }
 
-    fn select_client(&self, execution: ExecutionPreferences) -> Result<SelectedClient, JobError> {
-        let current_execution = self.execution_preferences()?;
-        let mut cached = self
-            .cached
+    pub(crate) fn account(&self) -> Result<AccountSnapshot, JobError> {
+        let identity = self.active_identity()?;
+        let mut state = self
+            .sampling
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?;
-        // Credential writes release their own lock before invalidation takes this one.
-        // Reading under this lock prevents an old key from repopulating an invalidated cache.
-        let key = self
-            .credentials
-            .load()?
-            .ok_or(JobError::MissingCredentials)?;
-        // Keep the current account context and the selected job's client. Custom URLs
-        // make the number of possible frozen configurations unbounded.
-        cached.retain(|existing| {
-            existing.key.expose_secret() == key.expose_secret()
-                && (existing.execution == current_execution || existing.execution == execution)
-        });
-        if let Some(existing) = cached
-            .iter()
-            .find(|existing| existing.execution == execution)
-        {
-            return Ok(SelectedClient {
-                client: existing.client.clone(),
-                id: existing.id,
-                account: existing.sample.clone(),
+        if state.identity != identity {
+            let revision = state.snapshot.revision.wrapping_add(1);
+            let epoch = state.epoch.wrapping_add(1);
+            *state = SamplingState {
+                identity,
+                epoch,
+                refresh_pending: false,
+                snapshot: AccountSnapshot {
+                    revision,
+                    ..AccountSnapshot::default()
+                },
+                sample: None,
+            };
+        }
+        Ok(state.snapshot.clone())
+    }
+
+    fn request_refresh(&self) {
+        if let Some(sdk) = self.weak.upgrade() {
+            tauri::async_runtime::spawn(async move {
+                sdk.refresh_account(true).await;
             });
         }
-        let transport = ReqwestTransport::new(ReqwestOptions {
-            api_key_source: ApiKeySource::Inline { value: key.clone() },
-            ..ReqwestOptions::default()
-        })
-        .map_err(novelai_bridge::BridgeError::from)?;
-        let transport: Arc<dyn Transport> = Arc::new(transport);
-        let client = Client::new(transport, execution.client_config())
-            .with_tokenizers(Arc::clone(&self.tokenizers))
-            .with_credit_observer(Arc::new(CreditDiagnostics));
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        cached.push(CachedClient {
-            id,
-            sample: None,
-            key,
-            client: client.clone(),
-            execution,
-        });
-        Ok(SelectedClient {
+    }
+
+    fn begin_account_refresh(&self, force: bool) -> Result<Option<AccountRefresh>, JobError> {
+        let Some(identity) = self.active_identity()? else {
+            return Ok(None);
+        };
+        let execution = self.execution_preferences()?;
+        let mut state = self
+            .sampling
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if state.identity.as_ref() != Some(&identity) {
+            let revision = state.snapshot.revision.wrapping_add(1);
+            let epoch = state.epoch.wrapping_add(1);
+            *state = SamplingState {
+                identity: Some(identity.clone()),
+                epoch,
+                refresh_pending: false,
+                snapshot: AccountSnapshot {
+                    revision,
+                    ..AccountSnapshot::default()
+                },
+                sample: None,
+            };
+        }
+        if state.snapshot.refreshing {
+            if force {
+                state.refresh_pending = true;
+            }
+            return Ok(None);
+        }
+        let fresh = state
+            .sample
+            .as_ref()
+            .is_some_and(|sample| now_millis().saturating_sub(sample.sampled_at) < 60_000);
+        if !force && fresh {
+            return Ok(None);
+        }
+        state.snapshot.stale = state
+            .sample
+            .as_ref()
+            .is_some_and(|sample| now_millis().saturating_sub(sample.sampled_at) >= 60_000);
+        state.snapshot.refreshing = true;
+        state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
+        let epoch = state.epoch;
+        drop(state);
+        let client = self.client_for(execution, &identity.0)?;
+        Ok(Some(AccountRefresh {
+            identity,
+            epoch,
             client,
-            id,
-            account: None,
-        })
+        }))
+    }
+
+    /// Coalesces concurrent triggers and rejects results from replaced identities.
+    pub(crate) async fn refresh_account(&self, force: bool) {
+        let prepared = self.begin_account_refresh(force);
+        let AccountRefresh {
+            identity,
+            epoch,
+            client,
+        } = match prepared {
+            Ok(Some(value)) => value,
+            Ok(None) => return,
+            Err(_error) => {
+                if let Ok(mut state) = self.sampling.lock() {
+                    state.snapshot.refreshing = false;
+                    state.snapshot.stale = true;
+                    state.snapshot.error =
+                        Some("无法读取账户凭据或创建连接，请检查配置后重试。".into());
+                    state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
+                }
+                tracing::warn!("cannot prepare automatic account sampling");
+                return;
+            },
+        };
+        let response = client.get_subscription().await;
+        let current = match self.active_identity() {
+            Ok(current) => current,
+            Err(_error) => {
+                if let Ok(mut state) = self.sampling.lock()
+                    && state.epoch == epoch
+                {
+                    state.snapshot.refreshing = false;
+                    state.snapshot.stale = true;
+                    state.snapshot.error = Some("无法读取当前账户配置，请重试。".into());
+                    state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
+                }
+                tracing::warn!("cannot resolve sampled account identity");
+                return;
+            },
+        };
+        let Ok(mut state) = self.sampling.lock() else {
+            return;
+        };
+        if current.as_ref() != Some(&identity)
+            || state.identity.as_ref() != Some(&identity)
+            || state.epoch != epoch
+        {
+            return;
+        }
+        state.snapshot.refreshing = false;
+        state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
+        match response {
+            Ok(subscription) => {
+                let sample = AccountSample {
+                    subscription,
+                    sampled_at: now_millis(),
+                };
+                state.snapshot.summary = Some(sample.summary());
+                state.snapshot.stale = false;
+                state.snapshot.error = None;
+                state.sample = Some(sample);
+                tracing::debug!("account sampling completed");
+            },
+            Err(_error) => {
+                state.snapshot.stale = true;
+                state.snapshot.error = Some("账户查询失败，请检查网络与凭据后重试。".into());
+                tracing::warn!("automatic account sampling failed");
+            },
+        }
+        let refresh_pending = std::mem::take(&mut state.refresh_pending);
+        drop(state);
+        if refresh_pending {
+            self.request_refresh();
+        }
     }
 }
 
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|value| i64::try_from(value.as_millis()).ok())
+        .unwrap_or(0)
+}
+
 impl SdkClientProvider for SdkClients {
+    fn credential_id(&self) -> Result<String, JobError> {
+        self.credentials
+            .active_id()?
+            .ok_or(JobError::MissingCredentials)
+    }
+
     fn client(&self) -> Result<Client<dyn Transport>, JobError> {
-        self.client_for(self.execution_preferences()?)
+        self.client_for(self.execution_preferences()?, &self.credential_id()?)
     }
 
     fn execution_preferences(&self) -> Result<ExecutionPreferences, JobError> {
@@ -172,28 +305,76 @@ impl SdkClientProvider for SdkClients {
     fn client_for(
         &self,
         execution: ExecutionPreferences,
+        credential_id: &str,
     ) -> Result<Client<dyn Transport>, JobError> {
-        self.select_client(execution)
-            .map(|selected| selected.client)
+        let mut cached = self
+            .cached
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        if let Some(existing) = cached.iter().find(|existing| {
+            existing.credential_id == credential_id && existing.execution == execution
+        }) {
+            return Ok(existing.client.clone());
+        }
+        let key = self
+            .credentials
+            .load(credential_id)?
+            .ok_or(JobError::MissingCredentials)?;
+        let transport: Arc<dyn Transport> = Arc::new(
+            ReqwestTransport::new(ReqwestOptions {
+                api_key_source: ApiKeySource::Inline { value: key },
+                ..ReqwestOptions::default()
+            })
+            .map_err(novelai_bridge::BridgeError::from)?,
+        );
+        let client = Client::new(transport, execution.client_config())
+            .with_tokenizers(Arc::clone(&self.tokenizers))
+            .with_credit_observer(Arc::new(CreditDiagnostics));
+        cached.push(CachedClient {
+            credential_id: credential_id.into(),
+            execution,
+            client: client.clone(),
+        });
+        Ok(client)
     }
 
     fn account_sample(&self) -> Option<AccountSample> {
-        let execution = self.storage.settings.preferences().ok()?.execution;
-        self.cached
-            .lock()
-            .ok()?
-            .iter()
-            .find(|cached| cached.execution == execution)?
-            .sample
-            .clone()
+        let identity = self.active_identity().ok()?;
+        let state = self.sampling.lock().ok()?;
+        (state.identity == identity)
+            .then(|| state.sample.clone())
+            .flatten()
     }
 
     fn execution_context(
         &self,
         execution: ExecutionPreferences,
+        credential_id: &str,
     ) -> Result<(Client<dyn Transport>, Option<AccountSample>), JobError> {
-        self.select_client(execution)
-            .map(|selected| (selected.client, selected.account))
+        let client = self.client_for(execution.clone(), credential_id)?;
+        let state = self
+            .sampling
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        let sample = (state.identity.as_ref()
+            == Some(&(
+                credential_id.to_owned(),
+                execution.client_config().image_base_url,
+            )))
+        .then(|| state.sample.clone())
+        .flatten();
+        Ok((client, sample))
+    }
+
+    fn request_settled(&self, credential_id: &str, execution: &ExecutionPreferences) {
+        if self.active_identity().ok().flatten().as_ref()
+            == Some(&(
+                credential_id.into(),
+                execution.client_config().image_base_url,
+            ))
+        {
+            self.request_refresh();
+        }
     }
 }
 

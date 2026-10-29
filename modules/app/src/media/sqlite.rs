@@ -168,9 +168,9 @@ impl SqliteDatabase {
         &self,
         query: &ResultQuery,
     ) -> Result<(Vec<ListedOutput>, Option<String>), PersistenceError> {
-        if !(1..=100).contains(&query.limit) {
+        if !(1..=200).contains(&query.limit) {
             return Err(PersistenceError::InvalidData {
-                message: "结果分页数量必须在 1 到 100 之间。".to_owned(),
+                message: "结果分页数量必须在 1 到 200 之间。".to_owned(),
             });
         }
         let before = query
@@ -189,25 +189,37 @@ impl SqliteDatabase {
         let bound = before.map_or(i64::MAX, |value| value - 1);
         let connection = self.connection()?;
         let sql = format!(
-            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, r.image_source, {OPERATION_SUMMARY_SQL}, r.rowid FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE r.rowid <= ?1 ORDER BY r.rowid DESC LIMIT ?2"
+            "SELECT a.id, a.kind, a.mime_type, a.byte_length, a.width, a.height, a.created_at, a.source, r.id, r.job_id, r.sample_index, r.seed, r.created_at, r.image_source, {OPERATION_SUMMARY_SQL}, r.rowid FROM generation_results r JOIN jobs j ON j.id = r.job_id JOIN media_assets a ON a.id = r.asset_id WHERE r.rowid <= ?1 AND (?3 IS NULL OR a.kind = ?3) AND (?4 IS NULL OR CAST(r.job_id AS TEXT) = ?4) ORDER BY r.rowid DESC LIMIT ?2"
         );
         let mut statement = connection
             .prepare(&sql)
             .map_err(|error| PersistenceError::failure("prepare result summaries", error))?;
         let rows = statement
-            .query_map(params![bound, query.limit + 1], |row| {
-                Ok((
-                    read_asset_row(row)?,
-                    row.get::<_, String>(8)?,
-                    row.get::<_, i64>(9)?,
-                    row.get::<_, u32>(10)?,
-                    row.get::<_, Option<i64>>(11)?,
-                    row.get::<_, i64>(12)?,
-                    row.get::<_, Option<String>>(13)?,
-                    row.get::<_, String>(14)?,
-                    row.get::<_, i64>(15)?,
-                ))
-            })
+            .query_map(
+                params![
+                    bound,
+                    query.limit + 1,
+                    query
+                        .kind
+                        .map(|kind| encode(&kind))
+                        .transpose()?
+                        .map(|value| value.trim_matches('"').to_owned()),
+                    query.job_id
+                ],
+                |row| {
+                    Ok((
+                        read_asset_row(row)?,
+                        row.get::<_, String>(8)?,
+                        row.get::<_, i64>(9)?,
+                        row.get::<_, u32>(10)?,
+                        row.get::<_, Option<i64>>(11)?,
+                        row.get::<_, i64>(12)?,
+                        row.get::<_, Option<String>>(13)?,
+                        row.get::<_, String>(14)?,
+                        row.get::<_, i64>(15)?,
+                    ))
+                },
+            )
             .map_err(|error| PersistenceError::failure("query result summaries", error))?;
         let mut outputs = rows
             .map(|row| {

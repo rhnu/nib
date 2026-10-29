@@ -19,12 +19,23 @@ pub enum Theme {
 }
 
 /// Global preferences remain independent of the selected data directory.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ApplicationPreferences {
     pub theme: Theme,
+    pub recent_image_limit: u32,
     pub execution: ExecutionPreferences,
+}
+
+impl Default for ApplicationPreferences {
+    fn default() -> Self {
+        Self {
+            theme: Theme::default(),
+            execution: ExecutionPreferences::default(),
+            recent_image_limit: 20,
+        }
+    }
 }
 
 /// Host transport choices captured independently from creative inputs at submission.
@@ -74,9 +85,10 @@ impl ExecutionPreferences {
 pub struct StorageLocations {
     pub config_directory: String,
     pub data_directory: String,
-    pub pending_data_directory: Option<String>,
+    pub relocated_data_directory: Option<String>,
     pub default_data_directory: String,
     pub development: bool,
+    pub restart_required: bool,
 }
 
 /// Global preferences and storage locations synchronized at application startup.
@@ -88,12 +100,35 @@ pub struct ApplicationSettingsSnapshot {
     pub storage: StorageLocations,
 }
 
-/// Only credential presence crosses the application boundary.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+/// Account names and selection cross IPC while keys remain in the native store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct AccountStatus {
     pub configured: bool,
+    pub active_id: Option<String>,
+    pub credentials: Vec<CredentialProfile>,
+}
+
+/// Named account metadata; the secret itself only exists in the native keyring.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct CredentialProfile {
+    pub id: String,
+    pub name: String,
+}
+
+/// Current sampling state for the active immutable credential version and endpoint.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AccountSnapshot {
+    pub summary: Option<AccountSummary>,
+    pub refreshing: bool,
+    pub stale: bool,
+    pub error: Option<String>,
+    pub revision: u32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -122,23 +157,29 @@ impl CredentialError {
 
 /// The desktop host selects the native credential backend.
 pub trait CredentialStore: Send + Sync {
-    /// Reads the selected account's API key.
+    /// Reads the immutable credential identity selected for future operations.
     ///
     /// # Errors
     /// Returns a backend failure without secret material in its diagnostics.
-    fn load(&self) -> Result<Option<SecretString>, CredentialError>;
+    fn active_id(&self) -> Result<Option<String>, CredentialError>;
 
-    /// Replaces the selected account's API key.
+    /// Reads exactly the requested immutable version; absence never selects another key.
     ///
     /// # Errors
     /// Returns a backend failure without secret material in its diagnostics.
-    fn save(&self, secret: SecretString) -> Result<(), CredentialError>;
+    fn load(&self, id: &str) -> Result<Option<SecretString>, CredentialError>;
 
-    /// Removes the selected account's API key; absence is already success.
+    /// Saves a key under a newly allocated immutable version identity.
     ///
     /// # Errors
     /// Returns a backend failure without secret material in its diagnostics.
-    fn delete(&self) -> Result<(), CredentialError>;
+    fn save(&self, id: &str, secret: SecretString) -> Result<(), CredentialError>;
+
+    /// Removes one immutable version; absence is already success.
+    ///
+    /// # Errors
+    /// Returns a backend failure without secret material in its diagnostics.
+    fn delete(&self, id: &str) -> Result<(), CredentialError>;
 }
 
 /// Uses the SDK's own credential/header boundary without contacting the service.

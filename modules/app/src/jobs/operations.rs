@@ -112,6 +112,33 @@ impl JobQueue {
         }
     }
 
+    pub(super) fn freeze_batch(&self, draft: &Draft) -> Result<Vec<FrozenSubmission>, JobError> {
+        if matches!(
+            draft.inputs.operation,
+            CreationOperation::TextToImage
+                | CreationOperation::ImageToImage { .. }
+                | CreationOperation::Inpainting { .. }
+        ) {
+            let count = draft.inputs.request_count;
+            if !(1..=8).contains(&count) {
+                return Err(JobError::Invalid(
+                    "一次生成必须包含 1 到 8 个请求。".to_owned(),
+                ));
+            }
+            validate_draft(draft).map_err(|error| JobError::Invalid(error.to_string()))?;
+            let mut resolved = self.resolver.resolve(draft)?;
+            resolved.inputs.request_count = 1;
+            // Resource resolution happens once. Each SDK preparation independently resolves auto seeds.
+            (0..count)
+                .map(|_| {
+                    prepare_generation(resolved.clone(), self.assets.as_ref()).map(|value| value.0)
+                })
+                .collect()
+        } else {
+            self.prepare_submission(draft).map(|value| vec![value.0])
+        }
+    }
+
     pub(super) fn quote_draft(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
         let (submission, basis) = self.prepare_submission(draft)?;
         let account = self.clients.account_sample();
@@ -123,10 +150,16 @@ impl JobQueue {
         let operation = submission.operation();
         let diagnostics = submission.diagnostics().to_vec();
         let mut geometry = None;
+        let mut sample_limit = None;
         let (estimated_anlas, too_expensive, tokens) = match basis {
             QuoteBasis::Generation(prepared) => {
                 let plan = prepared.normalized();
                 geometry = Some(*plan.geometry());
+                sample_limit = Some(
+                    plan.request()
+                        .descriptor()
+                        .sample_limit(plan.geometry().pricing_size),
+                );
                 let estimate =
                     novelai_bridge::estimate_anlas_cost(plan.anlas_estimate_input(context));
                 let usage = plan
@@ -159,8 +192,27 @@ impl JobQueue {
             FrozenSubmission::Generation { resolved, .. } => Some(*resolved),
             _ => None,
         };
+        let request_count = if operation == super::OperationKind::Generation {
+            draft.inputs.request_count
+        } else {
+            1
+        };
+        if !(1..=8).contains(&request_count) {
+            return Err(JobError::Invalid(
+                "一次生成必须包含 1 到 8 个请求。".to_owned(),
+            ));
+        }
+        let total_samples = resolved.as_ref().map_or(request_count, |resolved| {
+            resolved.settings.n_samples * request_count
+        });
+        let per_request_estimated_anlas = estimated_anlas;
+        let estimated_anlas = estimated_anlas.map(|cost| cost.saturating_mul(request_count));
         let account_sampled_at = account.as_ref().map(|sample| sample.sampled_at);
         Ok(GenerationQuote {
+            request_count,
+            total_samples,
+            sample_limit,
+            per_request_estimated_anlas,
             operation,
             resolved,
             estimated_anlas,
@@ -219,6 +271,15 @@ fn prepare_generation(
     }
     let request = hydrate(resolved.generation_request(), &resolved.inputs, assets)?;
     let prepared = request.normalize()?.prepare()?;
+    if !prepared
+        .normalized()
+        .request()
+        .descriptor()
+        .support()
+        .streaming
+    {
+        resolved.inputs.stream = None;
+    }
     // Encoding checks SDK delivery support locally; no request is sent here.
     let stream_body = resolved
         .inputs

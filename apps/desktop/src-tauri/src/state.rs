@@ -3,7 +3,10 @@
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU8, Ordering},
+    },
 };
 
 use nib_app::{
@@ -26,6 +29,8 @@ struct FeedbackSubscription {
 #[derive(Clone)]
 pub(crate) struct DesktopState {
     pub(crate) storage: Arc<StorageManager>,
+    data_access: Arc<tokio::sync::RwLock<()>>,
+    migration_state: Arc<AtomicU8>,
     database: Arc<Mutex<Option<Arc<SqliteDatabase>>>>,
     media: Arc<Mutex<Option<Arc<MediaLibrary>>>>,
     sdk: Arc<Mutex<Option<Arc<SdkClients>>>>,
@@ -36,15 +41,120 @@ pub(crate) struct DesktopState {
 
 impl DesktopState {
     pub(crate) fn new(base: &Path, development: bool) -> Result<Self, PersistenceError> {
+        let storage = Arc::new(StorageManager::open(base, development)?);
         Ok(Self {
-            storage: Arc::new(StorageManager::open(base, development)?),
+            storage: Arc::clone(&storage),
+            data_access: Arc::new(tokio::sync::RwLock::new(())),
+            migration_state: Arc::new(AtomicU8::new(0)),
             database: Arc::new(Mutex::new(None)),
             media: Arc::new(Mutex::new(None)),
             sdk: Arc::new(Mutex::new(None)),
             generation: Arc::new(Mutex::new(None)),
             feedback: Arc::new(Mutex::new(HashMap::new())),
-            credentials: Arc::new(NativeCredentials::new(development)),
+            credentials: Arc::new(NativeCredentials::new(development, storage)),
         })
+    }
+
+    /// Keeps lazy initialization and reads outside the relocation copy interval.
+    pub(crate) async fn read_access(&self) -> tokio::sync::OwnedRwLockReadGuard<()> {
+        Arc::clone(&self.data_access).read_owned().await
+    }
+
+    /// Holds a write operation open while relocation waits for all admitted writers.
+    pub(crate) async fn write_access(
+        &self,
+    ) -> Result<tokio::sync::OwnedRwLockReadGuard<()>, PersistenceError> {
+        let guard = Arc::clone(&self.data_access).read_owned().await;
+        if self.migration_state.load(Ordering::Acquire) != 0 {
+            return Err(PersistenceError::InvalidData {
+                message: "数据正在迁移或已迁移，请等待完成并重启应用。".into(),
+            });
+        }
+        Ok(guard)
+    }
+
+    pub(crate) async fn credential_change_access(
+        &self,
+    ) -> Result<tokio::sync::OwnedRwLockWriteGuard<()>, PersistenceError> {
+        let guard = Arc::clone(&self.data_access).write_owned().await;
+        if self.migration_state.load(Ordering::Acquire) != 0 {
+            return Err(PersistenceError::InvalidData {
+                message: "迁移完成后请重启应用。".into(),
+            });
+        }
+        Ok(guard)
+    }
+
+    /// Stops new writes, drains paid requests and commits a verified copy before returning.
+    pub(crate) async fn migrate_directory(
+        &self,
+        directory: Option<std::path::PathBuf>,
+    ) -> Result<nib_app::settings::StorageLocations, JobError> {
+        let desktop = self.clone();
+        tauri::async_runtime::spawn(async move { desktop.perform_relocation(directory).await })
+            .await
+            .map_err(|error| {
+                PersistenceError::failure("wait for the relocation coordinator", error)
+            })?
+    }
+
+    async fn perform_relocation(
+        &self,
+        directory: Option<std::path::PathBuf>,
+    ) -> Result<nib_app::settings::StorageLocations, JobError> {
+        let database = self.database()?;
+        if self
+            .migration_state
+            .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return Err(JobError::Invalid(
+                "数据正在迁移或已迁移，请重启应用。".into(),
+            ));
+        }
+        let queue = if let Ok(slot) = self.generation.lock() {
+            slot.as_ref().map(|runtime| Arc::clone(&runtime.queue))
+        } else {
+            self.migration_state.store(0, Ordering::Release);
+            return Err(PersistenceError::Locked.into());
+        };
+        let result = async {
+            if let Some(queue) = &queue {
+                queue.pause_and_drain().await?;
+            }
+            let guard = Arc::clone(&self.data_access).write_owned().await;
+            let storage = Arc::clone(&self.storage);
+            tauri::async_runtime::spawn_blocking(move || {
+                let _guard = guard;
+                database.prepare_relocation()?;
+                storage.migrate_directory(directory.as_deref())
+            })
+            .await
+            .map_err(|error| PersistenceError::failure("wait for data relocation", error))?
+            .map_err(JobError::from)
+        }
+        .await;
+        match result {
+            Ok(locations) => {
+                self.migration_state.store(
+                    if locations.restart_required { 2 } else { 0 },
+                    Ordering::Release,
+                );
+                if !locations.restart_required
+                    && let Some(queue) = &queue
+                {
+                    queue.resume();
+                }
+                Ok(locations)
+            },
+            Err(error) => {
+                self.migration_state.store(0, Ordering::Release);
+                if let Some(queue) = &queue {
+                    queue.resume();
+                }
+                Err(error)
+            },
+        }
     }
 
     pub(crate) fn database(&self) -> Result<Arc<SqliteDatabase>, PersistenceError> {
@@ -54,6 +164,11 @@ impl DesktopState {
             .map_err(|_poisoned| PersistenceError::Locked)?;
         if let Some(database) = slot.as_ref() {
             return Ok(Arc::clone(database));
+        }
+        if self.migration_state.load(Ordering::Acquire) != 0 {
+            return Err(PersistenceError::InvalidData {
+                message: "迁移期间不能初始化创作数据库。".into(),
+            });
         }
         let data_dir = self.storage.data_directory()?;
         let database = Arc::new(SqliteDatabase::open(&data_dir.join("nib.sqlite3"))?);
@@ -69,6 +184,11 @@ impl DesktopState {
             .map_err(|_poisoned| PersistenceError::Locked)?;
         if let Some(media) = slot.as_ref() {
             return Ok(Arc::clone(media));
+        }
+        if self.migration_state.load(Ordering::Acquire) != 0 {
+            return Err(PersistenceError::InvalidData {
+                message: "迁移期间不能初始化媒体目录。".into(),
+            });
         }
         let database = self.database()?;
         let media = Arc::new(MediaLibrary::new(
@@ -91,15 +211,6 @@ impl DesktopState {
         Ok(())
     }
 
-    pub(crate) fn cached_sdk(&self) -> Result<Option<Arc<SdkClients>>, JobError> {
-        Ok(self
-            .sdk
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?
-            .as_ref()
-            .map(Arc::clone))
-    }
-
     pub(crate) fn sdk(&self) -> Result<Arc<SdkClients>, JobError> {
         let mut slot = self
             .sdk
@@ -111,11 +222,11 @@ impl DesktopState {
         let tokenizers = Arc::new(
             novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
         );
-        let clients = Arc::new(SdkClients::new(
+        let clients = SdkClients::new(
             Arc::clone(&self.credentials),
             tokenizers,
             Arc::clone(&self.storage),
-        ));
+        );
         *slot = Some(Arc::clone(&clients));
         Ok(clients)
     }
@@ -186,6 +297,9 @@ impl DesktopState {
             .map_err(|_poisoned| PersistenceError::Locked)?;
         if let Some(runtime) = slot.as_ref() {
             return Ok(Arc::clone(runtime));
+        }
+        if self.migration_state.load(Ordering::Acquire) != 0 {
+            return Err(JobError::Unavailable);
         }
         let database = self.database()?;
         let media = self.media()?;

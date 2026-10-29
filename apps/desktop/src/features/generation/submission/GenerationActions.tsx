@@ -35,7 +35,7 @@ export function GenerationActions({
 }) {
   const { account, accountLoading, accountError, refreshAccount, accountSummaryLoading } =
     useAccount();
-  const { acceptJob } = useJobData();
+  const { acceptBatch } = useJobData();
   const { submit: submitGeneration, submissionBlocked } = useSubmission();
   const hasPrompt = isQuoteEligible(draft, resolved);
   const effectiveOperation = isOperationEffective(
@@ -82,7 +82,7 @@ export function GenerationActions({
     setSubmitError(null);
     setSubmitted(false);
     try {
-      acceptJob(await submitGeneration(snapshot));
+      acceptBatch(await submitGeneration(snapshot), true);
       setSubmitted(true);
     } catch (cause) {
       setSubmitError({ key: estimate.key, message: errorMessage(cause) });
@@ -129,6 +129,14 @@ export function GenerationActions({
                   : account?.configured
                     ? actionLabel
                     : "配置账户"}
+            {account?.configured &&
+              estimate.quote?.operation === "generation" &&
+              estimate.quote.requestCount > 1 && (
+                <small>
+                  {estimate.quote.requestCount} 次 ·{" "}
+                  {estimate.quote.totalSamples / estimate.quote.requestCount} 张/次
+                </small>
+              )}
           </span>
           {estimate.quote && !effectiveOperation ? (
             <span className="generation-submit-cost">操作未生效</span>

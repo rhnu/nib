@@ -1,7 +1,12 @@
 import { useAccount } from "../generation/account/account-context";
-import { useJobData } from "../generation/jobs/job-context";
+import { useQuery } from "@tanstack/react-query";
+import { resultsApi } from "../generation/results/api";
+import { mediaApi } from "../media/api";
+import { VibeAssetDetails } from "./VibeAssetDetails";
+import { useVibeAction } from "./useVibeAction";
+import { downloadBytes } from "./model";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
+import type { Draft, VibeEncodingInput, VibeReferenceInput } from "../../bindings/workbench";
 import { Button, Field, HelpMarker, Notice } from "../../shared/ui";
 import { trackPendingWork } from "../../shared/host/pending-work";
 import { errorMessage } from "../../shared/host/error";
@@ -15,25 +20,97 @@ import { encodingApi } from "./encoding-api";
 import { encodingSubmission, isReusableEncoding, optionalEncodingSeed } from "./encoding-model";
 import "./encoder.css";
 
+function EncoderOutput({
+  assetId,
+  onAddReference,
+}: {
+  assetId: string;
+  onAddReference?: (reference: VibeReferenceInput) => void;
+}) {
+  const action = useVibeAction();
+  return (
+    <article className="vibe-encoder-output">
+      <VibeAssetDetails id={assetId} />
+      <div className="button-group">
+        {onAddReference && (
+          <Button
+            disabled={action.busy}
+            onClick={() =>
+              void action.run(async (active) => {
+                const reference = await mediaApi.createVibeReference(assetId);
+                if (active()) onAddReference(reference);
+              })
+            }
+          >
+            添加到当前创作
+          </Button>
+        )}
+        <Button
+          disabled={action.busy}
+          onClick={() =>
+            void action.run(async (active) => {
+              const bytes = await mediaApi.content(assetId);
+              if (active()) downloadBytes(bytes, "vibe.bin", "application/octet-stream");
+            })
+          }
+        >
+          下载编码
+        </Button>
+        <Button
+          disabled={action.busy}
+          onClick={() =>
+            void action.run(async (active) => {
+              const document = await mediaApi.createEncodedVibeDocument(assetId);
+              const bytes = await mediaApi.exportVibeDocument(document.id);
+              if (active()) downloadBytes(bytes, "vibe.naiv4vibe");
+            })
+          }
+        >
+          导出 Vibe 文件
+        </Button>
+      </div>
+      {action.error && <Notice>{action.error}</Notice>}
+    </article>
+  );
+}
+
 export function VibeEncoderPanel({
   draft,
   readCurrentDraft,
   onChange,
   refreshKey,
+  onAddReference,
 }: {
   draft: Draft;
   readCurrentDraft: () => Draft;
   onChange: (input: VibeEncodingInput) => void;
   refreshKey: unknown;
+  onAddReference?: (reference: VibeReferenceInput) => void;
 }) {
-  const options = useMediaQuery("encoding", encodingApi.options);
+  const options = useMediaQuery(
+    ["model", "vibe-encoding-options"],
+    "encoding",
+    encodingApi.options,
+  );
   const input = draft.vibeEncoder;
   const media = useMediaAsset(input?.assetId ?? null);
   const mask = useMediaAsset(input?.maskAssetId ?? null);
   const base = useGenerationDraft(draft);
   const submission = useMemo(() => (input ? encodingSubmission(base, input) : null), [base, input]);
   const { accountSummaryLoading } = useAccount();
-  const { results } = useJobData();
+  const resultsQuery = useQuery({
+    queryKey: ["results", "vibes"],
+    queryFn: () => resultsApi.results({ kind: "vibe", jobId: null, limit: 200, before: null }),
+    refetchOnWindowFocus: false,
+  });
+  const results = resultsQuery.data?.items;
+  const outputs = input
+    ? (results?.filter(
+        (result) =>
+          result.operation.kind === "encodeVibe" &&
+          result.operation.input.assetId === input.assetId,
+      ) ?? [])
+    : [];
   const estimate = useGenerationQuote(
     submission ?? base,
     refreshKey,
@@ -249,6 +326,23 @@ export function VibeEncoderPanel({
             />
           )}
         </>
+      )}
+      {resultsQuery.error && (
+        <Notice actions={<Button onClick={() => void resultsQuery.refetch()}>重试读取编码</Button>}>
+          {errorMessage(resultsQuery.error)}
+        </Notice>
+      )}
+      {outputs.length > 0 && (
+        <section className="vibe-encoder-outputs" aria-label="已保存编码">
+          <h3>已保存编码</h3>
+          {outputs.slice(0, 4).map((result) => (
+            <EncoderOutput
+              key={result.id}
+              assetId={result.assetId}
+              onAddReference={onAddReference}
+            />
+          ))}
+        </section>
       )}
       <ImagePickerDialog
         open={picker !== null}

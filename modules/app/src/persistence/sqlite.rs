@@ -38,7 +38,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version != 0 && version != 10 {
+        if version != 0 && version != 11 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -57,6 +57,50 @@ impl SqliteDatabase {
         Ok(Self {
             connection: Mutex::new(connection),
         })
+    }
+
+    /// Flushes SQLite recovery pages after the host has stopped every creation-data writer.
+    /// # Errors
+    /// Returns a checkpoint failure or an active SQLite reader.
+    pub fn prepare_relocation(&self) -> Result<(), PersistenceError> {
+        let connection = self.connection()?;
+        let (busy, ..): (i64, i64, i64) = connection
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .map_err(|error| {
+                PersistenceError::failure(
+                    "checkpoint the creation database before relocation",
+                    error,
+                )
+            })?;
+        if busy != 0 {
+            return Err(PersistenceError::InvalidData {
+                message: "数据库仍在使用，无法开始迁移。".to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Inspects a completed destination without initializing or changing it.
+    /// # Errors
+    /// Returns an unreadable or corrupt destination database.
+    pub fn verify_copy(path: &Path) -> Result<(), PersistenceError> {
+        let connection =
+            Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(
+                |error| {
+                    PersistenceError::failure("open the relocated database for verification", error)
+                },
+            )?;
+        let check: String = connection
+            .query_row("PRAGMA quick_check", [], |row| row.get(0))
+            .map_err(|error| PersistenceError::failure("verify the relocated database", error))?;
+        if check != "ok" {
+            return Err(PersistenceError::InvalidData {
+                message: "复制后的数据库未通过完整性检查。".to_owned(),
+            });
+        }
+        Ok(())
     }
 
     pub(crate) fn connection(&self) -> Result<MutexGuard<'_, Connection>, PersistenceError> {

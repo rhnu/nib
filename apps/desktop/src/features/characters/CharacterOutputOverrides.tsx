@@ -21,7 +21,6 @@ export function CharacterOutputOverrides({
   onChange,
   onTextChange,
   resources,
-  models,
   capabilities,
   onPosition,
   name = "配方",
@@ -33,7 +32,6 @@ export function CharacterOutputOverrides({
   onChange: (value: CharacterOutputOverride[]) => void;
   onTextChange: (value: InstanceOverride) => void;
   resources: Map<string, Resource>;
-  models: string[];
   capabilities: ModelCapabilities | null;
   onPosition?: (characterId: string) => void;
   name?: string;
@@ -104,7 +102,6 @@ export function CharacterOutputOverrides({
                 composition={character.composition}
                 overrides={textOverrides}
                 resources={resources}
-                models={models}
                 model={capabilities?.model}
                 name={`${name} 角色 ${index + 1}`}
                 onChange={onTextChange}

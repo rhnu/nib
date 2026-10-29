@@ -1,7 +1,8 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Image } from "lucide-react";
 import type { MediaAsset } from "../../bindings/media";
 import { errorMessage } from "../../shared/host/error";
-import { Button, Notice } from "../../shared/ui";
+import { Button, FilePicker, Notice } from "../../shared/ui";
 import { importAndCommitImage } from "./image-import";
 import { mediaApi } from "./api";
 import { singleImageFile } from "./model";
@@ -9,10 +10,13 @@ import "./media.css";
 
 export function ImageImporter({
   onImported,
+  onChooseExisting,
+  label = "选择文件",
 }: {
   onImported: (asset: MediaAsset) => void | Promise<void>;
+  onChooseExisting?: () => void;
+  label?: string;
 }) {
-  const id = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -82,19 +86,19 @@ export function ImageImporter({
           else choose(event.dataTransfer.files);
         }}
       >
-        <label htmlFor={id}>
-          {busy ? "正在保存图片…" : "选择图片，或拖入单张 PNG / JPEG / WebP"}
-        </label>
-        <input
-          id={id}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+        <FilePicker
           disabled={busy}
-          onChange={(event) => {
-            if (event.currentTarget.files) choose(event.currentTarget.files);
-            event.currentTarget.value = "";
-          }}
+          title="选择或拖入单张 PNG / JPEG / WebP"
+          label={busy ? "正在保存图片…" : label}
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+          onChoose={(file) => choose([file])}
         />
+        {onChooseExisting && (
+          <Button disabled={busy} onClick={onChooseExisting}>
+            <Image size={14} aria-hidden />
+            已有媒体
+          </Button>
+        )}
       </div>
       {busy && <output aria-live="polite">正在导入{lastFile ? ` ${lastFile.name}` : ""}…</output>}
       {error && (

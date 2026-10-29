@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { ResourceSummary } from "../../bindings/workbench";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "../../shared/host/error";
 import { Button, Field, Modal } from "../../shared/ui";
 import { libraryApi } from "../library/api";
@@ -12,29 +12,14 @@ export function ChunkPicker({
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState("");
-  const [attempt, setAttempt] = useState(0);
-  const [response, setResponse] = useState<{
-    attempt: number;
-    chunks: ResourceSummary[];
-    error: string;
-  } | null>(null);
-  useEffect(() => {
-    let active = true;
-    void libraryApi.search({ text: "", kind: "chunk" }).then(
-      (chunks) => {
-        if (active) setResponse({ attempt, chunks, error: "" });
-      },
-      (cause: unknown) => {
-        if (active) setResponse({ attempt, chunks: [], error: errorMessage(cause) });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
-  const loading = response?.attempt !== attempt;
-  const chunks = loading ? [] : (response?.chunks ?? []);
-  const error = loading ? "" : (response?.error ?? "");
+  const query = useQuery({
+    queryKey: ["resource-search", "", "chunk"],
+    queryFn: () => libraryApi.search({ text: "", kind: "chunk" }),
+    staleTime: 0,
+  });
+  const loading = query.isPending;
+  const chunks = query.data ?? [];
+  const error = query.error ? errorMessage(query.error) : "";
   const valid = chunks.some((chunk) => chunk.id === selected);
   return (
     <Modal open onClose={onClose} title="添加 Chunk">
@@ -42,7 +27,7 @@ export function ChunkPicker({
       {error && (
         <div className="inline-warning" role="alert">
           {error}
-          <Button onClick={() => setAttempt((value) => value + 1)}>重试读取</Button>
+          <Button onClick={() => void query.refetch()}>重试读取</Button>
         </div>
       )}
       <Field label="资源">

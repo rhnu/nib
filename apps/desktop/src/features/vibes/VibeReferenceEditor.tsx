@@ -1,10 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import type {
-  ModelCapabilities,
-  VibeEncodingInput,
-  VibeReferenceInput,
-} from "../../bindings/workbench";
+import type { ModelCapabilities, VibeReferenceInput } from "../../bindings/workbench";
 import { Button, Field, IconButton } from "../../shared/ui";
 import { preciseReferenceMessages } from "../references/model";
 import { VibeReferenceRow } from "./VibeReferenceRow";
@@ -42,7 +38,6 @@ export interface VibeReferenceEditorProps {
   onChange: (value: VibeReferenceInput[]) => void;
   capabilities: ModelCapabilities | null;
   contextKey?: string | number;
-  onEncode?: (input?: VibeEncodingInput) => void;
   normalizeValue?: boolean | null;
   onNormalizeChange?: (value: boolean | null) => void;
   issues?: VibeIssues;
@@ -54,7 +49,6 @@ function Editor({
   value,
   onChange,
   capabilities,
-  onEncode,
   normalizeValue = null,
   onNormalizeChange,
   issues,
@@ -86,7 +80,6 @@ function Editor({
           <Plus size={14} />
           材料
         </Button>
-        {onEncode && <Button onClick={() => onEncode()}>编码</Button>}
       </header>
       {message && <p className="vibe-message">{message}</p>}
       {value.map((reference, index) => (
@@ -96,7 +89,6 @@ function Editor({
           index={index}
           capabilities={capabilities}
           issues={issues?.[reference.id]}
-          onEncode={onEncode}
           onChange={(patch) =>
             update(
               latest.current.value.map((item) =>

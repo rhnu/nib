@@ -14,7 +14,6 @@ export function NodeEditor({
   canDown,
   remove,
   expand,
-  models,
   model,
 }: {
   node: PromptNode;
@@ -26,7 +25,6 @@ export function NodeEditor({
   canDown: boolean;
   remove: () => void;
   expand: (node: PromptNode) => Promise<PromptNode>;
-  models?: string[];
   model?: string;
 }) {
   const latest = useRef({ node, onChange, active: true });
@@ -95,7 +93,6 @@ export function NodeEditor({
       </header>
       <PromptTextEditor
         label={node.kind === "text" ? "提示词文本" : `${resource?.name ?? "缺失 Chunk"} 的本次内容`}
-        models={models}
         model={model}
         value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
         placeholder={

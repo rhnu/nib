@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "../features/generation";
 import { Button, Field, HelpMarker, Notice, Toggle } from "../shared/ui";
@@ -18,9 +20,8 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
             <input
               type="url"
               value={execution.imageBaseUrl ?? ""}
-              placeholder="留空使用 bridge 默认端点"
+              placeholder="留空使用默认端点"
               spellCheck={false}
-              aria-describedby="api-base-url-help"
               onChange={(event) =>
                 settings.writer.edit({
                   ...value,
@@ -29,10 +30,6 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
               }
             />
           </Field>
-          <p className="settings-description" id="api-base-url-help">
-            图像操作、标签查询与账户查询共用此基址，无需追加具体 API 路径。留空恢复默认。
-            更改后自动保存，已有任务及其重试继续使用原端点。
-          </p>
           <Field label="图像请求编码">
             <select
               value={execution.imageRequestEncoding}
@@ -71,142 +68,173 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
   );
 }
 
-function StorageSettings({ settings }: { settings: ApplicationSettingsState }) {
+function StorageSettings({
+  settings,
+  beforeMigrate,
+}: {
+  settings: ApplicationSettingsState;
+  beforeMigrate?: () => Promise<void>;
+}) {
   const { storage, setDataDirectory } = settings;
-  const [directory, setDirectory] = useState(
-    () => storage?.pendingDataDirectory ?? storage?.dataDirectory ?? "",
-  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   if (!storage) return null;
-  const save = async (value: string | null) => {
-    setSaving(true);
+  const choose = async () => {
     setError("");
     try {
-      await setDataDirectory(value);
+      const directory = await open({ directory: true, multiple: false, title: "选择新的数据目录" });
+      if (!directory) return;
+      setSaving(true);
+      await setDataDirectory(directory, beforeMigrate);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
       setSaving(false);
     }
   };
-  const selectedDirectory = storage.pendingDataDirectory ?? storage.dataDirectory;
+  const showDirectory = async (path: string) => {
+    try {
+      await revealItemInDir(path);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    }
+  };
   return (
     <section className="preference-section storage-settings">
       <div className="section-heading">
         <h2>存储位置</h2>
         {storage.development && <span className="tag">开发环境</span>}
       </div>
-      <p className="settings-description">
-        应用设置全局保存。创作数据库与图片保存在同一个数据目录中。
-        {storage.development && "当前使用项目内的独立开发数据，不影响正式版。"}
-      </p>
-      <Field label="配置目录（固定）">
-        <input readOnly value={storage.configDirectory} />
-      </Field>
-      <Field label="当前数据目录">
-        <input readOnly value={storage.dataDirectory} />
-      </Field>
-      {storage.pendingDataDirectory && (
-        <output className="settings-pending">
-          下次启动迁移到：<span>{storage.pendingDataDirectory}</span>
-        </output>
-      )}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save(directory.trim());
-        }}
-      >
-        <Field label="新的数据目录（绝对路径）">
-          <input
-            value={directory}
-            onChange={(event) => setDirectory(event.target.value)}
-            disabled={saving}
-            required
-            aria-describedby="data-directory-help"
-          />
-        </Field>
-        <p className="settings-description" id="data-directory-help">
-          保存后于下次启动复制现有数据并使用新目录，原目录保留。目标目录必须为空。
-        </p>
-        <div className="settings-actions">
-          <Button
-            type="submit"
-            disabled={saving || !directory.trim() || directory.trim() === selectedDirectory}
-          >
-            {saving ? "正在保存…" : "保存存储位置"}
-          </Button>
-          <Button
-            type="button"
-            disabled={saving || selectedDirectory === storage.defaultDataDirectory}
-            onClick={() => void save(null)}
-          >
-            恢复默认位置
-          </Button>
-          {storage.pendingDataDirectory && (
-            <Button
-              type="button"
-              disabled={saving}
-              onClick={() => void save(storage.dataDirectory)}
-            >
-              取消待生效更改
-            </Button>
-          )}
+      <div className="settings-path-row">
+        <div className="settings-path">
+          <span>配置目录</span>
+          <code>{storage.configDirectory}</code>
         </div>
-      </form>
+        <Button onClick={() => void showDirectory(storage.configDirectory)}>打开位置</Button>
+      </div>
+      <div className="settings-path-row">
+        <div className="settings-path">
+          <span>数据目录</span>
+          <code>{storage.relocatedDataDirectory ?? storage.dataDirectory}</code>
+        </div>
+        <Button
+          onClick={() =>
+            void showDirectory(storage.relocatedDataDirectory ?? storage.dataDirectory)
+          }
+        >
+          打开位置
+        </Button>
+      </div>
+      <div className="settings-actions">
+        <Button disabled={saving || storage.restartRequired} onClick={() => void choose()}>
+          {saving ? "正在等待任务完成并迁移…" : "更改位置"}
+        </Button>
+        <HelpMarker label="更改存储位置说明">
+          请选择空目录。完成后需重启应用，原目录会保留。
+        </HelpMarker>
+      </div>
+      {storage.restartRequired && <Notice>位置已更改，请重启应用。</Notice>}
       {error && <Notice>{error}</Notice>}
       {settings.storageError && (
         <Notice actions={<Button onClick={() => void settings.refreshStorage()}>重新读取</Button>}>
-          无法刷新存储位置：{settings.storageError}
+          {settings.storageError}
         </Notice>
       )}
     </section>
   );
 }
 
+const sections = [
+  { id: "account", name: "账户与连接" },
+  { id: "generation", name: "生成与预览" },
+  { id: "appearance", name: "外观" },
+  { id: "storage", name: "存储" },
+] as const;
+type SettingsSection = (typeof sections)[number]["id"];
+
 export function SettingsPage({
   settings,
   showAccount = true,
+  beforeMigrate,
+  onOpenTasks,
 }: {
   settings: ApplicationSettingsState;
   showAccount?: boolean;
+  beforeMigrate?: () => Promise<void>;
+  onOpenTasks?: () => void;
 }) {
   const { preferences, writer } = settings;
+  const [section, setSection] = useState<SettingsSection>("account");
   const theme = preferences.value?.theme;
   return (
     <main className="settings-page" aria-label="设置">
       <header className="page-toolbar">
         <h1>设置</h1>
       </header>
-      <div className="settings-page-content">
-        {showAccount && (
-          <section className="preference-section">
-            <h2>账户</h2>
-            <AccountSettings />
-          </section>
-        )}
-        <section className="preference-section">
-          <h2>外观</h2>
-          <div className="preference-row">
-            <span>主题</span>
-            <Button
-              disabled={!theme}
-              onClick={() => {
-                if (preferences.value)
-                  writer.edit({ ...preferences.value, theme: theme === "dark" ? "light" : "dark" });
-              }}
+      <div className="settings-layout">
+        <nav className="settings-navigation" aria-label="设置分类">
+          {sections.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={section === item.id ? "page" : undefined}
+              onClick={() => setSection(item.id)}
             >
-              {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
-              {theme === "dark" ? "切换浅色" : "切换深色"}
-            </Button>
+              {item.name}
+            </button>
+          ))}
+        </nav>
+        <div className="settings-page-content">
+          <div hidden={section !== "account"}>
+            {showAccount && (
+              <section className="preference-section">
+                <h2>账户与连接</h2>
+                <AccountSettings onOpenTasks={onOpenTasks} />
+              </section>
+            )}
+            <ExecutionSettings settings={settings} />
           </div>
-        </section>
-        <ExecutionSettings settings={settings} />
-        <StorageSettings
-          key={`${settings.storage?.dataDirectory}:${settings.storage?.pendingDataDirectory}`}
-          settings={settings}
-        />
+          <section className="preference-section" hidden={section !== "generation"}>
+            <h2>生成与预览</h2>
+            {preferences.value && (
+              <Field label="最近图片数量">
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={preferences.value.recentImageLimit}
+                  onChange={(event) => {
+                    const limit = Number(event.target.value);
+                    if (Number.isInteger(limit) && limit >= 1 && limit <= 200 && preferences.value)
+                      writer.edit({ ...preferences.value, recentImageLimit: limit });
+                  }}
+                />
+              </Field>
+            )}
+          </section>
+          <section className="preference-section" hidden={section !== "appearance"}>
+            <h2>外观</h2>
+            <div className="preference-row">
+              <span>主题</span>
+              <Button
+                disabled={!theme}
+                onClick={() => {
+                  if (preferences.value)
+                    writer.edit({
+                      ...preferences.value,
+                      theme: theme === "dark" ? "light" : "dark",
+                    });
+                }}
+              >
+                {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
+                {theme === "dark" ? "切换浅色" : "切换深色"}
+              </Button>
+            </div>
+          </section>
+          <div hidden={section !== "storage"}>
+            <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />
+          </div>
+        </div>
       </div>
     </main>
   );

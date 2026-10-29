@@ -3,7 +3,7 @@
 mod models;
 pub use models::{
     CharacterPositionOptions, GenerationRanges, ModelCapabilities, NumericRange,
-    PreciseReferenceOptions, ReferenceStatus, VibeReferenceOptions, model_capabilities,
+    PreciseReferenceOptions, ReferenceStatus, SizePreset, VibeReferenceOptions, model_capabilities,
     model_defaults_capabilities,
 };
 

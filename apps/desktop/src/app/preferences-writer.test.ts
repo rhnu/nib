@@ -5,6 +5,7 @@ import { PreferencesWriter } from "./preferences-writer";
 function preferences(theme: ApplicationPreferences["theme"]): ApplicationPreferences {
   return {
     theme,
+    recentImageLimit: 20,
     execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
   };
 }
@@ -34,6 +35,7 @@ describe("PreferencesWriter", () => {
     await Promise.resolve();
     const latest: ApplicationPreferences = {
       theme: "light",
+      recentImageLimit: 20,
       execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     };
     writer.edit(latest);

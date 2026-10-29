@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use nib_app::{
     api::{ApiError, ErrorCode},
-    jobs::{GenerationQuote, JobError, JobPage, JobQuery, JobRecord},
+    jobs::{GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobRecord},
     session::Draft,
     settings::{AccountStatus, CredentialError, CredentialStore as _},
 };
 use novelai_bridge::SecretString;
+use secrecy::ExposeSecret as _;
 
 use crate::state::{DesktopState, GenerationRuntime};
 
@@ -94,7 +95,26 @@ pub(crate) async fn with_generation<T: Send + 'static>(
     action: impl FnOnce(Arc<GenerationRuntime>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     let state = state.inner().clone();
+    let guard = state.read_access().await;
     blocking(move || {
+        let _guard = guard;
+        let runtime = state.generation().map_err(generation_error)?;
+        action(runtime)
+    })
+    .await
+}
+
+async fn with_generation_write<T: Send + 'static>(
+    state: tauri::State<'_, DesktopState>,
+    action: impl FnOnce(Arc<GenerationRuntime>) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    let state = state.inner().clone();
+    let guard = state
+        .write_access()
+        .await
+        .map_err(crate::commands::persistence_error)?;
+    blocking(move || {
+        let _guard = guard;
         let runtime = state.generation().map_err(generation_error)?;
         action(runtime)
     })
@@ -105,43 +125,116 @@ pub(crate) async fn with_generation<T: Send + 'static>(
 pub(crate) async fn get_account_status(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<AccountStatus, ApiError> {
-    let credentials = Arc::clone(&state.credentials);
+    let desktop = state.inner().clone();
     blocking(move || {
-        Ok(AccountStatus {
-            configured: credentials
-                .load()
-                .map_err(|error| credential_error(&error))?
-                .is_some(),
-        })
+        desktop
+            .storage
+            .settings
+            .credentials()
+            .map_err(crate::commands::persistence_error)
     })
     .await
+}
+
+fn account_id() -> String {
+    static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |time| time.as_nanos());
+    format!(
+        "credential-{timestamp:x}-{:x}",
+        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
 }
 
 #[tauri::command]
 pub(crate) async fn save_account_key(
     state: tauri::State<'_, DesktopState>,
-    key: String,
+    id: Option<String>,
+    name: String,
+    key: Option<String>,
 ) -> Result<AccountStatus, ApiError> {
+    let access = state
+        .credential_change_access()
+        .await
+        .map_err(crate::commands::persistence_error)?;
     let desktop = state.inner().clone();
-    let credentials = Arc::clone(&desktop.credentials);
-    let key = SecretString::from(key);
     blocking(move || {
-        use secrecy::ExposeSecret as _;
-        let trimmed = key.expose_secret().trim();
-        if trimmed.is_empty() {
-            return Err(ApiError {
-                validation_fields: Vec::new(),
-                code: ErrorCode::Invalid,
-                message: "请输入 NovelAI API Key。".to_owned(),
-            });
+        let _access = access;
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(generation_error(JobError::Invalid(
+                "请输入账户名称。".into(),
+            )));
         }
-        nib_app::settings::validate_api_key(&SecretString::from(trimmed.to_owned()))
-            .map_err(|error| credential_error(&error))?;
-        credentials
-            .save(SecretString::from(trimmed.to_owned()))
-            .map_err(|error| credential_error(&error))?;
+        let new_profile = id.is_none();
+        let id = id.unwrap_or_else(account_id);
+        let secret = key.map(SecretString::from);
+        let secret = secret
+            .as_ref()
+            .map(|value| value.expose_secret().trim())
+            .filter(|value| !value.is_empty())
+            .map(|value| SecretString::from(value.to_owned()));
+        if new_profile && secret.is_none() {
+            return Err(generation_error(JobError::Invalid(
+                "请输入 API Key。".into(),
+            )));
+        }
+        let secret_id = secret.as_ref().map(|_| account_id());
+        if let (Some(secret), Some(secret_id)) = (secret, secret_id.as_deref()) {
+            nib_app::settings::validate_api_key(&secret)
+                .map_err(|error| credential_error(&error))?;
+            desktop
+                .credentials
+                .save(secret_id, secret)
+                .map_err(|error| credential_error(&error))?;
+        }
+        if let Err(error) =
+            desktop
+                .storage
+                .settings
+                .save_credential(&id, name, secret_id.as_deref())
+        {
+            if let Some(secret_id) = secret_id
+                && desktop.credentials.delete(&secret_id).is_err()
+            {
+                tracing::warn!("cannot remove unpublished credential version");
+            }
+            return Err(crate::commands::persistence_error(error));
+        }
         desktop.invalidate_sdk().map_err(generation_error)?;
-        Ok(AccountStatus { configured: true })
+        desktop
+            .storage
+            .settings
+            .credentials()
+            .map_err(crate::commands::persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn activate_account(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<AccountStatus, ApiError> {
+    let access = state
+        .credential_change_access()
+        .await
+        .map_err(crate::commands::persistence_error)?;
+    let desktop = state.inner().clone();
+    blocking(move || {
+        let _access = access;
+        desktop
+            .storage
+            .settings
+            .activate_credential(&id)
+            .map_err(crate::commands::persistence_error)?;
+        desktop.invalidate_sdk().map_err(generation_error)?;
+        desktop
+            .storage
+            .settings
+            .credentials()
+            .map_err(crate::commands::persistence_error)
     })
     .await
 }
@@ -149,15 +242,54 @@ pub(crate) async fn save_account_key(
 #[tauri::command]
 pub(crate) async fn delete_account_key(
     state: tauri::State<'_, DesktopState>,
+    id: String,
 ) -> Result<AccountStatus, ApiError> {
+    let access = state
+        .credential_change_access()
+        .await
+        .map_err(crate::commands::persistence_error)?;
     let desktop = state.inner().clone();
-    let credentials = Arc::clone(&desktop.credentials);
     blocking(move || {
-        credentials
-            .delete()
-            .map_err(|error| credential_error(&error))?;
+        let _access = access;
+        let versions = desktop
+            .storage
+            .settings
+            .credential_versions(&id)
+            .map_err(crate::commands::persistence_error)?;
+        let database = desktop
+            .database()
+            .map_err(crate::commands::persistence_error)?;
+        for version in &versions {
+            if !database
+                .unfinished_credential_jobs(version)
+                .map_err(crate::commands::persistence_error)?
+                .is_empty()
+            {
+                return Err(ApiError {
+                    code: ErrorCode::Conflict,
+                    message: "此账户仍有未完成任务。请在任务列表中取消或等待这些任务完成后再删除。"
+                        .into(),
+                    validation_fields: Vec::new(),
+                });
+            }
+        }
+        for version in versions {
+            desktop
+                .credentials
+                .delete(&version)
+                .map_err(|error| credential_error(&error))?;
+        }
+        desktop
+            .storage
+            .settings
+            .delete_credential(&id)
+            .map_err(crate::commands::persistence_error)?;
         desktop.invalidate_sdk().map_err(generation_error)?;
-        Ok(AccountStatus { configured: false })
+        desktop
+            .storage
+            .settings
+            .credentials()
+            .map_err(crate::commands::persistence_error)
     })
     .await
 }
@@ -177,9 +309,24 @@ pub(crate) async fn quote_generation(
 pub(crate) async fn submit_generation(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
-) -> Result<JobRecord, ApiError> {
-    with_generation(state, move |runtime| {
+) -> Result<GenerationBatch, ApiError> {
+    with_generation_write(state, move |runtime| {
         runtime.queue.submit(&draft).map_err(generation_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn ensure_vibe_encoding(
+    state: tauri::State<'_, DesktopState>,
+    input: nib_app::session::VibeEncodingInput,
+    policy: novelai_bridge::ValidationPolicy,
+) -> Result<nib_app::jobs::VibeEncodingOutcome, ApiError> {
+    with_generation_write(state, move |runtime| {
+        runtime
+            .queue
+            .ensure_vibe_encoding(input, policy)
+            .map_err(generation_error)
     })
     .await
 }
@@ -211,7 +358,7 @@ pub(crate) async fn cancel_job(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<JobRecord, ApiError> {
-    with_generation(state, move |runtime| {
+    with_generation_write(state, move |runtime| {
         runtime.queue.cancel(&id).map_err(generation_error)
     })
     .await
@@ -222,7 +369,7 @@ pub(crate) async fn retry_job(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<JobRecord, ApiError> {
-    with_generation(state, move |runtime| {
+    with_generation_write(state, move |runtime| {
         runtime.queue.retry(&id).map_err(generation_error)
     })
     .await
@@ -231,13 +378,14 @@ pub(crate) async fn retry_job(
 #[tauri::command]
 pub(crate) async fn get_account_summary(
     state: tauri::State<'_, DesktopState>,
-) -> Result<Option<nib_app::settings::AccountSummary>, ApiError> {
+) -> Result<nib_app::settings::AccountSnapshot, ApiError> {
     let desktop = state.inner().clone();
     blocking(move || {
-        Ok(desktop
-            .cached_sdk()
+        desktop
+            .sdk()
             .map_err(generation_error)?
-            .and_then(|sdk| sdk.account()))
+            .account()
+            .map_err(generation_error)
     })
     .await
 }
@@ -245,21 +393,10 @@ pub(crate) async fn get_account_summary(
 #[tauri::command]
 pub(crate) async fn refresh_account_summary(
     state: tauri::State<'_, DesktopState>,
-) -> Result<nib_app::settings::AccountSummary, ApiError> {
-    let desktop = state.inner().clone();
-    let sdk = blocking(move || desktop.sdk().map_err(generation_error)).await?;
-    let prepare = Arc::clone(&sdk);
-    let (client, id) =
-        blocking(move || prepare.begin_account_refresh().map_err(generation_error)).await?;
-    let info = client
-        .get_subscription()
-        .await
-        .map_err(|error| generation_error(error.into()))?;
-    blocking(move || {
-        sdk.finish_account_refresh(id, &info)
-            .map_err(generation_error)
-    })
-    .await
+) -> Result<nib_app::settings::AccountSnapshot, ApiError> {
+    let sdk = state.sdk().map_err(generation_error)?;
+    sdk.refresh_account(true).await;
+    sdk.account().map_err(generation_error)
 }
 
 #[tauri::command]

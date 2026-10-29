@@ -42,7 +42,13 @@ const creation = (operation: CreationOperation): Draft => ({
   presets: [],
   characters: [],
   settings: emptySettings(),
-  inputs: { operation, policy: "normalize", stream: null, references: emptyReferences() },
+  inputs: {
+    requestCount: 1,
+    operation,
+    policy: "normalize",
+    stream: null,
+    references: emptyReferences(),
+  },
 });
 
 describe("image operation changes", () => {

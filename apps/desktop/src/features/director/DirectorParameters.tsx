@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import type { DirectorToolState } from "../../bindings/workbench";
+import { PromptTextEditor } from "../prompt/PromptTextEditor";
 import { Field, HelpMarker } from "../../shared/ui";
 
 export function DirectorParameters({
@@ -28,14 +29,14 @@ export function DirectorParameters({
       {text && (
         <>
           <Field label={state.tool === "emotion" ? "Prompt · 必填" : "Prompt · 可选"}>
-            <textarea
-              data-director-field="prompt"
-              aria-label="导演工具 Prompt"
-              value={text.prompt ?? ""}
-              rows={5}
-              spellCheck={false}
-              onChange={(event) => updateText({ prompt: event.target.value })}
-            />
+            <div data-director-field="prompt">
+              <PromptTextEditor
+                label="导演工具 Prompt"
+                value={text.prompt ?? ""}
+                onChange={(prompt) => updateText({ prompt })}
+                tokenUnavailableLabel="导演工具未提供本地 Token 规则"
+              />
+            </div>
           </Field>
           <Field label={state.tool === "emotion" ? "Emotion Level · Defry" : "Colorize Defry"}>
             <input

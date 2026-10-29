@@ -1,11 +1,11 @@
 import { useAccount } from "./account-context";
 
 export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
-  const { accountSummary: summary, accountSummaryLoading } = useAccount();
+  const { accountSummary: summary, accountSummaryLoading, accountSummaryStale } = useAccount();
   if (!summary)
     return (
       <p className="generation-muted generation-account-snapshot">
-        {accountSummaryLoading ? "正在读取账户快照…" : "尚未查询账户，按非订阅条件估费"}
+        {accountSummaryLoading ? "正在读取账户快照…" : "暂无账户采样，按非订阅条件估费"}
       </p>
     );
   const sampled =
@@ -20,11 +20,20 @@ export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
             {summary.v5Usage.percent}%
           </span>
         )}
-        <span>{accountSummaryLoading ? "刷新中…" : "账户快照"}</span>
+        <span>
+          {accountSummaryLoading
+            ? "更新中…"
+            : accountSummaryStale
+              ? "上次采样 · 已过期"
+              : "账户快照"}
+        </span>
       </div>
     );
   return (
     <div className="generation-account-snapshot-details">
+      {accountSummaryStale && (
+        <p className="generation-muted">显示上次成功采样，当前数据已过期。</p>
+      )}
       <dl className="generation-metadata">
         <div>
           <dt>Anlas 余额</dt>

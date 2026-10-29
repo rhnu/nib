@@ -9,18 +9,14 @@ export function JobCostSummary({ job }: { job: JobSummary }) {
   return (
     <details className="generation-job-cost">
       <summary>
-        费用观察 ·{" "}
+        费用 ·{" "}
         {observation.estimatedAnlas === null
           ? "估算未知"
           : `估算 ${observation.estimatedAnlas} Anlas`}
       </summary>
       <dl className="generation-metadata">
         <div>
-          <dt>请求</dt>
-          <dd>{observation.requestId}</dd>
-        </div>
-        <div>
-          <dt>请求终态</dt>
+          <dt>状态</dt>
           <dd>{settlementSummary(outcome, job.operation.kind)}</dd>
         </div>
         {observation.account && (

@@ -88,10 +88,6 @@ export function SubmissionImageInput({
         {operation.kind === "inpainting" ? "源图、遮罩与参数" : "源图与专有参数"}
       </summary>
       <dl className="generation-metadata">
-        <div>
-          <dt>源图身份</dt>
-          <dd>{operation.assetId}</dd>
-        </div>
         {operation.kind === "imageToImage" && (
           <>
             <ConditioningMetadata
@@ -109,10 +105,6 @@ export function SubmissionImageInput({
         )}
         {operation.kind === "inpainting" && (
           <>
-            <div>
-              <dt>遮罩身份</dt>
-              <dd>{operation.maskAssetId}</dd>
-            </div>
             <div>
               <dt>局部条件</dt>
               <dd>{operation.img2img ? "局部图生图" : "纯补绘"}</dd>

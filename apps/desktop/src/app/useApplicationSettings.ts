@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { StorageLocations } from "../bindings/settings";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ApplicationSettingsSnapshot, StorageLocations } from "../bindings/settings";
 import { errorMessage } from "../shared/host/error";
 import { hasDesktopHost } from "../shared/host/invoke";
 import { PreferencesWriter } from "./preferences-writer";
@@ -8,69 +9,62 @@ import { prepareSubmissionPreferences } from "./submission-preferences";
 import { sameExecutionPreferences } from "./execution-preferences";
 
 export function useApplicationSettings() {
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ["application-settings"],
+    queryFn: settingsApi.read,
+    enabled: hasDesktopHost(),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
   const [executionVersion, setExecutionVersion] = useState(0);
   const [writer] = useState(
     () =>
       new PreferencesWriter(settingsApi.savePreferences, (saved, previous) => {
+        client.setQueryData<ApplicationSettingsSnapshot>(["application-settings"], (snapshot) =>
+          snapshot ? { ...snapshot, preferences: saved } : snapshot,
+        );
         if (previous && !sameExecutionPreferences(previous.execution, saved.execution))
           setExecutionVersion((version) => version + 1);
       }),
   );
   const preferences = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
-  const [storage, setStorage] = useState<StorageLocations | null>(null);
-  const [loading, setLoading] = useState(hasDesktopHost);
-  const [error, setError] = useState("");
-  const [storageError, setStorageError] = useState("");
-  const [attempt, setAttempt] = useState(0);
+  const storage = query.data?.storage ?? null;
+  const [migrationPending, setMigrationPending] = useState(false);
   const directorySave = useRef<Promise<StorageLocations> | null>(null);
-  const storageVersion = useRef(0);
   useEffect(() => {
-    if (!hasDesktopHost()) return;
-    let active = true;
-    void settingsApi
-      .read()
-      .then((snapshot) => {
-        if (!active) return;
-        writer.initialize(snapshot.preferences);
-        setStorage(snapshot.storage);
-        setLoading(false);
-      })
-      .catch((cause) => {
-        if (!active) return;
-        setError(errorMessage(cause));
-        setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, writer]);
+    // A refetch may refresh locations, but the writer exclusively owns loaded edits.
+    if (query.data && writer.getSnapshot().value === null)
+      writer.initialize(query.data.preferences);
+  }, [query.data, writer]);
+  const refetchSettings = query.refetch;
   const refreshStorage = useCallback(async () => {
-    const version = ++storageVersion.current;
-    try {
-      const snapshot = await settingsApi.read();
-      if (version !== storageVersion.current) return;
-      setStorage(snapshot.storage);
-      setStorageError("");
-    } catch (cause) {
-      if (version !== storageVersion.current) return;
-      setStorageError(errorMessage(cause));
-    }
-  }, []);
-  const setDataDirectory = useCallback(async (directory: string | null) => {
-    if (directorySave.current) return directorySave.current;
-    storageVersion.current++;
-    const pending = settingsApi.setDataDirectory(directory);
-    directorySave.current = pending;
-    try {
-      const locations = await pending;
-      storageVersion.current++;
-      setStorage(locations);
-      setStorageError("");
-      return locations;
-    } finally {
-      directorySave.current = null;
-    }
-  }, []);
+    await refetchSettings();
+  }, [refetchSettings]);
+  const setDataDirectory = useCallback(
+    async (directory: string | null, beforeMigrate?: () => Promise<void>) => {
+      if (directorySave.current) return directorySave.current;
+      setMigrationPending(true);
+      const pending = Promise.resolve().then(async () => {
+        await client.cancelQueries({ queryKey: ["application-settings"] });
+        await beforeMigrate?.();
+        await writer.flush();
+        return settingsApi.setDataDirectory(directory);
+      });
+      directorySave.current = pending;
+      try {
+        const locations = await pending;
+        client.setQueryData<ApplicationSettingsSnapshot>(["application-settings"], (previous) =>
+          previous ? { ...previous, storage: locations } : previous,
+        );
+        return locations;
+      } finally {
+        directorySave.current = null;
+        setMigrationPending(false);
+      }
+    },
+    [writer, client],
+  );
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({ dirty: writer.getSnapshot().dirty || directorySave.current !== null }),
@@ -87,20 +81,24 @@ export function useApplicationSettings() {
   const prepareSubmission = useCallback(() => prepareSubmissionPreferences(writer), [writer]);
   return {
     prepareSubmission,
-    submissionBlocked: preferences.dirty || preferences.saving || Boolean(preferences.error),
+    migrationPending,
+    submissionBlocked:
+      migrationPending ||
+      Boolean(storage?.restartRequired) ||
+      preferences.dirty ||
+      preferences.saving ||
+      Boolean(preferences.error),
     executionVersion,
     preferences,
     writer,
     storage,
-    loading,
-    error,
-    storageError,
+    loading: hasDesktopHost() && query.isPending,
+    error: preferences.value === null && query.error ? errorMessage(query.error) : "",
+    storageError: preferences.value !== null && query.error ? errorMessage(query.error) : "",
     closeWriter,
     ready: preferences.value !== null,
     retry: () => {
-      setLoading(hasDesktopHost());
-      setError("");
-      setAttempt((value) => value + 1);
+      void query.refetch();
     },
     refreshStorage,
     setDataDirectory,

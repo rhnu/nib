@@ -7,6 +7,7 @@ import {
   jobFeedbackText,
   receiveFeedback,
   reconcileFeedback,
+  releaseFeedbackFrame,
   type FeedbackJob,
 } from "./feedback-state";
 
@@ -52,8 +53,10 @@ describe("transient task feedback", () => {
     expect(jobFeedbackText(job, state.samples.a)).toContain("等待任务完成与保存");
     expect(receiveFeedback(state, preview("a", 0, 100), [job])).toBe(state);
     state = finishFeedback(state, "a");
-    expect(state.samples.a).toBeUndefined();
+    expect(state.samples.a?.[0]?.bytes).toEqual(new Uint8Array([1, 2, 3]));
     expect(receiveFeedback(state, preview("a", 0, 101), [job])).toBe(state);
+    state = releaseFeedbackFrame(state, "a", 0);
+    expect(state.samples.a).toBeUndefined();
   });
 
   it("clears terminal tasks from durable queries and suppresses stale delivery", () => {

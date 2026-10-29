@@ -95,7 +95,6 @@ export function ResourceEditor({
             <PromptTextEditor
               label="提示词内容"
               value={editor.content.text}
-              models={models}
               model={model.capabilities?.model}
               disabled={busy}
               placeholder="输入可复用的提示词…"
@@ -115,7 +114,6 @@ export function ResourceEditor({
               compact
               value={editor.content.composition}
               resources={resources}
-              models={models}
               model={model.capabilities?.model}
               onChange={(composition) => updatePreset({ composition })}
               expandChunk={async (node) => {
@@ -171,7 +169,6 @@ export function ResourceEditor({
               value={editor.content.characters}
               onChange={(characters) => updatePreset({ characters })}
               resources={resources}
-              models={models}
               capabilities={model.capabilities}
               onError={setError}
               title="角色输出"

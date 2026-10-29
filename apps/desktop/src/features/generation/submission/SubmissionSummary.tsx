@@ -1,3 +1,4 @@
+import { PromptTextEditor } from "../../prompt/PromptTextEditor";
 import type { JobRecord } from "../../../bindings/generation";
 import { ContentSources, SettingsSources } from "../../prompt/ResolutionSources";
 import { submissionLabel } from "./operation";
@@ -15,10 +16,6 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           <div>
             <dt>操作</dt>
             <dd>{submissionLabel(submission)}</dd>
-          </div>
-          <div>
-            <dt>输入媒体</dt>
-            <dd>{submission.assetId}</dd>
           </div>
           {submission.kind === "encodeVibe" && (
             <div>
@@ -42,7 +39,14 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
                     <>
                       <div>
                         <dt>Prompt</dt>
-                        <dd>{options.prompt ?? "未设置"}</dd>
+                        <dd>
+                          <PromptTextEditor
+                            value={options.prompt ?? ""}
+                            label="导演工具 Prompt"
+                            readOnly
+                            tokenUnavailableLabel="导演工具未提供本地 Token 规则"
+                          />
+                        </dd>
                       </div>
                       <div>
                         <dt>Defry</dt>
@@ -70,9 +74,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
             </>
           )}
         </dl>
-        {(submission.kind === "upscale" || submission.kind === "director") && (
-          <SubmissionImageInput operation={submission} />
-        )}
+        <SubmissionImageInput operation={submission} />
         <ParameterDiagnostics diagnostics={submission.diagnostics} />
       </div>
     );
@@ -124,9 +126,19 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
       <details className="generation-prompts">
         <summary>查看提交时的提示词</summary>
         <h4>正面提示</h4>
-        <pre>{resolved.positive || "（空）"}</pre>
+        <PromptTextEditor
+          value={resolved.positive}
+          label="提交时正面提示词"
+          model={resolved.settings.model}
+          readOnly
+        />
         <h4>负面提示</h4>
-        <pre>{resolved.negative || "（空）"}</pre>
+        <PromptTextEditor
+          value={resolved.negative}
+          label="提交时负面提示词"
+          model={resolved.settings.model}
+          readOnly
+        />
       </details>
       <ResolvedOutputs resolved={resolved} />
       <details className="generation-sources">

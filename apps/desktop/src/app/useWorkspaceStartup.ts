@@ -1,46 +1,36 @@
-import { useEffect, useState } from "react";
-import type { Resource, WorkspaceSnapshot } from "../bindings/workbench";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { hasDesktopHost } from "../shared/host/invoke";
 import { errorMessage } from "../shared/host/error";
 import { workbenchApi } from "../features/workbench/api";
-type OpenWorkspace = { snapshot: WorkspaceSnapshot; resources: Map<string, Resource> };
+
+/** Startup supplies one editable session snapshot; it is not a second ongoing draft source. */
 export function useWorkspaceStartup(enabled = true) {
-  const [workspace, setWorkspace] = useState<OpenWorkspace | null>(null);
-  const [loading, setLoading] = useState(hasDesktopHost);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    if (!hasDesktopHost() || !enabled) return;
-    let active = true;
-    void workbenchApi
-      .workspace()
-      .then((snapshot) => {
-        if (active) {
-          setWorkspace({
-            snapshot,
-            resources: new Map(snapshot.resources.map((item) => [item.id, item])),
-          });
-          setLoading(false);
-        }
-      })
-      .catch((cause) => {
-        if (active) {
-          setError(errorMessage(cause));
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, enabled]);
+  const hosted = hasDesktopHost();
+  const query = useQuery({
+    queryKey: ["workspace", "startup"],
+    queryFn: workbenchApi.workspace,
+    enabled: hosted && enabled,
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  const workspace = useMemo(
+    () =>
+      query.data
+        ? {
+            snapshot: query.data,
+            resources: new Map(query.data.resources.map((item) => [item.id, item])),
+          }
+        : null,
+    [query.data],
+  );
   return {
     workspace,
-    loading,
-    error,
+    loading: hosted && (!enabled || query.isPending),
+    error: query.error ? errorMessage(query.error) : "",
     retry: () => {
-      setLoading(hasDesktopHost());
-      setError("");
-      setAttempt((value) => value + 1);
+      if (hosted && enabled) void query.refetch();
     },
   };
 }

@@ -1,8 +1,8 @@
 import { createContext, useContext } from "react";
 import type { Draft } from "../../../bindings/workbench";
-import type { JobRecord } from "../../../bindings/generation";
+import type { GenerationBatch } from "../../../bindings/generation";
 export type SubmissionContextValue = {
-  submit: (draft: Draft) => Promise<JobRecord>;
+  submit: (draft: Draft) => Promise<GenerationBatch>;
   submissionBlocked: boolean;
 };
 export const SubmissionContext = createContext<SubmissionContextValue | null>(null);

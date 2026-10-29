@@ -1,6 +1,6 @@
 //! Global preferences can be read even when the creation database is unavailable.
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use nib_app::{
     api::ApiError,
@@ -28,9 +28,16 @@ pub(crate) async fn save_application_preferences(
     state: tauri::State<'_, DesktopState>,
     preferences: ApplicationPreferences,
 ) -> Result<ApplicationPreferences, ApiError> {
+    let access = state.write_access().await.map_err(persistence_error)?;
+    if !(1..=200).contains(&preferences.recent_image_limit) {
+        return Err(crate::generation::generation_error(
+            nib_app::jobs::JobError::Invalid("最近图片数量应为 1 至 200。".into()),
+        ));
+    }
     let storage = Arc::clone(&state.storage);
     let desktop = state.inner().clone();
     crate::generation::blocking(move || {
+        let _access = access;
         let previous = storage.settings.preferences().map_err(persistence_error)?;
         let saved = storage
             .settings
@@ -55,11 +62,8 @@ pub(crate) async fn set_data_directory(
     state: tauri::State<'_, DesktopState>,
     directory: Option<String>,
 ) -> Result<StorageLocations, ApiError> {
-    let storage = Arc::clone(&state.storage);
-    crate::generation::blocking(move || {
-        storage
-            .set_directory(directory.as_deref().map(Path::new))
-            .map_err(persistence_error)
-    })
-    .await
+    state
+        .migrate_directory(directory.map(std::path::PathBuf::from))
+        .await
+        .map_err(crate::generation::generation_error)
 }

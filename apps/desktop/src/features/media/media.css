@@ -7,9 +7,11 @@
   margin: 0;
 }
 .image-drop-target {
-  display: grid;
-  gap: 9px;
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
   border: 1px dashed var(--line);
   border-radius: var(--radius);
   background: var(--input);
@@ -17,15 +19,6 @@
 .image-drop-target.is-dragging {
   border-color: var(--accent);
   background: var(--accent-soft);
-}
-.image-drop-target label {
-  color: var(--muted);
-  font-size: 12px;
-}
-.image-drop-target input {
-  width: 100%;
-  max-width: 100%;
-  font-size: 12px;
 }
 .media-image {
   display: block;

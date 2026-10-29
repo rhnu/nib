@@ -20,6 +20,8 @@ pub(super) fn sampled_account(sampled_at: i64) -> crate::settings::AccountSample
 fn quote_uses_one_immutable_account_sample_for_price_and_timestamp() {
     struct SampledProvider(Arc<std::sync::atomic::AtomicUsize>);
     impl SdkClientProvider for SampledProvider {
+        fn credential_id(&self) -> Result<String, JobError> { Err(JobError::MissingCredentials) }
+
         fn client(&self) -> Result<SdkClient, JobError> { Err(JobError::MissingCredentials) }
 
         fn account_sample(&self) -> Option<crate::settings::AccountSample> {

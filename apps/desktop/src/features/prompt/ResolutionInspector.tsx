@@ -5,6 +5,7 @@ import { Button } from "../../shared/ui";
 import { diagnosticSetting, settingLabels } from "./settings";
 import { ResolvedOutputs } from "./ResolvedOutputs";
 import { resolutionIssueDetails } from "./output-details";
+import { PromptTextEditor } from "./PromptTextEditor";
 
 export function ResolutionInspector({
   resolved,
@@ -37,16 +38,31 @@ export function ResolutionInspector({
         <>
           <section>
             <h3>基础提示</h3>
-            <p className="resolved-text">{resolved.positive || "暂无基础提示"}</p>
+            <PromptTextEditor
+              label="基础提示"
+              value={resolved.positive}
+              model={tokenModel ?? resolved.settings.model}
+              readOnly
+              placeholder="暂无基础提示"
+            />
           </section>
           <section>
             <h3>负面提示</h3>
-            <p className="resolved-text">{resolved.negative || "暂无负面提示"}</p>
+            <PromptTextEditor
+              label="负面提示"
+              value={resolved.negative}
+              model={tokenModel ?? resolved.settings.model}
+              readOnly
+              placeholder="暂无负面提示"
+            />
           </section>
           <ResolvedOutputs resolved={resolved} tokenModel={tokenModel} />
           <section>
             <h3>内容来源</h3>
-            <ContentSources fragments={resolved.fragments} />
+            <ContentSources
+              fragments={resolved.fragments}
+              model={tokenModel ?? resolved.settings.model}
+            />
           </section>
           <section>
             <h3>生效设置</h3>

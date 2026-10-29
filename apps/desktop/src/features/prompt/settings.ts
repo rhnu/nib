@@ -126,7 +126,19 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
   const target =
     root.querySelector<HTMLElement>(`[data-setting-editor="draft"] ${selector}`) ??
     root.querySelector<HTMLElement>(selector);
-  if (!target) return false;
+  if (!target) {
+    const trigger = ["quality", "ucPreset", "furryMode"].includes(key)
+      ? root.querySelector<HTMLElement>(".prompt-workspace [data-prompt-options-trigger]")
+      : null;
+    if (!trigger) return false;
+    trigger.click();
+    requestAnimationFrame(() => {
+      const control = root.querySelector<HTMLElement>(`${selector} select`);
+      control?.scrollIntoView({ block: "nearest" });
+      control?.focus();
+    });
+    return true;
+  }
   for (let parent = target.parentElement; parent; parent = parent.parentElement) {
     if (parent instanceof HTMLDetailsElement) parent.open = true;
   }

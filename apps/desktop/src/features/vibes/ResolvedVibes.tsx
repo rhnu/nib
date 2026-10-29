@@ -50,9 +50,7 @@ export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
               </div>
               <div>
                 <dt>材料</dt>
-                <dd>
-                  {reference.input.kind === "image" ? "原图" : "编码"} · {reference.input.assetId}
-                </dd>
+                <dd>{reference.input.kind === "image" ? "原图" : "编码"}</dd>
               </div>
               {reference.input.kind === "image" && (
                 <div>
@@ -68,18 +66,6 @@ export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
                   {source?.overridden && " · 实例覆盖"}
                 </dd>
               </div>
-              {source?.presetInstanceId && (
-                <div>
-                  <dt>配方实例</dt>
-                  <dd>{source.presetInstanceId}</dd>
-                </div>
-              )}
-              {source?.resourceId && (
-                <div>
-                  <dt>资源</dt>
-                  <dd>{source.resourceId}</dd>
-                </div>
-              )}
             </dl>
             {reference.input.kind === "encoded" ? (
               <VibeAssetDetails id={reference.input.assetId} />

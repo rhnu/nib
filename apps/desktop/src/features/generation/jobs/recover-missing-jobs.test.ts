@@ -6,6 +6,11 @@ import { reconcileJobs } from "./summary";
 function job(id: string, status: JobSummary["status"], submittedAt = 1): JobSummary {
   return {
     id,
+    batchId: id,
+    requestIndex: 0,
+    requestCount: 1,
+    retryOfJobId: null,
+    credentialId: "account",
     status,
     submittedAt,
     finishedAt: null,

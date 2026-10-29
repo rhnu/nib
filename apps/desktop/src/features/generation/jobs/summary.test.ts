@@ -4,6 +4,11 @@ import { mergeSummaries, reconcileJobs } from "./summary";
 function job(id: string, status: JobSummary["status"]): JobSummary {
   return {
     id,
+    batchId: id,
+    requestIndex: 0,
+    requestCount: 1,
+    retryOfJobId: null,
+    credentialId: "account",
     status,
     submittedAt: 1,
     finishedAt: null,

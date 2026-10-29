@@ -55,6 +55,7 @@ describe("resource dependencies", () => {
       ],
       settings: emptySettings(),
       inputs: {
+        requestCount: 1,
         operation: { kind: "textToImage" },
         references: emptyReferences(),
         policy: "normalize",

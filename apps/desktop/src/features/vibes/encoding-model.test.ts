@@ -21,6 +21,7 @@ const draft: Draft = {
   presets: [],
   settings: emptySettings(),
   inputs: {
+    requestCount: 1,
     operation: { kind: "textToImage" },
     policy: "reject",
     stream: null,

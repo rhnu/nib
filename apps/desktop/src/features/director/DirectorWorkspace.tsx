@@ -1,6 +1,5 @@
 import { useAccount } from "../generation/account/account-context";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus } from "lucide-react";
 import type {
   DirectorToolKind,
   DirectorToolState,
@@ -8,8 +7,9 @@ import type {
   Draft,
 } from "../../bindings/workbench";
 import { Button, Modal, Notice } from "../../shared/ui";
-import { AssetImage, ImagePickerDialog, useMediaAsset } from "../media";
+import { ImageImporter, ImagePickerDialog, useMediaAsset } from "../media";
 import { imageName } from "../media/model";
+import { ImageMetadataDialog } from "../media/ImageMetadataDialog";
 import { GenerationActions } from "../generation/submission/GenerationActions";
 import { JobQueue } from "../generation/jobs/JobQueue";
 import { useGenerationQuote } from "../generation/submission/use-generation-quote";
@@ -81,6 +81,7 @@ export function DirectorWorkspace({
     refreshKey,
     Boolean(submission) && !accountSummaryLoading,
   );
+  const [metadataOpen, setMetadataOpen] = useState(false);
   const [picker, setPicker] = useState<DirectorToolKind | null>(null);
   const [candidate, setCandidate] = useState<SourceCandidate | null>(null);
   const [mobileView, setMobileView] = useState<"input" | "results">("input");
@@ -151,7 +152,7 @@ export function DirectorWorkspace({
     requestAnimationFrame(() => {
       const target = root.current?.querySelector<HTMLElement>(`[data-director-field="${name}"]`);
       target?.scrollIntoView({ block: "nearest" });
-      target?.focus();
+      (target?.querySelector<HTMLElement>("textarea, input, select, button") ?? target)?.focus();
     });
   };
   if (!state) return <Notice>导演工具工作态不可用，请重新打开应用。</Notice>;
@@ -191,24 +192,24 @@ export function DirectorWorkspace({
               </div>
             </section>
             <section className="director-input-section">
-              <header className="director-heading">
-                <h2>输入</h2>
-                <Button data-director-field="assetId" onClick={() => setPicker(state.tool)}>
-                  <ImagePlus size={14} />
-                  {state.assetId ? "更换图片" : "选择图片"}
-                </Button>
-              </header>
-              {media.asset && (
-                <AssetImage
-                  asset={media.asset}
-                  alt="导演工具输入"
-                  className="director-input-preview"
+              <h2>输入</h2>
+              <div data-director-field="assetId">
+                <ImageImporter
+                  key={state.tool}
+                  label={state.assetId ? "更换图片" : "选择文件"}
+                  onImported={(asset) => requestSource({ tool: state.tool, assetId: asset.id })}
+                  onChooseExisting={() => setPicker(state.tool)}
                 />
-              )}
+              </div>
               {media.asset && (
-                <p className="director-input-name" title={imageName(media.asset)}>
-                  {imageName(media.asset)} · {media.asset.width} × {media.asset.height}
-                </p>
+                <div className="director-input-metadata">
+                  <p>
+                    {imageName(media.asset)} · {media.asset.width} × {media.asset.height}
+                  </p>
+                  <Button className="quiet" onClick={() => setMetadataOpen(true)}>
+                    图片信息
+                  </Button>
+                </div>
               )}
               {media.loading && <output className="muted">正在读取输入…</output>}
               {media.error && (
@@ -266,7 +267,9 @@ export function DirectorWorkspace({
             canUsePreciseReference={canUsePreciseReference}
             canUseVibeReference={canUseVibeReference}
           />
-          <JobQueue />
+          <div className="director-queue-trigger">
+            <JobQueue />
+          </div>
         </main>
       </div>
       <ImagePickerDialog
@@ -277,6 +280,13 @@ export function DirectorWorkspace({
         onSelect={(asset) => picker && requestSource({ tool: picker, assetId: asset.id })}
         onRestore={onRestore}
       />
+      {metadataOpen && media.asset && (
+        <ImageMetadataDialog
+          asset={media.asset}
+          onClose={() => setMetadataOpen(false)}
+          onRestore={onRestore}
+        />
+      )}
       {candidate && (
         <Modal
           open

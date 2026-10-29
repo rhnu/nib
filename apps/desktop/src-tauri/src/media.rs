@@ -48,8 +48,28 @@ async fn with_media<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let state = state.inner().clone();
-    blocking(move || action(state.media().map_err(persistence_error)?)).await
+    let access = state.read_access().await;
+    run_media(state.inner().clone(), access, action).await
+}
+
+async fn with_media_write<T: Send + 'static>(
+    state: tauri::State<'_, DesktopState>,
+    action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    let access = state.write_access().await.map_err(persistence_error)?;
+    run_media(state.inner().clone(), access, action).await
+}
+
+async fn run_media<T: Send + 'static>(
+    state: DesktopState,
+    access: tokio::sync::OwnedRwLockReadGuard<()>,
+    action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    blocking(move || {
+        let _access = access;
+        action(state.media().map_err(persistence_error)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -102,19 +122,6 @@ pub(crate) async fn inspect_vibe_asset(
 ) -> Result<VibeAssetInspection, ApiError> {
     with_media(state, move |media| {
         media.inspect_vibe_asset(&id).map_err(persistence_error)
-    })
-    .await
-}
-
-#[tauri::command]
-pub(crate) async fn prepare_vibe_reencoding(
-    state: tauri::State<'_, DesktopState>,
-    id: String,
-) -> Result<VibeEncodingInput, ApiError> {
-    with_media(state, move |media| {
-        media
-            .prepare_vibe_reencoding(&id)
-            .map_err(persistence_error)
     })
     .await
 }
@@ -192,7 +199,7 @@ pub(crate) async fn import_image_asset(
     name: Option<String>,
     source_asset_id: Option<String>,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_image(
                 bytes,
@@ -211,7 +218,7 @@ pub(crate) async fn import_vibe_asset(
     bytes: Vec<u8>,
     name: Option<String>,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_vibe(bytes, AssetSource::Import { name })
             .map_err(persistence_error)
@@ -224,7 +231,7 @@ pub(crate) async fn create_image_vibe_document(
     state: tauri::State<'_, DesktopState>,
     image_id: String,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .create_image_vibe_document(&image_id)
             .map_err(persistence_error)
@@ -237,7 +244,7 @@ pub(crate) async fn create_encoded_vibe_document(
     state: tauri::State<'_, DesktopState>,
     vibe_id: String,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .create_encoded_vibe_document(&vibe_id)
             .map_err(persistence_error)
@@ -250,7 +257,7 @@ pub(crate) async fn bundle_vibe_documents(
     state: tauri::State<'_, DesktopState>,
     document_ids: Vec<String>,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .bundle_vibe_documents(&document_ids)
             .map_err(persistence_error)
@@ -264,7 +271,7 @@ pub(crate) async fn import_vibe_document(
     bytes: Vec<u8>,
     name: Option<String>,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_vibe_document(&bytes, AssetSource::Import { name })
             .map_err(persistence_error)
@@ -277,7 +284,7 @@ pub(crate) async fn import_png_vibe_document(
     state: tauri::State<'_, DesktopState>,
     image_id: String,
 ) -> Result<Option<MediaAsset>, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_png_vibe_document(&image_id)
             .map_err(persistence_error)
@@ -307,7 +314,7 @@ pub(crate) async fn embed_vibe_document(
     document_id: String,
     image_id: String,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .embed_vibe_document(&document_id, &image_id)
             .map_err(persistence_error)
@@ -337,7 +344,7 @@ pub(crate) async fn write_png_text(
     image_id: String,
     entries: Vec<(String, String)>,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         let entries = entries
             .into_iter()
             .map(|(keyword, text)| novelai_bridge::PngTextEntry::new(keyword, text))
@@ -355,7 +362,7 @@ pub(crate) async fn import_document_image(
     document_id: String,
     entry_index: usize,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_document_image(&document_id, entry_index)
             .map_err(persistence_error)
@@ -371,7 +378,7 @@ pub(crate) async fn import_document_encoding(
     model_key: String,
     parameter_key: String,
 ) -> Result<MediaAsset, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media
             .import_document_encoding(&document_id, entry_index, &model_key, &parameter_key)
             .map_err(persistence_error)
@@ -408,7 +415,7 @@ pub(crate) async fn import_embedded_vibes(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<Vec<MediaAsset>, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         media.import_embedded_vibes(&id).map_err(persistence_error)
     })
     .await
@@ -452,7 +459,7 @@ pub(crate) async fn read_media_thumbnail(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<tauri::ipc::Response, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
         Ok(tauri::ipc::Response::new(
             media.thumbnail(&id).map_err(persistence_error)?.bytes,
         ))

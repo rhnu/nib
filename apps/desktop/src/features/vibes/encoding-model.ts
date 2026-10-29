@@ -1,5 +1,29 @@
 import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
 import type { ResultSummary } from "../../bindings/generation";
+import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
+
+/** Slot encoding has no editable generation prompt and always submits one encoding request. */
+export function slotEncodingDraft(input: VibeEncodingInput): Draft {
+  return {
+    revision: 0,
+    composition: emptyComposition(),
+    presets: [],
+    settings: emptySettings(),
+    characters: [],
+    inputs: {
+      operation: { kind: "encodeVibe", ...input },
+      requestCount: 1,
+      policy: "normalize",
+      stream: null,
+      references: emptyReferences(),
+    },
+    maskEditor: { activeSourceId: null, sessions: [] },
+    vibeEncoder: null,
+    director: { selectedTool: "lineart", tools: [] },
+    pngTextEditor: { sessions: [] },
+    activePage: "create",
+  };
+}
 
 /** Compare at the IPC's f32 precision, without treating a missing output as reusable. */
 export function isReusableEncoding(result: ResultSummary, input: VibeEncodingInput): boolean {
@@ -23,7 +47,7 @@ export function encodingSubmission(draft: Draft, input: VibeEncodingInput): Draf
   return {
     ...draft,
     vibeEncoder: null,
-    inputs: { ...draft.inputs, operation: { kind: "encodeVibe", ...input } },
+    inputs: { ...draft.inputs, requestCount: 1, operation: { kind: "encodeVibe", ...input } },
   };
 }
 

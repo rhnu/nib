@@ -1,5 +1,37 @@
+@font-face {
+  font-family: "Maple Mono";
+  src: url("../../assets/fonts/MapleMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--line);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+  }
+}
+:is(h1, h2, h3, h4, h5):has(.help-marker) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 [hidden] {
   display: none !important;

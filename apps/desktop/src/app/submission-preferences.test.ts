@@ -5,6 +5,7 @@ import { prepareSubmissionPreferences } from "./submission-preferences";
 
 const initial: ApplicationPreferences = {
   theme: "dark",
+  recentImageLimit: 20,
   execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
 };
 

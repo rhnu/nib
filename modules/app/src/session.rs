@@ -47,6 +47,7 @@ pub enum ActivePage {
     #[default]
     Create,
     Director,
+    Gallery,
     Library,
     Settings,
 }

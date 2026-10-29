@@ -36,6 +36,7 @@ const draft = (): Draft => ({
   presets: [],
   characters: [character],
   inputs: {
+    requestCount: 1,
     operation: { kind: "textToImage" },
     policy: "normalize",
     stream: null,
