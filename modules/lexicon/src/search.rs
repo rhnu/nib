@@ -8,8 +8,9 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, ensure};
-use nib_app::lexicon::{
-    LexiconKind, LexiconMatch, LexiconMatchReason, LexiconQuery, LexiconSearchResult, LexiconTerm,
+use nib_contract::lexicon::{
+    LexiconError, LexiconKind, LexiconMatch, LexiconMatchReason, LexiconQuery, LexiconSearchResult,
+    LexiconTerm,
 };
 use rusqlite::{Connection, OpenFlags, params};
 
@@ -108,11 +109,6 @@ impl Snapshot {
     pub(crate) fn semantic_available(&self) -> bool { self.index.is_some() }
 
     pub(crate) fn search(&self, query: &LexiconQuery) -> Result<LexiconSearchResult> {
-        ensure!(
-            (1..=100).contains(&query.limit),
-            "vocabulary result limit must be 1–100"
-        );
-        ensure!(query.text.len() <= 2048, "vocabulary query is too long");
         let limit = query.limit as usize;
         let kinds = kind_filter(&query.kinds);
         let mut matches = {
@@ -175,6 +171,19 @@ impl Snapshot {
             semantic_available: self.semantic_available(),
         })
     }
+}
+
+/// Validate before accessing an optional snapshot so invalid queries fail even when uninstalled.
+pub(crate) fn validate_query(query: &LexiconQuery) -> Result<(), LexiconError> {
+    if !(1..=100).contains(&query.limit) {
+        return Err(LexiconError::Invalid(
+            "vocabulary result limit must be 1–100".into(),
+        ));
+    }
+    if query.text.len() > 2048 {
+        return Err(LexiconError::Invalid("vocabulary query is too long".into()));
+    }
+    Ok(())
 }
 
 pub(crate) fn kind_name(kind: LexiconKind) -> &'static str {

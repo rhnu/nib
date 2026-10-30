@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{Result, ensure};
-use nib_app::lexicon::{
+use nib_contract::lexicon::{
     LexiconError, LexiconQuery, LexiconSearch, LexiconSearchResult, LexiconStatus,
 };
 use nib_resources::{PreparedResource, ResourceConsumer, ResourceGeneration};
@@ -15,7 +15,7 @@ use nib_resources::{PreparedResource, ResourceConsumer, ResourceGeneration};
 use crate::{
     encoder::QueryEncoderPool,
     format::{ResourceManifest, verify_file},
-    search::Snapshot,
+    search::{Snapshot, validate_query},
 };
 
 /// Query state has no knowledge of download URLs, progress or catalog operations.
@@ -79,6 +79,7 @@ impl ResourceConsumer for LexiconResources {
 
 impl LexiconSearch for LexiconResources {
     fn search(&self, query: LexiconQuery) -> Result<LexiconSearchResult, LexiconError> {
+        validate_query(&query)?;
         let snapshot = self
             .active
             .read()
@@ -154,6 +155,7 @@ pub fn verify_pack(directory: &Path) -> Result<ResourceManifest> {
 /// # Errors
 /// Returns an error if verification, model initialization or the query fails.
 pub fn query_pack(directory: &Path, query: &LexiconQuery) -> Result<LexiconSearchResult> {
+    validate_query(query)?;
     let manifest = verify_pack(directory)?;
     Snapshot::open(
         directory,
@@ -164,3 +166,6 @@ pub fn query_pack(directory: &Path, query: &LexiconQuery) -> Result<LexiconSearc
     )?
     .search(query)
 }
+
+#[cfg(test)]
+mod tests;

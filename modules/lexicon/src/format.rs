@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context as _, Result, ensure};
-use nib_app::lexicon::LexiconKind;
+use nib_contract::lexicon::LexiconKind;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 

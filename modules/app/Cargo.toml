@@ -6,10 +6,15 @@ rust-version.workspace = true
 publish.workspace = true
 
 [features]
-typegen = ["dep:ts-rs", "nib-prompt/typegen"]
+typegen = ["dep:ts-rs", "nib-prompt/typegen", "nib-contract/typegen"]
+native = ["dep:nib-lexicon", "dep:nib-resources"]
 
 [dependencies]
+anyhow.workspace = true
 async-trait.workspace = true
+nib-contract.workspace = true
+nib-lexicon = { workspace = true, optional = true }
+nib-resources = { workspace = true, optional = true }
 novelai-bridge.workspace = true
 nib-prompt.workspace = true
 futures-util.workspace = true

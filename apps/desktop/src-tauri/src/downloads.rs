@@ -1,25 +1,30 @@
-//! Resource installation IPC accepts catalog identities and component selections only.
+//! Resource IPC adapts frontend arguments to application-managed installation tasks.
 
 #![expect(
     clippy::needless_pass_by_value,
-    reason = "Tauri commands own their arguments"
+    reason = "Tauri owns command arguments and Result::map_err consumes errors"
 )]
-
-use std::sync::Arc;
 
 use nib_app::{
     api::{ApiError, ErrorCode, UserMessage},
-    downloads::DownloadStatus,
+    downloads::{DownloadStatus, ResourceError},
 };
 
 use crate::state::DesktopState;
 
-fn error(error: anyhow::Error) -> ApiError {
-    ApiError {
-        code: ErrorCode::Unavailable,
-        message: UserMessage::External {
-            detail: format!("{error:#}"),
+fn error(error: ResourceError) -> ApiError {
+    let code = match &error {
+        ResourceError::Invalid(_) => ErrorCode::Invalid,
+        ResourceError::NotFound(_) => ErrorCode::NotFound,
+        ResourceError::Conflict(_) => ErrorCode::Conflict,
+        ResourceError::Failure(_) => {
+            tracing::error!(detail = %nib_app::api::error_detail(&error), "resource operation failed");
+            ErrorCode::Unavailable
         },
+    };
+    ApiError {
+        code,
+        message: UserMessage::external(nib_app::api::error_detail(&error)),
         validation_fields: Vec::new(),
     }
 }
@@ -28,15 +33,14 @@ fn error(error: anyhow::Error) -> ApiError {
 pub(crate) fn get_download_status(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<DownloadStatus, ApiError> {
-    state.downloads.status().map_err(error)
+    state.app.downloads().status().map_err(error)
 }
 
 #[tauri::command]
 pub(crate) async fn refresh_download_catalog(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<DownloadStatus, ApiError> {
-    let downloads = Arc::clone(&state.downloads);
-    crate::generation::blocking(move || downloads.refresh_catalog().map_err(error)).await
+    state.app.downloads().refresh_catalog().await.map_err(error)
 }
 
 #[tauri::command]
@@ -45,21 +49,11 @@ pub(crate) fn install_download(
     resource_id: String,
     components: Vec<String>,
 ) -> Result<(), ApiError> {
-    let resources = Arc::clone(&state.downloads);
-    resources
-        .begin_install(&resource_id, &components)
-        .map_err(error)?;
-    tauri::async_runtime::spawn(async move {
-        let worker = Arc::clone(&resources);
-        let worker_id = resource_id.clone();
-        if let Err(error) =
-            tauri::async_runtime::spawn_blocking(move || worker.install_prepared(&worker_id)).await
-        {
-            tracing::error!(resource=resource_id,error=?error,"resource installation worker failed");
-            resources.worker_failed(&resource_id, error.to_string());
-        }
-    });
-    Ok(())
+    state
+        .app
+        .downloads()
+        .install(resource_id, &components)
+        .map_err(error)
 }
 
 #[tauri::command]
@@ -67,7 +61,7 @@ pub(crate) fn cancel_download(
     state: tauri::State<'_, DesktopState>,
     resource_id: String,
 ) -> Result<(), ApiError> {
-    state.downloads.cancel(&resource_id).map_err(error)
+    state.app.downloads().cancel(&resource_id).map_err(error)
 }
 
 #[tauri::command]
@@ -75,6 +69,10 @@ pub(crate) async fn uninstall_download(
     state: tauri::State<'_, DesktopState>,
     resource_id: String,
 ) -> Result<DownloadStatus, ApiError> {
-    let downloads = Arc::clone(&state.downloads);
-    crate::generation::blocking(move || downloads.uninstall(&resource_id).map_err(error)).await
+    state
+        .app
+        .downloads()
+        .uninstall(resource_id)
+        .await
+        .map_err(error)
 }

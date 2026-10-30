@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use tauri::Manager as _;
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
+mod bootstrap;
 mod commands;
 mod credentials;
 mod downloads;
@@ -30,10 +31,7 @@ pub fn run() -> anyhow::Result<()> {
         .setup(|app| {
             let development = tauri::is_dev();
             let base = application_base(app.handle(), development)?;
-            let desktop = state::DesktopState::new(&base, development)?;
-            if let Err(error) = desktop.sdk() {
-                tracing::warn!(error = %error, "cannot initialize account sampling");
-            }
+            let desktop = bootstrap::start(&base, development)?;
             app.manage(desktop);
             Ok(())
         })

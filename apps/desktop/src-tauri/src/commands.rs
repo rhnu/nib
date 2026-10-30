@@ -56,7 +56,7 @@ async fn with_database<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let access = state.read_access().await;
+    let access = state.app.read_access().await;
     run_database(state.inner().clone(), access, action).await
 }
 
@@ -64,7 +64,7 @@ async fn with_database_write<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let access = state.write_access().await.map_err(persistence_error)?;
+    let access = state.app.write_access().await.map_err(persistence_error)?;
     run_database(state.inner().clone(), access, action).await
 }
 
@@ -75,7 +75,7 @@ async fn run_database<T: Send + 'static>(
 ) -> Result<T, ApiError> {
     crate::generation::blocking(move || {
         let _access = access;
-        let database = state.database().map_err(persistence_error)?;
+        let database = state.app.database().map_err(persistence_error)?;
         action(&database)
     })
     .await
@@ -90,7 +90,10 @@ pub(crate) async fn inspect_tokens(
 ) -> Result<prompt::TokenInspection, ApiError> {
     let desktop = state.inner().clone();
     crate::generation::blocking(move || {
-        let sdk = desktop.sdk().map_err(crate::generation::generation_error)?;
+        let sdk = desktop
+            .app
+            .sdk()
+            .map_err(crate::generation::generation_error)?;
         prompt::inspect_tokens(&sdk.tokenizers(), model, &text, framing)
             .map_err(novelai_bridge::BridgeError::from)
             .map_err(nib_app::jobs::JobError::from)

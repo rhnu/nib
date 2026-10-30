@@ -39,7 +39,7 @@ async fn with_media<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let access = state.read_access().await;
+    let access = state.app.read_access().await;
     run_media(state.inner().clone(), access, action).await
 }
 
@@ -47,7 +47,7 @@ async fn with_media_write<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let access = state.write_access().await.map_err(persistence_error)?;
+    let access = state.app.write_access().await.map_err(persistence_error)?;
     run_media(state.inner().clone(), access, action).await
 }
 
@@ -58,7 +58,7 @@ async fn run_media<T: Send + 'static>(
 ) -> Result<T, ApiError> {
     blocking(move || {
         let _access = access;
-        action(state.media().map_err(persistence_error)?)
+        action(state.app.media().map_err(persistence_error)?)
     })
     .await
 }

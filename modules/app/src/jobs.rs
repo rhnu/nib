@@ -620,15 +620,12 @@ impl JobQueue {
 
     /// Runs one sequential worker, rejecting future submissions after fatal storage failure.
     /// # Errors
-    /// Returns fatal backend failures.
+    /// Returns fatal backend failures for the owning task manager to report.
     pub async fn run(self: Arc<Self>) -> Result<(), JobError> {
         if self.worker_started.swap(true, Ordering::AcqRel) {
             return Ok(());
         }
         let result = self.run_inner().await;
-        if let Err(error) = &result {
-            report_failure("queue", error);
-        }
         let _gate = self
             .submission_gate
             .lock()

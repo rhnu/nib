@@ -1,0 +1,17 @@
+[package]
+name = "nib-contract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+typegen = ["dep:ts-rs"]
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

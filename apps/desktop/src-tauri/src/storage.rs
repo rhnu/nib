@@ -5,7 +5,7 @@ use std::{
     io::Write as _,
     path::{Path, PathBuf},
     sync::{
-        Mutex,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
 };
@@ -13,7 +13,7 @@ use std::{
 use nib_app::{
     api::UserMessage,
     persistence::PersistenceError,
-    settings::{GlobalSettingsStore, StorageLocations},
+    settings::{GlobalSettingsStore, StorageBackend, StorageLocations},
 };
 
 const COPY_MARKER: &str = ".nib-copy-source";
@@ -30,7 +30,7 @@ pub(crate) struct StorageManager {
     default_data_directory: PathBuf,
     development: bool,
     restart_required: AtomicBool,
-    pub(crate) settings: GlobalSettingsStore,
+    pub(crate) settings: Arc<GlobalSettingsStore>,
     active: Mutex<Option<ActiveData>>,
     _lock: File,
 }
@@ -42,7 +42,9 @@ impl StorageManager {
             PersistenceError::failure("create the global configuration directory", error)
         })?;
         let lock = lock_directory(&config_directory.join(".nib.lock"))?;
-        let settings = GlobalSettingsStore::open(&config_directory.join("settings.sqlite3"))?;
+        let settings = Arc::new(GlobalSettingsStore::open(
+            &config_directory.join("settings.sqlite3"),
+        )?);
 
         Ok(Self {
             config_directory: fs::canonicalize(&config_directory).map_err(|error| {
@@ -193,6 +195,19 @@ impl StorageManager {
             }
         }
         Ok(target)
+    }
+}
+
+impl StorageBackend for StorageManager {
+    fn data_directory(&self) -> Result<PathBuf, PersistenceError> { Self::data_directory(self) }
+
+    fn locations(&self) -> Result<StorageLocations, PersistenceError> { Self::locations(self) }
+
+    fn migrate_directory(
+        &self,
+        directory: Option<&Path>,
+    ) -> Result<StorageLocations, PersistenceError> {
+        Self::migrate_directory(self, directory)
     }
 }
 

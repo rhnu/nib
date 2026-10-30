@@ -2904,9 +2904,13 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 name = "nib-app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "futures-util",
+ "nib-contract",
+ "nib-lexicon",
  "nib-prompt",
+ "nib-resources",
  "novelai-bridge",
  "rusqlite",
  "serde",
@@ -2918,6 +2922,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nib-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
+ "ts-rs",
+]
+
+[[package]]
 name = "nib-desktop"
 version = "0.1.0"
 dependencies = [
@@ -2925,8 +2938,6 @@ dependencies = [
  "async-trait",
  "keyring-core",
  "nib-app",
- "nib-lexicon",
- "nib-resources",
  "novelai-bridge",
  "secrecy",
  "serde_json",
@@ -2948,7 +2959,7 @@ dependencies = [
  "clap",
  "flate2",
  "half",
- "nib-app",
+ "nib-contract",
  "nib-resources",
  "ort",
  "rusqlite",
@@ -2978,11 +2989,12 @@ name = "nib-resources"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "nib-app",
+ "nib-contract",
  "reqwest",
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "thiserror 2.0.21",
  "tracing",
 ]
 

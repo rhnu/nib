@@ -1,6 +1,7 @@
 //! Resumable content downloads and immutable generations shared by resource consumers.
 
 mod download;
+mod error;
 pub mod format;
 
 use std::{
@@ -16,11 +17,12 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, ensure};
+pub use error::ResourceError;
 use format::{
     CATALOG_URL, Catalog, CatalogResource, ResourceManifest, file_hash, hex_digest, valid_hash,
     verify_file,
 };
-use nib_app::downloads::{
+use nib_contract::downloads::{
     DownloadProgress, DownloadState, DownloadStatus, DownloadableResourceStatus,
     ResourceComponentStatus,
 };
@@ -104,6 +106,13 @@ impl ResourceStore {
     /// Returns an error if the resource directories cannot be created or shared state
     /// cannot be accessed. Invalid cached or installed metadata is reported in status.
     pub fn open(
+        directory: &Path,
+        consumers: BTreeMap<String, Arc<dyn ResourceConsumer>>,
+    ) -> Result<Self, ResourceError> {
+        Self::open_inner(directory, consumers).map_err(ResourceError::Failure)
+    }
+
+    fn open_inner(
         directory: &Path,
         consumers: BTreeMap<String, Arc<dyn ResourceConsumer>>,
     ) -> Result<Self> {
@@ -269,7 +278,7 @@ impl ResourceStore {
     /// # Errors
     /// Returns an error if the catalog or shared state locks cannot be accessed.
     /// Network, parsing and file failures are retained in the returned catalog status.
-    pub fn refresh_catalog(&self) -> Result<DownloadStatus> {
+    pub fn refresh_catalog(&self) -> Result<DownloadStatus, ResourceError> {
         let _refresh = self
             .refreshing
             .lock()
@@ -327,7 +336,7 @@ impl ResourceStore {
     ///
     /// # Errors
     /// Returns an error if the shared resource state lock is poisoned.
-    pub fn status(&self) -> Result<DownloadStatus> {
+    pub fn status(&self) -> Result<DownloadStatus, ResourceError> {
         let state = self.lock()?;
         let mut entries: BTreeMap<_, _> = state
             .catalog
@@ -380,18 +389,21 @@ impl ResourceStore {
     /// # Errors
     /// Returns an error if state cannot be accessed, another task is running, the resource
     /// is absent from the catalog, or its component selection cannot be resolved.
-    pub fn begin_install(&self, id: &str, components: &[String]) -> Result<()> {
+    pub fn begin_install(&self, id: &str, components: &[String]) -> Result<(), ResourceError> {
         let mut state = self.lock()?;
-        ensure!(
-            state.task.is_none(),
-            "a resource installation is already running"
-        );
+        if state.task.is_some() {
+            return Err(ResourceError::Conflict(
+                "a resource installation is already running",
+            ));
+        }
         let (_, manifest) = state
             .catalog
             .iter()
             .find(|(resource, _)| resource.id == id)
-            .context("resource is unavailable in the catalog")?;
-        let components = manifest.selection(components)?;
+            .ok_or_else(|| ResourceError::NotFound(id.to_owned()))?;
+        let components = manifest
+            .selection(components)
+            .map_err(ResourceError::Invalid)?;
         state.task_manifest = state
             .catalog
             .iter()
@@ -416,7 +428,7 @@ impl ResourceStore {
     ///
     /// # Errors
     /// Returns an error if the shared resource state lock is poisoned.
-    pub fn cancel(&self, id: &str) -> Result<()> {
+    pub fn cancel(&self, id: &str) -> Result<(), ResourceError> {
         let mut state = self.lock()?;
         if state.task.as_deref() == Some(id) {
             state.cancelled = true;
@@ -602,16 +614,16 @@ impl ResourceStore {
     /// # Errors
     /// Returns an error if state cannot be accessed, an installation is running,
     /// the resource is not installed, or its removal cannot be persisted atomically.
-    pub fn uninstall(&self, id: &str) -> Result<DownloadStatus> {
+    pub fn uninstall(&self, id: &str) -> Result<DownloadStatus, ResourceError> {
         let mut state = self.lock()?;
-        ensure!(
-            state.task.is_none(),
-            "cancel and wait for the running installation before uninstalling"
-        );
-        ensure!(
-            state.installed.contains_key(id),
-            "resource is not installed"
-        );
+        if state.task.is_some() {
+            return Err(ResourceError::Conflict(
+                "cancel and wait for the running installation before uninstalling",
+            ));
+        }
+        if !state.installed.contains_key(id) {
+            return Err(ResourceError::NotFound(id.to_owned()));
+        }
         let records: Vec<_> = state
             .installed
             .iter()
@@ -620,7 +632,7 @@ impl ResourceStore {
             .collect();
         atomic_write(
             &self.directory.join("active.json"),
-            &serde_json::to_vec(&records)?,
+            &serde_json::to_vec(&records).map_err(anyhow::Error::from)?,
         )?;
         if let Some(consumer) = self.consumers.get(id) {
             consumer.deactivate();
@@ -653,3 +665,6 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     fs::rename(temporary, path)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

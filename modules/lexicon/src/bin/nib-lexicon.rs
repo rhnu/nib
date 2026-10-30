@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use nib_app::lexicon::LexiconQuery;
+use nib_contract::lexicon::LexiconQuery;
 use nib_lexicon::{
     pack::{PackOptions, pack},
     query_pack, verify_pack,

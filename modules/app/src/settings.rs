@@ -2,6 +2,8 @@
 
 use crate::api::UserMessage;
 
+mod accounts;
+pub use accounts::{AccountError, activate_account, delete_account, save_account};
 mod sqlite;
 
 use std::error::Error;
@@ -9,6 +11,27 @@ use std::error::Error;
 use novelai_bridge::SecretString;
 use serde::{Deserialize, Serialize};
 pub use sqlite::{DataDirectories, GlobalSettingsStore};
+
+/// Host-owned directory access and relocation I/O, coordinated by application state.
+pub trait StorageBackend: Send + Sync {
+    /// Locks and resolves the current creation-data directory before opening retained data.
+    /// # Errors
+    /// Returns directory, configuration or exclusive-access failures.
+    fn data_directory(&self) -> Result<std::path::PathBuf, crate::persistence::PersistenceError>;
+
+    /// Returns configured locations without opening the creation database.
+    /// # Errors
+    /// Returns configuration or path-display failures.
+    fn locations(&self) -> Result<StorageLocations, crate::persistence::PersistenceError>;
+
+    /// Copies and verifies retained data after the application has drained all writers.
+    /// # Errors
+    /// Returns relocation failures without publishing an incomplete target.
+    fn migrate_directory(
+        &self,
+        directory: Option<&std::path::Path>,
+    ) -> Result<StorageLocations, crate::persistence::PersistenceError>;
+}
 
 /// The application-wide appearance, synchronized with the desktop host.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

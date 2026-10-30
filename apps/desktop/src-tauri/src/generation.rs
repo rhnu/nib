@@ -4,14 +4,12 @@ use std::sync::Arc;
 
 use nib_app::{
     api::{ApiError, ErrorCode, UserMessage},
-    jobs::{GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobRecord},
+    jobs::{GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobQueue, JobRecord},
     session::Draft,
-    settings::{AccountStatus, CredentialError, CredentialStore as _},
+    settings::{AccountError, AccountStatus, CredentialError},
 };
-use novelai_bridge::SecretString;
-use secrecy::ExposeSecret as _;
 
-use crate::state::{DesktopState, GenerationRuntime};
+use crate::state::DesktopState;
 
 fn credential_error(error: &CredentialError) -> ApiError {
     // Keyring errors can contain rejected secret bytes; never render their Debug or Display.
@@ -95,13 +93,13 @@ pub(crate) async fn blocking<T: Send + 'static>(
 
 pub(crate) async fn with_generation<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
-    action: impl FnOnce(Arc<GenerationRuntime>) -> Result<T, ApiError> + Send + 'static,
+    action: impl FnOnce(Arc<JobQueue>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     let state = state.inner().clone();
-    let guard = state.read_access().await;
+    let guard = state.app.read_access().await;
     blocking(move || {
         let _guard = guard;
-        let runtime = state.generation().map_err(generation_error)?;
+        let runtime = state.app.generation().map_err(generation_error)?;
         action(runtime)
     })
     .await
@@ -109,16 +107,17 @@ pub(crate) async fn with_generation<T: Send + 'static>(
 
 async fn with_generation_write<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
-    action: impl FnOnce(Arc<GenerationRuntime>) -> Result<T, ApiError> + Send + 'static,
+    action: impl FnOnce(Arc<JobQueue>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     let state = state.inner().clone();
     let guard = state
+        .app
         .write_access()
         .await
         .map_err(crate::commands::persistence_error)?;
     blocking(move || {
         let _guard = guard;
-        let runtime = state.generation().map_err(generation_error)?;
+        let runtime = state.app.generation().map_err(generation_error)?;
         action(runtime)
     })
     .await
@@ -131,23 +130,29 @@ pub(crate) async fn get_account_status(
     let desktop = state.inner().clone();
     blocking(move || {
         desktop
-            .storage
-            .settings
+            .app
+            .settings()
             .credentials()
             .map_err(crate::commands::persistence_error)
     })
     .await
 }
 
-fn account_id() -> String {
-    static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |time| time.as_nanos());
-    format!(
-        "credential-{timestamp:x}-{:x}",
-        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    )
+fn account_error(error: AccountError) -> ApiError {
+    match error {
+        AccountError::Persistence(error) => crate::commands::persistence_error(error),
+        AccountError::Credential(error) => credential_error(&error),
+        AccountError::Invalid(message) => ApiError {
+            code: ErrorCode::Invalid,
+            message,
+            validation_fields: Vec::new(),
+        },
+        AccountError::PendingJobs => ApiError {
+            code: ErrorCode::Conflict,
+            message: UserMessage::AccountHasPendingJobs,
+            validation_fields: Vec::new(),
+        },
+    }
 }
 
 #[tauri::command]
@@ -158,59 +163,23 @@ pub(crate) async fn save_account_key(
     key: Option<String>,
 ) -> Result<AccountStatus, ApiError> {
     let access = state
+        .app
         .credential_change_access()
         .await
         .map_err(crate::commands::persistence_error)?;
     let desktop = state.inner().clone();
     blocking(move || {
         let _access = access;
-        let name = name.trim();
-        if name.is_empty() {
-            return Err(generation_error(JobError::Invalid(
-                UserMessage::AccountNameRequired,
-            )));
-        }
-        let new_profile = id.is_none();
-        let id = id.unwrap_or_else(account_id);
-        let secret = key.map(SecretString::from);
-        let secret = secret
-            .as_ref()
-            .map(|value| value.expose_secret().trim())
-            .filter(|value| !value.is_empty())
-            .map(|value| SecretString::from(value.to_owned()));
-        if new_profile && secret.is_none() {
-            return Err(generation_error(JobError::Invalid(
-                UserMessage::ApiKeyRequired,
-            )));
-        }
-        let secret_id = secret.as_ref().map(|_| account_id());
-        if let (Some(secret), Some(secret_id)) = (secret, secret_id.as_deref()) {
-            nib_app::settings::validate_api_key(&secret)
-                .map_err(|error| credential_error(&error))?;
-            desktop
-                .credentials
-                .save(secret_id, secret)
-                .map_err(|error| credential_error(&error))?;
-        }
-        if let Err(error) =
-            desktop
-                .storage
-                .settings
-                .save_credential(&id, name, secret_id.as_deref())
-        {
-            if let Some(secret_id) = secret_id
-                && desktop.credentials.delete(&secret_id).is_err()
-            {
-                tracing::warn!("cannot remove unpublished credential version");
-            }
-            return Err(crate::commands::persistence_error(error));
-        }
-        desktop.invalidate_sdk().map_err(generation_error)?;
-        desktop
-            .storage
-            .settings
-            .credentials()
-            .map_err(crate::commands::persistence_error)
+        let status = nib_app::settings::save_account(
+            desktop.app.settings(),
+            desktop.app.credentials(),
+            id,
+            &name,
+            key.as_deref(),
+        )
+        .map_err(account_error)?;
+        desktop.app.invalidate_sdk().map_err(generation_error)?;
+        Ok(status)
     })
     .await
 }
@@ -221,23 +190,17 @@ pub(crate) async fn activate_account(
     id: String,
 ) -> Result<AccountStatus, ApiError> {
     let access = state
+        .app
         .credential_change_access()
         .await
         .map_err(crate::commands::persistence_error)?;
     let desktop = state.inner().clone();
     blocking(move || {
         let _access = access;
-        desktop
-            .storage
-            .settings
-            .activate_credential(&id)
-            .map_err(crate::commands::persistence_error)?;
-        desktop.invalidate_sdk().map_err(generation_error)?;
-        desktop
-            .storage
-            .settings
-            .credentials()
-            .map_err(crate::commands::persistence_error)
+        let status = nib_app::settings::activate_account(desktop.app.settings(), &id)
+            .map_err(account_error)?;
+        desktop.app.invalidate_sdk().map_err(generation_error)?;
+        Ok(status)
     })
     .await
 }
@@ -248,50 +211,26 @@ pub(crate) async fn delete_account_key(
     id: String,
 ) -> Result<AccountStatus, ApiError> {
     let access = state
+        .app
         .credential_change_access()
         .await
         .map_err(crate::commands::persistence_error)?;
     let desktop = state.inner().clone();
     blocking(move || {
         let _access = access;
-        let versions = desktop
-            .storage
-            .settings
-            .credential_versions(&id)
-            .map_err(crate::commands::persistence_error)?;
         let database = desktop
+            .app
             .database()
             .map_err(crate::commands::persistence_error)?;
-        for version in &versions {
-            if !database
-                .unfinished_credential_jobs(version)
-                .map_err(crate::commands::persistence_error)?
-                .is_empty()
-            {
-                return Err(ApiError {
-                    code: ErrorCode::Conflict,
-                    message: UserMessage::AccountHasPendingJobs,
-                    validation_fields: Vec::new(),
-                });
-            }
-        }
-        for version in versions {
-            desktop
-                .credentials
-                .delete(&version)
-                .map_err(|error| credential_error(&error))?;
-        }
-        desktop
-            .storage
-            .settings
-            .delete_credential(&id)
-            .map_err(crate::commands::persistence_error)?;
-        desktop.invalidate_sdk().map_err(generation_error)?;
-        desktop
-            .storage
-            .settings
-            .credentials()
-            .map_err(crate::commands::persistence_error)
+        let status = nib_app::settings::delete_account(
+            desktop.app.settings(),
+            desktop.app.credentials(),
+            database.as_ref(),
+            &id,
+        )
+        .map_err(account_error)?;
+        desktop.app.invalidate_sdk().map_err(generation_error)?;
+        Ok(status)
     })
     .await
 }
@@ -302,7 +241,7 @@ pub(crate) async fn quote_generation(
     draft: Draft,
 ) -> Result<GenerationQuote, ApiError> {
     with_generation(state, move |runtime| {
-        runtime.queue.quote(&draft).map_err(generation_error)
+        runtime.quote(&draft).map_err(generation_error)
     })
     .await
 }
@@ -313,7 +252,7 @@ pub(crate) async fn submit_generation(
     draft: Draft,
 ) -> Result<GenerationBatch, ApiError> {
     with_generation_write(state, move |runtime| {
-        runtime.queue.submit(&draft).map_err(generation_error)
+        runtime.submit(&draft).map_err(generation_error)
     })
     .await
 }
@@ -326,7 +265,6 @@ pub(crate) async fn ensure_vibe_encoding(
 ) -> Result<nib_app::jobs::VibeEncodingOutcome, ApiError> {
     with_generation_write(state, move |runtime| {
         runtime
-            .queue
             .ensure_vibe_encoding(input, policy)
             .map_err(generation_error)
     })
@@ -339,7 +277,7 @@ pub(crate) async fn list_jobs(
     query: JobQuery,
 ) -> Result<JobPage, ApiError> {
     with_generation(state, move |runtime| {
-        runtime.queue.list(&query).map_err(generation_error)
+        runtime.list(&query).map_err(generation_error)
     })
     .await
 }
@@ -350,7 +288,7 @@ pub(crate) async fn get_job(
     id: String,
 ) -> Result<JobRecord, ApiError> {
     with_generation(state, move |runtime| {
-        runtime.queue.get(&id).map_err(generation_error)
+        runtime.get(&id).map_err(generation_error)
     })
     .await
 }
@@ -361,7 +299,7 @@ pub(crate) async fn cancel_job(
     id: String,
 ) -> Result<JobRecord, ApiError> {
     with_generation_write(state, move |runtime| {
-        runtime.queue.cancel(&id).map_err(generation_error)
+        runtime.cancel(&id).map_err(generation_error)
     })
     .await
 }
@@ -372,7 +310,7 @@ pub(crate) async fn retry_job(
     id: String,
 ) -> Result<JobRecord, ApiError> {
     with_generation_write(state, move |runtime| {
-        runtime.queue.retry(&id).map_err(generation_error)
+        runtime.retry(&id).map_err(generation_error)
     })
     .await
 }
@@ -384,6 +322,7 @@ pub(crate) async fn get_account_summary(
     let desktop = state.inner().clone();
     blocking(move || {
         desktop
+            .app
             .sdk()
             .map_err(generation_error)?
             .account()
@@ -396,7 +335,7 @@ pub(crate) async fn get_account_summary(
 pub(crate) async fn refresh_account_summary(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<nib_app::settings::AccountSnapshot, ApiError> {
-    let sdk = state.sdk().map_err(generation_error)?;
+    let sdk = state.app.sdk().map_err(generation_error)?;
     sdk.refresh_account(true).await;
     sdk.account().map_err(generation_error)
 }
@@ -421,7 +360,7 @@ pub(crate) async fn subscribe_job_feedback(
             return Err(error);
         },
     };
-    let mut feedback = runtime.queue.subscribe();
+    let mut feedback = runtime.subscribe();
     let worker = tauri::async_runtime::spawn(async move {
         loop {
             match feedback.recv().await {

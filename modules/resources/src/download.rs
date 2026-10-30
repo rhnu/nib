@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, ensure};
-use nib_app::downloads::DownloadState;
+use nib_contract::downloads::DownloadState;
 use reqwest::{blocking::Client, header};
 
 use crate::{
