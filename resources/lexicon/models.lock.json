@@ -1,0 +1,69 @@
+{
+  "repository": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX",
+  "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+  "license": "Apache-2.0",
+  "files": {
+    "query": [
+      {
+        "path": "onnx/model_q4.onnx",
+        "name": "model_q4.onnx",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_q4.onnx",
+        "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9",
+        "bytes": 490742
+      },
+      {
+        "path": "onnx/model_q4.onnx_data",
+        "name": "model_q4.onnx_data",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_q4.onnx_data",
+        "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49",
+        "bytes": 174028800
+      },
+      {
+        "path": "tokenizer.json",
+        "name": "tokenizer.json",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/tokenizer.json",
+        "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+        "bytes": 32170510
+      },
+      {
+        "path": "LICENSE",
+        "name": "LICENSE",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        "localFile": "embeddinggemma-2-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      }
+    ],
+    "document": [
+      {
+        "path": "onnx/model_quantized.onnx",
+        "name": "model_quantized.onnx",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_quantized.onnx",
+        "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953",
+        "bytes": 495165
+      },
+      {
+        "path": "onnx/model_quantized.onnx_data",
+        "name": "model_quantized.onnx_data",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_quantized.onnx_data",
+        "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b",
+        "bytes": 313724928
+      },
+      {
+        "path": "tokenizer.json",
+        "name": "tokenizer.json",
+        "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/tokenizer.json",
+        "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+        "bytes": 32170510
+      },
+      {
+        "path": "LICENSE",
+        "name": "LICENSE",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        "localFile": "embeddinggemma-2-LICENSE.txt",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      }
+    ]
+  }
+}

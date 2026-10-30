@@ -15,6 +15,7 @@ wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
 [dependencies]
 novelai-bridge-prompt.workspace = true
 serde.workspace = true
+thiserror.workspace = true
 ts-rs = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 serde-wasm-bindgen = { workspace = true, optional = true }

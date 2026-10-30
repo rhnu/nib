@@ -42,6 +42,7 @@ class ControlledWorker {
     const document: PromptDocument = {
       text: request.text,
       comments: [],
+      completionRanges: [],
       sourceMap: [],
       sourceDiagnostics: [],
       analysis: { tokens: [], spans: [], diagnostics: [] },

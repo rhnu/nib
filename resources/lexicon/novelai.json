@@ -1,0 +1,20 @@
+{
+  "source": {
+    "name": "NovelAI renamed tags",
+    "url": "https://docs.novelai.net/en/image/tags/#renamed-tags",
+    "retrievedAt": "2026-10-30",
+    "license": "NOASSERTION",
+    "notice": "Small manually transcribed tag-name mapping from NovelAI's Renamed Tags documentation, retrieved 2026-10-30. No license for the documentation is asserted."
+  },
+  "overrides": {
+    "v": "peace sign",
+    "double_v": "double peace",
+    "|_|": "bar eyes",
+    "\\||/": "open \\m/",
+    ":|": "neutral face",
+    ";|": "neutral face",
+    "<|>_<|>": "neco-arc eyes",
+    "eyepatch_bikini": "square bikini",
+    "tachi-e": "character image"
+  }
+}

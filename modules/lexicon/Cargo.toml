@@ -1,0 +1,26 @@
+[package]
+name = "nib-lexicon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+flate2.workspace = true
+half.workspace = true
+nib-app.workspace = true
+ort.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokenizers.workspace = true
+tracing.workspace = true
+wide.workspace = true
+
+[lints]
+workspace = true

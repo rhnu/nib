@@ -38,10 +38,11 @@ pub(crate) struct DesktopState {
     generation: Arc<Mutex<Option<Arc<GenerationRuntime>>>>,
     feedback: Arc<Mutex<HashMap<String, FeedbackSubscription>>>,
     pub(crate) credentials: Arc<NativeCredentials>,
+    pub(crate) lexicon: Arc<nib_lexicon::LexiconResources>,
 }
 
 impl DesktopState {
-    pub(crate) fn new(base: &Path, development: bool) -> Result<Self, PersistenceError> {
+    pub(crate) fn new(base: &Path, development: bool) -> anyhow::Result<Self> {
         let storage = Arc::new(StorageManager::open(base, development)?);
         Ok(Self {
             storage: Arc::clone(&storage),
@@ -53,6 +54,9 @@ impl DesktopState {
             generation: Arc::new(Mutex::new(None)),
             feedback: Arc::new(Mutex::new(HashMap::new())),
             credentials: Arc::new(NativeCredentials::new(development, storage)),
+            lexicon: Arc::new(nib_lexicon::LexiconResources::open(
+                &base.join("resources"),
+            )?),
         })
     }
 

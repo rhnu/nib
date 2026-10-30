@@ -7,6 +7,7 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 mod commands;
 mod credentials;
 mod generation;
+mod lexicon;
 mod media;
 mod sdk;
 mod settings;
@@ -36,6 +37,10 @@ pub fn run() -> anyhow::Result<()> {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            lexicon::search_lexicon,
+            lexicon::get_lexicon_status,
+            lexicon::install_lexicon,
+            lexicon::cancel_lexicon_install,
             settings::get_application_settings,
             settings::save_application_preferences,
             settings::set_data_directory,

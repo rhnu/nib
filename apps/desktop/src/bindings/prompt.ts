@@ -34,4 +34,10 @@ export type SourceDiagnosticCode = "unclosedBlockComment" | "ambiguousCommentCon
 
 export type SourceDiagnostic = { from: number, to: number, code: SourceDiagnosticCode, message: string, };
 
-export type PromptDocument = { text: string, sourceMap: Array<SourceSegment>, comments: Array<TextRange>, sourceDiagnostics: Array<SourceDiagnostic>, analysis: PromptAnalysis, valid: boolean, };
+export type PromptDocument = { text: string, sourceMap: Array<SourceSegment>, comments: Array<TextRange>, sourceDiagnostics: Array<SourceDiagnostic>, analysis: PromptAnalysis,
+/**
+ * Editable tag spans derived from the SDK's plain-text tokens, in source UTF-16 coordinates.
+ */
+completionRanges: Array<TextRange>, valid: boolean, };
+
+export type LexiconFormatTerm = { name: string, weight: number | null, };

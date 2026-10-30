@@ -4,6 +4,10 @@
   "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
+    "allow-search-lexicon",
+    "allow-get-lexicon-status",
+    "allow-install-lexicon",
+    "allow-cancel-lexicon-install",
     "dialog:allow-open",
     "opener:allow-reveal-item-in-dir",
     "allow-get-application-settings",

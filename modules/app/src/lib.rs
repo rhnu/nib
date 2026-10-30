@@ -2,6 +2,7 @@
 
 pub mod api;
 pub mod jobs;
+pub mod lexicon;
 pub mod library;
 pub mod media;
 pub mod persistence;

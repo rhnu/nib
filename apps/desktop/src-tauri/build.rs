@@ -3,6 +3,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Source: https://github.com/tauri-apps/create-tauri-app/tree/dev/templates/_base_/src-tauri/icons
     let attributes =
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "search_lexicon",
+            "get_lexicon_status",
+            "install_lexicon",
+            "cancel_lexicon_install",
             "get_application_settings",
             "save_application_preferences",
             "set_data_directory",

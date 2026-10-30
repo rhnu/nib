@@ -1,6 +1,9 @@
 //! Shared nib source comments and source locations around the SDK's native prompt analysis.
 
+mod completion;
+mod format;
 mod source;
+pub use format::{LexiconFormatError, LexiconFormatTerm, format_lexicon_terms};
 pub use novelai_bridge_prompt::*;
 use serde::{Deserialize, Serialize};
 pub use source::{CompiledPrompt, SourceSegment, compile, compile_fragments, native_to_source};
@@ -52,6 +55,8 @@ pub struct PromptDocument {
     pub comments: Vec<TextRange>,
     pub source_diagnostics: Vec<SourceDiagnostic>,
     pub analysis: PromptAnalysis,
+    /// Editable tag spans derived from the SDK's plain-text tokens, in source UTF-16 coordinates.
+    pub completion_ranges: Vec<TextRange>,
     pub valid: bool,
 }
 
@@ -60,6 +65,7 @@ impl PromptDocument {
     #[must_use]
     pub fn from_compiled(compiled: CompiledPrompt, profile: PromptSyntaxProfile) -> Self {
         let analysis = compiled.map_analysis(analyze_prompt(&compiled.text, profile));
+        let completion_ranges = completion::ranges(&analysis);
         Self {
             valid: compiled.diagnostics.is_empty(),
             text: compiled.text,
@@ -67,6 +73,7 @@ impl PromptDocument {
             comments: compiled.comments,
             source_diagnostics: compiled.diagnostics,
             analysis,
+            completion_ranges,
         }
     }
 }
@@ -85,6 +92,16 @@ pub fn analyze(text: &str, profile: PromptSyntaxProfile, context: PromptContext)
 mod wasm {
     use serde::Serialize as _;
     use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen(js_name = formatLexiconTerms)]
+    pub fn format_lexicon_terms_wasm(terms: JsValue, profile: JsValue) -> Result<String, JsValue> {
+        let terms: Vec<super::LexiconFormatTerm> = serde_wasm_bindgen::from_value(terms)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        let profile = serde_wasm_bindgen::from_value(profile)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        super::format_lexicon_terms(&terms, profile)
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
 
     /// The browser calls the same Rust analysis used by native composition.
     #[wasm_bindgen(js_name = analyze)]
