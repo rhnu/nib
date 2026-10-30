@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { i18n } from "@/shared/i18n";
 import type { PreciseReferenceInput } from "@/bindings/workbench";
 import {
   applyPreciseReferenceOverride,
@@ -18,6 +19,11 @@ const reference = (id: string): PreciseReferenceInput => ({
   fidelity: 0.8,
   informationExtracted: 0.6,
 });
+
+// Presentation assertions select their language independently of the runner's locale.
+const previousLanguage = i18n.language;
+beforeAll(() => i18n.changeLanguage("zh-CN"));
+afterAll(() => i18n.changeLanguage(previousLanguage));
 
 describe("precise reference editing", () => {
   it("hides unsupported empty sections while retaining inputs and capability loading", () => {

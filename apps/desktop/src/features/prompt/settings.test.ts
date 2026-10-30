@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { i18n } from "@/shared/i18n";
 import { diagnosticSetting, settingsWithDefaults, settingValue } from "./settings";
 import { emptySettings } from "./model";
 import type { ResolvedSettings } from "@/bindings/workbench";
+
+// Presentation assertions select their language independently of the runner's locale.
+const previousLanguage = i18n.language;
+beforeAll(() => i18n.changeLanguage("zh-CN"));
+afterAll(() => i18n.changeLanguage(previousLanguage));
 
 describe("setting diagnostics", () => {
   it("maps SDK paths and guidance aliases to the visible controls", () => {
