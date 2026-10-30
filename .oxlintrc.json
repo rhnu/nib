@@ -7,6 +7,64 @@
     "unicorn/filename-case": ["error", { "case": "kebabCase" }],
     "unicorn/no-new-array": "off"
   },
+  "overrides": [
+    {
+      "files": ["apps/desktop/src/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\.{1,2}(?:/|$)",
+                "message": "Cross-module imports must use the @/ alias."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/src/app/*.{ts,tsx}",
+        "apps/desktop/src/features/*/*.{ts,tsx}",
+        "apps/desktop/src/shared/*/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:\\./)*\\.\\.(?:/|$)",
+                "message": "Cross-module imports must use the @/ alias."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/desktop/src/app/*/*.{ts,tsx}",
+        "apps/desktop/src/features/*/*/*.{ts,tsx}",
+        "apps/desktop/src/shared/*/*/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:\\./)*\\.\\./(?:\\./)*\\.\\.(?:/|$)",
+                "message": "Cross-module imports must use the @/ alias."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",
