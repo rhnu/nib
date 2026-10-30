@@ -6,6 +6,7 @@ import {
   patchPreciseReference,
   patchPreciseReferenceOverride,
   preciseReferenceMessages,
+  showPreciseReferences,
 } from "./model";
 
 const reference = (id: string): PreciseReferenceInput => ({
@@ -19,6 +20,12 @@ const reference = (id: string): PreciseReferenceInput => ({
 });
 
 describe("precise reference editing", () => {
+  it("hides unsupported empty sections while retaining inputs and capability loading", () => {
+    expect(showPreciseReferences({ canAddPreciseReference: false }, 0)).toBe(false);
+    expect(showPreciseReferences({ canAddPreciseReference: false }, 1)).toBe(true);
+    expect(showPreciseReferences({ canAddPreciseReference: true }, 0)).toBe(true);
+    expect(showPreciseReferences(null, 0)).toBe(true);
+  });
   it("does not report unused groups as ineffective and shows SDK conflicts", () => {
     expect(
       preciseReferenceMessages({
@@ -33,7 +40,7 @@ describe("precise reference editing", () => {
         preciseReference: { available: true, reason: "available" },
         vibeReference: { available: false, reason: "conflictWithPreciseReference" },
       }),
-    ).toEqual({ precise: null, vibe: "Vibe 不生效：与启用的精确参考冲突" });
+    ).toEqual({ precise: null, vibe: "氛围转移不生效：与启用的精确参考冲突" });
   });
 
   it("reports unsupported models even before the first reference is requested", () => {

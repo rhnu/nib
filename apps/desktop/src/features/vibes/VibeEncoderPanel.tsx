@@ -66,7 +66,7 @@ function EncoderOutput({
             })
           }
         >
-          导出 Vibe 文件
+          导出氛围转移文件
         </Button>
       </div>
       {action.error && <Notice>{action.error}</Notice>}

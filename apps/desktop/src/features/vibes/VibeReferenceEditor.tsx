@@ -5,7 +5,7 @@ import { FormField, HelpMarker, IconButton } from "../../shared/ui";
 import { preciseReferenceMessages } from "../references/model";
 import { VibeReferenceRow } from "./VibeReferenceRow";
 import { VibeMaterialDialog } from "./VibeMaterialDialog";
-import { referenceMode, type VibeIssues } from "./model";
+import { referenceMode, showVibeReferences, type VibeIssues } from "./model";
 import "./vibes.css";
 
 export function VibeNormalize({
@@ -23,7 +23,7 @@ export function VibeNormalize({
       className="vibe-normalize"
       label="强度归一化"
       htmlFor={id}
-      help={<HelpMarker label="归一化说明">对整个 Vibe 集合的编码强度进行归一化。</HelpMarker>}
+      help={<HelpMarker label="归一化说明">对整个氛围转移集合的编码强度进行归一化。</HelpMarker>}
     >
       <select
         id={id}
@@ -51,7 +51,7 @@ export interface VibeReferenceEditorProps {
   issues?: VibeIssues;
 }
 export function VibeReferenceEditor({ contextKey, ...props }: VibeReferenceEditorProps) {
-  return <Editor key={contextKey} {...props} />;
+  return showVibeReferences(props.capabilities) ? <Editor key={contextKey} {...props} /> : null;
 }
 function Editor({
   value,
@@ -80,11 +80,17 @@ function Editor({
   };
   const message = capabilities ? preciseReferenceMessages(capabilities).vibe : null;
   return (
-    <section className="vibe-editor" aria-label="Vibe 参考">
+    <section className="vibe-editor" aria-label="氛围转移参考">
       <header className="vibe-heading">
-        <h3>Vibe{value.length ? ` · ${value.length}` : ""}</h3>
+        <h3>
+          氛围转移{value.length ? ` · ${value.length}` : ""}
+          <HelpMarker label="氛围转移说明">
+            Vibe Transfer
+            使用原图或编码材料影响生成结果的氛围与风格，材料类型和可用性由当前模型决定。
+          </HelpMarker>
+        </h3>
         <span className="spacer" />
-        <IconButton label="打开 Vibe 材料" onClick={() => setMaterials(true)}>
+        <IconButton label="打开氛围转移材料" onClick={() => setMaterials(true)}>
           <Plus size={14} />
         </IconButton>
       </header>
@@ -116,21 +122,21 @@ function Editor({
           actions={
             <>
               <IconButton
-                label={`上移 Vibe ${index + 1}`}
+                label={`上移氛围转移 ${index + 1}`}
                 disabled={index === 0}
                 onClick={() => move(index, -1)}
               >
                 <ArrowUp size={13} />
               </IconButton>
               <IconButton
-                label={`下移 Vibe ${index + 1}`}
+                label={`下移氛围转移 ${index + 1}`}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, 1)}
               >
                 <ArrowDown size={13} />
               </IconButton>
               <IconButton
-                label={`移除 Vibe ${index + 1}`}
+                label={`移除氛围转移 ${index + 1}`}
                 onClick={() =>
                   update(latest.current.value.filter((item) => item.id !== reference.id))
                 }

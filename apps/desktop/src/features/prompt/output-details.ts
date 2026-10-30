@@ -60,7 +60,7 @@ export function resolutionIssueDetails(
         : instance.binding.references.vibes.some((reference) => reference.id === issue.nodeId);
     if (!target && vibe) {
       composition = undefined;
-      labels.push("Vibe");
+      labels.push("氛围转移");
       target = `vibe:${JSON.stringify({ id: issue.nodeId, presetInstanceId: issue.presetInstanceId })}`;
     }
   }

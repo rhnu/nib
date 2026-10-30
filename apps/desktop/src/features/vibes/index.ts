@@ -3,3 +3,4 @@ export { VibeOutputOverrides, type VibeOutputOverridesProps } from "./VibeOutput
 export { VibeMaterialDialog, type VibeMaterialDialogProps } from "./VibeMaterialDialog";
 export { ResolvedVibes } from "./ResolvedVibes";
 export type { VibeIssues } from "./model";
+export { showVibeReferences } from "./model";

@@ -119,7 +119,7 @@ function Materials({
       } else if (operation === "read") {
         const value = await mediaApi.importPngVibeDocument(asset.id);
         if (!active()) return;
-        if (!value) throw new Error("PNG 中没有完整 Vibe 文档。");
+        if (!value) throw new Error("PNG 中没有完整氛围转移文档。");
         retain(value);
       } else if (operation === "document") {
         const value = await mediaApi.createImageVibeDocument(asset.id);
@@ -161,7 +161,7 @@ function Materials({
   return (
     <Modal
       open
-      title="Vibe 材料"
+      title="氛围转移材料"
       onClose={() => {
         if (!action.busy) onClose();
       }}
@@ -182,7 +182,7 @@ function Materials({
             onChoose={(chosen) => void file(chosen, "encoded")}
           />
           <ActionsMenu
-            label="Vibe 文件操作"
+            label="氛围转移文件操作"
             items={[
               {
                 label: "从原图创建文档",

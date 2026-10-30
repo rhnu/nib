@@ -7,7 +7,7 @@ import { IconButton, Notice } from "../../shared/ui";
 import { ImagePickerDialog } from "../media";
 import { moveItem } from "../prompt/model";
 import { referenceApi } from "./api";
-import { patchPreciseReference, type PreciseReferenceIssues } from "./model";
+import { patchPreciseReference, showPreciseReferences, type PreciseReferenceIssues } from "./model";
 import { PreciseReferenceAvailability, PreciseReferenceRow } from "./PreciseReferenceRow";
 import "./references.css";
 
@@ -76,7 +76,7 @@ function EditorContent({
     }
   }
 
-  if (capabilities && !capabilities.canAddPreciseReference && !value.length) return null;
+  if (!showPreciseReferences(capabilities, value.length)) return null;
 
   return (
     <section className="precise-reference-editor" aria-label={title} aria-busy={busy}>

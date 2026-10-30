@@ -33,7 +33,7 @@ export function operationLabel(operation: CreationOperation): string {
   if (operation.kind === "upscale") return "独立放大";
   if (operation.kind === "textToImage") return "文生图";
   if (operation.kind === "inpainting") return "局部重绘";
-  if (operation.kind === "encodeVibe") return "Vibe 编码";
+  if (operation.kind === "encodeVibe") return "氛围转移编码";
   return "导演工具";
 }
 

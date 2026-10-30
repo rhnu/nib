@@ -1,11 +1,30 @@
-import type { VibeReferenceInput, VibeReferenceOverride } from "../../bindings/workbench";
+import type {
+  ModelCapabilities,
+  VibeReferenceInput,
+  VibeReferenceOverride,
+} from "../../bindings/workbench";
 import type { MediaAsset } from "../../bindings/media";
 import { imageName } from "../media/model";
+
+/** Hidden reference controls retain their draft values when the model or operation changes. */
+export function showVibeReferences(
+  capabilities: Pick<ModelCapabilities, "canAddVibeReference" | "vibeReference"> | null,
+): boolean {
+  return (
+    capabilities === null ||
+    (capabilities.canAddVibeReference &&
+      capabilities.vibeReference.reason !== "conflictWithPreciseReference")
+  );
+}
 
 export function vibeMaterialName(asset: MediaAsset): string {
   if (asset.source.kind === "import" && asset.source.name) return imageName(asset);
   const kind =
-    asset.kind === "vibeDocument" ? "Vibe 文档" : asset.kind === "image" ? "参考原图" : "Vibe 编码";
+    asset.kind === "vibeDocument"
+      ? "氛围转移文档"
+      : asset.kind === "image"
+        ? "参考原图"
+        : "氛围转移编码";
   return `${kind} · ${new Date(asset.createdAt).toLocaleString()}`;
 }
 

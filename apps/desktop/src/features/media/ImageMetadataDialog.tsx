@@ -60,7 +60,7 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
         />
         <MetadataField label="来源" value={metadata.source} />
         <MetadataField label="软件" value={metadata.software} />
-        <MetadataField label="嵌入 Vibe 条目数" value={metadata.embeddedVibeCount} />
+        <MetadataField label="嵌入氛围转移条目数" value={metadata.embeddedVibeCount} />
       </dl>
       <section className="media-literal-content">
         <h3>图片记录的正面提示词</h3>

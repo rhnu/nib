@@ -1,6 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { applyVibeOverride, patchVibeOverride } from "./model";
+import { applyVibeOverride, patchVibeOverride, showVibeReferences } from "./model";
 import type { VibeReferenceInput } from "../../bindings/workbench";
+
+describe("Vibe Transfer availability", () => {
+  it("shows controls while loading and on supported models without requested materials", () => {
+    expect(showVibeReferences(null)).toBe(true);
+    expect(
+      showVibeReferences({
+        canAddVibeReference: true,
+        vibeReference: { available: false, reason: "notRequested" },
+      }),
+    ).toBe(true);
+  });
+  it("hides unsupported models and operations and conflicts with precise references", () => {
+    for (const reason of ["unsupported", "unsupportedMode"]) {
+      expect(
+        showVibeReferences({
+          canAddVibeReference: false,
+          vibeReference: { available: false, reason },
+        }),
+      ).toBe(false);
+    }
+    expect(
+      showVibeReferences({
+        canAddVibeReference: true,
+        vibeReference: { available: false, reason: "conflictWithPreciseReference" },
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("Vibe instance overrides", () => {
   const original: VibeReferenceInput = {

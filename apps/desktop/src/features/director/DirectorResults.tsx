@@ -180,12 +180,12 @@ export function DirectorResults({
                       action: () => onReference(selected.assetId, "precise"),
                     },
                     {
-                      label: "用作 Vibe 参考",
+                      label: "用作氛围转移参考",
                       disabled: !available || !canUseVibeReference,
                       action: () => onReference(selected.assetId, "vibe"),
                     },
                     {
-                      label: "编码 Vibe",
+                      label: "编码氛围转移",
                       disabled: !available,
                       action: () => onEncodeVibe(selected.assetId),
                     },

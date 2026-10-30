@@ -7,7 +7,7 @@ import "./vibes.css";
 function ImageMaterial({ id }: { id: string }) {
   const media = useMediaAsset(id);
   return media.asset ? (
-    <AssetImage asset={media.asset} alt="Vibe 原图" className="vibe-thumbnail" />
+    <AssetImage asset={media.asset} alt="氛围转移原图" className="vibe-thumbnail" />
   ) : (
     <output>{media.error ?? "正在读取原图…"}</output>
   );
@@ -26,7 +26,7 @@ export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
   if (!references.vibes.length) return null;
   return (
     <section className="resolved-vibes">
-      <h3>Vibe · {references.vibes.length}</h3>
+      <h3>氛围转移 · {references.vibes.length}</h3>
       <p className="vibe-status">
         强度归一化：
         {references.normalizeVibeStrength === null
@@ -40,7 +40,7 @@ export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
         return (
           <article className="vibe-row" key={reference.id}>
             <header>
-              <h4>Vibe {index + 1}</h4>
+              <h4>氛围转移 {index + 1}</h4>
               <span className="tag">{reference.enabled ? "启用" : "停用"}</span>
             </header>
             <dl className="vibe-identity">

@@ -11,6 +11,14 @@ const availabilityReasons: Record<string, string> = {
   unavailable: "当前不可用",
 };
 
+/** Unsupported empty sections disappear; retained inputs and loading capabilities remain visible. */
+export function showPreciseReferences(
+  capabilities: Pick<ModelCapabilities, "canAddPreciseReference"> | null,
+  count: number,
+): boolean {
+  return capabilities === null || capabilities.canAddPreciseReference || count > 0;
+}
+
 /** NotRequested is an empty intent, so it must never appear as a failed input. */
 export function preciseReferenceMessages(
   capabilities: Pick<
@@ -28,7 +36,7 @@ export function preciseReferenceMessages(
           : null,
     vibe:
       !vibe.available && vibe.reason !== "notRequested"
-        ? `Vibe 不生效：${availabilityReasons[vibe.reason] ?? vibe.reason}`
+        ? `氛围转移不生效：${availabilityReasons[vibe.reason] ?? vibe.reason}`
         : null,
   };
 }

@@ -283,7 +283,7 @@ export function Workbench({
           const options = await encodingApi.options();
           const previous = readCurrentDraft().vibeEncoder;
           const model = previous?.model ?? options.models[0];
-          if (!model) throw new Error("当前 SDK 没有可用的 Vibe 编码模型。");
+          if (!model) throw new Error("当前 SDK 没有可用的氛围转移编码模型。");
           const created = await encodingApi.create(assetId, model);
           const current = readCurrentDraft();
           edit({
@@ -660,7 +660,7 @@ export function Workbench({
           <Modal
             open={encoderOpen}
             onClose={() => afterInputs(() => setEncoderOpen(false))}
-            title="编码 Vibe"
+            title="编码氛围转移"
             className="vibe-encoder-modal"
           >
             <VibeEncoderPanel

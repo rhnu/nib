@@ -7,8 +7,8 @@ import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
 import { ImageOperationPanel } from "../inputs/ImageOperationPanel";
 import type { ImageOperationAction } from "../inputs/image-operation";
-import { PreciseReferenceEditor } from "../references";
-import { VibeReferenceEditor } from "../vibes";
+import { PreciseReferenceEditor, showPreciseReferences } from "../references";
+import { VibeReferenceEditor, showVibeReferences } from "../vibes";
 import type { ScopedOutputIssues } from "./output-issues";
 export function ContextRail({
   draft,
@@ -124,27 +124,29 @@ export function ContextRail({
       />
       {draft.inputs.operation.kind !== "upscale" && (
         <>
-          <section className="settings-context reference-context" data-draft-outputs>
-            <div data-setting-field="precise">
-              <PreciseReferenceEditor
-                value={draft.inputs.references.precise}
-                onChange={(precise) => {
-                  const current = readCurrentDraft();
-                  edit({
-                    ...current,
-                    inputs: {
-                      ...current.inputs,
-                      references: { ...current.inputs.references, precise },
-                    },
-                  });
-                }}
-                capabilities={capabilities}
-                contextKey={imageInputVersion}
-                issues={outputIssues.draft.precise}
-              />
-            </div>
-          </section>
-          {capabilities?.vibeReference.reason !== "conflictWithPreciseReference" && (
+          {showPreciseReferences(capabilities, draft.inputs.references.precise.length) && (
+            <section className="settings-context reference-context" data-draft-outputs>
+              <div data-setting-field="precise">
+                <PreciseReferenceEditor
+                  value={draft.inputs.references.precise}
+                  onChange={(precise) => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      inputs: {
+                        ...current.inputs,
+                        references: { ...current.inputs.references, precise },
+                      },
+                    });
+                  }}
+                  capabilities={capabilities}
+                  contextKey={imageInputVersion}
+                  issues={outputIssues.draft.precise}
+                />
+              </div>
+            </section>
+          )}
+          {showVibeReferences(capabilities) && (
             <section className="settings-context reference-context" data-draft-outputs>
               <div data-setting-field="vibes">
                 <VibeReferenceEditor

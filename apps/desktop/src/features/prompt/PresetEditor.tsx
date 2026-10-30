@@ -23,7 +23,7 @@ import {
 import { setTextOverride, staleTextOverrides } from "../characters/model";
 import type { CharacterIssues } from "../characters/model";
 import { PreciseReferenceEditor, PreciseReferenceOutputOverrides } from "../references";
-import { VibeReferenceEditor, VibeOutputOverrides } from "../vibes";
+import { VibeReferenceEditor, VibeOutputOverrides, showVibeReferences } from "../vibes";
 
 export function PresetEditor({
   instance,
@@ -336,7 +336,7 @@ export function PresetEditor({
                 />
               ))}
             {references &&
-              outputCapabilities?.vibeReference.reason !== "conflictWithPreciseReference" &&
+              showVibeReferences(outputCapabilities) &&
               (binding.kind === "linked" ? (
                 <VibeOutputOverrides
                   value={references.vibes}

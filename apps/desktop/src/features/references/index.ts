@@ -4,3 +4,4 @@ export {
   type PreciseReferenceOutputOverridesProps,
 } from "./PreciseReferenceOutputOverrides";
 export type { PreciseReferenceIssues } from "./model";
+export { showPreciseReferences } from "./model";

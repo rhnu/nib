@@ -55,7 +55,7 @@ export function VibeReferenceRow({
   const [picking, setPicking] = useState(false);
   const [details, setDetails] = useState(false);
   const id = useId();
-  const label = `Vibe ${index + 1}`;
+  const label = `氛围转移 ${index + 1}`;
   const reset = (field: keyof VibePatch) =>
     override?.[field] != null && onReset ? (
       <IconButton
