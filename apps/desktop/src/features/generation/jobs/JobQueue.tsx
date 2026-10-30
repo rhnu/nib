@@ -61,6 +61,7 @@ export function JobQueue({
           onClose?.();
           setLocalOpen(false);
         }}
+        showClose={false}
         title="任务队列"
         className="queue-drawer"
       >

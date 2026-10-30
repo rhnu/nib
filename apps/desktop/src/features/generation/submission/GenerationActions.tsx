@@ -8,7 +8,6 @@ import { Button } from "../../../shared/ui";
 import { errorMessage } from "../../../shared/host/error";
 import { hasPendingWork } from "../../../shared/host/pending-work";
 import { AccountDialog } from "../account/AccountDialog";
-import { QuoteHelp } from "./QuoteSummary";
 import { useGenerationQuote, validationFields } from "./use-generation-quote";
 import { generationQuoteKey, isQuoteEligible, isOperationEffective } from "./quote-state";
 import { ParameterDiagnostics } from "./ParameterDiagnostics";
@@ -150,7 +149,6 @@ export function GenerationActions({
             <span className="generation-submit-cost">估算中…</span>
           ) : null}
         </Button>
-        <QuoteHelp />
       </div>
       <AccountSnapshot compact />
       {estimate.quote && !effectiveOperation && (

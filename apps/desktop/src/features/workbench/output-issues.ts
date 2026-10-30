@@ -132,7 +132,7 @@ export function focusOutputField(
           : null;
   if (collection) {
     const group = document.querySelector<HTMLElement>(
-      `[data-draft-outputs] [data-setting-field="${collection}"]`,
+      `[data-draft-outputs][data-setting-field="${collection}"], [data-draft-outputs] [data-setting-field="${collection}"]`,
     );
     if (!group) return false;
     for (let parent = group.parentElement; parent; parent = parent.parentElement)
@@ -156,13 +156,19 @@ export function focusOutputField(
   }
   if (!target) return focusSetting(field);
   const selected = target;
-  const scope = target.presetInstanceId
-    ? document.querySelector(`[data-preset-instance-id="${CSS.escape(target.presetInstanceId)}"]`)
-    : document.querySelector("[data-draft-outputs]");
+  const scopes = document.querySelectorAll(
+    target.presetInstanceId
+      ? `[data-preset-instance-id="${CSS.escape(target.presetInstanceId)}"]`
+      : "[data-draft-outputs]",
+  );
+  const scope = [...scopes].find((candidate) =>
+    candidate.querySelector(`[data-${selected.kind}-id="${CSS.escape(selected.id)}"]`),
+  );
   const row = scope?.querySelector<HTMLElement>(
-    `[data-${target.kind}-id="${CSS.escape(target.id)}"]`,
+    `[data-${selected.kind}-id="${CSS.escape(selected.id)}"]`,
   );
   if (!row) return false;
+  row.querySelector<HTMLElement>('[data-character-expand][aria-expanded="false"]')?.click();
   for (let element: HTMLElement | null = row; element; element = element.parentElement)
     if (element instanceof HTMLDetailsElement) element.open = true;
   const textScope =

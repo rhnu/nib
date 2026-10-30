@@ -48,6 +48,17 @@ function Overrides({
   return (
     <section className="vibe-editor" aria-label="配方 Vibe 覆盖">
       <h3>Vibe · {value.length}</h3>
+      {onNormalizeChange && (
+        <div data-vibe-field="normalizeStrength">
+          <VibeNormalize
+            value={normalizeValue}
+            inherited={
+              normalizeInherited ?? capabilities?.vibeReferenceOptions.normalizeStrengthDefault
+            }
+            onChange={onNormalizeChange}
+          />
+        </div>
+      )}
       {value.map((original, index) => {
         const override = overrides.find((item) => item.id === original.id);
         return (
@@ -84,17 +95,6 @@ function Overrides({
           </IconButton>
         </div>
       ))}
-      {onNormalizeChange && (
-        <div data-vibe-field="normalizeStrength">
-          <VibeNormalize
-            value={normalizeValue}
-            inherited={
-              normalizeInherited ?? capabilities?.vibeReferenceOptions.normalizeStrengthDefault
-            }
-            onChange={onNormalizeChange}
-          />
-        </div>
-      )}
     </section>
   );
 }

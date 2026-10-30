@@ -1,13 +1,12 @@
 import { Plus } from "lucide-react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "../../bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "../../bindings/generation";
-import { Button, HelpMarker, IconButton } from "../../shared/ui";
+import { HelpMarker, IconButton } from "../../shared/ui";
 import { PresetEditor } from "../prompt/PresetEditor";
 import { SettingsEditor } from "../prompt/SettingsEditor";
 import { moveItem } from "../prompt/model";
 import { ImageOperationPanel } from "../inputs/ImageOperationPanel";
 import type { ImageOperationAction } from "../inputs/image-operation";
-import { CharacterListEditor, CharacterPositionPolicy } from "../characters";
 import { PreciseReferenceEditor } from "../references";
 import { VibeReferenceEditor } from "../vibes";
 import type { ScopedOutputIssues } from "./output-issues";
@@ -72,6 +71,7 @@ export function ContextRail({
           {draft.presets.map((instance, index) => (
             <PresetEditor
               key={instance.id}
+              part="content"
               instance={instance}
               resources={resources}
               models={models}
@@ -124,7 +124,7 @@ export function ContextRail({
       />
       {draft.inputs.operation.kind !== "upscale" && (
         <>
-          <section className="settings-context" data-draft-outputs>
+          <section className="settings-context reference-context" data-draft-outputs>
             <div data-setting-field="precise">
               <PreciseReferenceEditor
                 value={draft.inputs.references.precise}
@@ -143,68 +143,40 @@ export function ContextRail({
                 issues={outputIssues.draft.precise}
               />
             </div>
-            <div data-setting-field="vibes">
-              <VibeReferenceEditor
-                value={draft.inputs.references.vibes}
-                normalizeValue={draft.inputs.references.normalizeVibeStrength}
-                onNormalizeChange={(normalizeVibeStrength) => {
-                  const current = readCurrentDraft();
-                  edit({
-                    ...current,
-                    inputs: {
-                      ...current.inputs,
-                      references: { ...current.inputs.references, normalizeVibeStrength },
-                    },
-                  });
-                }}
-                onChange={(vibes) => {
-                  const current = readCurrentDraft();
-                  edit({
-                    ...current,
-                    inputs: {
-                      ...current.inputs,
-                      references: { ...current.inputs.references, vibes },
-                    },
-                  });
-                }}
-                capabilities={capabilities}
-                contextKey={imageInputVersion}
-                issues={outputIssues.draft.vibes}
-              />
-            </div>
-            <div data-setting-field="characters">
-              <CharacterListEditor
-                value={draft.characters}
-                onChange={(characters) => edit({ ...readCurrentDraft(), characters })}
-                resources={resources}
-                capabilities={capabilities}
-                onError={setError}
-                onPosition={(id) => onPosition(id)}
-                issues={outputIssues.draft.characters}
-              />
-            </div>
-            {Boolean(draft.characters.length || resolved?.characters.length) && (
-              <>
-                <CharacterPositionPolicy
-                  value={draft.settings.useCoords}
-                  inherited={estimate?.resolved?.settings.useCoords ?? resolved?.settings.useCoords}
-                  onChange={(useCoords) => {
-                    const current = readCurrentDraft();
-                    edit({ ...current, settings: { ...current.settings, useCoords } });
-                  }}
-                />
-                <div className="button-group">
-                  <Button
-                    className="quiet"
-                    disabled={!capabilities?.characterPositioning}
-                    onClick={() => onPosition()}
-                  >
-                    角色定位
-                  </Button>
-                </div>
-              </>
-            )}
           </section>
+          {capabilities?.vibeReference.reason !== "conflictWithPreciseReference" && (
+            <section className="settings-context reference-context" data-draft-outputs>
+              <div data-setting-field="vibes">
+                <VibeReferenceEditor
+                  value={draft.inputs.references.vibes}
+                  normalizeValue={draft.inputs.references.normalizeVibeStrength}
+                  onNormalizeChange={(normalizeVibeStrength) => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      inputs: {
+                        ...current.inputs,
+                        references: { ...current.inputs.references, normalizeVibeStrength },
+                      },
+                    });
+                  }}
+                  onChange={(vibes) => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      inputs: {
+                        ...current.inputs,
+                        references: { ...current.inputs.references, vibes },
+                      },
+                    });
+                  }}
+                  capabilities={capabilities}
+                  contextKey={imageInputVersion}
+                  issues={outputIssues.draft.vibes}
+                />
+              </div>
+            </section>
+          )}
           <section className="settings-context">
             <header className="section-heading">
               <h2>图像设置</h2>

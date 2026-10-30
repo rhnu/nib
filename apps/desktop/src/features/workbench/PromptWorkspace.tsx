@@ -48,7 +48,9 @@ export function PromptWorkspace({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
   const optionIssue = [...errorFields, ...diagnostics.map((item) => item.field)].find((field) =>
-    ["quality", "ucPreset", "furryMode"].includes(diagnosticSetting(field) ?? ""),
+    ["quality", "ucPreset", "furryMode", "transparentBackground"].includes(
+      diagnosticSetting(field) ?? "",
+    ),
   );
   const diagnosticSignature = JSON.stringify([diagnostics, errorFields]);
   const showOptions =

@@ -6,6 +6,110 @@ use super::*;
 use crate::session::{CreationOperation, VibeInput, VibeReferenceInput};
 
 #[test]
+fn applicable_precise_references_skip_hidden_vibe_media_in_quotes_and_strict_submissions() {
+    let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let queue_mut = Arc::get_mut(&mut queue).unwrap();
+    queue_mut.assets = Arc::new(ImageAssets);
+    queue_mut.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.settings.model = Some(Model::NaiDiffusion45Full);
+    draft.composition.positive.push(PromptNode::Text {
+        id: "prompt".into(),
+        enabled: true,
+        text: "cat".into(),
+    });
+    draft.inputs.references.precise = vec![crate::session::PreciseReferenceInput {
+        id: "precise".into(),
+        enabled: true,
+        asset_id: "source".into(),
+        reference_type: novelai_bridge::CharacterReferenceType::Character,
+        strength: 1.0,
+        fidelity: 1.0,
+        information_extracted: 1.0,
+    }];
+    draft.inputs.references.vibes = vec![
+        VibeReferenceInput {
+            id: "missing-encoded".into(),
+            enabled: true,
+            input: VibeInput::Encoded {
+                asset_id: "absent-encoding".into(),
+            },
+            strength: 1.0,
+        },
+        VibeReferenceInput {
+            id: "missing-image".into(),
+            enabled: true,
+            input: VibeInput::Image {
+                asset_id: "absent-image".into(),
+                information_extracted: 1.0,
+            },
+            strength: 1.0,
+        },
+    ];
+    for policy in [
+        novelai_bridge::ValidationPolicy::Normalize,
+        novelai_bridge::ValidationPolicy::Reject,
+    ] {
+        draft.inputs.policy = policy;
+        let retained = draft.clone();
+        assert!(queue.quote(&draft).unwrap().estimated_anlas.is_some());
+        let frozen = queue.freeze(&draft).unwrap();
+        assert_eq!(frozen.resolved().unwrap().inputs.references.vibes.len(), 0);
+        let hydrated = operations::hydrate(
+            request(&frozen).clone(),
+            &frozen.resolved().unwrap().inputs,
+            &ImageAssets,
+        )
+        .unwrap();
+        let references = hydrated.references.unwrap();
+        assert_eq!(references.character_references.len(), 1);
+        assert!(references.vibe_transfer.is_none());
+        assert_eq!(draft, retained);
+    }
+    draft.inputs.references.precise[0].enabled = false;
+    assert!(matches!(
+        queue.quote(&draft),
+        Err(JobError::InputMedia { .. })
+    ));
+    assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
+#[test]
+fn unsupported_precise_references_do_not_suppress_raw_vibe() {
+    let mut inputs = crate::session::CreationInputs::default();
+    inputs.references.precise = vec![crate::session::PreciseReferenceInput {
+        id: "precise".into(),
+        enabled: true,
+        asset_id: "source".into(),
+        reference_type: novelai_bridge::CharacterReferenceType::Character,
+        strength: 1.0,
+        fidelity: 1.0,
+        information_extracted: 1.0,
+    }];
+    inputs.references.vibes = vec![VibeReferenceInput {
+        id: "vibe".into(),
+        enabled: true,
+        input: VibeInput::Image {
+            asset_id: "source".into(),
+            information_extracted: 0.5,
+        },
+        strength: -0.5,
+    }];
+    let request =
+        novelai_bridge::GenerateImageRequest::builder("cat", Model::NaiDiffusion3).build();
+    let normalized = operations::hydrate(request, &inputs, &ImageAssets)
+        .unwrap()
+        .normalize()
+        .unwrap();
+    let references = normalized.request().references.as_ref().unwrap();
+    assert_eq!(references.character_references.len(), 0);
+    assert_eq!(
+        references.vibe_transfer.as_ref().unwrap().references.len(),
+        1
+    );
+}
+
+#[test]
 fn one_local_quote_reads_each_source_once_for_generation_and_director() {
     struct CountedAssets(Arc<std::sync::atomic::AtomicUsize>);
     impl crate::media::AssetReader for CountedAssets {

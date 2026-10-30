@@ -35,7 +35,6 @@ export const advancedSettingKeys: SettingKey[] = [
   "smea",
   "smeaDyn",
   "legacyUc",
-  "transparentBackground",
   "alphaMode",
   "imageFormat",
   "responseFormat",
@@ -127,7 +126,7 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
     root.querySelector<HTMLElement>(`[data-setting-editor="draft"] ${selector}`) ??
     root.querySelector<HTMLElement>(selector);
   if (!target) {
-    const trigger = ["quality", "ucPreset", "furryMode"].includes(key)
+    const trigger = ["quality", "ucPreset", "furryMode", "transparentBackground"].includes(key)
       ? root.querySelector<HTMLElement>(".prompt-workspace [data-prompt-options-trigger]")
       : null;
     if (!trigger) return false;

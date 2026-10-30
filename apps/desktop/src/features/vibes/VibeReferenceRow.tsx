@@ -1,50 +1,29 @@
 import { useId, useState, type ReactNode } from "react";
-import { RotateCcw } from "lucide-react";
+import { Binary, ImagePlus, Info, RotateCcw } from "lucide-react";
 import type {
   ModelCapabilities,
-  NumericRange,
   VibeReferenceInput,
   VibeReferenceOverride,
 } from "../../bindings/workbench";
-import { Button, Field, IconButton, Notice, Toggle } from "../../shared/ui";
+import {
+  Button,
+  FormField,
+  HelpMarker,
+  IconButton,
+  Modal,
+  Notice,
+  NumberSlider,
+  Toggle,
+} from "../../shared/ui";
 import { AssetImage, useMediaAsset } from "../media";
+import { mediaApi } from "../media/api";
+import { useMediaQuery } from "../media/useMediaQuery";
 import { VibeMaterialDialog } from "./VibeMaterialDialog";
 import { VibeAssetDetails } from "./VibeAssetDetails";
 import { vibeMaterialName, type VibePatch } from "./model";
 import { InlineVibeEncoding } from "./InlineVibeEncoding";
 
-export function VibeNumber({
-  value,
-  range,
-  onChange,
-  invalid,
-}: {
-  value: number;
-  range?: NumericRange | null;
-  onChange: (value: number) => void;
-  invalid?: boolean;
-}) {
-  const [typing, setTyping] = useState<{ source: number; text: string } | null>(null);
-  return (
-    <input
-      type="number"
-      step="any"
-      min={range?.min}
-      max={range?.max}
-      aria-invalid={invalid || undefined}
-      value={typing?.source === value ? typing.text : value}
-      onChange={(event) => {
-        const number = event.currentTarget.valueAsNumber;
-        const complete = Number.isFinite(number);
-        setTyping({ source: complete ? number : value, text: event.currentTarget.value });
-        if (complete) onChange(number);
-      }}
-      onBlur={() => setTyping(null)}
-      onWheel={(event) => event.currentTarget.blur()}
-    />
-  );
-}
-
+/** Each retained material keeps its editing controls and asynchronous encoding feedback together. */
 export function VibeReferenceRow({
   value,
   index,
@@ -65,7 +44,16 @@ export function VibeReferenceRow({
   issues?: { field: string; message: string }[];
 }) {
   const media = useMediaAsset(value.input.assetId);
+  const encodedId = value.input.kind === "encoded" ? value.input.assetId : null;
+  const inspection = useMediaQuery(
+    ["media", "vibe-inspection", encodedId],
+    encodedId,
+    mediaApi.inspectVibeAsset,
+  );
+  const original = useMediaAsset(inspection.value?.sourceImageAssetId ?? null);
+  const preview = value.input.kind === "image" ? media.asset : original.asset;
   const [picking, setPicking] = useState(false);
+  const [details, setDetails] = useState(false);
   const id = useId();
   const label = `Vibe ${index + 1}`;
   const reset = (field: keyof VibePatch) =>
@@ -76,7 +64,7 @@ export function VibeReferenceRow({
       >
         <RotateCcw size={13} />
       </IconButton>
-    ) : null;
+    ) : undefined;
   return (
     <article
       className="vibe-row"
@@ -85,6 +73,7 @@ export function VibeReferenceRow({
     >
       <header data-vibe-field="enabled">
         <strong>{label}</strong>
+        <span className="vibe-status">{value.input.kind === "encoded" ? "已编码" : "原图"}</span>
         <span className="spacer" />
         <Toggle
           label={`启用${label}`}
@@ -95,50 +84,90 @@ export function VibeReferenceRow({
         {actions}
       </header>
       <div className="vibe-material" data-vibe-field="input">
-        {media.asset?.kind === "image" && (
-          <AssetImage asset={media.asset} alt={label} className="vibe-thumbnail" />
-        )}
-        <div>
-          {media.loading && <output>正在读取材料…</output>}
-          {media.asset && <span>{vibeMaterialName(media.asset)}</span>}
-          {media.asset && !media.asset.available && <p role="alert">材料文件不可用</p>}
+        <div className="vibe-preview">
+          {preview?.kind === "image" ? (
+            <AssetImage asset={preview} alt={label} className="vibe-thumbnail" />
+          ) : (
+            <Binary size={28} aria-label="编码材料" />
+          )}
+        </div>
+        <div className="vibe-material-controls">
+          {media.loading && <output className="vibe-status">正在读取材料…</output>}
+          {media.asset && !media.asset.available && (
+            <p className="vibe-message" role="alert">
+              材料文件不可用
+            </p>
+          )}
           {media.error && (
             <Notice actions={<Button onClick={media.retry}>重试</Button>}>{media.error}</Notice>
           )}
-          <div className="button-group">
-            <Button onClick={() => setPicking(true)}>替换材料</Button>
+          <div className="vibe-image-actions">
+            <IconButton label={`替换${label}材料`} onClick={() => setPicking(true)}>
+              <ImagePlus size={14} />
+            </IconButton>
+            {reset("input")}
             {value.input.kind === "image" && capabilities?.encodeVibe && (
               <InlineVibeEncoding value={value} capabilities={capabilities} onChange={onChange} />
             )}
-            {reset("input")}
+            <IconButton
+              label={`查看${label}材料信息`}
+              disabled={!media.asset}
+              onClick={() => setDetails(true)}
+            >
+              <Info size={14} />
+            </IconButton>
           </div>
         </div>
       </div>
-      {value.input.kind === "encoded" ? <VibeAssetDetails id={value.input.assetId} /> : null}
       <div className="vibe-fields">
         <div data-vibe-field="strength">
-          <Field label="强度">
-            <VibeNumber
+          <FormField
+            label="Strength"
+            htmlFor={`${id}-strength`}
+            help={
+              <HelpMarker label="强度说明">
+                控制参考影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。
+              </HelpMarker>
+            }
+            actions={reset("strength")}
+          >
+            <NumberSlider
+              id={`${id}-strength`}
+              label={`${label}强度`}
               value={value.strength}
-              range={capabilities?.vibeReferenceOptions.strength}
               invalid={issues.some((issue) => issue.field === "strength")}
+              describedBy={issues.length ? id : undefined}
               onChange={(strength) => onChange({ strength })}
             />
-          </Field>
-          {reset("strength")}
+          </FormField>
         </div>
         {value.input.kind === "image" && (
           <div data-vibe-field="informationExtracted">
-            <Field label="信息提取量">
-              <VibeNumber
+            <FormField
+              label="信息提取量"
+              htmlFor={`${id}-information`}
+              actions={reset("input")}
+              help={
+                <HelpMarker label="信息提取量说明">
+                  控制编码时提取的信息量，范围为 0–1。改变提取量后需重新编码。
+                </HelpMarker>
+              }
+            >
+              <NumberSlider
+                id={`${id}-information`}
+                label={`${label}信息提取量`}
                 value={value.input.informationExtracted}
-                range={capabilities?.vibeReferenceOptions.informationExtracted}
+                range={
+                  capabilities?.vibeReferenceOptions.informationExtracted ?? { min: 0, max: 1 }
+                }
+                invalid={issues.some((issue) => issue.field === "informationExtracted")}
+                describedBy={issues.length ? id : undefined}
                 onChange={(informationExtracted) => {
                   if (value.input.kind === "image")
                     onChange({ input: { ...value.input, informationExtracted } });
                 }}
               />
-            </Field>
+            </FormField>
           </div>
         )}
       </div>
@@ -157,6 +186,18 @@ export function VibeReferenceRow({
           ))}
         </output>
       )}
+      <Modal open={details} onClose={() => setDetails(false)} title={`${label} · 材料信息`}>
+        {details && (
+          <div className="vibe-material-details">
+            {media.asset && <p>{vibeMaterialName(media.asset)}</p>}
+            {value.input.kind === "encoded" ? (
+              <VibeAssetDetails id={value.input.assetId} />
+            ) : (
+              preview && <AssetImage asset={preview} alt={label} />
+            )}
+          </div>
+        )}
+      </Modal>
       <VibeMaterialDialog
         open={picking}
         onClose={() => setPicking(false)}

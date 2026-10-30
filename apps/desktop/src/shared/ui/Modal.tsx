@@ -8,6 +8,7 @@ export function Modal({
   title,
   children,
   wide = false,
+  showClose = true,
   className = "",
 }: {
   open: boolean;
@@ -15,6 +16,7 @@ export function Modal({
   title: string;
   children: ReactNode;
   wide?: boolean;
+  showClose?: boolean;
   className?: string;
 }) {
   return (
@@ -29,9 +31,11 @@ export function Modal({
         <Dialog.Popup className={`modal ${wide ? "modal-wide" : ""} ${className}`}>
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭" title="关闭">
-              <X size={17} />
-            </Dialog.Close>
+            {showClose && (
+              <Dialog.Close className="icon-button" aria-label="关闭" title="关闭">
+                <X size={17} />
+              </Dialog.Close>
+            )}
           </header>
           {children}
         </Dialog.Popup>

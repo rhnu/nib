@@ -327,6 +327,26 @@ pub struct ReferenceInputs {
 }
 
 impl ReferenceInputs {
+    /// Resolves retained reference intent before any media is read.
+    /// Unsupported precise references must not suppress an otherwise usable Vibe.
+    pub(crate) fn resolution(
+        &self,
+        model: Model,
+        mode: novelai_bridge::GenerationMode,
+    ) -> novelai_bridge::ReferenceResolution {
+        model
+            .descriptor()
+            .effective_model_for(mode)
+            .descriptor()
+            .resolve_references(
+                mode,
+                novelai_bridge::ReferenceIntent {
+                    character: self.precise.iter().any(|reference| reference.enabled),
+                    vibe: self.vibes.iter().any(|reference| reference.enabled),
+                },
+            )
+    }
+
     /// Adds recipe outputs in order and overlays their optional strength normalization.
     pub fn append(&mut self, values: &Self) {
         self.precise.extend(values.precise.iter().cloned());

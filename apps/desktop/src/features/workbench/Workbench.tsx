@@ -18,6 +18,7 @@ import {
 import type { CloseWriter } from "../../shared/host/useCloseGuard";
 import { ResourceLibrary } from "../library/ResourceLibrary";
 import { ContextRail } from "./ContextRail";
+import { CharacterContext } from "./CharacterContext";
 import { PromptWorkspace } from "./PromptWorkspace";
 import { useWorkbench } from "./useWorkbench";
 import { useModelCapabilities } from "../model/useModelCapabilities";
@@ -452,6 +453,21 @@ export function Workbench({
                     edit={edit}
                     setError={setError}
                     onFocusField={focusField}
+                  />
+                )}
+                {draft.inputs.operation.kind !== "upscale" && (
+                  <CharacterContext
+                    draft={draft}
+                    resources={resources}
+                    models={workspace.models}
+                    resolved={resolved}
+                    capabilities={editorCapabilities}
+                    readCurrentDraft={readCurrentDraft}
+                    edit={edit}
+                    setError={setError}
+                    onPosition={openPositions}
+                    outputIssues={outputIssues}
+                    inheritedUseCoords={estimate.quote?.resolved?.settings.useCoords}
                   />
                 )}
                 {model.error && (

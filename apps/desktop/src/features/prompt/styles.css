@@ -1,10 +1,10 @@
 .settings-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 9px 8px;
+  gap: 6px 8px;
 }
 .settings-editor > * + * {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .setting-field {
   display: grid;
@@ -71,11 +71,10 @@
 }
 .prompt-workspace {
   min-width: 0;
-  padding: 12px;
-  border-bottom: 1px solid var(--line-subtle);
+  padding: 8px 12px 4px;
 }
 .prompt-workspace > .composition {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .size-inputs {
   display: flex;
@@ -351,21 +350,6 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: 550;
-}
-.prompt-workspace .settings-model > [data-setting-field="model"] {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-}
-.prompt-workspace .settings-model .setting-label {
-  min-height: 30px;
-  white-space: nowrap;
-}
-.prompt-workspace .settings-model .setting-label .spacer {
-  display: none;
-}
-.prompt-workspace .settings-model .setting-message,
-.prompt-workspace .settings-model .setting-note {
-  grid-column: 1 / -1;
 }
 .prompt-options-positioner {
   z-index: 65;

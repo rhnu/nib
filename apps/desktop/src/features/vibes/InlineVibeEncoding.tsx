@@ -166,9 +166,11 @@ export function InlineVibeEncoding({
         >
           {working ? <LoaderCircle size={14} className="spin" /> : <Binary size={14} />}
         </IconButton>
-        <output className="vibe-status">
-          {working ? (job.data?.status === "running" ? "编码中…" : "排队中…") : costLabel}
-        </output>
+        {working && (
+          <output className="vibe-status" aria-live="polite">
+            {job.data?.status === "running" ? "编码中…" : "排队中…"}
+          </output>
+        )}
       </div>
       {failure && (
         <Notice

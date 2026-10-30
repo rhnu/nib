@@ -2,6 +2,7 @@ import { useAccount } from "./account-context";
 
 export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
   const { accountSummary: summary, accountSummaryLoading, accountSummaryStale } = useAccount();
+  if (!summary && compact) return null;
   if (!summary)
     return (
       <p className="generation-muted generation-account-snapshot">

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ImagePlus } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, PreciseReferenceInput } from "../../bindings/workbench";
 import { errorMessage } from "../../shared/host/error";
 import { trackPendingWork } from "../../shared/host/pending-work";
-import { ActionsMenu, Button, IconButton, Notice } from "../../shared/ui";
+import { IconButton, Notice } from "../../shared/ui";
 import { ImagePickerDialog } from "../media";
 import { moveItem } from "../prompt/model";
 import { referenceApi } from "./api";
@@ -86,7 +86,8 @@ function EditorContent({
           {value.length > 0 ? ` · ${value.length}` : ""}
         </h3>
         <span className="spacer" />
-        <Button
+        <IconButton
+          label="添加精确参考图片"
           disabled={
             busy ||
             !capabilities?.canAddPreciseReference ||
@@ -97,8 +98,7 @@ function EditorContent({
           }
         >
           <ImagePlus size={14} />
-          添加图片
-        </Button>
+        </IconButton>
       </header>
       <PreciseReferenceAvailability capabilities={capabilities} />
       {busy && <output className="precise-reference-status">正在准备精确参考…</output>}
@@ -137,17 +137,12 @@ function EditorContent({
               >
                 <ArrowDown size={14} />
               </IconButton>
-              <ActionsMenu
-                label={`精确参考 ${index + 1} 操作`}
-                items={[
-                  {
-                    label: "移除",
-                    danger: true,
-                    action: () =>
-                      update((value) => value.filter((item) => item.id !== reference.id)),
-                  },
-                ]}
-              />
+              <IconButton
+                label={`移除精确参考 ${index + 1}`}
+                onClick={() => update((value) => value.filter((item) => item.id !== reference.id))}
+              >
+                <Trash2 size={14} />
+              </IconButton>
             </>
           }
         />

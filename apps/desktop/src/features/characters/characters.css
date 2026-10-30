@@ -1,6 +1,6 @@
 .character-list-editor {
   min-width: 0;
-  margin-top: 12px;
+  margin-top: 6px;
 }
 .character-list-heading,
 .character-editor-row > header {
@@ -80,4 +80,52 @@
 }
 .character-stale-override code {
   overflow-wrap: anywhere;
+}
+
+.character-context {
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.character-position-options {
+  display: flex;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.character-position-options button {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+  border: 0;
+  background: var(--surface);
+}
+.character-position-options button + button {
+  border-left: 1px solid var(--line);
+}
+.character-position-options button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.character-position-policy {
+  align-items: center;
+}
+.character-body[hidden] {
+  display: none;
+}
+.character-prompts .prompt-text-editor > textarea {
+  min-height: 62px;
+}
+.character-prompts .prompt-node {
+  margin-bottom: 5px;
+}
+.character-prompts .composition-toolbar {
+  margin-bottom: 5px;
+}
+.preset-character-context > h4 {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
 }

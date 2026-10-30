@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "../../bindings/workbench";
-import { ActionsMenu, IconButton, Toggle } from "../../shared/ui";
+import { IconButton, Toggle } from "../../shared/ui";
 import { errorMessage } from "../../shared/host/error";
 import { CompositionEditor } from "../prompt/CompositionEditor";
 import { promptApi } from "../prompt/api";
@@ -52,9 +52,11 @@ function CharacterRow({
   fieldIssues: CharacterFieldIssue[];
 }) {
   const root = useRef<HTMLElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const textIssue = fieldIssues.find(
     (issue) => issue.field === "positive" || issue.field === "negative",
   )?.field;
+  const isCollapsed = collapsed && fieldIssues.length === 0;
   const signature = fieldIssues.map((issue) => `${issue.field}:${issue.message}`).join("|");
   useEffect(() => {
     if (!textIssue) return;
@@ -70,50 +72,66 @@ function CharacterRow({
       <header>
         <strong>角色 {index + 1}</strong>
         <span className="spacer" />
+        <IconButton label={`上移角色 ${index + 1}`} disabled={!actions.canUp} onClick={actions.up}>
+          <ArrowUp size={14} />
+        </IconButton>
+        <IconButton
+          label={`下移角色 ${index + 1}`}
+          disabled={!actions.canDown}
+          onClick={actions.down}
+        >
+          <ArrowDown size={14} />
+        </IconButton>
         <Toggle
           label={`启用角色 ${index + 1}`}
           checked={character.enabled}
           onChange={(enabled) => update({ enabled })}
         />
-        <ActionsMenu
-          label={`角色 ${index + 1} 操作`}
-          items={[
-            { label: "上移", action: actions.up, disabled: !actions.canUp },
-            { label: "下移", action: actions.down, disabled: !actions.canDown },
-            { label: "移除角色", action: actions.remove, danger: true },
-          ]}
-        />
+        <IconButton label={`移除角色 ${index + 1}`} onClick={actions.remove}>
+          <Trash2 size={14} />
+        </IconButton>
+        <IconButton
+          label={`${isCollapsed ? "展开" : "折叠"}角色 ${index + 1}`}
+          data-character-expand
+          aria-expanded={!isCollapsed}
+          onClick={() => setCollapsed(!isCollapsed)}
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+        </IconButton>
       </header>
       {fieldIssues.map((issue, index) => (
         <p className="inline-warning" role="alert" key={index}>
           {issue.message}
         </p>
       ))}
-      <div className="character-prompts">
-        <CompositionEditor
-          compact
-          value={character.composition}
-          resources={resources}
-          model={capabilities?.model}
-          allowChunk={allowChunk}
-          onChange={(composition) => update({ composition })}
-          expandChunk={async (node) => {
-            try {
-              return await promptApi.expandChunk(node);
-            } catch (cause) {
-              onError(errorMessage(cause));
-              return node;
-            }
-          }}
-        />
+      <div className="character-body" hidden={isCollapsed}>
+        <div className="character-prompts">
+          <CompositionEditor
+            compact
+            value={character.composition}
+            resources={resources}
+            model={capabilities?.model}
+            allowChunk={allowChunk}
+            onChange={(composition) => update({ composition })}
+            expandChunk={async (node) => {
+              try {
+                return await promptApi.expandChunk(node);
+              } catch (cause) {
+                onError(errorMessage(cause));
+                return node;
+              }
+            }}
+          />
+        </div>
+        {!onPosition && (
+          <CharacterPositionFields
+            value={character.position}
+            onChange={(position) => update({ position })}
+            capabilities={capabilities}
+            issues={fieldIssues}
+          />
+        )}
       </div>
-      <CharacterPositionFields
-        value={character.position}
-        onChange={(position) => update({ position })}
-        capabilities={capabilities}
-        onPosition={onPosition ? () => onPosition(character.id) : undefined}
-        issues={fieldIssues}
-      />
     </article>
   );
 }

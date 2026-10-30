@@ -1,26 +1,30 @@
 .precise-reference-editor {
   display: grid;
   min-width: 0;
-  gap: 10px;
+  gap: 8px;
 }
 .precise-reference-heading,
-.precise-reference-row > header,
-.precise-reference-label,
-.precise-reference-image {
+.precise-reference-row > header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
-.precise-reference-heading h3 {
+.precise-reference-heading h3,
+.precise-reference-editor > h3 {
   margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 .precise-reference-row {
   display: grid;
   min-width: 0;
   gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line-subtle);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 .precise-reference-row > header > strong {
   font-size: 12px;
@@ -28,16 +32,50 @@
 .precise-reference-row[data-disabled] > header > strong {
   color: var(--muted);
 }
-.precise-reference-image {
-  align-items: flex-start;
+.precise-reference-row > header .icon-button {
+  width: 26px;
+  min-height: 26px;
 }
-.precise-reference-thumbnail {
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-  flex-shrink: 0;
+.precise-reference-content {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.precise-reference-image {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  min-height: 92px;
   border-radius: var(--radius);
   background: var(--input);
+}
+.precise-reference-thumbnail {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+.precise-reference-image-actions {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.precise-reference-image-actions .icon-button {
+  width: 26px;
+  min-height: 26px;
+  border-color: transparent;
 }
 .precise-reference-image-info {
   display: grid;
@@ -48,37 +86,20 @@
 }
 .precise-reference-fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
 }
 .precise-reference-field {
-  display: grid;
-  gap: 4px;
   min-width: 0;
 }
-.precise-reference-label {
-  min-height: 24px;
-  color: var(--muted);
-  font-size: 11px;
+.precise-reference-field .form-field {
+  grid-template-columns: 102px minmax(0, 1fr);
+  grid-template-rows: auto;
+  align-items: center;
+  column-gap: 6px;
 }
-.precise-reference-label label {
-  flex: 1;
-}
-.precise-reference-label .icon-button {
-  width: 24px;
-  min-height: 24px;
-}
-.precise-reference-field input,
-.precise-reference-field select {
-  font-size: 12px;
-}
-.precise-reference-advanced > summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 11px;
-}
-.precise-reference-advanced[open] > .precise-reference-fields {
-  margin-top: 8px;
+.precise-reference-field .form-feedback {
+  grid-column: 1 / -1;
 }
 .precise-reference-status {
   margin: 0;
@@ -96,32 +117,15 @@
 .precise-reference-message p {
   margin: 0;
 }
-.precise-reference-field :is(input, select)[aria-invalid="true"] {
+.precise-reference-row :is(input, select)[aria-invalid="true"] {
   border-color: var(--danger);
 }
-@media (max-width: 360px) {
-  .precise-reference-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.precise-reference-strength {
-  grid-column: 1 / -1;
-}
-.precise-reference-strength-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px;
-  align-items: center;
-  gap: 10px;
-}
-.precise-reference-strength-controls input {
-  width: 100%;
+.precise-reference-details {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
-.precise-reference-strength-controls input[type="range"] {
-  height: 20px;
-  padding: 0;
-  border: 0;
-  accent-color: var(--accent);
-  background: transparent;
+.precise-reference-details img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
 }

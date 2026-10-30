@@ -217,7 +217,6 @@ export function DirectorWorkspace({
                   {media.error}
                 </Notice>
               )}
-              {!state.assetId && <p className="muted">未选择输入图片</p>}
             </section>
             <section className="director-parameter-section">
               <DirectorParameters

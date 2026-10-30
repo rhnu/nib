@@ -123,8 +123,8 @@
 .generation-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 0;
   overflow: auto;
 }
 .generation-dialog-body p,
@@ -717,4 +717,37 @@
   align-items: center;
   gap: 4px;
   color: var(--muted);
+}
+
+.modal-wide > .generation-dialog-body {
+  padding: 12px;
+}
+.queue-drawer.modal {
+  padding: 8px 10px;
+}
+.queue-drawer-body {
+  padding: 0;
+  gap: 8px;
+}
+.queue-drawer .generation-job-list {
+  gap: 0;
+}
+.queue-drawer .generation-job {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 0;
+  gap: 4px;
+}
+.queue-drawer .generation-job + .generation-job {
+  border-top: 1px solid var(--line-subtle);
+}
+.queue-batch > header {
+  min-height: 26px;
+}
+.queue-drawer .generation-job-description {
+  gap: 3px 8px;
+}
+.queue-drawer .generation-job-cost {
+  font-size: 11px;
 }

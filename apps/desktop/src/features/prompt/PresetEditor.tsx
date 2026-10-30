@@ -41,7 +41,9 @@ export function PresetEditor({
   characterIssues,
   preciseIssues,
   vibeIssues,
+  part = "all",
 }: {
+  part?: "all" | "characters" | "content";
   instance: PresetInstance;
   resources: Map<string, Resource>;
   models: string[];
@@ -162,6 +164,51 @@ export function PresetEditor({
     binding.kind === "linked" && composition
       ? staleTextOverrides(composition, characters, binding.overrides)
       : [];
+  const characterEditor =
+    binding.kind === "linked" ? (
+      (characters.length > 0 || binding.outputOverrides.characters.length > 0) && (
+        <CharacterOutputOverrides
+          value={characters}
+          overrides={binding.outputOverrides.characters}
+          textOverrides={binding.overrides}
+          onChange={(characters) =>
+            updateLinked((current) => ({
+              ...current,
+              outputOverrides: { ...current.outputOverrides, characters },
+            }))
+          }
+          onTextChange={override}
+          resources={resources}
+          capabilities={outputCapabilities}
+          onPosition={onPosition}
+          name={name}
+          issues={characterIssues}
+        />
+      )
+    ) : (
+      <CharacterListEditor
+        value={binding.characters}
+        onChange={(characters) => updateExpanded({ characters })}
+        resources={resources}
+        capabilities={outputCapabilities}
+        onError={onError}
+        onPosition={onPosition}
+        allowChunk={false}
+        title="角色输出"
+        issues={characterIssues}
+      />
+    );
+  if (part === "characters")
+    return characters.length ||
+      (binding.kind === "linked" && binding.outputOverrides.characters.length) ? (
+      <section
+        className={`preset-character-context ${instance.enabled ? "" : "node-disabled"}`}
+        data-preset-instance-id={instance.id}
+      >
+        <h4>{name}</h4>
+        {characterEditor}
+      </section>
+    ) : null;
   return (
     <article
       className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}
@@ -240,25 +287,26 @@ export function PresetEditor({
                 />
               </>
             )}
-            {((outputCapabilities?.maxCharacters ?? 0) > 0 ||
-              characters.length > 0 ||
-              settings.useCoords !== null) && (
-              <CharacterPositionPolicy
-                value={settings.useCoords}
-                inherited={
-                  binding.kind === "linked"
-                    ? inherited?.useCoords
-                    : effectiveCapabilities?.defaults.useCoords
-                }
-                onChange={(useCoords) => {
-                  const current = latest.current.instance.binding;
-                  changeSettings({
-                    ...(current.kind === "linked" ? current.settingsOverrides : current.defaults),
-                    useCoords,
-                  });
-                }}
-              />
-            )}
+            {part !== "content" &&
+              ((outputCapabilities?.maxCharacters ?? 0) > 0 ||
+                characters.length > 0 ||
+                settings.useCoords !== null) && (
+                <CharacterPositionPolicy
+                  value={settings.useCoords}
+                  inherited={
+                    binding.kind === "linked"
+                      ? inherited?.useCoords
+                      : effectiveCapabilities?.defaults.useCoords
+                  }
+                  onChange={(useCoords) => {
+                    const current = latest.current.instance.binding;
+                    changeSettings({
+                      ...(current.kind === "linked" ? current.settingsOverrides : current.defaults),
+                      useCoords,
+                    });
+                  }}
+                />
+              )}
             {references &&
               (binding.kind === "linked" ? (
                 <PreciseReferenceOutputOverrides
@@ -288,6 +336,7 @@ export function PresetEditor({
                 />
               ))}
             {references &&
+              outputCapabilities?.vibeReference.reason !== "conflictWithPreciseReference" &&
               (binding.kind === "linked" ? (
                 <VibeOutputOverrides
                   value={references.vibes}
@@ -331,39 +380,7 @@ export function PresetEditor({
                   issues={vibeIssues}
                 />
               ))}
-            {binding.kind === "linked" ? (
-              (characters.length > 0 || binding.outputOverrides.characters.length > 0) && (
-                <CharacterOutputOverrides
-                  value={characters}
-                  overrides={binding.outputOverrides.characters}
-                  textOverrides={binding.overrides}
-                  onChange={(characters) =>
-                    updateLinked((current) => ({
-                      ...current,
-                      outputOverrides: { ...current.outputOverrides, characters },
-                    }))
-                  }
-                  onTextChange={override}
-                  resources={resources}
-                  capabilities={outputCapabilities}
-                  onPosition={onPosition}
-                  name={name}
-                  issues={characterIssues}
-                />
-              )
-            ) : (
-              <CharacterListEditor
-                value={binding.characters}
-                onChange={(characters) => updateExpanded({ characters })}
-                resources={resources}
-                capabilities={outputCapabilities}
-                onError={onError}
-                onPosition={onPosition}
-                allowChunk={false}
-                title="角色输出"
-                issues={characterIssues}
-              />
-            )}
+            {part !== "content" && characterEditor}
             {staleText.map((item) => (
               <div
                 className="character-stale-override"

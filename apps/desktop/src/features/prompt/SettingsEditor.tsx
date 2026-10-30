@@ -6,7 +6,7 @@ import type {
   ResolvedSettings,
 } from "../../bindings/workbench";
 import type { ParameterDiagnostic } from "../../bindings/generation";
-import { HelpMarker, IconButton } from "../../shared/ui";
+import { FormField, FormGrid, HelpMarker, IconButton } from "../../shared/ui";
 import {
   advancedSettingKeys,
   diagnosticSetting,
@@ -70,7 +70,7 @@ export function SettingsEditor({
   const change = <K extends SettingKey>(key: K, next: GenerationSettings[K]) =>
     onChange({ ...value, [key]: next });
   const inherited = (key: SettingKey) =>
-    `继承${effective ? ` · ${settingValue(key, effective[key])}` : ""}`;
+    `${effective ? settingValue(key, effective[key]) : "默认"} · 继承`;
   const diagnosticsFor = (key: SettingKey) =>
     diagnostics.filter((item) => diagnosticSetting(item.field) === key);
   const wrapper = (key: SettingKey, control: ReactNode, help?: string, unsupported = false) => {
@@ -82,17 +82,22 @@ export function SettingsEditor({
         data-setting-field={key}
         key={key}
       >
-        <div className="setting-label">
-          <label htmlFor={`${prefix}-${key}`}>{settingLabels[key]}</label>
-          {help && <HelpMarker label={`${settingLabels[key]}说明`}>{help}</HelpMarker>}
-          <span className="spacer" />
-          {value[key] !== null && (
-            <IconButton label={`恢复继承${settingLabels[key]}`} onClick={() => change(key, null)}>
-              <RotateCcw size={12} />
-            </IconButton>
-          )}
-        </div>
-        {control}
+        <FormField
+          label={settingLabels[key]}
+          htmlFor={`${prefix}-${key}`}
+          inherited={value[key] === null}
+          className={key === "model" && fields === "modelOnly" ? "model-form-field" : ""}
+          help={help && <HelpMarker label={`${settingLabels[key]}说明`}>{help}</HelpMarker>}
+          actions={
+            value[key] !== null && (
+              <IconButton label={`恢复继承${settingLabels[key]}`} onClick={() => change(key, null)}>
+                <RotateCcw size={12} />
+              </IconButton>
+            )
+          }
+        >
+          {control}
+        </FormField>
         {unsupported && <small className="setting-note">当前模型不支持，已保留设置。</small>}
         {messages.length > 0 && (
           <output id={`${prefix}-${key}-diagnostic`} className="setting-message">
@@ -229,13 +234,13 @@ export function SettingsEditor({
   return (
     <div className="settings-editor" data-setting-editor={mode}>
       {(fields === "all" || fields === "model" || fields === "modelOnly") && (
-        <div className="settings-fields settings-model">
+        <FormGrid className="settings-fields settings-model">
           {options("model", models)}
           {fields !== "modelOnly" && boolean("furryMode", capabilities?.furryMode)}
-        </div>
+        </FormGrid>
       )}
       {(fields === "all" || fields === "prompt" || fields === "promptOptions") && (
-        <div className="settings-fields settings-prompt">
+        <FormGrid className="settings-fields settings-prompt">
           {options(
             "quality",
             capabilities?.qualityPresets,
@@ -243,10 +248,16 @@ export function SettingsEditor({
           )}
           {options("ucPreset", capabilities?.ucPresets, "与自定义负面提示一起组成实际提交文本。")}
           {fields === "promptOptions" && boolean("furryMode", capabilities?.furryMode)}
-        </div>
+          {(capabilities?.transparentBackground || value.transparentBackground !== null) &&
+            boolean(
+              "transparentBackground",
+              capabilities?.transparentBackground,
+              "请求透明背景；适用于 V5。",
+            )}
+        </FormGrid>
       )}
       {(fields === "all" || fields === "image") && (
-        <div className="settings-fields settings-image">
+        <FormGrid className="settings-fields settings-image">
           {wrapper(
             "size",
             <div className="size-editor">
@@ -394,22 +405,22 @@ export function SettingsEditor({
                 "一次生成的图片数量，上限随尺寸变化。",
               )
             : number("nSamples", "一次生成的图片数量，上限随尺寸变化。")}
-        </div>
+        </FormGrid>
       )}
       {(fields === "all" || fields === "parameters") && (
         <>
-          <div className="settings-fields settings-main">
+          <FormGrid className="settings-fields settings-main">
             {number("steps")}
             {number("scale")}
             {number("seed", "输入 0 使用随机种子；固定种子便于复现。")}
             {options("sampler", capabilities?.samplers, undefined, capabilities?.fixedSampler)}
-          </div>
+          </FormGrid>
           <details className="advanced-settings" ref={advanced}>
             <summary>
               <span>高级设置</span>
               {advancedSummary && <small>{advancedSummary}</small>}
             </summary>
-            <div className="settings-fields">
+            <FormGrid className="settings-fields">
               {options(
                 "noiseSchedule",
                 capabilities?.noiseSchedules,
@@ -423,11 +434,6 @@ export function SettingsEditor({
               {boolean("smeaDyn", capabilities?.smea)}
               {boolean("legacyUc", capabilities?.legacyUc)}
               <h4 className="settings-group-title">输出</h4>
-              {boolean(
-                "transparentBackground",
-                capabilities?.transparentBackground,
-                "模型提示层面的透明背景请求，与文件的 Alpha 表示分别设置。",
-              )}
               {options("alphaMode", capabilities?.alphaModes)}
               {options("imageFormat", capabilities?.imageFormats)}
               {options(
@@ -437,7 +443,7 @@ export function SettingsEditor({
               )}
               {advancedContent && <h4 className="settings-group-title">执行</h4>}
               {advancedContent}
-            </div>
+            </FormGrid>
           </details>
         </>
       )}

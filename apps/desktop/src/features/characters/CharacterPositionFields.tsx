@@ -9,30 +9,42 @@ export function CharacterPositionPolicy({
   value,
   onChange,
   inherited,
+  onPosition,
+  disabled = false,
 }: {
   value: boolean | null;
   onChange: (value: boolean | null) => void;
   inherited?: boolean | null;
+  onPosition?: () => void;
+  disabled?: boolean;
 }) {
+  const effective = value ?? inherited;
   return (
     <div className="character-position-policy" data-setting-field="useCoords">
-      <Field label="角色位置">
-        <select
-          value={value === null ? "inherit" : String(value)}
-          onChange={(event) =>
-            onChange(event.target.value === "inherit" ? null : event.target.value === "true")
-          }
-        >
-          <option value="inherit">
-            继承
-            {inherited === true ? " · 使用坐标" : inherited === false ? " · 自动" : " · 按角色位置"}
-          </option>
-          <option value="false">自动</option>
-          <option value="true">使用坐标</option>
-        </select>
-      </Field>
+      <fieldset className="character-position-options" aria-label="角色位置">
+        <button type="button" aria-pressed={effective === false} onClick={() => onChange(false)}>
+          AI's Choice
+        </button>
+        <button type="button" aria-pressed={effective === true} onClick={() => onChange(true)}>
+          Custom
+        </button>
+      </fieldset>
+      {onPosition && (
+        <IconButton label="在画布定位角色" disabled={disabled} onClick={onPosition}>
+          <LocateFixed size={14} />
+        </IconButton>
+      )}
+      <span className="spacer" />
+      <IconButton
+        label="恢复继承的角色定位方式"
+        disabled={value === null}
+        onClick={() => onChange(null)}
+      >
+        <RotateCcw size={14} />
+      </IconButton>
       <HelpMarker label="角色位置方式">
-        自动由模型安排位置，保留已编辑坐标；使用坐标时由 SDK 适配当前模型。未声明时继续继承。
+        自动由模型安排位置，保留已编辑坐标；使用坐标时由 SDK
+        适配当前模型。未声明时继续继承；最终仍未指定时，SDK 根据启用角色是否偏离中心决定。
       </HelpMarker>
     </div>
   );

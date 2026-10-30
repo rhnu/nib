@@ -460,6 +460,10 @@ pub(super) fn hydrate(
         _ => return Err(JobError::Invalid("该操作不是图像生成。".to_owned())),
     };
     let references = &inputs.references;
+    let suppress_vibes = references
+        .resolution(request.core.model, request.mode())
+        .vibe
+        == novelai_bridge::ReferenceAvailability::ConflictWithCharacterReference;
     let precise = references
         .precise
         .iter()
@@ -477,7 +481,9 @@ pub(super) fn hydrate(
     let vibes = references
         .vibes
         .iter()
-        .filter(|item| item.enabled)
+        // The editor retains these entries, but hidden Vibe media must neither be read nor
+        // reach strict SDK validation when an applicable precise reference takes precedence.
+        .filter(|item| item.enabled && !suppress_vibes)
         .map(|item| {
             Ok(match &item.input {
                 VibeInput::Encoded { asset_id } => VibeReference::encoded(

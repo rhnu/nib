@@ -3,13 +3,13 @@
 use novelai_bridge::{
     AlphaMode, CharacterPosition, CharacterPositionProfile, CharacterReferenceType, CharacterSet,
     GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule, QualityPreset,
-    ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
+    ReferenceAvailability, Sampler, UcPreset,
 };
 use serde::Serialize;
 
 use crate::{
     prompt::{GenerationSettings, ResolvedDraft, ResolvedSettings},
-    session::CreationOperation,
+    session::{CreationOperation, ReferenceInputs},
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -210,20 +210,7 @@ pub fn model_capabilities(resolved: &ResolvedDraft) -> Option<ModelCapabilities>
     Some(project_capabilities(
         &resolved.settings,
         mode,
-        ReferenceIntent {
-            vibe: resolved
-                .inputs
-                .references
-                .vibes
-                .iter()
-                .any(|reference| reference.enabled),
-            character: resolved
-                .inputs
-                .references
-                .precise
-                .iter()
-                .any(|reference| reference.enabled),
-        },
+        &resolved.inputs.references,
     ))
 }
 
@@ -241,14 +228,14 @@ pub fn model_defaults_capabilities(
     project_capabilities(
         &settings,
         GenerationMode::TextToImage,
-        ReferenceIntent::default(),
+        &ReferenceInputs::default(),
     )
 }
 
 fn project_capabilities(
     settings: &ResolvedSettings,
     mode: GenerationMode,
-    intent: ReferenceIntent,
+    inputs: &ReferenceInputs,
 ) -> ModelCapabilities {
     let model = settings.model.descriptor().effective_model_for(mode);
     let settings = ResolvedSettings {
@@ -256,7 +243,7 @@ fn project_capabilities(
         ..settings.clone()
     };
     let descriptor = model.descriptor();
-    let references = descriptor.resolve_references(mode, intent);
+    let references = inputs.resolution(model, mode);
     let profile = descriptor.sampling();
     let (sampler, samplers, noise_schedules) = sampling_options(&settings, mode);
     ModelCapabilities {
@@ -329,7 +316,7 @@ fn project_capabilities(
         can_add_precise_reference: descriptor
             .resolve_references(
                 mode,
-                ReferenceIntent {
+                novelai_bridge::ReferenceIntent {
                     character: true,
                     vibe: false,
                 },
@@ -339,7 +326,7 @@ fn project_capabilities(
         can_add_vibe_reference: descriptor
             .resolve_references(
                 mode,
-                ReferenceIntent {
+                novelai_bridge::ReferenceIntent {
                     character: false,
                     vibe: true,
                 },

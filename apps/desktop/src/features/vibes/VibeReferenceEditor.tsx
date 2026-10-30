@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, VibeReferenceInput } from "../../bindings/workbench";
-import { Button, Field, IconButton } from "../../shared/ui";
+import { FormField, HelpMarker, IconButton } from "../../shared/ui";
 import { preciseReferenceMessages } from "../references/model";
 import { VibeReferenceRow } from "./VibeReferenceRow";
 import { VibeMaterialDialog } from "./VibeMaterialDialog";
@@ -17,19 +17,27 @@ export function VibeNormalize({
   inherited?: boolean | null;
   onChange: (value: boolean | null) => void;
 }) {
+  const id = useId();
   return (
-    <Field label="强度归一化">
+    <FormField
+      className="vibe-normalize"
+      label="强度归一化"
+      htmlFor={id}
+      help={<HelpMarker label="归一化说明">对整个 Vibe 集合的编码强度进行归一化。</HelpMarker>}
+    >
       <select
+        id={id}
+        className={value === null ? "inherited-control" : undefined}
         value={value === null ? "inherit" : String(value)}
         onChange={(event) => onChange(referenceMode(event.currentTarget.value))}
       >
         <option value="inherit">
-          继承{inherited == null ? "" : inherited ? " · 开启" : " · 关闭"}
+          {inherited == null ? "默认" : inherited ? "开启" : "关闭"} · 继承
         </option>
         <option value="true">开启</option>
         <option value="false">关闭</option>
       </select>
-    </Field>
+    </FormField>
   );
 }
 
@@ -76,11 +84,20 @@ function Editor({
       <header className="vibe-heading">
         <h3>Vibe{value.length ? ` · ${value.length}` : ""}</h3>
         <span className="spacer" />
-        <Button onClick={() => setMaterials(true)}>
+        <IconButton label="打开 Vibe 材料" onClick={() => setMaterials(true)}>
           <Plus size={14} />
-          材料
-        </Button>
+        </IconButton>
       </header>
+      {onNormalizeChange &&
+        (value.length > 0 || normalizeValue !== null || capabilities?.vibeInputPath) && (
+          <div data-vibe-field="normalizeStrength">
+            <VibeNormalize
+              value={normalizeValue}
+              inherited={capabilities?.vibeReferenceOptions.normalizeStrengthDefault}
+              onChange={onNormalizeChange}
+            />
+          </div>
+        )}
       {message && <p className="vibe-message">{message}</p>}
       {value.map((reference, index) => (
         <VibeReferenceRow
@@ -124,16 +141,6 @@ function Editor({
           }
         />
       ))}
-      {onNormalizeChange &&
-        (value.length > 0 || normalizeValue !== null || capabilities?.vibeInputPath) && (
-          <div data-vibe-field="normalizeStrength">
-            <VibeNormalize
-              value={normalizeValue}
-              inherited={capabilities?.vibeReferenceOptions.normalizeStrengthDefault}
-              onChange={onNormalizeChange}
-            />
-          </div>
-        )}
       <VibeMaterialDialog
         open={materials}
         capabilities={capabilities}

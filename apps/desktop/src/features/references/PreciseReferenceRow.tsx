@@ -1,12 +1,20 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { RotateCcw } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
+import { ImagePlus, Info, RotateCcw } from "lucide-react";
 import type {
   ModelCapabilities,
-  NumericRange,
   PreciseReferenceInput,
   PreciseReferenceOverride,
 } from "../../bindings/workbench";
-import { Button, HelpMarker, IconButton, Notice, Toggle } from "../../shared/ui";
+import {
+  Button,
+  FormField,
+  HelpMarker,
+  IconButton,
+  Modal,
+  Notice,
+  NumberSlider,
+  Toggle,
+} from "../../shared/ui";
 import { AssetImage, ImagePickerDialog, useMediaAsset } from "../media";
 import { imageName } from "../media/model";
 import {
@@ -23,46 +31,7 @@ const typeLabels: Record<string, string> = {
   delta: "差异",
 };
 
-/** Keep incomplete numeric typing local while the parent retains the last complete value. */
-function ReferenceNumber({
-  id,
-  value,
-  range,
-  onChange,
-  invalid,
-  describedBy,
-}: {
-  id: string;
-  value: number;
-  range: NumericRange | null | undefined;
-  onChange: (value: number) => void;
-  invalid?: boolean;
-  describedBy?: string;
-}) {
-  const [editing, setEditing] = useState<{ source: number; text: string } | null>(null);
-  return (
-    <input
-      id={id}
-      type="number"
-      step="any"
-      min={range?.min}
-      max={range?.max}
-      aria-invalid={invalid || undefined}
-      aria-describedby={describedBy}
-      value={editing?.source === value ? editing.text : value}
-      onChange={(event) => {
-        const number = event.currentTarget.valueAsNumber;
-        const complete = Number.isFinite(number);
-        setEditing({ source: complete ? number : value, text: event.currentTarget.value });
-        if (complete) onChange(number);
-      }}
-      onBlur={() => setEditing(null)}
-      onWheel={(event) => event.currentTarget.blur()}
-    />
-  );
-}
-
-/** One retained reference has the same fields in drafts, resources and linked overrides. */
+/** Drafts, resources and linked overrides use the same retained reference controls. */
 export function PreciseReferenceRow({
   value,
   index,
@@ -84,15 +53,8 @@ export function PreciseReferenceRow({
 }) {
   const prefix = useId();
   const [picking, setPicking] = useState(false);
+  const [details, setDetails] = useState(false);
   const media = useMediaAsset(value.assetId);
-  const advanced = useRef<HTMLDetailsElement>(null);
-  const issueSignature = JSON.stringify(issues);
-  const advancedIssue = issues.some(
-    (issue) => issue.field === "fidelity" || issue.field === "informationExtracted",
-  );
-  useEffect(() => {
-    if (advanced.current && advancedIssue) advanced.current.open = true;
-  }, [issueSignature, advancedIssue]);
   const options = capabilities?.preciseReferenceOptions;
   const label = `精确参考 ${index + 1}`;
   const hasIssue = (field: string) => issues.some((issue) => issue.field === field);
@@ -107,55 +69,38 @@ export function PreciseReferenceRow({
       </output>
     ) : null;
   const reset = (field: PreciseReferenceField, name: string) =>
-    override?.[field] !== null && override?.[field] !== undefined && onReset ? (
+    override?.[field] != null && onReset ? (
       <IconButton label={`撤销${name}覆盖`} onClick={() => onReset(field)}>
-        <RotateCcw size={12} />
+        <RotateCcw size={13} />
       </IconButton>
-    ) : null;
+    ) : undefined;
   const numeric = (
     field: "strength" | "fidelity" | "informationExtracted",
     name: string,
-    range: NumericRange | null | undefined,
     help: string,
   ) => (
-    <div
-      className={`precise-reference-field ${field === "strength" ? "precise-reference-strength" : ""}`}
-      data-reference-field={field}
-    >
-      <div className="precise-reference-label">
-        <label htmlFor={`${prefix}-${field}`}>{name}</label>
-        <HelpMarker label={`${name}说明`}>{help}</HelpMarker>
-        {reset(field, name)}
-      </div>
-      <div
-        className={
-          field === "strength" && range ? "precise-reference-strength-controls" : undefined
-        }
+    <div className="precise-reference-field" data-reference-field={field}>
+      <FormField
+        label={name}
+        htmlFor={`${prefix}-${field}`}
+        help={<HelpMarker label={`${name}说明`}>{help}</HelpMarker>}
+        actions={reset(field, name)}
+        feedback={messages(field)}
       >
-        {field === "strength" && range && (
-          <input
-            type="range"
-            aria-label="参考强度滑块"
-            min={range.min}
-            max={range.max}
-            step="any"
-            value={Math.max(range.min, Math.min(range.max, value.strength))}
-            disabled={range.min === range.max}
-            aria-invalid={hasIssue(field) || undefined}
-            aria-describedby={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
-            onChange={(event) => onChange({ strength: event.currentTarget.valueAsNumber })}
-          />
-        )}
-        <ReferenceNumber
+        <NumberSlider
           id={`${prefix}-${field}`}
-          range={range}
+          label={`${label}${name}`}
           value={value[field]}
+          range={
+            field === "informationExtracted"
+              ? (options?.informationExtracted ?? { min: 0, max: 1 })
+              : undefined
+          }
           invalid={hasIssue(field)}
           describedBy={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
           onChange={(number) => onChange({ [field]: number })}
         />
-      </div>
-      {messages(field)}
+      </FormField>
     </div>
   );
   const savedTypeUnsupported = !!options && !options.referenceTypes.includes(value.referenceType);
@@ -167,7 +112,7 @@ export function PreciseReferenceRow({
     >
       <header>
         <strong>{label}</strong>
-        {override && <span className="tag">本次覆盖</span>}
+        {override && <span className="tag">覆盖</span>}
         <span className="spacer" />
         <Toggle
           label={`启用${label}`}
@@ -178,84 +123,97 @@ export function PreciseReferenceRow({
         {actions}
       </header>
       {messages("enabled")}
-      <div className="precise-reference-image" data-reference-field="assetId">
-        {media.asset && (
-          <AssetImage asset={media.asset} alt={label} className="precise-reference-thumbnail" />
-        )}
+      <div className="precise-reference-content">
+        <div className="precise-reference-image" data-reference-field="assetId">
+          {media.asset && (
+            <AssetImage asset={media.asset} alt={label} className="precise-reference-thumbnail" />
+          )}
+          <div className="precise-reference-image-actions">
+            <IconButton
+              label={`替换${label}图片`}
+              aria-invalid={hasIssue("assetId") || undefined}
+              onClick={() => setPicking(true)}
+            >
+              <ImagePlus size={14} />
+            </IconButton>
+            {reset("assetId", "图片")}
+            <IconButton
+              label={`查看${label}图片信息`}
+              disabled={!media.asset}
+              onClick={() => setDetails(true)}
+            >
+              <Info size={14} />
+            </IconButton>
+          </div>
+        </div>
         <div className="precise-reference-image-info">
-          {media.loading && <output>正在读取参考图片…</output>}
-          {media.asset && <span>{imageName(media.asset)}</span>}
+          <div data-reference-field="referenceType">
+            <FormField
+              label="用途"
+              htmlFor={`${prefix}-type`}
+              actions={reset("referenceType", "用途")}
+              feedback={messages("referenceType")}
+            >
+              <select
+                id={`${prefix}-type`}
+                value={value.referenceType}
+                aria-invalid={hasIssue("referenceType") || undefined}
+                aria-describedby={
+                  hasIssue("referenceType") ? `${prefix}-referenceType-issues` : undefined
+                }
+                onChange={(event) => onChange({ referenceType: event.currentTarget.value })}
+              >
+                {!options?.referenceTypes.includes(value.referenceType) && (
+                  <option value={value.referenceType}>
+                    {typeLabels[value.referenceType] ?? value.referenceType} · 已保存
+                  </option>
+                )}
+                {options?.referenceTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {typeLabels[type] ?? type}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+          {media.loading && <output>正在读取图片…</output>}
           {media.error && (
             <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
           )}
-          <div className="button-group">
-            <Button
-              aria-invalid={hasIssue("assetId") || undefined}
-              aria-describedby={hasIssue("assetId") ? `${prefix}-assetId-issues` : undefined}
-              onClick={() => setPicking(true)}
-            >
-              替换图片
-            </Button>
-            {reset("assetId", "图片")}
-          </div>
         </div>
       </div>
       {messages("assetId")}
-      <div className="precise-reference-fields">
-        <div className="precise-reference-field" data-reference-field="referenceType">
-          <div className="precise-reference-label">
-            <label htmlFor={`${prefix}-type`}>用途</label>
-            {reset("referenceType", "用途")}
-          </div>
-          <select
-            id={`${prefix}-type`}
-            value={value.referenceType}
-            aria-invalid={hasIssue("referenceType") || undefined}
-            aria-describedby={
-              hasIssue("referenceType") ? `${prefix}-referenceType-issues` : undefined
-            }
-            onChange={(event) => onChange({ referenceType: event.currentTarget.value })}
-          >
-            {!options?.referenceTypes.includes(value.referenceType) && (
-              <option value={value.referenceType}>
-                {typeLabels[value.referenceType] ?? value.referenceType} · 已保存
-              </option>
-            )}
-            {options?.referenceTypes.map((type) => (
-              <option key={type} value={type}>
-                {typeLabels[type] ?? type}
-              </option>
-            ))}
-          </select>
-          {messages("referenceType")}
-        </div>
-        {numeric(
-          "strength",
-          "强度",
-          options?.strength,
-          "控制参考图片的视觉特征对生成结果的影响程度。",
-        )}
-      </div>
       {savedTypeUnsupported && (
         <p className="precise-reference-message">当前模型不支持已保存的用途。</p>
       )}
-      <details className="precise-reference-advanced" ref={advanced}>
-        <summary>高级</summary>
-        <div className="precise-reference-fields">
-          {numeric(
-            "fidelity",
-            "Fidelity",
-            options?.fidelity,
-            "控制参考约束的精确程度，较高时更难通过提示词覆盖。",
-          )}
-          {numeric(
-            "informationExtracted",
-            "信息提取量",
-            options?.informationExtracted,
-            "控制从参考图片中提取的信息量。",
-          )}
-        </div>
-      </details>
+      <div className="precise-reference-fields">
+        {numeric(
+          "strength",
+          "Strength",
+          "控制参考图片对结果的影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
+        )}
+        {numeric(
+          "fidelity",
+          "Fidelity",
+          "控制参考约束的精确程度。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
+        )}
+        {numeric(
+          "informationExtracted",
+          "信息提取量",
+          "控制从参考图片中提取的信息量，范围为 0–1。",
+        )}
+      </div>
+      <Modal open={details} onClose={() => setDetails(false)} title={`${label} · 图片信息`}>
+        {media.asset && (
+          <div className="precise-reference-details">
+            <AssetImage asset={media.asset} alt={label} />
+            <p>{imageName(media.asset)}</p>
+            <p>
+              {media.asset.width} × {media.asset.height} · {media.asset.mimeType}
+            </p>
+          </div>
+        )}
+      </Modal>
       <ImagePickerDialog
         open={picking}
         title="选择精确参考图片"
@@ -276,7 +234,9 @@ export function PreciseReferenceAvailability({
   return (
     <>
       {messages.precise && <p className="precise-reference-message">{messages.precise}</p>}
-      {messages.vibe && <p className="precise-reference-message">{messages.vibe}</p>}
+      {messages.vibe && capabilities.vibeReference.reason !== "conflictWithPreciseReference" && (
+        <p className="precise-reference-message">{messages.vibe}</p>
+      )}
     </>
   );
 }

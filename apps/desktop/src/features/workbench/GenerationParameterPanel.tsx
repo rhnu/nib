@@ -23,9 +23,16 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
       const key = diagnosticSetting(field);
       return (
         (key !== null &&
-          !["model", "quality", "ucPreset", "furryMode", "size", "nSamples", "useCoords"].includes(
-            key,
-          )) ||
+          ![
+            "model",
+            "quality",
+            "ucPreset",
+            "furryMode",
+            "size",
+            "nSamples",
+            "useCoords",
+            "transparentBackground",
+          ].includes(key)) ||
         field.split(".").some((part) => part === "policy" || part === "stream")
       );
     },

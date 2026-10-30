@@ -27,7 +27,7 @@
   min-width: 0;
 }
 .context-rail > section {
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line-subtle);
 }
 .main-workspace {
@@ -35,7 +35,7 @@
 }
 .generation-actions-slot {
   flex-shrink: 0;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-top: 1px solid var(--line-subtle);
   background: var(--surface);
 }

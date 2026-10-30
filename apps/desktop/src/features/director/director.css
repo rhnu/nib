@@ -274,3 +274,7 @@
   min-width: 0;
   min-height: 0;
 }
+
+.director-input-section > h2 {
+  margin-bottom: 10px;
+}

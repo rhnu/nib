@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef } from "react";
-import { RotateCcw } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import type {
   CharacterComposition,
   CharacterOutputOverride,
@@ -38,6 +38,7 @@ export function CharacterOutputOverrides({
   issues?: CharacterIssues;
 }) {
   const root = useRef<HTMLElement>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const latest = useRef({ overrides, onChange });
   useLayoutEffect(() => {
     latest.current = { overrides, onChange };
@@ -85,11 +86,30 @@ export function CharacterOutputOverrides({
                 onChange={(enabled) => update(character.id, { enabled })}
               />
               <IconButton
-                label="撤销角色启停覆盖"
-                disabled={local?.enabled === null || local?.enabled === undefined}
-                onClick={() => update(character.id, { enabled: null })}
+                label="撤销角色启停与位置覆盖"
+                disabled={!local}
+                onClick={() => update(character.id, { enabled: null, position: null })}
               >
                 <RotateCcw size={14} />
+              </IconButton>
+              <IconButton
+                label={`${collapsed.has(character.id) ? "展开" : "折叠"}配方角色 ${index + 1}`}
+                data-character-expand
+                aria-expanded={!collapsed.has(character.id)}
+                onClick={() =>
+                  setCollapsed((current) => {
+                    const next = new Set(current);
+                    if (next.has(character.id)) next.delete(character.id);
+                    else next.add(character.id);
+                    return next;
+                  })
+                }
+              >
+                {collapsed.has(character.id) ? (
+                  <ChevronRight size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
               </IconButton>
             </header>
             {fieldIssues.map((issue, index) => (
@@ -97,28 +117,34 @@ export function CharacterOutputOverrides({
                 {issue.message}
               </p>
             ))}
-            <div className="character-prompts">
-              <PresetOverrides
-                composition={character.composition}
-                overrides={textOverrides}
-                resources={resources}
-                model={capabilities?.model}
-                name={`${name} 角色 ${index + 1}`}
-                onChange={onTextChange}
-                errorScopes={fieldIssues
-                  .filter((issue) => issue.field === "positive" || issue.field === "negative")
-                  .map((issue) => issue.field)}
-              />
+            <div
+              className="character-body"
+              hidden={collapsed.has(character.id) && fieldIssues.length === 0}
+            >
+              <div className="character-prompts">
+                <PresetOverrides
+                  composition={character.composition}
+                  overrides={textOverrides}
+                  resources={resources}
+                  model={capabilities?.model}
+                  name={`${name} 角色 ${index + 1}`}
+                  onChange={onTextChange}
+                  errorScopes={fieldIssues
+                    .filter((issue) => issue.field === "positive" || issue.field === "negative")
+                    .map((issue) => issue.field)}
+                />
+              </div>
+              {!onPosition && (
+                <CharacterPositionFields
+                  value={local?.position ?? character.position}
+                  onChange={(position) => update(character.id, { position })}
+                  capabilities={capabilities}
+                  onRestore={() => update(character.id, { position: null })}
+                  overridden={local?.position !== null && local?.position !== undefined}
+                  issues={fieldIssues}
+                />
+              )}
             </div>
-            <CharacterPositionFields
-              value={local?.position ?? character.position}
-              onChange={(position) => update(character.id, { position })}
-              capabilities={capabilities}
-              onPosition={onPosition ? () => onPosition(character.id) : undefined}
-              onRestore={() => update(character.id, { position: null })}
-              overridden={local?.position !== null && local?.position !== undefined}
-              issues={fieldIssues}
-            />
           </article>
         );
       })}
