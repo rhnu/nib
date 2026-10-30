@@ -43,30 +43,3 @@ pub(crate) fn get_lexicon_status(
 ) -> Result<LexiconStatus, ApiError> {
     state.lexicon.status().map_err(lexicon_error)
 }
-
-#[tauri::command]
-pub(crate) fn cancel_lexicon_install(state: tauri::State<'_, DesktopState>) {
-    state.lexicon.cancel_install();
-}
-
-#[tauri::command]
-pub(crate) fn install_lexicon(
-    state: tauri::State<'_, DesktopState>,
-    manifest_url: String,
-    semantic: bool,
-) -> Result<(), ApiError> {
-    let resources = std::sync::Arc::clone(&state.lexicon);
-    resources.begin_install().map_err(lexicon_error)?;
-    tauri::async_runtime::spawn(async move {
-        let worker = std::sync::Arc::clone(&resources);
-        if let Err(error) = tauri::async_runtime::spawn_blocking(move || {
-            worker.install_prepared(&manifest_url, semantic);
-        })
-        .await
-        {
-            tracing::error!(error=?error,"vocabulary installation worker failed");
-            resources.install_worker_failed(error.to_string());
-        }
-    });
-    Ok(())
-}

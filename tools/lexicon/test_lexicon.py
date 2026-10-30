@@ -1,8 +1,12 @@
 """Pure logic checks for source selection, document identity and retention policy."""
 import copy
+import argparse
 import unittest
 
-from lexicon import apply_prompt_names, asset_identity, cache_key, document_text, keep_record, split_translations
+from lexicon import (
+    apply_prompt_names, asset_identity, cache_key, document_text, keep_record,
+    release_tag, resource_version, split_translations, validate_cache_metadata,
+)
 
 
 class SelectionTests(unittest.TestCase):
@@ -81,6 +85,44 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual(renamed["name"], original["name"])
         self.assertIn("color fading hair", renamed["aliases"])
         self.assertNotEqual(document_text(renamed), document_text(original))
+
+
+class ResourceVersionTests(unittest.TestCase):
+    def test_stable_version_determines_release_identity(self):
+        self.assertEqual(resource_version("1.0.0"), "1.0.0")
+        self.assertEqual(release_tag("2.10.3"), "resource-lexicon-v2.10.3")
+
+    def test_ambiguous_or_non_stable_versions_are_rejected(self):
+        for value in ("01.0.0", "1.0", "v1.0.0", "1.0.0-rc.1", "1.0.0+local", "1.0.0/other", "1.0.0\n"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                resource_version(value)
+
+
+class CacheSnapshotTests(unittest.TestCase):
+    def setUp(self):
+        self.metadata = {
+            "schemaVersion": 1, "file": "embeddings.sqlite3.gz", "sha256": "compressed",
+            "bytes": 50, "sqliteSha256": "decoded", "sqliteBytes": 100, "entries": 3,
+        }
+
+    def test_matching_snapshot_identity_is_accepted(self):
+        validate_cache_metadata(self.metadata, ("compressed", 50), ("decoded", 100), 3)
+
+    def test_snapshot_bytes_decoded_content_and_entry_count_are_all_checked(self):
+        for compressed, decoded, entries in (
+            (("changed", 50), ("decoded", 100), 3),
+            (("compressed", 49), ("decoded", 100), 3),
+            (("compressed", 50), ("changed", 100), 3),
+            (("compressed", 50), ("decoded", 99), 3),
+            (("compressed", 50), ("decoded", 100), 2),
+        ):
+            with self.subTest(compressed=compressed, decoded=decoded, entries=entries), self.assertRaises(ValueError):
+                validate_cache_metadata(self.metadata, compressed, decoded, entries)
+
+    def test_unknown_snapshot_format_or_payload_name_is_rejected(self):
+        for changed in ({"schemaVersion": 2}, {"file": "other.sqlite3.gz"}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                validate_cache_metadata({**self.metadata, **changed}, ("compressed", 50), ("decoded", 100), 3)
 
 
 if __name__ == "__main__":

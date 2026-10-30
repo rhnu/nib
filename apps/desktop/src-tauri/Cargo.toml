@@ -15,6 +15,7 @@ anyhow.workspace = true
 async-trait.workspace = true
 nib-app.workspace = true
 nib-lexicon.workspace = true
+nib-resources.workspace = true
 novelai-bridge.workspace = true
 keyring-core.workspace = true
 secrecy.workspace = true

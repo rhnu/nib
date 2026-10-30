@@ -6,6 +6,7 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 mod commands;
 mod credentials;
+mod downloads;
 mod generation;
 mod lexicon;
 mod media;
@@ -39,8 +40,11 @@ pub fn run() -> anyhow::Result<()> {
         .invoke_handler(tauri::generate_handler![
             lexicon::search_lexicon,
             lexicon::get_lexicon_status,
-            lexicon::install_lexicon,
-            lexicon::cancel_lexicon_install,
+            downloads::get_download_status,
+            downloads::refresh_download_catalog,
+            downloads::install_download,
+            downloads::cancel_download,
+            downloads::uninstall_download,
             settings::get_application_settings,
             settings::save_application_preferences,
             settings::set_data_directory,

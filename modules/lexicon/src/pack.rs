@@ -25,8 +25,7 @@ use crate::{
 pub struct PackOptions<'a> {
     pub input: &'a Path,
     pub output: &'a Path,
-    pub id: &'a str,
-    pub asset_base_url: &'a str,
+    pub version: &'a str,
     pub vectors: Option<&'a Path>,
     pub keys: Option<&'a Path>,
     pub model_dir: Option<&'a Path>,
@@ -50,14 +49,13 @@ pub fn pack(options: &PackOptions<'_>) -> Result<ResourceManifest> {
         let path = options.output.join(name);
         Ok(ResourceFile {
             path: name.to_owned(),
-            url: format!("{}/{}", options.asset_base_url.trim_end_matches('/'), name),
             bytes: path.metadata()?.len(),
             sha256: file_hash(&path)?,
         })
     };
     let mut manifest = ResourceManifest {
         format_version: FORMAT_VERSION,
-        id: options.id.to_owned(),
+        id: options.version.to_owned(),
         core: asset("lexicon.sqlite3")?,
         semantic: None,
         model: None,
@@ -70,8 +68,52 @@ pub fn pack(options: &PackOptions<'_>) -> Result<ResourceManifest> {
     add_semantic(&mut manifest, options, &keys, &asset)?;
     manifest.validate()?;
     fs::write(
-        options.output.join("lexicon-manifest.json"),
+        options.output.join("lexicon.json"),
         serde_json::to_vec_pretty(&manifest)?,
+    )?;
+    let downloadable = |file: &ResourceFile| nib_resources::format::ResourceFile {
+        path: file.path.clone(),
+        url: format!(
+            "https://github.com/rhnu/nib/releases/download/resource-lexicon-v{}/{}",
+            options.version, file.path
+        ),
+        bytes: file.bytes,
+        sha256: file.sha256.clone(),
+    };
+    let mut components = vec![nib_resources::format::ResourceComponent {
+        id: "core".into(),
+        name: "Core vocabulary".into(),
+        description: "Names, aliases, translations and vocabulary browsing.".into(),
+        requires: vec![],
+        files: vec![
+            downloadable(&asset("lexicon.json")?),
+            downloadable(&manifest.core),
+        ],
+    }];
+    if manifest.semantic.is_some() {
+        components.push(nib_resources::format::ResourceComponent {
+            id: "semantic".into(),
+            name: "Semantic search".into(),
+            description: "Description search with a local query model.".into(),
+            requires: vec!["core".into()],
+            files: manifest
+                .files(true)
+                .into_iter()
+                .skip(1)
+                .map(downloadable)
+                .collect(),
+        });
+    }
+    let resource = nib_resources::format::ResourceManifest {
+        schema_version: 1,
+        id: "lexicon".into(),
+        version: options.version.to_owned(),
+        components,
+    };
+    resource.validate()?;
+    fs::write(
+        options.output.join("resource.json"),
+        serde_json::to_vec_pretty(&resource)?,
     )?;
     tracing::info!(
         terms = keys.len(),

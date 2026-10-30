@@ -17,6 +17,7 @@ import { messages } from "./en/messages";
 import { language } from "./en/language";
 import { presets } from "./en/presets";
 import { lexicon } from "./en/lexicon";
+import { downloads } from "./en/downloads";
 
 export const en = {
   app: app,
@@ -38,4 +39,5 @@ export const en = {
   language: language,
   presets: presets,
   lexicon,
+  downloads,
 };

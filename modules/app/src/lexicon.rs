@@ -71,30 +71,6 @@ pub struct LexiconSearchResult {
     pub semantic_available: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub enum LexiconInstallState {
-    Downloading,
-    Verifying,
-    Activating,
-    Complete,
-    Cancelled,
-    Failed,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct LexiconInstallProgress {
-    pub state: LexiconInstallState,
-    #[cfg_attr(feature = "typegen", ts(type = "number"))]
-    pub completed_bytes: u64,
-    #[cfg_attr(feature = "typegen", ts(type = "number"))]
-    pub total_bytes: u64,
-    pub message: Option<String>,
-}
-
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
@@ -102,8 +78,6 @@ pub struct LexiconStatus {
     pub generation: Option<String>,
     pub term_count: u32,
     pub semantic_available: bool,
-    pub resource_directory: String,
-    pub install: Option<LexiconInstallProgress>,
 }
 
 /// One native implementation serves both the browser and all prompt editor contexts.
@@ -114,7 +88,7 @@ pub trait LexiconSearch: Send + Sync {
     /// Returns an error for invalid input or unavailable resource and inference backends.
     fn search(&self, query: LexiconQuery) -> Result<LexiconSearchResult, LexiconError>;
 
-    /// Report the installed generation and current installation progress.
+    /// Report the active generation and its query capabilities.
     ///
     /// # Errors
     /// Returns an error if the backend's shared state cannot be read.

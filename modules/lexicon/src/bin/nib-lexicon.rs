@@ -40,9 +40,7 @@ struct PackArgs {
     #[arg(long)]
     output: PathBuf,
     #[arg(long)]
-    id: String,
-    #[arg(long)]
-    asset_base_url: String,
+    version: String,
     #[arg(long)]
     vectors: Option<PathBuf>,
     #[arg(long)]
@@ -61,8 +59,7 @@ fn main() -> Result<()> {
             let manifest = pack(&PackOptions {
                 input: &args.input,
                 output: &args.output,
-                id: &args.id,
-                asset_base_url: &args.asset_base_url,
+                version: &args.version,
                 vectors: args.vectors.as_deref(),
                 keys: args.keys.as_deref(),
                 model_dir: args.model_dir.as_deref(),

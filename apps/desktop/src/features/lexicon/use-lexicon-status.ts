@@ -5,13 +5,10 @@ export function useLexiconStatus(enabled = true) {
   return useQuery({
     queryKey: lexiconStatusKey,
     queryFn: lexiconApi.status,
+    meta: { downloadableResource: "lexicon" },
     enabled,
     staleTime: 5_000,
-    refetchInterval: (query) =>
-      query.state.data?.install &&
-      ["downloading", "verifying", "activating"].includes(query.state.data.install.state)
-        ? 500
-        : false,
+    refetchInterval: 5_000,
     retry: false,
   });
 }

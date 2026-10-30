@@ -39,11 +39,24 @@ pub(crate) struct DesktopState {
     feedback: Arc<Mutex<HashMap<String, FeedbackSubscription>>>,
     pub(crate) credentials: Arc<NativeCredentials>,
     pub(crate) lexicon: Arc<nib_lexicon::LexiconResources>,
+    pub(crate) downloads: Arc<nib_resources::ResourceStore>,
 }
 
 impl DesktopState {
     pub(crate) fn new(base: &Path, development: bool) -> anyhow::Result<Self> {
         let storage = Arc::new(StorageManager::open(base, development)?);
+        let lexicon = Arc::new(nib_lexicon::LexiconResources::default());
+        let consumers: std::collections::BTreeMap<
+            String,
+            Arc<dyn nib_resources::ResourceConsumer>,
+        > = std::collections::BTreeMap::from([(
+            "lexicon".to_owned(),
+            Arc::clone(&lexicon) as Arc<dyn nib_resources::ResourceConsumer>,
+        )]);
+        let downloads = Arc::new(nib_resources::ResourceStore::open(
+            &base.join("resources"),
+            consumers,
+        )?);
         Ok(Self {
             storage: Arc::clone(&storage),
             data_access: Arc::new(tokio::sync::RwLock::new(())),
@@ -54,9 +67,8 @@ impl DesktopState {
             generation: Arc::new(Mutex::new(None)),
             feedback: Arc::new(Mutex::new(HashMap::new())),
             credentials: Arc::new(NativeCredentials::new(development, storage)),
-            lexicon: Arc::new(nib_lexicon::LexiconResources::open(
-                &base.join("resources"),
-            )?),
+            lexicon,
+            downloads,
         })
     }
 

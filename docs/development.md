@@ -4,21 +4,22 @@
 
 ## 工程边界
 
-Cargo workspace 包含五个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-prompt` 是原生与 WASM 共用的提示词源处理库；`nib-lexicon` 实现原生词库资源安装、检索、语义查询与资源打包；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
+Cargo workspace 包含六个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-prompt` 是原生与 WASM 共用的提示词源处理库；`nib-resources` 管理通用下载目录、组件依赖、内容校验、安装与资源代次；`nib-lexicon` 实现原生词库消费、检索、语义查询与资源打包；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
 
-依赖方向为桌面宿主 → 应用库 → bridge；提示词源处理经 `nib-prompt` 依赖 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入 SDK 的网络、图像或 Tokenizer 依赖。应用库的 `lexicon` 只拥有查询与资源状态契约，宿主装配 `nib-lexicon`；ONNX、语义 Tokenizer、向量索引与下载依赖限定在原生资源 crate，不进入 `nib-prompt` 或 WASM。xtask 使用应用库和提示词库的类型生成能力，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
+依赖方向为桌面宿主 → 应用库 → bridge；提示词源处理经 `nib-prompt` 依赖 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入 SDK 的网络、图像或 Tokenizer 依赖。应用库的 `lexicon` 只拥有查询与可用状态契约，`downloads` 拥有通用资源下载状态的通信类型；宿主集中装配 `nib-resources` 与实现其 `ResourceConsumer` 的 `nib-lexicon`。下载依赖留在 `nib-resources`，ONNX、语义 Tokenizer 与向量索引留在 `nib-lexicon`，均不进入 `nib-prompt` 或 WASM。xtask 使用应用库、提示词库的类型生成能力和通用资源格式，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
 
-应用库按以下职责组织。`prompt`、`library` 和 `session` 支撑资源与当前创作；`jobs`、`media` 和 `settings` 支撑 NAI 操作、媒体与宿主账户契约：
+应用库按以下职责组织：
 
-| 模块       | 拥有的职责                                                       |
-| ---------- | ---------------------------------------------------------------- |
-| `prompt`   | Chunk / Preset、实例、作用域、组合解析与来源解释。               |
-| `library`  | 资源组织、查找、关系、导入导出与复用入口。                       |
-| `session`  | 当前创作、参考输入、Prompt 与图像编辑状态。                      |
-| `jobs`     | 付费图像操作的提交、调度、批次和任务状态，直接使用 bridge 执行。 |
-| `media`    | 媒体读写、最终结果、来源关系和结果复用。                         |
-| `settings` | 账户选择、应用偏好及配置语义。                                   |
-| `lexicon`  | 词条分类、检索结果、查询契约及资源安装状态。                     |
+| 模块        | 拥有的职责                                                       |
+| ----------- | ---------------------------------------------------------------- |
+| `prompt`    | Chunk / Preset、实例、作用域、组合解析与来源解释。               |
+| `library`   | 资源组织、查找、关系、导入导出与复用入口。                       |
+| `session`   | 当前创作、参考输入、Prompt 与图像编辑状态。                      |
+| `jobs`      | 付费图像操作的提交、调度、批次和任务状态，直接使用 bridge 执行。 |
+| `media`     | 媒体读写、最终结果、来源关系和结果复用。                         |
+| `settings`  | 账户选择、应用偏好及配置语义。                                   |
+| `lexicon`   | 词条分类、检索结果、查询契约及可用状态。                         |
+| `downloads` | 通用资源组、组件、安装版本及下载进度的通信类型。                 |
 
 查询契约由相应领域拥有。资源搜索、结果查询、词库补全和远程作品发现不统一成“关键字输入、任意 JSON 输出”。同类多来源查询在所属模块中组合，保留来源标识及专有信息；可查询不意味着可写入。
 
@@ -180,22 +181,60 @@ Rust 检查顺序为编译 → 格式 → lint → 单元测试。默认只添�
 
 ## 词库资源与构建
 
-资源定义位于 `resources/lexicon/`。`sources.lock.json` 固定来源提交、实际资源文件身份、SHA-256 与许可说明；`models.lock.json` 固定文档编码及客户端查询模型；`recipe.json` 决定频次筛选、保留 / 排除词条、语义收录类别、文档模板和向量契约。默认数据来自 ffdkj，`--enhanced` 显式加入 DanbooruSearchOnline 的别名、分组与共现数据，资源元数据保留各自来源和许可。规范词条使用稳定的 Danbooru 名称身份；原名、译名和别名分开保存，画师保留未翻译的英文或假名名称。插入使用资源提供的 NAI 适配文本 `promptText`，前端不从原名推导或维护重命名映射。分类不与风格分组混用，共现查询仅表达关联作品或题材。
+应用代码和资源维护使用不同分支。main 的 `resources/lexicon/` 保存 `recipe.json`、`models.lock.json`、`novelai.json` 与模型许可，分别定义词条筛选与语义契约、固定模型、NovelAI 补充数据和许可说明。独立的 orphan `resource` 分支保存 `catalog.json`、`lexicon/sources.lock.json`、`lexicon/cache/` 与 `lexicon/versions/<version>/`；资源版本采用独立的稳定 `major.minor.patch`，不随应用版本变化。普通应用开发与 `pnpm check` 不需要检出该分支或下载 LFS 对象。
 
-客户端基础词库使用 SQLite 查询名称、别名与译名；语义包另含 fp16 索引、稳定键列表和本地 CPU 查询模型。原生后端读取 fp16 数据后一次展开为 fp32 并归一化，查询使用安全可移植 SIMD 做精确点积，ONNX 编码器惰性初始化。基础安装不加载模型。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约；tokenizer 以压缩资源分发。资源文件经大小与 SHA-256 校验，下载按文件内容身份复用；有效的强 ETag 与 Range 响应允许续传。新代次完整打开后原子切换活动指针，失败或取消保留旧活动资源；资源更新分发完整包。
+首次建立资源分支时，在主工作区执行：
 
-原生绑定使用 `ort 2.0.0-rc.15`；该代 API 当前仅有预发布版本，因此固定这个 RC 并由锁文件记录完整依赖。CPU 预编译运行库通过原生后端链接，模型文件与 gzip 分词器按资源契约独立下载。
+```sh
+git worktree add --orphan -b resource ../nib-resource
+```
 
-离线工具入口是 `python tools/lexicon/lexicon.py`。`check-source` 比较实际来源文件及构建配方，`fetch` 下载固定来源，`normalize` 生成规范词条，`models` 准备固定模型，`encode` 编码语义文档，`merge` 合并分片，`pack` 调用 `nib-lexicon` 生成可安装资源，`build` 顺序完成这些步骤。先准备 Python 与 uv，再在仓库根目录执行：
+远端已有资源分支、本地尚无该分支时，改为：
+
+```sh
+git fetch origin resource
+git worktree add --track -b resource ../nib-resource origin/resource
+```
+
+资源维护需要 Git LFS；先执行 `git lfs install`，已有资源工作树通过 `git -C ../nib-resource lfs pull` 取得实际文件。orphan 分支不继承 main 的文件，必须维护自己的 `.gitattributes`，不能依赖主分支的规则：
+
+```gitattributes
+* text=auto eol=lf
+*/cache/*.gz filter=lfs diff=lfs merge=lfs -text
+*/versions/** -text
+*/versions/**/*.sqlite3 filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.f16 filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.onnx_data filter=lfs diff=lfs merge=lfs -text
+*/versions/**/tokenizer.json.gz filter=lfs diff=lfs merge=lfs -text
+```
+
+`sources.lock.json` 固定来源提交、文件身份、SHA-256 与许可说明。默认数据来自 ffdkj，`--enhanced` 显式加入 DanbooruSearchOnline 的别名、分组与共现数据，资源元数据保留各自来源和许可。规范词条使用稳定的 Danbooru 名称身份；原名、译名和别名分开保存，画师保留未翻译的英文或假名名称。插入使用资源提供的 NAI 适配文本 `promptText`，前端不从原名推导或维护重命名映射；分类不与风格分组混用，共现查询仅表达关联作品或题材。
+
+离线工具入口为 `python tools/lexicon/lexicon.py`，默认 `--resource-dir` 是主工作区同级的 `nib-resource`，默认临时工作目录为 `.dev/lexicon-build`。更新来源必须显式运行 `refresh-source`；`build` 读取既有来源锁，不隐式改写来源版本。在主工作区执行：
 
 ```sh
 uv sync --project tools/lexicon --locked
-uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py build --id lexicon-YYYY.MM.DD.N --asset-base-url https://github.com/RhNu/nib/releases/download/lexicon-YYYY.MM.DD.N
+python tools/lexicon/lexicon.py refresh-source --resource-dir ../nib-resource
+uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py build --version 1.0.0
+python tools/lexicon/lexicon.py export-cache --resource-dir ../nib-resource
 ```
 
-使用实际资源版本替换示例中的 `YYYY.MM.DD.N`。默认工作目录是 `.dev/lexicon-build`，可通过 `--work-dir` 更改；添加 `--lexical-only` 只构建基础词库。`--reuse-models` 复用并校验已有模型文件，`--bootstrap-cache-url` 可恢复已发布的文档向量缓存。编码默认使用 CPU、有界批次和按文本长度分桶，`--batch-size`、`--bucket-size`、`--threads` 调整本机资源使用；`encode` 的 `--shard-index` 与 `--shard-count` 可拆分工作，再通过 `merge` 校验覆盖与契约并合并。
+将示例版本替换为本次资源版本；输出默认位于 `../nib-resource/lexicon/versions/1.0.0/`，已存在的版本目录不会覆盖。`--lexical-only` 只构建基础词库，`--enhanced` 加入增强来源，`--reuse-models <directory>` 复用并校验已有模型文件。`fetch` 下载锁定来源，`normalize` 生成规范词条，`models` 准备固定模型，`encode` 编码语义文档，`merge` 校验并合并分片，`pack` 调用 `nib-lexicon` 生成资源。编码默认使用 CPU、有界批次和按文本长度分桶，`--batch-size`、`--bucket-size`、`--threads` 调整本机资源使用，`--shard-index` 与 `--shard-count` 可拆分编码。
 
-文档编码缓存以规范文档内容和模型、模板、归一化及编码环境身份为键。未变化词条直接复用已提交批次，新词和内容变化的词条才重新编码；删除词条不进入新索引。候选包同时输出一致的压缩 SQLite 缓存快照及元数据，供后续机器恢复。客户端不下载该构建缓存，也不在本机重新编码整个词库。
+已有规范词条和语义产物时，可直接重新打包而不重复编码：
+
+```sh
+uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --version 1.0.0 --input .dev/lexicon-build/normalized.jsonl --semantic-dir .dev/lexicon-build/semantic
+```
+
+包内 `resource.json` 描述资源身份、版本、组件依赖及文件 URL、大小和哈希，`lexicon.json` 保存词库领域格式；`build.json` 记录代码基线提交、dirty 状态、打包源码与输入哈希、来源锁和构建配方身份。基础 `core` 组件支持 SQLite 名称、别名与译名查询，`semantic` 组件依赖同版本的 `core`，另含 fp16 索引、稳定键列表、本地 CPU 查询模型与压缩 tokenizer。原生词库 consumer 核对领域契约并打开完整快照后才启用新代次；基础安装不加载模型，ONNX 编码器惰性初始化。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约。原生绑定使用 `ort 2.0.0-rc.15`，该代 API 使用固定 RC 并由锁文件记录完整依赖，CPU 运行库随原生程序链接。
+
+文档向量缓存以规范文档内容、模型、模板、归一化和编码环境身份为键，未变化词条复用已提交批次，新词或变化词条才重新编码；删除词条不进入新索引。`build` 优先使用本地 `.dev/lexicon-build/embeddings.sqlite3`，缺少时从资源工作树的 `lexicon/cache/embeddings.sqlite3.gz` 与 `metadata.json` 恢复。`export-cache` 将已提交缓存导出到该稳定位置，`import-cache` 可显式恢复。缓存由 LFS 维护，位于版本目录之外；客户端只下载发布的资源文件，不获取构建缓存或依赖 Git LFS。
+
+通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主只按资源 ID 与目标组件集合启动任务；任务由后端持有，离开页面不会取消。完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。开发阶段不兼容旧资源布局，旧安装需重新安装。
+
+前端 `downloads` 管理组件供“设置 → 资源下载”和词库浏览器的通用“管理资源”弹窗共用，显示版本、组件用途、依赖、大小、进度与错误。组件选择从当前安装或任务目标恢复，选择依赖自动修正，减少组件或卸载会明确确认影响；安装完成和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询，词库状态查询声明 `lexicon` 并按 generation 变化增加修订，拒绝旧补全与插入；通用下载模块不依赖具体词库模块，浏览上下文保留。词库查询只消费可用代次，不拥有目录地址或下载操作。
 
 ## 持续检查与资源发布
 
@@ -205,9 +244,18 @@ Web 产物缓存使用实际构建输入的内容指纹，包含前端、提示�
 
 Node、Rust 与 wasm-bindgen 安装逻辑集中在 `.github/actions/`。pnpm store、Rust 的平台 / profile / target、ONNX 下载与 wasm-bindgen CLI 使用各自缓存键；只有可信 main 运行写入共享缓存，PR 可以读取。GitHub Actions 使用发布 tag，Rusteward 按项目约定调用 `rhnu/rusteward@main`，不再每次从 Git 源码安装。
 
-[词库候选工作流](../.github/workflows/lexicon-build.yml) 在 main 的相关文件变化、每周检查或手动运行时比较实际来源文件与配方；无变化时跳过构建，手动运行可明确重建或启用增强来源。源锁、固定模型和增量文档向量缓存分开恢复；候选版本与源码提交随资源包保存，只上传候选产物。
+资源生成与发布使用本地 CLI，从主工作区先校验，再提交资源工作树中的来源锁、缓存、版本包及 `.gitattributes`，最后发布：
 
-[发布工作流](../.github/workflows/lexicon-release.yml) 从 main 手动选择成功的可信候选运行与资源版本，核对运行来源、提交、版本、文件大小和哈希，直接发布同一候选包。不可变版本资产不覆盖，已有同身份资产核对后复用，失败可继续补传缺失文件；所有资产就绪后才更新独立 `lexicon-current` 清单指针，资源 release 不占用应用的 latest 位置。远程构建、资源生成与发布的未验收范围统一记录在[路线图](roadmap.md)。
+```sh
+cargo xtask resources verify --id lexicon --version 1.0.0
+git -C ../nib-resource add .gitattributes lexicon
+git -C ../nib-resource commit -m "chore(resources): add lexicon 1.0.0"
+cargo xtask resources publish --id lexicon --version 1.0.0 --name "Prompt lexicon" --description "Vocabulary and optional semantic search."
+```
+
+`verify` 检查本地版本身份、文件大小与哈希、组件依赖及固定 release 地址；两个子命令均可用 `--resource-dir` 指定资源工作树。`publish` 要求资源工作树干净，并使用已登录的 GitHub CLI 与仓库远端权限；先推送 LFS 对象和 `resource` 分支，再创建对应资源提交的 tag。tag 与 GitHub Release 标题统一为 `resource-lexicon-v1.0.0`，不含空格，资源 release 不占用应用的 latest 位置。
+
+发布不覆盖同身份资产；已有资产须大小和哈希一致，缺失文件可继续上传。所有 release 资产核对完整并确认公开下载地址可访问后，才更新资源分支的 `catalog.json`、创建目录更新提交并正常推送，不使用 force。来源锁、包和缓存随资源分支维护，应用检查和构建不负责生成或发布资源。
 
 ## 后续实施
 

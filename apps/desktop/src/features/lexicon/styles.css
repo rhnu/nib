@@ -59,22 +59,3 @@
 .lexicon-selected input {
   width: 75px;
 }
-.lexicon-settings form,
-.lexicon-install-progress {
-  display: grid;
-  gap: 10px;
-}
-.lexicon-install-progress {
-  margin-top: 12px;
-  font-size: 12px;
-}
-.lexicon-install-progress progress {
-  width: 100%;
-  accent-color: var(--accent);
-}
-.lexicon-settings .settings-path {
-  margin-bottom: 12px;
-}
-.lexicon-settings .settings-path code {
-  overflow-wrap: anywhere;
-}

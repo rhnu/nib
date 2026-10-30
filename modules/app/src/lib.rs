@@ -1,6 +1,7 @@
 //! Application data and behavior, independent of the desktop host.
 
 pub mod api;
+pub mod downloads;
 pub mod jobs;
 pub mod lexicon;
 pub mod library;

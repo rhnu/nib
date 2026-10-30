@@ -12,8 +12,4 @@ export type LexiconQuery = { text: string, kinds: Array<LexiconKind>, semantic: 
 
 export type LexiconSearchResult = { generation: string | null, matches: Array<LexiconMatch>, semanticAvailable: boolean, };
 
-export type LexiconInstallState = "downloading" | "verifying" | "activating" | "complete" | "cancelled" | "failed";
-
-export type LexiconInstallProgress = { state: LexiconInstallState, completedBytes: number, totalBytes: number, message: string | null, };
-
-export type LexiconStatus = { generation: string | null, termCount: number, semanticAvailable: boolean, resourceDirectory: string, install: LexiconInstallProgress | null, };
+export type LexiconStatus = { generation: string | null, termCount: number, semanticAvailable: boolean, };

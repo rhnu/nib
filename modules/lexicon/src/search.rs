@@ -29,6 +29,8 @@ pub(crate) struct Snapshot {
     kinds: HashMap<String, LexiconKind>,
     encoder: Arc<QueryEncoderPool>,
     indexed_kinds: Vec<LexiconKind>,
+    // Close SQLite and the model session before retiring the generation directory on Windows.
+    pub(crate) lease: Option<Arc<nib_resources::ResourceGeneration>>,
 }
 
 impl Snapshot {
@@ -90,6 +92,7 @@ impl Snapshot {
             }
         }
         Ok(Self {
+            lease: None,
             manifest,
             generation,
             count,

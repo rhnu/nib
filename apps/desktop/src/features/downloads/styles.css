@@ -1,0 +1,91 @@
+.downloads-settings > .section-heading {
+  margin-bottom: 12px;
+}
+.resource-manager-modal > .downloads-settings {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+.downloads-settings > .settings-path {
+  margin-bottom: 14px;
+}
+.downloads-settings code {
+  overflow-wrap: anywhere;
+}
+.download-resource {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.download-resource h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.download-resource p {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.download-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.download-components {
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.download-components legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.download-component {
+  padding: 8px 0;
+}
+.download-component label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.download-component input {
+  accent-color: var(--accent);
+}
+.download-component p,
+.download-dependencies {
+  margin-left: 22px;
+  color: var(--muted);
+}
+.download-component-size {
+  margin-left: auto;
+  color: var(--muted);
+}
+.download-dependencies,
+.download-selection-size {
+  font-size: 12px;
+  color: var(--muted);
+}
+.download-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.download-progress progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.download-impact {
+  padding-left: 20px;
+  font-size: 12px;
+}
+.download-impact li {
+  margin: 8px 0;
+}

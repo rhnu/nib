@@ -7,7 +7,7 @@ import { errorMessage } from "@/shared/host/error";
 import { isCurrentLexicon, lexiconApi, lexiconRevision } from "./api";
 import { kindLabel, lexiconKinds } from "./labels";
 import { LexiconTermRow } from "./lexicon-term-row";
-import { LexiconSettings } from "./lexicon-settings";
+import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 import { useLexiconStatus } from "./use-lexicon-status";
 import "./styles.css";
 
@@ -323,8 +323,14 @@ export function LexiconBrowser({
           {error && <Notice>{error}</Notice>}
         </fieldset>
       </Modal>
-      <Modal open={manager} onClose={() => setManager(false)} title={t("lexicon.manage")}>
-        <LexiconSettings />
+      <Modal
+        open={manager}
+        onClose={() => setManager(false)}
+        title={t("downloads.title")}
+        wide
+        className="resource-manager-modal"
+      >
+        <DownloadsSettings />
       </Modal>
     </>
   );

@@ -5,7 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "@/features/generation";
-import { LexiconSettings } from "@/features/lexicon/lexicon-settings";
+import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 import { Button, Field, HelpMarker, Notice, Toggle } from "@/shared/ui";
 import type { ApplicationSettingsState } from "./use-application-settings";
 
@@ -188,6 +188,12 @@ const sections = [
       return t("app.storage");
     },
   },
+  {
+    id: "downloads",
+    get name() {
+      return t("downloads.title");
+    },
+  },
 ] as const;
 export type SettingsSection = (typeof sections)[number]["id"];
 
@@ -294,7 +300,9 @@ export function SettingsPage({
           </section>
           <div hidden={section !== "storage"}>
             <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />
-            <LexiconSettings />
+          </div>
+          <div hidden={section !== "downloads"}>
+            <DownloadsSettings />
           </div>
         </div>
       </div>

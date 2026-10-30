@@ -2926,6 +2926,7 @@ dependencies = [
  "keyring-core",
  "nib-app",
  "nib-lexicon",
+ "nib-resources",
  "novelai-bridge",
  "secrecy",
  "serde_json",
@@ -2948,8 +2949,8 @@ dependencies = [
  "flate2",
  "half",
  "nib-app",
+ "nib-resources",
  "ort",
- "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2970,6 +2971,19 @@ dependencies = [
  "thiserror 2.0.21",
  "ts-rs",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "nib-resources"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "nib-app",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tracing",
 ]
 
 [[package]]
@@ -6552,6 +6566,9 @@ dependencies = [
  "anyhow",
  "clap",
  "nib-app",
+ "nib-resources",
+ "reqwest",
+ "serde_json",
  "ts-rs",
 ]
 

@@ -5,8 +5,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
             "search_lexicon",
             "get_lexicon_status",
-            "install_lexicon",
-            "cancel_lexicon_install",
+            "get_download_status",
+            "refresh_download_catalog",
+            "install_download",
+            "cancel_download",
+            "uninstall_download",
             "get_application_settings",
             "save_application_preferences",
             "set_data_directory",

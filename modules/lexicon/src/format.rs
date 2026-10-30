@@ -1,10 +1,6 @@
 //! The application and offline packer share one resource and vocabulary format.
 
-use std::{
-    fs::File,
-    io::Read as _,
-    path::{Component, Path},
-};
+use std::path::Path;
 
 use anyhow::{Context as _, Result, ensure};
 use nib_app::lexicon::LexiconKind;
@@ -18,7 +14,6 @@ pub const FORMAT_VERSION: u32 = 1;
 #[serde(rename_all = "camelCase")]
 pub struct ResourceFile {
     pub path: String,
-    pub url: String,
     pub bytes: u64,
     pub sha256: String,
 }
@@ -94,14 +89,6 @@ impl ResourceManifest {
                 file.path
             );
             ensure!(valid_hash(&file.sha256), "invalid resource digest");
-            let url = reqwest::Url::parse(&file.url)?;
-            ensure!(
-                url.scheme() == "https"
-                    && url.host_str().is_some()
-                    && url.username().is_empty()
-                    && url.password().is_none(),
-                "resource URLs must use HTTPS without credentials"
-            );
         }
         match (&self.semantic, &self.model) {
             (Some(index), Some(model)) => {
@@ -206,76 +193,7 @@ pub struct ImportedRelation {
     pub score: f32,
 }
 
-pub(crate) fn valid_hash(hash: &str) -> bool {
-    hash.len() == 64
-        && hash
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-}
-
-/// Resource paths are portable relative components, never platform-specific absolute paths.
-pub(crate) fn validate_path(path: &str) -> Result<()> {
-    ensure!(
-        !path.is_empty()
-            && !path.starts_with('.')
-            && !path.ends_with('.')
-            && path
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
-            && Path::new(path).components().count() == 1
-            && Path::new(path)
-                .components()
-                .all(|part| matches!(part, Component::Normal(_))),
-        "invalid resource path {path}"
-    );
-    let stem = path.split('.').next().unwrap_or("").to_ascii_uppercase();
-    ensure!(
-        !matches!(
-            stem.as_str(),
-            "CON"
-                | "PRN"
-                | "AUX"
-                | "NUL"
-                | "COM1"
-                | "COM2"
-                | "COM3"
-                | "COM4"
-                | "COM5"
-                | "COM6"
-                | "COM7"
-                | "COM8"
-                | "COM9"
-                | "LPT1"
-                | "LPT2"
-                | "LPT3"
-                | "LPT4"
-                | "LPT5"
-                | "LPT6"
-                | "LPT7"
-                | "LPT8"
-                | "LPT9"
-        ),
-        "reserved resource filename"
-    );
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests;
-
-pub(crate) fn file_hash(path: &Path) -> Result<String> {
-    let mut file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-    let mut hash = Sha256::new();
-    let mut buffer = vec![0_u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        hash.update(&buffer[..count]);
-    }
-    Ok(hex_digest(&hash.finalize()))
-}
+pub(crate) use nib_resources::format::{file_hash, hex_digest, valid_hash, validate_path};
 
 pub(crate) fn verify_file(directory: &Path, file: &ResourceFile) -> Result<()> {
     let path = directory.join(&file.path);
@@ -297,14 +215,4 @@ pub(crate) fn model_fingerprint(graph: &Path) -> Result<String> {
     ));
     let text = format!("{}:{}", file_hash(graph)?, file_hash(&weights)?);
     Ok(hex_digest(&Sha256::digest(text.as_bytes())))
-}
-
-pub(crate) fn hex_digest(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    bytes
-        .iter()
-        .fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
-            write!(&mut text, "{byte:02x}").expect("writing to a String is infallible");
-            text
-        })
 }

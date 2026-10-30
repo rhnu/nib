@@ -28,7 +28,7 @@ pub(crate) struct QueryEncoder {
     cache: VecDeque<(String, Vec<f32>)>,
 }
 
-/// All resource generations reuse the same query session when its input contract is unchanged.
+/// Queries within one resource snapshot reuse the lazily initialized model and cache.
 #[derive(Default)]
 pub(crate) struct QueryEncoderPool {
     current: Mutex<Option<QueryEncoder>>,

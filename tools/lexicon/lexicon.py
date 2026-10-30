@@ -10,6 +10,7 @@ import json
 import logging
 import math
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -17,12 +18,11 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 RESOURCES = ROOT / "resources" / "lexicon"
+RESOURCE_WORKTREE = ROOT.with_name(ROOT.name + "-resource")
 CATEGORIES = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
 LOG = logging.getLogger("lexicon")
 
@@ -88,19 +88,10 @@ def build_recipe_identity(recipe, enhanced: bool):
     }
 
 
-def check_source(args) -> None:
-    """Compare actual source assets, ignoring unrelated upstream repository commits."""
-    baseline = read_json(args.sources_lock)
-    missing_baseline = False
-    if args.baseline_url:
-        try:
-            baseline = get_json(args.baseline_url)
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                raise
-            missing_baseline = True
+def refresh_source(args) -> None:
+    """Explicitly resolve upstream HEAD and record verified file identities in the resource worktree."""
     current = read_json(args.sources_lock)
-    baseline_files = {s["id"]: {f["path"]: f for f in s["files"]} for s in baseline["sources"]}
+    before = asset_identity(current, args.enhanced)
     for source in selected_sources(current, args.enhanced):
         repository = source["repository"].removeprefix("https://github.com/")
         commit = get_json(f"https://api.github.com/repos/{repository}/commits/HEAD")
@@ -116,24 +107,12 @@ def check_source(args) -> None:
             item["bytes"] = remote["size"]
             item["url"] = f"https://raw.githubusercontent.com/{repository}/{commit['sha']}/{item['path']}"
             if not same_blob:
-                previous = baseline_files.get(source["id"], {}).get(item["path"])
-                if previous and previous.get("gitBlobSha") == remote["sha"]:
-                    item["sha256"] = previous["sha256"]
-                    continue
-                # Git blob identity detects changes; SHA-256 still verifies downloaded bytes.
                 target = args.work_dir / "sources" / source["id"] / item["name"]
                 download(item["url"], target)
                 item["sha256"] = sha256(target)
-    current["buildRecipe"] = build_recipe_identity(read_json(args.recipe), args.enhanced)
-    changed = (
-        missing_baseline or asset_identity(current, args.enhanced) != asset_identity(baseline, args.enhanced)
-        or current["buildRecipe"] != baseline.get("buildRecipe")
-    )
-    write_json(args.output, current)
-    if args.github_output:
-        with args.github_output.open("a", encoding="utf-8") as stream:
-            stream.write(f"changed={str(changed).lower()}\n")
-    print(json.dumps({"changed": changed, "sourcesLock": str(args.output)}))
+    current.pop("buildRecipe", None)
+    write_json(args.sources_lock, current)
+    print(json.dumps({"changed": before != asset_identity(current, args.enhanced), "sourcesLock": str(args.sources_lock)}))
 
 
 def fetch_sources(lock, work_dir: Path, enhanced: bool):
@@ -568,51 +547,107 @@ def validate_cache(path: Path) -> int:
         connection.close()
 
 
-def bootstrap_cache(url: str, cache: Path) -> None:
-    """Restore a public cache only when there is no local cache; a missing first release is allowed."""
+def cache_metadata(compressed: Path, snapshot: Path, entries: int):
+    return {
+        "schemaVersion": 1, "file": compressed.name, "sha256": sha256(compressed),
+        "bytes": compressed.stat().st_size, "sqliteSha256": sha256(snapshot),
+        "sqliteBytes": snapshot.stat().st_size, "entries": entries,
+    }
+
+
+def validate_cache_metadata(metadata, compressed_identity, sqlite_identity, entries: int) -> None:
+    """Check both transport bytes and the decoded SQLite content against one snapshot identity."""
+    if metadata["schemaVersion"] != 1 or metadata["file"] != "embeddings.sqlite3.gz":
+        raise ValueError("Unsupported embedding cache snapshot metadata")
+    if (metadata["sha256"], metadata["bytes"]) != compressed_identity:
+        raise ValueError("Compressed embedding cache differs from its snapshot metadata")
+    if (metadata["sqliteSha256"], metadata["sqliteBytes"]) != sqlite_identity:
+        raise ValueError("Decoded embedding cache differs from its snapshot metadata")
+    if metadata["entries"] != entries:
+        raise ValueError("Embedding cache entry count differs from its snapshot metadata")
+
+
+def import_cache(directory: Path, cache: Path) -> None:
+    """Restore a verified local resource snapshot without replacing committed local batches."""
     if cache.exists():
-        return
-    compressed = cache.with_suffix(cache.suffix + ".bootstrap.gz")
-    try:
-        metadata = get_json(urllib.parse.urljoin(url, "embedding-cache.json"))
-        if metadata["file"] != Path(urllib.parse.urlparse(url).path).name:
-            raise ValueError("Published embedding cache filename differs from its metadata")
-        download(url, compressed, metadata["sha256"])
-        if compressed.stat().st_size != metadata["bytes"]:
-            raise ValueError("Published embedding cache size differs from its metadata")
-    except urllib.error.HTTPError as error:
-        if error.code != 404:
-            raise
-        LOG.info("No published embedding cache exists yet; encoding from source")
-        return
-    temporary = cache.with_suffix(cache.suffix + ".bootstrap")
-    with gzip.open(compressed, "rb") as source, temporary.open("wb") as target:
-        shutil.copyfileobj(source, target, length=1024 * 1024)
-    count = validate_cache(temporary)
-    temporary.replace(cache)
-    compressed.unlink()
-    LOG.info("Restored %d reusable document embeddings", count)
+        raise ValueError(f"Embedding cache already exists: {cache}; choose a new --cache path to import")
+    compressed = directory / "embeddings.sqlite3.gz"
+    metadata = read_json(directory / "metadata.json")
+    compressed_identity = (sha256(compressed), compressed.stat().st_size)
+    if (metadata["sha256"], metadata["bytes"]) != compressed_identity:
+        raise ValueError("Compressed embedding cache differs from its snapshot metadata; hydrate Git LFS first")
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="lexicon-cache-", dir=cache.parent) as directory_name:
+        temporary = Path(directory_name) / "embeddings.sqlite3"
+        with gzip.open(compressed, "rb") as source, temporary.open("wb") as target:
+            shutil.copyfileobj(source, target, length=1024 * 1024)
+        count = validate_cache(temporary)
+        validate_cache_metadata(metadata, compressed_identity, (sha256(temporary), temporary.stat().st_size), count)
+        temporary.replace(cache)
+    LOG.info("Restored %d reusable document embeddings from %s", count, compressed)
 
 
 def export_cache(cache: Path, output: Path) -> None:
-    """Back up a consistent SQLite view before compressing it for future build machines."""
-    snapshot = cache.with_suffix(cache.suffix + ".snapshot")
-    source = sqlite3.connect(cache)
-    target = sqlite3.connect(snapshot)
-    try:
-        source.backup(target)
-    finally:
-        target.close()
-        source.close()
-    count = validate_cache(snapshot)
-    compressed = output / "embeddings.sqlite3.gz"
-    temporary = compressed.with_suffix(compressed.suffix + ".part")
-    with snapshot.open("rb") as source, temporary.open("wb") as target:
-        with gzip.GzipFile(filename="", fileobj=target, mode="wb", mtime=0) as encoded:
-            shutil.copyfileobj(source, encoded, length=1024 * 1024)
-    temporary.replace(compressed)
-    write_json(output / "embedding-cache.json", {"file": compressed.name, "sha256": sha256(compressed), "bytes": compressed.stat().st_size, "entries": count})
-    snapshot.unlink()
+    """Export a consistent SQLite backup and its identity to the independent resource worktree."""
+    if not cache.is_file():
+        raise ValueError(f"Embedding cache does not exist: {cache}")
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="lexicon-cache-", dir=output) as directory_name:
+        snapshot = Path(directory_name) / "embeddings.sqlite3"
+        source = sqlite3.connect(cache.resolve().as_uri() + "?mode=ro", uri=True)
+        target = sqlite3.connect(snapshot)
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+            source.close()
+        count = validate_cache(snapshot)
+        compressed = Path(directory_name) / "embeddings.sqlite3.gz"
+        with snapshot.open("rb") as source, compressed.open("wb") as target:
+            with gzip.GzipFile(filename="", fileobj=target, mode="wb", mtime=0) as encoded:
+                shutil.copyfileobj(source, encoded, length=1024 * 1024)
+        metadata = cache_metadata(compressed, snapshot, count)
+        compressed.replace(output / compressed.name)
+        write_json(output / "metadata.json", metadata)
+    LOG.info("Exported %d reusable document embeddings to %s", count, output)
+
+
+def resource_version(value: str) -> str:
+    """Resource releases use stable major.minor.patch versions with no ambiguous numeric spelling."""
+    if re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", value) is None:
+        raise argparse.ArgumentTypeError("Resource version must be a stable major.minor.patch version, for example 1.0.0")
+    return value
+
+
+def release_tag(version: str) -> str:
+    return "resource-lexicon-v" + resource_version(version)
+
+
+def build_metadata(args, lock, enhanced: bool):
+    """Keep source-code provenance separate from the independently versioned resource files."""
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    sources = {Path(__file__).resolve()}
+    for module in ("lexicon", "resources"):
+        directory = ROOT / "modules" / module
+        sources.update(directory.glob("src/**/*.rs"))
+        sources.update(directory.glob("**/schema.sql"))
+    packer_sources = {path.relative_to(ROOT).as_posix(): sha256(path) for path in sorted(sources)}
+    semantic = None
+    if args.semantic_dir:
+        semantic = {
+            "files": {name: sha256(args.semantic_dir / name) for name in ("vectors.f16", "keys.json", "contract.json")},
+            "encoder": read_json(args.semantic_dir / "encoder.json") if (args.semantic_dir / "encoder.json").exists() else None,
+        }
+    return {
+        "resourceId": "lexicon", "version": args.version, "tag": release_tag(args.version),
+        "sourceCommit": commit, "sourceDirty": dirty, "packerSources": packer_sources,
+        "normalizedSha256": sha256(args.input), "semanticInputs": semantic,
+        "sourcesLockSha256": sha256(args.sources_lock),
+        "buildRecipe": build_recipe_identity(read_json(args.recipe), enhanced),
+        "sources": [{"id": source["id"], "revision": source["revision"]} for source in selected_sources(lock, enhanced)],
+        "semantic": args.semantic_dir is not None,
+    }
 
 
 def pack(args):
@@ -640,8 +675,8 @@ def pack(args):
     write_json(args.work_dir / "sources.json", metadata)
     command = [
         "cargo", "run", "--locked", "-p", "nib-lexicon", "--bin", "nib-lexicon", "--", "pack",
-        "--input", str(args.input), "--output", str(args.output), "--id", args.id,
-        "--asset-base-url", args.asset_base_url, "--sources-json", str(args.work_dir / "sources.json"),
+        "--input", str(args.input), "--output", str(args.output), "--version", args.version,
+        "--sources-json", str(args.work_dir / "sources.json"),
     ]
     if args.semantic_dir:
         command += [
@@ -649,16 +684,21 @@ def pack(args):
             "--model-dir", str(args.work_dir / "models" / "query"), "--contract", str(args.semantic_dir / "contract.json"),
         ]
     subprocess.run(command, cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-    LOG.info("Assembled lexicon %s in %s", args.id, args.output)
-    lock["buildRecipe"] = build_recipe_identity(read_json(args.recipe), enhanced)
-    write_json(args.output / "sources.lock.json", lock)
+    LOG.info("Assembled lexicon %s in %s", args.version, args.output)
+    shutil.copyfile(args.sources_lock, args.output / "sources.lock.json")
     shutil.copyfile(args.recipe, args.output / "recipe.json")
-    cache = getattr(args, "cache", None) or args.work_dir / "embeddings.sqlite3"
-    if args.semantic_dir and cache.exists():
-        export_cache(cache, args.output)
+    write_json(args.output / "build.json", build_metadata(args, lock, enhanced))
+
+
+def package_destination(args) -> Path:
+    destination = args.output or args.resource_dir / "lexicon" / "versions" / args.version
+    if destination.exists():
+        raise ValueError(f"Resource version output already exists: {destination}; choose a new version or an unused --output directory")
+    return destination.resolve()
 
 
 def build(args, recipe):
+    destination = package_destination(args)
     args.work_dir.mkdir(parents=True, exist_ok=True)
     lock = read_json(args.sources_lock)
     fetch_sources(lock, args.work_dir, args.enhanced)
@@ -668,41 +708,24 @@ def build(args, recipe):
         fetch_models(args.work_dir, args.reuse_models)
         args.output = args.work_dir / "semantic"
         args.cache = args.work_dir / "embeddings.sqlite3"
-        if args.bootstrap_cache_url:
-            bootstrap_cache(args.bootstrap_cache_url, args.cache)
+        if not args.cache.exists():
+            import_cache(args.resource_dir / "lexicon" / "cache", args.cache)
+        else:
+            LOG.info("Using %d locally committed document embeddings", validate_cache(args.cache))
         args.shard_index = 0
         args.shard_count = 1
         encode(args, recipe)
         args.semantic_dir = args.output
     else:
         args.semantic_dir = None
-    destination = (args.work_dir / "package").resolve()
-    boundary = args.work_dir.resolve()
-    # Only build's generated package is replaceable; the independent pack command keeps its explicit output contract.
-    if destination != boundary / "package" or not destination.is_relative_to(boundary):
-        raise ValueError("Generated package path must remain inside the chosen work directory")
-    with tempfile.TemporaryDirectory(prefix="lexicon-package-", dir=boundary) as directory:
-        staging = Path(directory)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="lexicon-version-", dir=destination.parent) as directory:
+        staging = Path(directory) / "package"
         args.output = staging
         pack(args)
-        previous = staging.with_name(staging.name + ".previous")
-        if previous.resolve().parent != boundary:
-            raise ValueError("Previous generated package path must remain inside the chosen work directory")
-        if destination.exists():
-            destination.rename(previous)
-        try:
-            staging.rename(destination)
-        except BaseException:
-            if previous.exists():
-                previous.rename(destination)
-            raise
-        if previous.exists():
-            resolved = previous.resolve()
-            if resolved == boundary or not resolved.is_relative_to(boundary):
-                raise ValueError("Previous generated package escaped the chosen work directory")
-            shutil.rmtree(resolved)
+        staging.rename(destination)
     args.output = destination
-    write_json(args.work_dir / "build.json", {"id": args.id, "output": str(args.output), "counts": counts, "enhanced": args.enhanced, "semantic": args.semantic_dir is not None})
+    LOG.info("Built lexicon %s: %s; categories: %s", args.version, destination, counts)
 
 
 def parser():
@@ -712,15 +735,13 @@ def parser():
     def common(name):
         sub = subcommands.add_parser(name)
         sub.add_argument("--work-dir", type=Path, default=ROOT / ".dev" / "lexicon-build")
-        sub.add_argument("--sources-lock", type=Path, default=RESOURCES / "sources.lock.json")
+        sub.add_argument("--resource-dir", type=Path, default=RESOURCE_WORKTREE)
+        sub.add_argument("--sources-lock", type=Path)
         sub.add_argument("--recipe", type=Path, default=RESOURCES / "recipe.json")
         return sub
 
-    check = common("check-source")
-    check.add_argument("--output", type=Path, required=True)
-    check.add_argument("--baseline-url")
-    check.add_argument("--github-output", type=Path)
-    check.add_argument("--enhanced", action="store_true")
+    refresh = common("refresh-source")
+    refresh.add_argument("--enhanced", action="store_true")
     fetch = common("fetch")
     fetch.add_argument("--enhanced", action="store_true")
     normal = common("normalize")
@@ -743,9 +764,8 @@ def parser():
     merge.add_argument("--output", type=Path, required=True)
     packer = common("pack")
     packer.add_argument("--input", type=Path, required=True)
-    packer.add_argument("--output", type=Path, required=True)
+    packer.add_argument("--output", type=Path)
     packer.add_argument("--semantic-dir", type=Path)
-    packer.add_argument("--cache", type=Path)
     builder = common("build")
     builder.add_argument("--enhanced", action="store_true")
     builder.add_argument("--lexical-only", action="store_true")
@@ -753,10 +773,13 @@ def parser():
     builder.add_argument("--batch-size", type=int, default=32)
     builder.add_argument("--bucket-size", type=int, default=2048)
     builder.add_argument("--threads", type=int, default=min(4, (getattr(os, "process_cpu_count", os.cpu_count)() or 1)))
-    builder.add_argument("--bootstrap-cache-url")
+    builder.add_argument("--output", type=Path)
+    for name in ("import-cache", "export-cache"):
+        snapshot = common(name)
+        snapshot.add_argument("--cache", type=Path)
+        snapshot.add_argument("--snapshot-dir", type=Path)
     for target in (packer, builder):
-        target.add_argument("--id", required=True)
-        target.add_argument("--asset-base-url", required=True)
+        target.add_argument("--version", type=resource_version, required=True)
     return result
 
 
@@ -764,16 +787,26 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parser().parse_args()
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    args.sources_lock = args.sources_lock or args.resource_dir / "lexicon" / "sources.lock.json"
     recipe = read_json(args.recipe)
     match args.command:
-        case "check-source": check_source(args)
+        case "refresh-source": refresh_source(args)
         case "fetch": fetch_sources(read_json(args.sources_lock), args.work_dir, args.enhanced)
         case "normalize": normalize(args.work_dir, args.output, recipe, args.enhanced)
         case "models": fetch_models(args.work_dir, args.reuse_models)
         case "encode": encode(args, recipe)
         case "merge": merge_shards(args, recipe)
-        case "pack": pack(args)
+        case "pack":
+            args.output = package_destination(args)
+            pack(args)
         case "build": build(args, recipe)
+        case "import-cache" | "export-cache":
+            cache = args.cache or args.work_dir / "embeddings.sqlite3"
+            directory = args.snapshot_dir or args.resource_dir / "lexicon" / "cache"
+            if args.command == "import-cache":
+                import_cache(directory, cache)
+            else:
+                export_cache(cache, directory)
 
 
 if __name__ == "__main__":
