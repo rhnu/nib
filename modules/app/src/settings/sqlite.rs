@@ -7,7 +7,10 @@ use std::{
 use rusqlite::{Connection, params};
 
 use super::ApplicationPreferences;
-use crate::persistence::{PersistenceError, decode, encode};
+use crate::{
+    api::UserMessage,
+    persistence::{PersistenceError, decode, encode},
+};
 
 /// The selected creation-data directory, independent of the current process handles.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +46,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 3 {
+        if version != 0 && version != 4 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -165,7 +168,7 @@ impl GlobalSettingsStore {
                 .map_err(|error| PersistenceError::failure("rename account", error))?;
             if updated == 0 {
                 return Err(PersistenceError::InvalidData {
-                    message: "账户不存在。".into(),
+                    message: UserMessage::AccountNotFound,
                 });
             }
         }
@@ -192,7 +195,7 @@ impl GlobalSettingsStore {
             == 0
         {
             return Err(PersistenceError::InvalidData {
-                message: "账户不存在。".into(),
+                message: UserMessage::AccountNotFound,
             });
         }
         transaction

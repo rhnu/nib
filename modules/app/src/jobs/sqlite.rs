@@ -1,3 +1,4 @@
+use crate::api::UserMessage;
 mod query;
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -232,7 +233,7 @@ fn restore_character_sources(
         .map_or(&[][..], |set| set.characters.as_slice());
     if sources.len() != characters.len() {
         return Err(PersistenceError::InvalidData {
-            message: "保留角色的来源与请求不匹配。".to_owned(),
+            message: UserMessage::CharacterSourceMismatch,
         });
     }
     sources
@@ -241,7 +242,7 @@ fn restore_character_sources(
         .map(|(index, source)| {
             if source.index != index {
                 return Err(PersistenceError::InvalidData {
-                    message: "保留角色的来源索引与请求不匹配。".to_owned(),
+                    message: UserMessage::CharacterSourceIndexMismatch,
                 });
             }
             let character = &characters[index];
@@ -331,7 +332,7 @@ fn read_job(connection: &Connection, id: i64) -> Result<JobRecord, PersistenceEr
         status,
         submitted_at,
         finished_at,
-        error,
+        error: error.as_deref().map(decode).transpose()?,
         result_ids,
         submission: decode_submission(&submission)?,
         execution: decode(&execution)?,
@@ -368,7 +369,7 @@ impl JobStore for SqliteDatabase {
     ) -> Result<GenerationBatch, PersistenceError> {
         if submissions.is_empty() || submissions.len() > 8 {
             return Err(PersistenceError::InvalidData {
-                message: "一次生成必须包含 1 到 8 个请求。".to_owned(),
+                message: UserMessage::RequestCountRange,
             });
         }
         let contents = submissions
@@ -470,7 +471,7 @@ impl JobStore for SqliteDatabase {
 
     fn interrupt_jobs(&self) -> Result<(), PersistenceError> {
         self.connection()?.execute(
-            "UPDATE jobs SET status = 'interrupted', finished_at = ?1, error = '应用在任务完成前已停止。请明确重试；该请求可能已被扣费。' WHERE status IN ('queued', 'running')", [timestamp()?],
+            "UPDATE jobs SET status = 'interrupted', finished_at = ?1, error = ?2 WHERE status IN ('queued', 'running')", params![timestamp()?, encode(&UserMessage::AppStoppedBeforeCompletion)?],
         ).map_err(|error| PersistenceError::failure("interrupt unfinished generation jobs", error))?;
         Ok(())
     }
@@ -511,8 +512,8 @@ impl JobStore for SqliteDatabase {
         read_job(&connection, parse_id(id)?)
     }
 
-    fn fail_job(&self, id: &str, message: &str) -> Result<(), PersistenceError> {
-        self.connection()?.execute("UPDATE jobs SET status = 'failed', finished_at = ?2, error = ?3 WHERE id = ?1 AND status = 'running'", params![parse_id(id)?, timestamp()?, message])
+    fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError> {
+        self.connection()?.execute("UPDATE jobs SET status = 'failed', finished_at = ?2, error = ?3 WHERE id = ?1 AND status = 'running'", params![parse_id(id)?, timestamp()?, encode(message)?])
             .map_err(|error| PersistenceError::failure("retain generation failure", error))?;
         Ok(())
     }

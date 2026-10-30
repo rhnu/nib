@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "@/shared/host/error";
@@ -11,6 +12,8 @@ export function ChunkPicker({
   onChoose: (resourceId: string) => void;
   onClose: () => void;
 }) {
+  useTranslation();
+
   const [selected, setSelected] = useState("");
   const query = useQuery({
     queryKey: ["resource-search", "", "chunk"],
@@ -22,21 +25,21 @@ export function ChunkPicker({
   const error = query.error ? errorMessage(query.error) : "";
   const valid = chunks.some((chunk) => chunk.id === selected);
   return (
-    <Modal open onClose={onClose} title="添加 Chunk">
-      {loading && <output aria-live="polite">正在读取 Chunk 列表…</output>}
+    <Modal open onClose={onClose} title={t("prompt.addChunk")}>
+      {loading && <output aria-live="polite">{t("prompt.loadingChunks")}</output>}
       {error && (
         <div className="inline-warning" role="alert">
           {error}
-          <Button onClick={() => void query.refetch()}>重试读取</Button>
+          <Button onClick={() => void query.refetch()}>{t("prompt.retryRead")}</Button>
         </div>
       )}
-      <Field label="资源">
+      <Field label={t("prompt.resource")}>
         <select
           value={selected}
           disabled={loading || !!error}
           onChange={(event) => setSelected(event.target.value)}
         >
-          <option value="">选择 Chunk…</option>
+          <option value="">{t("prompt.chooseChunk")}</option>
           {chunks.map((chunk) => (
             <option key={chunk.id} value={chunk.id}>
               {chunk.name}
@@ -45,10 +48,10 @@ export function ChunkPicker({
         </select>
       </Field>
       {!loading && !error && chunks.length === 0 && (
-        <p className="help-note">还没有 Chunk。请先在资源库中创建。</p>
+        <p className="help-note">{t("prompt.noChunks")}</p>
       )}
       <div className="dialog-actions">
-        <Button onClick={onClose}>取消</Button>
+        <Button onClick={onClose}>{t("prompt.cancel")}</Button>
         <Button
           className="primary"
           disabled={!valid}
@@ -56,7 +59,7 @@ export function ChunkPicker({
             if (valid) onChoose(selected);
           }}
         >
-          添加
+          {t("prompt.add")}
         </Button>
       </div>
     </Modal>

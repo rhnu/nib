@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import type { PreferencesWriter } from "./preferences-writer";
 import { sameExecutionPreferences } from "./execution-preferences";
 
@@ -7,5 +8,5 @@ export async function prepareSubmissionPreferences(writer: PreferencesWriter) {
   await writer.flush();
   const after = writer.getSavedSnapshot()?.execution;
   if (!sameExecutionPreferences(before, after))
-    throw new Error("执行设置已保存，请等待费用重新估算后提交。");
+    throw new MessageError(deferMessage(() => t("app.executionEstimateChanged")));
 }

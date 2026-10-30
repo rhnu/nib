@@ -1,3 +1,4 @@
+import { t, useTranslation, errorMessage } from "@/shared/i18n";
 import { useId, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
@@ -41,6 +42,8 @@ export function InpaintSettings({
   errorFields: string[];
   update: (change: (current: InpaintOperation) => InpaintOperation) => void;
 }) {
+  useTranslation();
+
   const prefix = useId();
   const [confirmPure, setConfirmPure] = useState(false);
 
@@ -62,9 +65,9 @@ export function InpaintSettings({
     diagnostic(field).length || rejected(field) ? (
       <output className="image-operation-diagnostic" id={`${prefix}-${field}`}>
         {diagnostic(field).map((item, index) => (
-          <span key={index}>{item.change}</span>
+          <span key={index}>{errorMessage(item.change)}</span>
         ))}
-        {rejected(field) && <span>SDK 拒绝该字段，请查看生成区错误并调整。</span>}
+        {rejected(field) && <span>{t("inputs.fieldRejected")}</span>}
       </output>
     ) : null;
 
@@ -81,24 +84,23 @@ export function InpaintSettings({
     <div className="image-operation-fields">
       {capabilities?.inpainting === false && (
         <p className="inline-warning" role="alert">
-          当前模型不支持局部重绘，请更换模型。
+          {t("inputs.inpaintingUnsupported")}
         </p>
       )}
       {conditioning && capabilities?.inpaintingImageToImage === false && (
         <p className="inline-warning" role="alert">
-          当前模型不支持局部图生图条件。请选择纯补绘或更换模型。
+          {t("inputs.regionalConditioningUnsupported")}
         </p>
       )}
       <div data-setting-field="img2img">
         <div className="setting-label">
-          <span>局部条件</span>
-          <HelpMarker label="局部条件说明">
-            纯补绘重新生成遮罩区域；局部图生图使用遮罩内的源图内容，并提供强度与噪声设置。模型能力由
-            SDK 决定。
+          <span>{t("inputs.regionalConditioning")}</span>
+          <HelpMarker label={t("inputs.regionalConditioningHelpTitle")}>
+            {t("inputs.regionalConditioningHelp")}
           </HelpMarker>
         </div>
         <select
-          aria-label="局部条件"
+          aria-label={t("inputs.regionalConditioning")}
           {...props("img2img")}
           value={conditioning ? "conditioned" : "pure"}
           onChange={(event) => {
@@ -106,14 +108,14 @@ export function InpaintSettings({
             else if (defaults) update((current) => ({ ...current, img2img: { ...defaults } }));
           }}
         >
-          <option value="pure">纯补绘</option>
+          <option value="pure">{t("inputs.pureInpainting")}</option>
           <option
             value="conditioned"
             disabled={
               capabilities?.inpaintingImageToImage === false || (!defaults && !conditioning)
             }
           >
-            局部图生图
+            {t("inputs.regionalImageToImage")}
           </option>
         </select>
         {messages("img2img")}
@@ -124,11 +126,11 @@ export function InpaintSettings({
           <div className="inline-warning" role="alert">
             {optionsError}
             <Button className="quiet" onClick={retryOptions}>
-              重试
+              {t("inputs.retry")}
             </Button>
           </div>
         ) : (
-          <output className="muted">正在读取局部条件选项…</output>
+          <output className="muted">{t("inputs.loadingConditioningOptions")}</output>
         ))}
       {conditioning && (
         <>
@@ -136,7 +138,7 @@ export function InpaintSettings({
             {(["strength", "noise"] as const).map((field) => {
               const range =
                 capabilities?.ranges[field === "strength" ? "inpaintStrength" : "img2imgNoise"];
-              const label = field === "strength" ? "Strength" : "Noise";
+              const label = field === "strength" ? t("inputs.strength") : t("inputs.noise");
               return (
                 <div key={field} data-setting-field={field}>
                   <FormField
@@ -170,8 +172,8 @@ export function InpaintSettings({
         >
           <Popover.Popup className="image-input-popup" initialFocus={false}>
             <header>
-              <Popover.Title>局部重绘高级设置</Popover.Title>
-              <Popover.Close className="icon-button" aria-label="关闭局部重绘高级设置">
+              <Popover.Title>{t("inputs.advancedInpaint")}</Popover.Title>
+              <Popover.Close className="icon-button" aria-label={t("inputs.closeAdvancedInpaint")}>
                 <X size={14} />
               </Popover.Close>
             </header>
@@ -181,12 +183,12 @@ export function InpaintSettings({
                   <fieldset
                     className="image-operation-toggle"
                     data-setting-field="colorCorrect"
-                    aria-label="Color Correct"
+                    aria-label={t("inputs.colorCorrect")}
                     {...props("colorCorrect")}
                   >
-                    <span>Color Correct</span>
+                    <span>{t("inputs.colorCorrect")}</span>
                     <Toggle
-                      label="Color Correct"
+                      label={t("inputs.colorCorrect")}
                       checked={conditioning.color_correct}
                       onChange={(color_correct) =>
                         update((current) =>
@@ -199,12 +201,12 @@ export function InpaintSettings({
                     {messages("colorCorrect")}
                   </fieldset>
                   <div data-setting-field="extraNoiseSeed">
-                    <Field label="额外噪声种子">
+                    <Field label={t("inputs.extraNoiseSeed")}>
                       <input
                         {...props("extraNoiseSeed")}
                         type="number"
                         step={1}
-                        placeholder="留空继承生成种子"
+                        placeholder={t("inputs.inheritSeedHint")}
                         value={conditioning.extra_noise_seed ?? ""}
                         onChange={(event) => {
                           const extra_noise_seed = optionalImageSeed(event.target.value);
@@ -223,12 +225,12 @@ export function InpaintSettings({
               <fieldset
                 className="image-operation-toggle"
                 data-setting-field="addOriginalImage"
-                aria-label="保留遮罩外原图"
+                aria-label={t("inputs.keepOutsideMask")}
                 {...props("addOriginalImage")}
               >
-                <span>保留遮罩外原图</span>
+                <span>{t("inputs.keepOutsideMask")}</span>
                 <Toggle
-                  label="保留遮罩外原图"
+                  label={t("inputs.keepOutsideMask")}
                   checked={operation.addOriginalImage}
                   onChange={(addOriginalImage) =>
                     update((current) => ({ ...current, addOriginalImage }))
@@ -240,10 +242,14 @@ export function InpaintSettings({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
-      <Modal open={confirmPure} onClose={() => setConfirmPure(false)} title="改为纯补绘？">
-        <p className="confirm-copy">将清除当前局部图生图的强度、噪声、颜色校正和噪声种子。</p>
+      <Modal
+        open={confirmPure}
+        onClose={() => setConfirmPure(false)}
+        title={t("inputs.switchToPureTitle")}
+      >
+        <p className="confirm-copy">{t("inputs.switchToPureWarning")}</p>
         <div className="dialog-actions">
-          <Button onClick={() => setConfirmPure(false)}>取消</Button>
+          <Button onClick={() => setConfirmPure(false)}>{t("inputs.cancel")}</Button>
           <Button
             className="primary"
             onClick={() => {
@@ -251,7 +257,7 @@ export function InpaintSettings({
               setConfirmPure(false);
             }}
           >
-            使用纯补绘
+            {t("inputs.usePureInpainting")}
           </Button>
         </div>
       </Modal>

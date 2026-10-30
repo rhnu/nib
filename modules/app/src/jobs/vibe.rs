@@ -1,8 +1,9 @@
 //! Complete known encoding inputs are matched independently of official opaque cache keys.
+
 use serde::Serialize;
 
 use super::{Draft, FrozenSubmission, JobError, JobQueue, JobRecord};
-use crate::persistence::PersistenceError;
+use crate::{api::UserMessage, persistence::PersistenceError};
 
 /// A slot can reuse a completed encoding or follow one newly queued encoding request.
 #[derive(Debug, Clone, Serialize)]
@@ -72,7 +73,7 @@ impl JobQueue {
             .into_iter()
             .next()
             .ok_or_else(|| PersistenceError::InvalidData {
-                message: "任务存储未返回已提交的编码任务。".to_owned(),
+                message: UserMessage::VibeJobMissing,
             })?;
         Ok(VibeEncodingOutcome::Queued { job: Box::new(job) })
     }

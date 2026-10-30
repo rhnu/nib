@@ -1,5 +1,8 @@
 //! Serializable types shared by the application and its host interfaces.
 
+mod messages;
+pub use messages::{UserMessage, error_detail};
+
 mod models;
 pub use models::{
     CharacterPositionOptions, GenerationRanges, ModelCapabilities, NumericRange,
@@ -54,7 +57,7 @@ pub enum ErrorCode {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ApiError {
     pub code: ErrorCode,
-    pub message: String,
+    pub message: UserMessage,
     pub validation_fields: Vec<String>,
 }
 

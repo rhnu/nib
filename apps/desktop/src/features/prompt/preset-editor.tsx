@@ -1,3 +1,4 @@
+import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { FileText, Link2 } from "lucide-react";
 import type {
@@ -11,7 +12,6 @@ import { CompositionEditor } from "./composition-editor";
 import { SettingsEditor } from "./settings-editor";
 import { PresetOverrides } from "./preset-overrides";
 import { promptApi } from "./api";
-import { errorMessage } from "@/shared/host/error";
 import { ActionsMenu, Button, Toggle } from "@/shared/ui";
 import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { settingsWithDefaults } from "./settings";
@@ -54,12 +54,14 @@ export function PresetEditor({
   down: () => void;
   canUp: boolean;
   canDown: boolean;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
   onPosition?: (characterId: string) => void;
   characterIssues?: CharacterIssues;
   preciseIssues?: Record<string, { field: string; message: string }[]>;
   vibeIssues?: Record<string, { field: string; message: string }[]>;
 }) {
+  useTranslation();
+
   const latest = useRef({ instance, onChange, active: true });
   const details = useRef<HTMLDetailsElement>(null);
   const issueSignature = JSON.stringify([
@@ -93,7 +95,8 @@ export function PresetEditor({
       : resource?.content.kind === "preset"
         ? resource.content.composition
         : null;
-  const name = binding.kind === "expanded" ? binding.name : (resource?.name ?? "资源缺失");
+  const name =
+    binding.kind === "expanded" ? binding.name : (resource?.name ?? t("prompt.resourceMissing"));
   const characters =
     binding.kind === "expanded"
       ? binding.characters
@@ -200,7 +203,7 @@ export function PresetEditor({
         onError={onError}
         onPosition={onPosition}
         allowChunk={false}
-        title="角色输出"
+        title={t("prompt.characterOutput")}
         issues={characterIssues}
       />
     );
@@ -226,43 +229,45 @@ export function PresetEditor({
           {name}
         </span>
         <div className="button-group">
-          <span className="tag">{binding.kind === "linked" ? "链接" : "已展开"}</span>
+          <span className="tag">
+            {binding.kind === "linked" ? t("prompt.linked") : t("prompt.expanded")}
+          </span>
           <Toggle
-            label={`启用 ${name}`}
+            label={t("prompt.enableNamedItem", { value0: name })}
             checked={instance.enabled}
             onChange={(enabled) => emit({ ...latest.current.instance, enabled })}
           />
           <ActionsMenu
-            label={`${name} 的操作`}
+            label={t("prompt.namedItemActions", { value0: name })}
             items={[
-              { label: "上移", action: up, disabled: !canUp },
-              { label: "下移", action: down, disabled: !canDown },
+              { label: t("prompt.moveUp"), action: up, disabled: !canUp },
+              { label: t("prompt.moveDown"), action: down, disabled: !canDown },
               ...(binding.kind === "linked"
                 ? [
                     {
-                      label: "展开为独立配方",
+                      label: t("prompt.expandToPreset"),
                       action: () => {
                         void promptApi.expandPreset(instance).then(
                           (result) => {
                             if (latest.current.active && latest.current.instance === instance)
                               emit(result);
                             else if (latest.current.active)
-                              onError("配方已发生修改，请再次展开以使用最新内容。");
+                              onError(deferMessage(() => t("prompt.presetChanged")));
                           },
-                          (cause: unknown) => onError(errorMessage(cause)),
+                          (cause: unknown) => onError(cause),
                         );
                       },
                     },
                   ]
                 : []),
-              { label: "移除配方", action: onRemove, danger: true },
+              { label: t("prompt.removePreset"), action: onRemove, danger: true },
             ]}
           />
         </div>
       </header>
       {composition ? (
         <details ref={details}>
-          <summary>本次内容与设置</summary>
+          <summary>{t("prompt.instanceContentSettings")}</summary>
           <div className="preset-detail">
             {binding.kind === "linked" ? (
               <PresetOverrides
@@ -286,7 +291,7 @@ export function PresetEditor({
                     try {
                       return await promptApi.expandChunk(node);
                     } catch (cause) {
-                      onError(errorMessage(cause));
+                      onError(cause);
                       return node;
                     }
                   }}
@@ -394,23 +399,30 @@ export function PresetEditor({
                 key={item.nodeId}
               >
                 <span>
-                  已移除片段的覆盖 <code>{item.nodeId}</code>
+                  {t("prompt.removedSegmentOverridePrefix")}
+                  <code>{item.nodeId}</code>
                 </span>
                 <Button
                   onClick={() => override({ nodeId: item.nodeId, enabled: null, text: null })}
                 >
-                  移除失效覆盖
+                  {t("prompt.removeStaleOverride")}
                 </Button>
               </div>
             ))}
             <section className="preset-settings">
-              <h3>{binding.kind === "linked" ? "本次设置覆盖" : "配方默认设置"}</h3>
-              {capabilityState.loading && <output className="muted">正在读取模型选项…</output>}
+              <h3>
+                {binding.kind === "linked"
+                  ? t("prompt.instanceSettingsOverride")
+                  : t("prompt.presetDefaults")}
+              </h3>
+              {capabilityState.loading && (
+                <output className="muted">{t("prompt.loadingModelOptions")}</output>
+              )}
               {capabilityState.error && (
                 <div className="inline-warning" role="alert">
                   {capabilityState.error}
                   <Button className="quiet" onClick={capabilityState.retry}>
-                    重试
+                    {t("prompt.retry")}
                   </Button>
                 </div>
               )}
@@ -426,7 +438,7 @@ export function PresetEditor({
           </div>
         </details>
       ) : (
-        <p className="inline-warning">引用的 Preset 已不存在。请移除引用或恢复资源。</p>
+        <p className="inline-warning">{t("prompt.referencedPresetMissing")}</p>
       )}
     </article>
   );

@@ -214,12 +214,11 @@ impl SdkClients {
         } = match prepared {
             Ok(Some(value)) => value,
             Ok(None) => return,
-            Err(_error) => {
+            Err(error) => {
                 if let Ok(mut state) = self.sampling.lock() {
                     state.snapshot.refreshing = false;
                     state.snapshot.stale = true;
-                    state.snapshot.error =
-                        Some("无法读取账户凭据或创建连接，请检查配置后重试。".into());
+                    state.snapshot.error = Some(error.user_message());
                     state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
                 }
                 tracing::warn!("cannot prepare automatic account sampling");
@@ -229,13 +228,13 @@ impl SdkClients {
         let response = client.get_subscription().await;
         let current = match self.active_identity() {
             Ok(current) => current,
-            Err(_error) => {
+            Err(error) => {
                 if let Ok(mut state) = self.sampling.lock()
                     && state.epoch == epoch
                 {
                     state.snapshot.refreshing = false;
                     state.snapshot.stale = true;
-                    state.snapshot.error = Some("无法读取当前账户配置，请重试。".into());
+                    state.snapshot.error = Some(error.user_message());
                     state.snapshot.revision = state.snapshot.revision.wrapping_add(1);
                 }
                 tracing::warn!("cannot resolve sampled account identity");
@@ -265,9 +264,9 @@ impl SdkClients {
                 state.sample = Some(sample);
                 tracing::debug!("account sampling completed");
             },
-            Err(_error) => {
+            Err(error) => {
                 state.snapshot.stale = true;
-                state.snapshot.error = Some("账户查询失败，请检查网络与凭据后重试。".into());
+                state.snapshot.error = Some(nib_app::jobs::JobError::Bridge(error).user_message());
                 tracing::warn!("automatic account sampling failed");
             },
         }

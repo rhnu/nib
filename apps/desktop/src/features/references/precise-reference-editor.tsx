@@ -1,7 +1,7 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, PreciseReferenceInput } from "@/bindings/workbench";
-import { errorMessage } from "@/shared/host/error";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { IconButton, Notice } from "@/shared/ui";
 import { ImagePickerDialog } from "@/features/media";
@@ -21,6 +21,8 @@ export interface PreciseReferenceEditorProps {
 }
 
 export function PreciseReferenceEditor({ contextKey, ...props }: PreciseReferenceEditorProps) {
+  useTranslation();
+
   return <EditorContent key={contextKey} {...props} />;
 }
 
@@ -28,12 +30,14 @@ function EditorContent({
   value,
   onChange,
   capabilities,
-  title = "精确参考",
+  title = t("references.preciseReference"),
   issues,
 }: Omit<PreciseReferenceEditorProps, "contextKey">) {
+  useTranslation();
+
   const [pickingType, setPickingType] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useMessageState();
   const latest = useRef({ active: true, locked: false, value, onChange });
   useLayoutEffect(() => {
     Object.assign(latest.current, { value, onChange });
@@ -70,7 +74,7 @@ function EditorContent({
         })(),
       );
     } catch (cause) {
-      if (current.active) setError(errorMessage(cause));
+      if (current.active) setError(cause);
     } finally {
       current.locked = false;
       if (current.active) setBusy(false);
@@ -88,7 +92,7 @@ function EditorContent({
         </h3>
         <span className="spacer" />
         <IconButton
-          label="添加精确参考图片"
+          label={t("references.addPreciseImage")}
           disabled={
             busy ||
             !capabilities?.canAddPreciseReference ||
@@ -102,7 +106,11 @@ function EditorContent({
         </IconButton>
       </header>
       <PreciseReferenceAvailability capabilities={capabilities} />
-      {busy && <output className="precise-reference-status">正在准备精确参考…</output>}
+      {busy && (
+        <output className="precise-reference-status">
+          {t("references.preparingPreciseReference")}
+        </output>
+      )}
       {error && <Notice>{error}</Notice>}
       {value.map((reference, index) => (
         <PreciseReferenceRow
@@ -115,7 +123,7 @@ function EditorContent({
           actions={
             <>
               <IconButton
-                label={`上移精确参考 ${index + 1}`}
+                label={t("references.movePreciseUp", { value0: index + 1 })}
                 disabled={index === 0}
                 onClick={() =>
                   update((value) => {
@@ -127,7 +135,7 @@ function EditorContent({
                 <ArrowUp size={14} />
               </IconButton>
               <IconButton
-                label={`下移精确参考 ${index + 1}`}
+                label={t("references.movePreciseDown", { value0: index + 1 })}
                 disabled={index === value.length - 1}
                 onClick={() =>
                   update((value) => {
@@ -139,7 +147,7 @@ function EditorContent({
                 <ArrowDown size={14} />
               </IconButton>
               <IconButton
-                label={`移除精确参考 ${index + 1}`}
+                label={t("references.removePreciseReference", { value0: index + 1 })}
                 onClick={() => update((value) => value.filter((item) => item.id !== reference.id))}
               >
                 <Trash2 size={14} />
@@ -150,7 +158,7 @@ function EditorContent({
       ))}
       <ImagePickerDialog
         open={pickingType !== null}
-        title="添加精确参考图片"
+        title={t("references.addPreciseImage")}
         onClose={() => setPickingType(null)}
         onSelect={(asset) => {
           if (pickingType !== null) void add(asset.id, pickingType);

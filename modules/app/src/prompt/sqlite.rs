@@ -81,7 +81,10 @@ impl ResourceReader for ResourceSnapshot<'_> {
 impl ResourceWriter for SqliteDatabase {
     fn save_resource(&self, resource: &Resource) -> Result<Resource, PersistenceError> {
         validate_resource(resource).map_err(|error| PersistenceError::InvalidData {
-            message: error.to_string(),
+            message: crate::api::UserMessage::Validation {
+                field: error.field,
+                message: Box::new(error.message),
+            },
         })?;
         let revision = next_revision(resource.revision)?;
         let content = encode(&resource.content)?;

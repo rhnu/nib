@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import type { Draft } from "@/bindings/workbench";
 import type { GenerationResult } from "@/bindings/generation";
 import { directorSubmission } from "@/features/director/model";
@@ -9,6 +10,6 @@ export function prepareResubmission(
 ): Draft {
   if (kind !== "director") return restored;
   const submission = directorSubmission(restored);
-  if (!submission) throw new Error("导演工具结果缺少可重新提交的输入。");
+  if (!submission) throw new MessageError(deferMessage(() => t("generation.directorInputMissing")));
   return submission;
 }

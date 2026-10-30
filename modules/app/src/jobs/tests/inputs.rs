@@ -270,7 +270,11 @@ fn curated_inpainting_freezes_quotes_and_restores_the_effective_model() {
     assert_eq!(reopened.resolved().unwrap().settings.model, effective_model);
     assert!(!request(&reopened).core.transparent_background);
     assert!(reopened.diagnostics().iter().any(|diagnostic| {
-        diagnostic.field == "core.model" && diagnostic.change.contains(effective_model.as_str())
+        diagnostic.field == "core.model"
+            && diagnostic.change
+                == UserMessage::ModelFallback {
+                    model: effective_model.as_str().to_owned(),
+                }
     }));
     let restored = crate::session::restore_generation(
         request(&reopened),

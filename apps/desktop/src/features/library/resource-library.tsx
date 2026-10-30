@@ -1,4 +1,6 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect } from "react";
+import { errorMessage } from "@/shared/host/error";
 import { resourceDependencies } from "./resource-dependencies";
 import { Plus, Search } from "lucide-react";
 import type { Resource, ResourceKind, ResourceSummary } from "@/bindings/workbench";
@@ -29,6 +31,8 @@ export function ResourceLibrary({
   onInsert: (resource: ResourceSummary) => void;
   target: InsertTarget;
 }) {
+  useTranslation();
+
   const { query, setQuery, kind, setKind, items, loading, queryError, refreshSearch } =
     useResourceSearch(open);
   const {
@@ -50,51 +54,54 @@ export function ResourceLibrary({
   const dependencyKey = JSON.stringify(editor ? resourceDependencies(editor) : []);
   useEffect(() => {
     void ensureResources(JSON.parse(dependencyKey) as string[]).catch((cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : "无法读取引用资源，请重试。"),
+      setError(cause),
     );
   }, [dependencyKey, ensureResources, setError, resourceVersion]);
   return (
     <>
-      <section className="library-page" hidden={!open} aria-label="资源库">
+      <section className="library-page" hidden={!open} aria-label={t("library.title")}>
         <div className="library-toolbar">
           <div className="search-field">
             <Search size={15} />
             <input
-              aria-label="搜索资源"
-              placeholder="搜索资源名称…"
+              aria-label={t("library.searchResources")}
+              placeholder={t("library.searchPlaceholder")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
           <select
-            aria-label="资源类型"
+            aria-label={t("library.resourceType")}
             value={kind}
             onChange={(event) => setKind(event.target.value as ResourceKind | "")}
           >
-            <option value="">全部资源</option>
-            <option value="chunk">Chunk</option>
-            <option value="preset">Preset</option>
+            <option value="">{t("library.allResources")}</option>
+            <option value="chunk">{t("library.chunk")}</option>
+            <option value="preset">{t("library.preset")}</option>
           </select>
           <ActionsMenu
-            label="新建资源"
+            label={t("library.createResource")}
             items={[
-              { label: "新建 Chunk", action: () => create("chunk") },
-              { label: "新建 Preset", action: () => create("preset") },
+              { label: t("library.createChunk"), action: () => create("chunk") },
+              { label: t("library.createPreset"), action: () => create("preset") },
             ]}
           >
             <Plus size={14} />
-            新建
+            {t("library.create")}
           </ActionsMenu>
-          <HelpMarker label="资源使用说明">
-            Chunk 添加到当前提示词作用域，Preset
-            添加到配方列表。编辑资源原件后需保存；在创作中修改链接只影响本次实例。
-          </HelpMarker>
+          <HelpMarker label={t("library.usageHelp")}>{t("library.usageDescription")}</HelpMarker>
         </div>
         {error && (
-          <Notice actions={<Button onClick={() => setError("")}>关闭提示</Button>}>{error}</Notice>
+          <Notice
+            actions={<Button onClick={() => setError("")}>{t("library.dismissNotice")}</Button>}
+          >
+            {error}
+          </Notice>
         )}
         {queryError && (
-          <Notice actions={<Button onClick={refreshSearch}>重试查询</Button>}>{queryError}</Notice>
+          <Notice actions={<Button onClick={refreshSearch}>{t("library.retryQuery")}</Button>}>
+            {queryError}
+          </Notice>
         )}
         <div className={`library-body ${editor ? "has-editor" : ""}`}>
           <ResourceList
@@ -124,10 +131,14 @@ export function ResourceLibrary({
           )}
         </div>
       </section>
-      <Modal open={confirm !== null} onClose={() => setConfirm(null)} title="确认操作">
-        <p className="confirm-copy">{confirm?.title}</p>
+      <Modal
+        open={confirm !== null}
+        onClose={() => setConfirm(null)}
+        title={t("library.confirmAction")}
+      >
+        <p className="confirm-copy">{confirm && errorMessage(confirm.title)}</p>
         <div className="dialog-actions">
-          <Button onClick={() => setConfirm(null)}>取消</Button>
+          <Button onClick={() => setConfirm(null)}>{t("library.cancel")}</Button>
           <Button
             className="danger-button"
             onClick={() => {
@@ -136,7 +147,7 @@ export function ResourceLibrary({
               action?.();
             }}
           >
-            确认
+            {t("library.confirm")}
           </Button>
         </div>
       </Modal>

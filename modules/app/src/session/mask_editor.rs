@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::prompt::ValidationError;
+use crate::{api::UserMessage, prompt::ValidationError};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,23 +55,23 @@ pub struct MaskPoint {
     pub y: f64,
 }
 
-fn invalid(field: &str, message: &str) -> ValidationError {
+fn invalid(field: &str, message: UserMessage) -> ValidationError {
     ValidationError {
         field: format!("maskEditor.{field}"),
-        message: message.to_owned(),
+        message,
     }
 }
 
 fn identity(value: &str, field: &str) -> Result<(), ValidationError> {
     if value.trim().is_empty() {
-        return Err(invalid(field, "must not be empty"));
+        return Err(invalid(field, UserMessage::ValueRequired));
     }
     Ok(())
 }
 
 fn positive(value: f64, field: &str) -> Result<(), ValidationError> {
     if !value.is_finite() || value <= 0.0 {
-        return Err(invalid(field, "must be finite and positive"));
+        return Err(invalid(field, UserMessage::PositiveFiniteRequired));
     }
     Ok(())
 }
@@ -84,7 +84,7 @@ impl MaskEditorState {
             if !sources.insert(session.source_asset_id.as_str()) {
                 return Err(invalid(
                     "sessions.sourceAssetId",
-                    "duplicate source identity",
+                    UserMessage::DuplicateMaskSource,
                 ));
             }
             session.validate()?;
@@ -92,10 +92,7 @@ impl MaskEditorState {
         if let Some(active) = &self.active_source_id {
             identity(active, "activeSourceId")?;
             if !sources.contains(active.as_str()) {
-                return Err(invalid(
-                    "activeSourceId",
-                    "must select an existing mask session",
-                ));
+                return Err(invalid("activeSourceId", UserMessage::MaskSessionMissing));
             }
         }
         Ok(())
@@ -107,16 +104,19 @@ impl MaskSession {
         if self.width == 0 || self.height == 0 {
             return Err(invalid(
                 "sessions.size",
-                "image dimensions must be positive",
+                UserMessage::PositiveDimensionsRequired,
             ));
         }
         if self.cursor > self.commands.len() {
-            return Err(invalid("sessions.cursor", "exceeds the edit history"));
+            return Err(invalid(
+                "sessions.cursor",
+                UserMessage::HistoryCursorOutOfRange,
+            ));
         }
         if self.applied_revision > self.revision {
             return Err(invalid(
                 "sessions.appliedRevision",
-                "exceeds the content revision",
+                UserMessage::AppliedRevisionOutOfRange,
             ));
         }
         for id in self
@@ -129,14 +129,17 @@ impl MaskSession {
         positive(self.brush_size, "sessions.brushSize")?;
         positive(self.zoom, "sessions.zoom")?;
         if !self.pan_x.is_finite() || !self.pan_y.is_finite() {
-            return Err(invalid("sessions.pan", "must be finite"));
+            return Err(invalid("sessions.pan", UserMessage::FiniteRequired));
         }
         for command in &self.commands {
             match command {
                 MaskCommand::Paint { points, size } | MaskCommand::Erase { points, size } => {
                     positive(*size, "sessions.commands.size")?;
                     if points.is_empty() {
-                        return Err(invalid("sessions.commands.points", "must not be empty"));
+                        return Err(invalid(
+                            "sessions.commands.points",
+                            UserMessage::ValueRequired,
+                        ));
                     }
                     if points
                         .iter()
@@ -144,7 +147,7 @@ impl MaskSession {
                     {
                         return Err(invalid(
                             "sessions.commands.points",
-                            "coordinates must be finite",
+                            UserMessage::FiniteCoordinatesRequired,
                         ));
                     }
                 },

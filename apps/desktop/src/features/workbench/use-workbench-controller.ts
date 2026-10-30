@@ -1,3 +1,4 @@
+import { deferMessage, t, MessageError } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { MediaAsset } from "@/bindings/media";
 import type {
@@ -7,7 +8,6 @@ import type {
   VibeReferenceInput,
   WorkspaceSnapshot,
 } from "@/bindings/workbench";
-import { errorMessage } from "@/shared/host/error";
 import { trackPendingWork, usePendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import type { CloseWriter } from "@/shared/host/use-close-guard";
 import { useWorkbench } from "./use-workbench";
@@ -210,7 +210,8 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
       void trackPendingWork(
         (async () => {
           const referenceType = editorCapabilities?.preciseReferenceOptions.referenceTypes[0];
-          if (kind === "precise" && !referenceType) throw new Error("当前生成模型不支持精确参考。");
+          if (kind === "precise" && !referenceType)
+            throw new MessageError(deferMessage(() => t("workbench.preciseReferenceUnsupported")));
           const reference =
             kind === "vibe"
               ? await mediaApi.createVibeReference(assetId)
@@ -235,7 +236,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
           });
           setPage("create");
         })(),
-      ).catch((cause: unknown) => setError(errorMessage(cause)));
+      ).catch((cause: unknown) => setError(cause));
     });
 
   const encodeImage = (assetId: string) =>
@@ -245,7 +246,8 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
           const options = await encodingApi.options();
           const previous = readCurrentDraft().vibeEncoder;
           const model = previous?.model ?? options.models[0];
-          if (!model) throw new Error("当前 SDK 没有可用的氛围转移编码模型。");
+          if (!model)
+            throw new MessageError(deferMessage(() => t("workbench.noVibeEncodingModel")));
           const created = await encodingApi.create(assetId, model);
           const current = readCurrentDraft();
           edit({
@@ -254,7 +256,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
           });
           setEncoderOpen(true);
         })(),
-      ).catch((cause: unknown) => setError(errorMessage(cause)));
+      ).catch((cause: unknown) => setError(cause));
     });
 
   const guardedLibrary = (target: Parameters<typeof openLibrary>[0]) =>
@@ -344,7 +346,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
           ),
       });
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
       return false;
     }
   };

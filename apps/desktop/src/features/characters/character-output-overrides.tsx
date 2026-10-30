@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import type {
@@ -23,7 +24,7 @@ export function CharacterOutputOverrides({
   resources,
   capabilities,
   onPosition,
-  name = "配方",
+  name = t("characters.recipe"),
   issues = {},
 }: {
   value: CharacterComposition[];
@@ -37,6 +38,8 @@ export function CharacterOutputOverrides({
   name?: string;
   issues?: CharacterIssues;
 }) {
+  useTranslation();
+
   const root = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const latest = useRef({ overrides, onChange });
@@ -65,7 +68,8 @@ export function CharacterOutputOverrides({
     <section className="character-list-editor" ref={root}>
       <header className="character-list-heading">
         <h3>
-          角色输出<span className="count">{value.length}</span>
+          {t("characters.output")}
+          <span className="count">{value.length}</span>
         </h3>
       </header>
       {value.map((character, index) => {
@@ -79,23 +83,31 @@ export function CharacterOutputOverrides({
             data-has-errors={fieldIssues.length > 0 || undefined}
           >
             <header>
-              <strong>角色 {index + 1}</strong>
+              <strong>
+                {t("characters.characterNumber")}
+                {index + 1}
+              </strong>
               <span className="spacer" />
-              {local && <span className="tag">本次覆盖</span>}
+              {local && <span className="tag">{t("characters.currentOverride")}</span>}
               <Toggle
-                label={`启用配方角色 ${index + 1}`}
+                label={t("characters.enableRecipeCharacter", { value0: index + 1 })}
                 checked={local?.enabled ?? character.enabled}
                 onChange={(enabled) => update(character.id, { enabled })}
               />
               <IconButton
-                label="撤销角色启停与位置覆盖"
+                label={t("characters.resetStateOverrides")}
                 disabled={!local}
                 onClick={() => update(character.id, { enabled: null, position: null })}
               >
                 <RotateCcw size={14} />
               </IconButton>
               <IconButton
-                label={`${collapsed.has(character.id) ? "展开" : "折叠"}配方角色 ${index + 1}`}
+                label={t("characters.toggleRecipeExpanded", {
+                  value0: collapsed.has(character.id)
+                    ? t("characters.expand")
+                    : t("characters.collapse"),
+                  value1: index + 1,
+                })}
                 data-character-expand
                 aria-expanded={!collapsed.has(character.id)}
                 onClick={() =>
@@ -129,7 +141,7 @@ export function CharacterOutputOverrides({
                   overrides={textOverrides}
                   resources={resources}
                   model={capabilities?.model}
-                  name={`${name} 角色 ${index + 1}`}
+                  name={t("characters.namedCharacter", { value0: name, value1: index + 1 })}
                   onChange={onTextChange}
                   errorScopes={fieldIssues
                     .filter((issue) => issue.field === "positive" || issue.field === "negative")
@@ -157,10 +169,11 @@ export function CharacterOutputOverrides({
           key={item.characterId}
         >
           <span>
-            已移除角色的覆盖 <code>{item.characterId}</code>
+            {t("characters.removedOverride")}
+            <code>{item.characterId}</code>
           </span>
           <Button onClick={() => update(item.characterId, { enabled: null, position: null })}>
-            移除失效覆盖
+            {t("characters.removeStaleOverride")}
           </Button>
         </div>
       ))}

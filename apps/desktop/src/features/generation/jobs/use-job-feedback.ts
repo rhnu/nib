@@ -1,8 +1,8 @@
+import { useMessageState } from "@/shared/i18n";
 import { jobsApi } from "./api";
 import { Channel } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JobFeedback, JobSummary } from "@/bindings/generation";
-import { errorMessage } from "@/shared/host/error";
 import {
   emptyFeedback,
   receiveFeedback,
@@ -20,7 +20,7 @@ export function useJobFeedback(
   refreshJob: (id: string) => Promise<void>,
 ) {
   const [feedback, setFeedback] = useState(emptyFeedback);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useMessageState();
   const [attempt, setAttempt] = useState(0);
   const jobsRef = useRef(jobs);
   useEffect(() => {
@@ -62,19 +62,19 @@ export function useJobFeedback(
       unsubscribe: () => jobsApi.unsubscribeFeedback(subscriptionId),
       onMessage,
       onConnected: () => setFeedbackError(null),
-      onError: (cause) => setFeedbackError(errorMessage(cause)),
+      onError: (cause) => setFeedbackError(cause),
     });
     return () => {
       stopped = true;
       channel.onmessage = () => {};
       void connection.disconnect().catch(() => {});
     };
-  }, [attempt, refresh, refreshJob]);
+  }, [attempt, refresh, refreshJob, setFeedbackError]);
 
   const reconnectFeedback = useCallback(() => {
     setFeedbackError(null);
     setAttempt((value) => value + 1);
-  }, []);
+  }, [setFeedbackError]);
 
   const releasePreview = useCallback((jobId: string, sampleIndex: number) => {
     setFeedback((state) => releaseFeedbackFrame(state, jobId, sampleIndex));

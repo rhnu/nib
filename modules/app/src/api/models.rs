@@ -76,7 +76,6 @@ pub struct ModelCapabilities {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct SizePreset {
     pub id: String,
-    pub label: String,
     pub width: u32,
     pub height: u32,
 }
@@ -84,16 +83,15 @@ pub struct SizePreset {
 fn size_presets() -> Vec<SizePreset> {
     use novelai_bridge::ImageSize;
     [
-        ("portrait", "竖图", ImageSize::portrait()),
-        ("landscape", "横图", ImageSize::landscape()),
-        ("square", "方图", ImageSize::square()),
-        ("largePortrait", "大尺寸竖图", ImageSize::large_portrait()),
-        ("largeLandscape", "大尺寸横图", ImageSize::large_landscape()),
+        ("portrait", ImageSize::portrait()),
+        ("landscape", ImageSize::landscape()),
+        ("square", ImageSize::square()),
+        ("largePortrait", ImageSize::large_portrait()),
+        ("largeLandscape", ImageSize::large_landscape()),
     ]
     .into_iter()
-    .map(|(id, label, size)| SizePreset {
+    .map(|(id, size)| SizePreset {
         id: id.to_owned(),
-        label: label.to_owned(),
         width: size.width,
         height: size.height,
     })

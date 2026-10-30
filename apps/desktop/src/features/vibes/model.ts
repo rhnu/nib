@@ -1,3 +1,4 @@
+import { t, formatDate } from "@/shared/i18n";
 import type {
   ModelCapabilities,
   VibeReferenceInput,
@@ -21,11 +22,11 @@ export function vibeMaterialName(asset: MediaAsset): string {
   if (asset.source.kind === "import" && asset.source.name) return imageName(asset);
   const kind =
     asset.kind === "vibeDocument"
-      ? "氛围转移文档"
+      ? t("vibes.vibeDocument")
       : asset.kind === "image"
-        ? "参考原图"
-        : "氛围转移编码";
-  return `${kind} · ${new Date(asset.createdAt).toLocaleString()}`;
+        ? t("vibes.referenceOriginal")
+        : t("vibes.vibeEncoding");
+  return `${kind} · ${formatDate(new Date(asset.createdAt))}`;
 }
 
 export type VibeIssues = Record<string, { field: string; message: string }[]>;

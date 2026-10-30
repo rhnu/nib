@@ -1,3 +1,4 @@
+import { MessageError } from "@/shared/i18n";
 import { describe, expect, it } from "vitest";
 import type { Draft } from "@/bindings/workbench";
 import { emptyReferences, emptySettings } from "@/features/prompt/model";
@@ -78,7 +79,7 @@ describe("result resubmission preparation", () => {
   it("rejects Director resubmission without its restored source instead of using the main source", () => {
     const restored = restoredDraft();
     restored.director.tools[0].assetId = null;
-    expect(() => prepareResubmission(restored, "director")).toThrow("缺少可重新提交的输入");
+    expect(() => prepareResubmission(restored, "director")).toThrow(MessageError);
     expect(restored.inputs.operation).toMatchObject({
       kind: "imageToImage",
       assetId: "main-source",

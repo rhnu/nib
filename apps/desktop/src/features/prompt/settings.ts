@@ -1,28 +1,73 @@
+import { t } from "@/shared/i18n";
 import type { GenerationSettings, ResolvedSettings } from "@/bindings/workbench";
 
 export const settingLabels = {
-  model: "模型",
-  furryMode: "Furry 模式",
-  quality: "质量标签",
-  ucPreset: "负面预设",
-  size: "尺寸",
-  nSamples: "样本数",
-  steps: "Steps",
-  scale: "Guidance",
-  seed: "种子",
-  sampler: "采样器",
-  noiseSchedule: "噪声调度",
-  cfgRescale: "CFG Rescale",
-  varietyBoost: "Variety Boost",
-  decrisp: "Decrisp",
-  smea: "SMEA",
-  smeaDyn: "动态 SMEA",
-  legacyUc: "Legacy UC",
-  transparentBackground: "透明背景",
-  alphaMode: "Alpha 表示",
-  imageFormat: "图像格式",
-  responseFormat: "响应格式",
-  useCoords: "角色定位",
+  get model() {
+    return t("prompt.model");
+  },
+  get furryMode() {
+    return t("prompt.furryMode");
+  },
+  get quality() {
+    return t("prompt.qualityTags");
+  },
+  get ucPreset() {
+    return t("prompt.negativePreset");
+  },
+  get size() {
+    return t("prompt.dimensions");
+  },
+  get nSamples() {
+    return t("prompt.samples");
+  },
+  get steps() {
+    return t("prompt.steps");
+  },
+  get scale() {
+    return t("prompt.guidance");
+  },
+  get seed() {
+    return t("prompt.seed");
+  },
+  get sampler() {
+    return t("prompt.sampler");
+  },
+  get noiseSchedule() {
+    return t("prompt.noiseSchedule");
+  },
+  get cfgRescale() {
+    return t("prompt.cfgRescale");
+  },
+  get varietyBoost() {
+    return t("prompt.varietyBoost");
+  },
+  get decrisp() {
+    return t("prompt.decrisp");
+  },
+  get smea() {
+    return t("prompt.smea");
+  },
+  get smeaDyn() {
+    return t("prompt.dynamicSmea");
+  },
+  get legacyUc() {
+    return t("prompt.legacyUc");
+  },
+  get transparentBackground() {
+    return t("prompt.transparentBackground");
+  },
+  get alphaMode() {
+    return t("prompt.alphaRepresentation");
+  },
+  get imageFormat() {
+    return t("prompt.imageFormat");
+  },
+  get responseFormat() {
+    return t("prompt.responseFormat");
+  },
+  get useCoords() {
+    return t("prompt.characterPositioning");
+  },
 } satisfies Record<keyof GenerationSettings, string>;
 
 export type SettingKey = keyof GenerationSettings;
@@ -75,10 +120,10 @@ export function settingValue(
   key: SettingKey,
   value: GenerationSettings[SettingKey] | ResolvedSettings[SettingKey],
 ): string {
-  if (value === null) return key === "imageFormat" ? "默认格式" : "未设置";
-  if (typeof value === "boolean") return value ? "开启" : "关闭";
+  if (value === null) return key === "imageFormat" ? t("prompt.defaultFormat") : t("prompt.unset");
+  if (typeof value === "boolean") return value ? t("prompt.on") : t("prompt.off");
   if (typeof value === "object") return `${value.width} × ${value.height}`;
-  if (key === "seed" && value === 0) return "自动（0）";
+  if (key === "seed" && value === 0) return t("prompt.automaticZero");
   return String(value);
 }
 

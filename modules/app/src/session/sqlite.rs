@@ -45,7 +45,10 @@ impl DraftStore for SqliteDatabase {
 
     fn save_draft(&self, draft: &Draft) -> Result<DraftSaveReceipt, PersistenceError> {
         validate_draft(draft).map_err(|error| PersistenceError::InvalidData {
-            message: error.to_string(),
+            message: crate::api::UserMessage::Validation {
+                field: error.field,
+                message: Box::new(error.message),
+            },
         })?;
         let revision = next_revision(draft.revision)?;
         let composition = encode(&draft.composition)?;

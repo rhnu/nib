@@ -1,27 +1,31 @@
+import { t, deferMessage, type DeferredMessage } from "@/shared/i18n";
 import type { MediaAsset } from "@/bindings/media";
 
 export function imageName(asset: MediaAsset): string {
   if (asset.source.kind === "import" && asset.source.name) return asset.source.name;
-  if (asset.source.kind === "job") return "生成图片";
+  if (asset.source.kind === "job") return t("media.generatedImage");
   return asset.kind === "image"
-    ? "图片材料"
+    ? t("media.imageMaterial")
     : asset.kind === "vibe"
-      ? "氛围转移编码"
-      : "氛围转移文档";
+      ? t("media.vibeEncoding")
+      : t("media.vibeDocument");
 }
 
 export function imageUnavailableReason(
   asset: Pick<MediaAsset, "kind" | "available">,
 ): string | null {
-  if (asset.kind !== "image") return "此媒体不是图片，无法作为图像使用。";
-  if (!asset.available) return "图片文件缺失或已损坏，请重新导入。";
+  if (asset.kind !== "image") return t("media.mediaNotImage");
+  if (!asset.available) return t("media.imageFileMissing");
   return null;
 }
 
 /** A source-image action has exactly one target; reject multi-file input as a whole. */
-export function singleImageFile<T>(files: ArrayLike<T>): { file: T | null; error: string | null } {
+export function singleImageFile<T>(files: ArrayLike<T>): {
+  file: T | null;
+  error: DeferredMessage | null;
+} {
   if (files.length === 0) return { file: null, error: null };
   if (files.length !== 1)
-    return { file: null, error: "每次只能导入一张底图。请选择或拖入单张图片。" };
+    return { file: null, error: deferMessage(() => t("media.singleSourceImageOnly")) };
   return { file: files[0], error: null };
 }

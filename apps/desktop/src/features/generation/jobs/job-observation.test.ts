@@ -3,25 +3,29 @@ import { settlementSummary } from "./job-observation";
 
 describe("request settlement display", () => {
   it("keeps encoding completion separate from image counts", () => {
-    expect(settlementSummary({ kind: "succeeded", imageCount: 0 }, "encodeVibe")).toBe(
-      "编码请求成功",
-    );
-    expect(settlementSummary({ kind: "succeeded", imageCount: 2 }, "generation")).toBe(
-      "请求成功 · 2 个图像产出",
-    );
+    const encoded = settlementSummary({ kind: "succeeded", imageCount: 0 }, "encodeVibe");
+    expect(settlementSummary({ kind: "succeeded", imageCount: 2 }, "encodeVibe")).toBe(encoded);
+    const generated = settlementSummary({ kind: "succeeded", imageCount: 2 }, "generation");
+    expect(generated).toContain("2");
+    expect(generated).not.toBe(encoded);
   });
+
   it("retains HTTP status and readable error classification", () => {
+    const rejected = settlementSummary(
+      { kind: "failed", failure: "api", httpStatus: null },
+      "generation",
+    );
     expect(
       settlementSummary({ kind: "failed", failure: "api", httpStatus: 429 }, "generation"),
-    ).toBe("服务端拒绝请求 · HTTP 429");
-    expect(
-      settlementSummary(
-        { kind: "failed", failure: "futureCategory", httpStatus: null },
-        "generation",
-      ),
-    ).toBe("请求失败");
+    ).toBe(`${rejected} · HTTP 429`);
+    const unknown = settlementSummary(
+      { kind: "failed", failure: "futureCategory", httpStatus: null },
+      "generation",
+    );
+    expect(unknown).toBeTruthy();
+    expect(rejected).not.toBe(unknown);
     expect(
       settlementSummary({ kind: "failed", failure: "stream", httpStatus: null }, "generation"),
-    ).toContain("不完整");
+    ).not.toBe(unknown);
   });
 });

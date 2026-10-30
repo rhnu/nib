@@ -25,7 +25,7 @@ export function CharacterContext({
   capabilities: ModelCapabilities | null;
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
-  setError: (message: string) => void;
+  setError: (message: unknown) => void;
   onPosition: (characterId?: string, presetInstanceId?: string) => void;
   outputIssues: ScopedOutputIssues;
   inheritedUseCoords?: boolean | null;

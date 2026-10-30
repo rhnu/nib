@@ -1,5 +1,7 @@
 //! Global application preferences and host-owned account credentials.
 
+use crate::api::UserMessage;
+
 mod sqlite;
 
 use std::error::Error;
@@ -18,12 +20,26 @@ pub enum Theme {
     Light,
 }
 
+/// User language preference; the frontend resolves system through the host locale.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum Language {
+    #[default]
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "en")]
+    En,
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+}
+
 /// Global preferences remain independent of the selected data directory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ApplicationPreferences {
     pub theme: Theme,
+    pub language: Language,
     pub recent_image_limit: u32,
     pub execution: ExecutionPreferences,
 }
@@ -32,6 +48,7 @@ impl Default for ApplicationPreferences {
     fn default() -> Self {
         Self {
             theme: Theme::default(),
+            language: Language::default(),
             execution: ExecutionPreferences::default(),
             recent_image_limit: 20,
         }
@@ -127,7 +144,7 @@ pub struct AccountSnapshot {
     pub summary: Option<AccountSummary>,
     pub refreshing: bool,
     pub stale: bool,
-    pub error: Option<String>,
+    pub error: Option<UserMessage>,
     pub revision: u32,
 }
 

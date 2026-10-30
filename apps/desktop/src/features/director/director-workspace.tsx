@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useAccount } from "@/features/generation/account/account-context";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -64,6 +65,8 @@ export function DirectorWorkspace({
   canUsePreciseReference?: boolean;
   canUseVibeReference?: boolean;
 }) {
+  useTranslation();
+
   const workspace = draft.director;
   const state = selectedDirectorTool(workspace);
   const media = useMediaAsset(state?.assetId ?? null);
@@ -162,28 +165,32 @@ export function DirectorWorkspace({
     });
   };
 
-  if (!state) return <Notice>导演工具工作态不可用，请重新打开应用。</Notice>;
+  if (!state) return <Notice>{t("director.stateUnavailable")}</Notice>;
   return (
     <div className={`director-workspace director-mobile-${mobileView}`} ref={root}>
-      <nav className="director-mobile-navigation" aria-label="导演工具视图">
+      <nav className="director-mobile-navigation" aria-label={t("director.view")}>
         <Button aria-pressed={mobileView === "input"} onClick={() => setMobileView("input")}>
-          输入与参数
+          {t("director.inputParameters")}
         </Button>
         <Button aria-pressed={mobileView === "results"} onClick={() => setMobileView("results")}>
-          结果
+          {t("director.results")}
         </Button>
       </nav>
       <div className="director-body">
-        <aside className="director-sidebar" aria-label="导演工具输入与参数">
+        <aside className="director-sidebar" aria-label={t("director.toolInputParameters")}>
           <div className="director-sidebar-scroll">
             <section className="director-tool-section">
-              <h2>工具</h2>
-              <div className="director-tool-picker" role="radiogroup" aria-label="选择导演工具">
+              <h2>{t("director.tool")}</h2>
+              <div
+                className="director-tool-picker"
+                role="radiogroup"
+                aria-label={t("director.chooseTool")}
+              >
                 {workspace.tools.map((item) => (
                   <label key={item.tool} className={item.tool === state.tool ? "is-selected" : ""}>
                     <input
                       type="radio"
-                      name="director-tool"
+                      name={t("director.toolIdentifier")}
                       checked={item.tool === state.tool}
                       onChange={() => {
                         const current = latest.current;
@@ -199,11 +206,11 @@ export function DirectorWorkspace({
               </div>
             </section>
             <section className="director-input-section">
-              <h2>输入</h2>
+              <h2>{t("director.input")}</h2>
               <div data-director-field="assetId">
                 <ImageImporter
                   key={state.tool}
-                  label={state.assetId ? "更换图片" : "选择文件"}
+                  label={state.assetId ? t("director.changeImage") : t("director.chooseFile")}
                   onImported={(asset) => requestSource({ tool: state.tool, assetId: asset.id })}
                   onChooseExisting={() => setPicker(state.tool)}
                 />
@@ -214,13 +221,13 @@ export function DirectorWorkspace({
                     {imageName(media.asset)} · {media.asset.width} × {media.asset.height}
                   </p>
                   <Button className="quiet" onClick={() => setMetadataOpen(true)}>
-                    图片信息
+                    {t("director.imageInfo")}
                   </Button>
                 </div>
               )}
-              {media.loading && <output className="muted">正在读取输入…</output>}
+              {media.loading && <output className="muted">{t("director.loadingInput")}</output>}
               {media.error && (
-                <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>
+                <Notice actions={<Button onClick={media.retry}>{t("director.retryLoad")}</Button>}>
                   {media.error}
                 </Notice>
               )}
@@ -250,7 +257,7 @@ export function DirectorWorkspace({
               />
             ) : (
               <Button className="primary" disabled>
-                选择输入图片后提交
+                {t("director.selectInputHint")}
               </Button>
             )}
           </footer>
@@ -281,7 +288,7 @@ export function DirectorWorkspace({
       <ImagePickerDialog
         key={picker ?? "closed"}
         open={picker !== null}
-        title="导演工具输入"
+        title={t("director.toolInput")}
         onClose={() => setPicker(null)}
         onSelect={(asset) => picker && requestSource({ tool: picker, assetId: asset.id })}
         onRestore={onRestore}
@@ -296,14 +303,14 @@ export function DirectorWorkspace({
       {candidate && (
         <Modal
           open
-          title={`替换${directorToolLabels[candidate.tool]}输入？`}
+          title={t("director.replaceInputTitle", { value0: directorToolLabels[candidate.tool] })}
           onClose={() => {
             completeHandoff(candidate.handoffId);
             setCandidate(null);
           }}
         >
           <div className="director-replace-dialog">
-            <p>当前输入将替换为所选图片。此工具的参数与已有输出继续保留。</p>
+            <p>{t("director.replaceInputHelp")}</p>
             <div className="director-dialog-actions">
               <Button
                 onClick={() => {
@@ -311,10 +318,10 @@ export function DirectorWorkspace({
                   setCandidate(null);
                 }}
               >
-                保留当前输入
+                {t("director.keepInput")}
               </Button>
               <Button className="primary" onClick={() => accept(candidate)}>
-                替换输入
+                {t("director.replaceInput")}
               </Button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { t, deferMessage } from "@/shared/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { GenerationQuote, ParameterDiagnostic } from "@/bindings/generation";
@@ -22,7 +23,7 @@ export interface ImageOperationPanelProps {
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
   onRestore: (draft: Draft) => void;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
   onRequestOperation: (id: string, kind: ImageOperationAction) => void;
   onPrepareImportedOperation: (id: string, kind: ImageOperationAction) => Promise<void>;
   onReturnToText: () => void;
@@ -105,7 +106,7 @@ export function useImageOperationPanel({
       current.inputs.operation.kind !== operation.kind ||
       operationSourceId(current.inputs.operation) !== sourceId
     ) {
-      onError("图像操作已改变，请在当前操作中重新编辑。");
+      onError(deferMessage(() => t("inputs.operationChanged")));
       return;
     }
     edit({

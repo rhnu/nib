@@ -126,6 +126,16 @@ pnpm types:check
 
 Tauri 关闭系统窗口装饰，由前端应用层提供标题栏和窗口控制，关闭按钮沿用保存保护流程；权限仅服务主窗口并采用最小授权及 CSP。宿主统一初始化 tracing；应用库只产生事件，不安装全局 subscriber。日志保留必要上下文与错误原因链，不记录凭据、完整请求或媒体内容。详细执行通知与永久结果记录的分离见[数据生命周期](design.md#数据生命周期)。
 
+## 本地化
+
+前端使用 i18next 与 react-i18next；`shared/i18n/locales/en` 和 `zh-cn` 按业务领域维护完整文案，随应用一起打包。英语目录提供键及插值的类型，简体中文目录通过 `satisfies` 保持相同键结构；数量文案采用 `count` 与语言复数形式，富文本整句使用 `Trans`。界面文字、tooltip、可访问名称及应用自定义的原生对话框文字均从目录读取，用户内容、协议值和外部诊断保留原值。
+
+语言偏好属于 `settings::ApplicationPreferences`，取值为 `system`、`en`、`zh-CN`，复用 `PreferencesWriter` 和配置数据库，不另设浏览器持久副本。设置加载前按系统语言初始化，加载后采用已保存选择；`useLanguage` 同步 i18next 与文档 `lang`，跟随系统时响应语言变化。日期和数字通过共享格式函数使用当前界面语言。
+
+组件使用 `useTranslation` 订阅切换；共享 `t` 也可在普通显示函数中按调用时的语言解释文案。模块级显示映射使用键或 getter，不能在初始化时固定翻译；缓存与长期编辑状态保存业务值及原始错误。局部反馈使用 `useMessageState`，需要延迟解释的本地消息使用 `deferMessage`；本地抛错通过 `MessageError` 保留 Error 与调用栈语义。翻译发生在读取或显示时，切换语言不会清空错误或重建编辑状态。
+
+`api::UserMessage` 是 nib 跨 IPC 与持久化记录的消息契约，按语义变体携带字段、身份及调整参数，由前端统一解释。`ApiError` 的错误分类和定位字段独立保留；SDK 与平台详情使用 `external` 原文传递，不通过匹配可读文案推断类别。远端响应及凭据错误继续遵守原有脱敏边界。新增消息须同时更新前端解释及双语目录；修改通信类型后运行 `pnpm types`。
+
 ## 工具与检查
 
 Rust、Node 与 pnpm 版本由仓库配置固定，Cargo 与 pnpm 锁文件纳入版本管理。安装依赖使用 `pnpm install --frozen-lockfile`，Cargo 检查使用 `--locked`；不要通过删除锁文件绕过依赖问题。

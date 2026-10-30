@@ -1,3 +1,4 @@
+import { t, useTranslation, formatNumber } from "@/shared/i18n";
 import { useState } from "react";
 import type { MediaAsset } from "@/bindings/media";
 import type { Draft } from "@/bindings/workbench";
@@ -27,8 +28,10 @@ function PickerContent({
   onClose,
   onSelect,
   onRestore,
-  title = "选择底图",
+  title = t("media.chooseSourceImage"),
 }: Omit<PickerProps, "open">) {
+  useTranslation();
+
   const assets = useMediaQuery(["media", "images"], "images", listImages, 0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [imported, setImported] = useState<MediaAsset | null>(null);
@@ -50,31 +53,31 @@ function PickerContent({
             }}
           />
           <header className="media-library-heading">
-            <h3>已有图片</h3>
+            <h3>{t("media.existingImages")}</h3>
             <Button className="quiet" disabled={assets.loading} onClick={assets.retry}>
-              刷新
+              {t("media.refresh")}
             </Button>
           </header>
-          {assets.loading && <output>正在读取图片列表…</output>}
+          {assets.loading && <output>{t("media.loadingImageList")}</output>}
           {assets.error && (
-            <Notice actions={<Button onClick={assets.retry}>重试加载</Button>}>
+            <Notice actions={<Button onClick={assets.retry}>{t("media.retryLoad")}</Button>}>
               {assets.error}
             </Notice>
           )}
           {!assets.loading && !assets.error && images.length === 0 && (
-            <p className="muted">尚无图片</p>
+            <p className="muted">{t("media.noImages")}</p>
           )}
           <fieldset className="media-image-list">
-            <legend className="media-sr-only">选择一张已有图片</legend>
+            <legend className="media-sr-only">{t("media.chooseExistingImage")}</legend>
             {images.map((asset) => (
               <label
                 key={asset.id}
-                aria-label={`选择图片 ${imageName(asset)}`}
+                aria-label={t("media.selectNamedImage", { value0: imageName(asset) })}
                 className={`media-image-row ${selectedId === asset.id ? "is-selected" : ""}`}
               >
                 <input
                   type="radio"
-                  name="source-image"
+                  name={t("media.sourceImage")}
                   checked={selectedId === asset.id}
                   onChange={() => {
                     setSelectedId(asset.id);
@@ -85,7 +88,7 @@ function PickerContent({
                   <span className="media-image-name">{imageName(asset)}</span>
                   <small>
                     {asset.width ?? "?"} × {asset.height ?? "?"} · {asset.mimeType}
-                    {!asset.available && " · 文件不可用"}
+                    {!asset.available && t("media.fileUnavailableSuffix")}
                   </small>
                 </span>
               </label>
@@ -98,28 +101,32 @@ function PickerContent({
               <AssetImage
                 key={selected.id}
                 asset={selected}
-                alt={`待选图片：${imageName(selected)}`}
+                alt={t("media.imageToSelect", { value0: imageName(selected) })}
               />
               <p className="media-asset-heading">{imageName(selected)}</p>
               <p className="muted">
-                {selected.width ?? "未知宽度"} × {selected.height ?? "未知高度"} ·{" "}
-                {selected.byteLength.toLocaleString()} 字节
+                {selected.width ?? t("media.unknownWidth")} ×{" "}
+                {selected.height ?? t("media.unknownHeight")} ·{" "}
+                {t("media.byteCount", {
+                  count: selected.byteLength,
+                  value: formatNumber(selected.byteLength),
+                })}
               </p>
               <Button
                 disabled={!!imageUnavailableReason(selected)}
                 onClick={() => setMetadataOpen(true)}
               >
-                图片元信息
+                {t("media.imageMetadata")}
               </Button>
             </>
           ) : (
-            <p className="muted">未选择图片</p>
+            <p className="muted">{t("media.noImageSelected")}</p>
           )}
         </div>
       </div>
       <footer className="media-picker-footer">
         <div className="media-dialog-actions">
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t("media.cancel")}</Button>
           <Button
             className="primary"
             disabled={!selected || !!imageUnavailableReason(selected)}
@@ -129,7 +136,7 @@ function PickerContent({
               onClose();
             }}
           >
-            选择图片
+            {t("media.selectImage")}
           </Button>
         </div>
       </footer>
@@ -153,5 +160,7 @@ function PickerContent({
 }
 
 export function ImagePickerDialog({ open, ...props }: PickerProps) {
+  useTranslation();
+
   return open ? <PickerContent {...props} /> : null;
 }

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { Resource } from "@/bindings/workbench";
@@ -5,7 +6,6 @@ import { ActionsMenu, Button, Field, HelpMarker } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { SettingsEditor } from "@/features/prompt/settings-editor";
 import { promptApi } from "@/features/prompt/api";
-import { errorMessage } from "@/shared/host/error";
 import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { CharacterListEditor, CharacterPositionPolicy } from "@/features/characters";
@@ -35,8 +35,10 @@ export function ResourceEditor({
   dismiss: () => void;
   remove: () => void;
   save: () => Promise<void>;
-  setError: (message: string) => void;
+  setError: (message: unknown) => void;
 }) {
+  useTranslation();
+
   const model = useModelCapabilities(
     editor.content.kind === "preset" ? (editor.content.defaults.model ?? undefined) : undefined,
     editor.content.kind === "preset" ? editor.content.defaults : null,
@@ -75,33 +77,37 @@ export function ResourceEditor({
       <header className="resource-editor-heading">
         <Button className="quiet" onClick={() => leave(dismiss)}>
           <ArrowLeft size={14} />
-          列表
+          {t("library.list")}
         </Button>
-        <span className="tag">{editor.content.kind === "chunk" ? "Chunk" : "Preset"}</span>
+        <span className="tag">
+          {editor.content.kind === "chunk" ? t("library.chunk") : t("library.preset")}
+        </span>
         <span className="spacer" />
         {editor.revision > 0 && (
           <ActionsMenu
-            label="资源管理"
-            items={[{ label: "删除资源", danger: true, action: remove, disabled: busy }]}
+            label={t("library.manageResource")}
+            items={[
+              { label: t("library.deleteResource"), danger: true, action: remove, disabled: busy },
+            ]}
           />
         )}
       </header>
       <fieldset disabled={busy}>
-        <Field label="资源名称">
+        <Field label={t("library.resourceName")}>
           <input
             value={editor.name}
-            placeholder="为资源命名"
+            placeholder={t("library.namePlaceholder")}
             onChange={(event) => update((current) => ({ ...current, name: event.target.value }))}
           />
         </Field>
         {editor.content.kind === "chunk" ? (
           <div className="resource-text">
             <PromptTextEditor
-              label="提示词内容"
+              label={t("library.promptContent")}
               value={editor.content.text}
               model={model.capabilities?.model}
               disabled={busy}
-              placeholder="输入可复用的提示词…"
+              placeholder={t("library.promptPlaceholder")}
               onChange={(text) =>
                 update((current) =>
                   current.content.kind === "chunk"
@@ -124,7 +130,7 @@ export function ResourceEditor({
                 try {
                   return await promptApi.expandChunk(node);
                 } catch (cause) {
-                  setError(errorMessage(cause));
+                  setError(cause);
                   return node;
                 }
               }}
@@ -175,13 +181,13 @@ export function ResourceEditor({
               resources={resources}
               capabilities={model.capabilities}
               onError={setError}
-              title="角色输出"
+              title={t("library.characterOutput")}
             />
             <details>
-              <summary>配方默认设置</summary>
+              <summary>{t("library.presetDefaults")}</summary>
               <div className="resource-settings-help">
-                <HelpMarker label="配方默认设置说明">
-                  仅填写配方负责的设置，留空则继续继承。
+                <HelpMarker label={t("library.presetDefaultsHelp")}>
+                  {t("library.presetDefaultsDescription")}
                 </HelpMarker>
               </div>
               <SettingsEditor
@@ -194,7 +200,7 @@ export function ResourceEditor({
               {model.error && (
                 <p className="inline-warning" role="alert">
                   {model.error}
-                  <Button onClick={model.retry}>重试模型查询</Button>
+                  <Button onClick={model.retry}>{t("library.retryModelQuery")}</Button>
                 </p>
               )}
             </details>
@@ -203,14 +209,18 @@ export function ResourceEditor({
       </fieldset>
       <footer className="resource-editor-footer">
         <span className="muted">
-          {dirty ? "尚未保存" : editor.revision ? `版本 ${editor.revision}` : "新资源"}
+          {dirty
+            ? t("library.unsaved")
+            : editor.revision
+              ? t("library.revision", { value0: editor.revision })
+              : t("library.newResource")}
         </span>
         <Button
           className="primary"
           disabled={busy || (!dirty && editor.revision > 0)}
           onClick={() => void save()}
         >
-          {busy ? "保存中…" : "保存资源"}
+          {busy ? t("library.saving") : t("library.saveResource")}
         </Button>
       </footer>
     </section>

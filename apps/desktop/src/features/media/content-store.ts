@@ -1,3 +1,5 @@
+import { deferMessage, t, MessageError } from "@/shared/i18n";
+
 export type ContentSnapshot = { url: string | null; error: unknown; loading: boolean };
 
 /** Each immutable content variant is shared only while it has mounted consumers. */
@@ -88,6 +90,10 @@ class ContentResource {
   failed = () => {
     this.generation++;
     if (this.state.url) this.revoke(this.state.url);
-    this.publish({ url: null, error: new Error("图片内容无法显示，请重新读取。"), loading: false });
+    this.publish({
+      url: null,
+      error: new MessageError(deferMessage(() => t("media.imageDisplayFailed"))),
+      loading: false,
+    });
   };
 }

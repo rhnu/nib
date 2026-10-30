@@ -1,3 +1,4 @@
+import { t } from "@/shared/i18n";
 import type {
   ModelCapabilities,
   PreciseReferenceInput,
@@ -5,10 +6,18 @@ import type {
 } from "@/bindings/workbench";
 
 const availabilityReasons: Record<string, string> = {
-  unsupported: "当前模型不支持",
-  unsupportedMode: "当前图像操作不支持",
-  conflictWithPreciseReference: "与启用的精确参考冲突",
-  unavailable: "当前不可用",
+  get unsupported() {
+    return t("references.modelUnsupported");
+  },
+  get unsupportedMode() {
+    return t("references.operationUnsupported");
+  },
+  get conflictWithPreciseReference() {
+    return t("references.preciseReferenceConflict");
+  },
+  get unavailable() {
+    return t("references.unavailable");
+  },
 };
 
 /** Unsupported empty sections disappear; retained inputs and loading capabilities remain visible. */
@@ -30,13 +39,17 @@ export function preciseReferenceMessages(
   return {
     precise:
       !precise.available && precise.reason !== "notRequested"
-        ? `精确参考不生效：${availabilityReasons[precise.reason] ?? precise.reason}`
+        ? t("references.preciseReferenceInactive", {
+            value0: availabilityReasons[precise.reason] ?? precise.reason,
+          })
         : !capabilities.canAddPreciseReference
-          ? "当前模型或操作不支持精确参考。"
+          ? t("references.preciseReferenceUnsupported")
           : null,
     vibe:
       !vibe.available && vibe.reason !== "notRequested"
-        ? `氛围转移不生效：${availabilityReasons[vibe.reason] ?? vibe.reason}`
+        ? t("references.vibeTransferInactive", {
+            value0: availabilityReasons[vibe.reason] ?? vibe.reason,
+          })
         : null,
   };
 }

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{FrozenSubmission, JobObservation, JobRecord, JobStatus};
-use crate::settings::ExecutionPreferences;
+use crate::{api::UserMessage, settings::ExecutionPreferences};
 
 /// List views retain only the operation identity needed for feedback and reuse actions.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -109,7 +109,7 @@ pub struct JobSummary {
     pub submitted_at: i64,
     #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
     pub finished_at: Option<i64>,
-    pub error: Option<String>,
+    pub error: Option<UserMessage>,
     pub result_ids: Vec<String>,
     pub operation: OperationSummary,
     pub execution: ExecutionPreferences,

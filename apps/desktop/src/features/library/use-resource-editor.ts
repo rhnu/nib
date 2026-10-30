@@ -1,3 +1,4 @@
+import { t, deferMessage, useTranslation } from "@/shared/i18n";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStore } from "zustand";
@@ -19,6 +20,8 @@ export function useResourceEditor(
   onChanged: (id: string) => Promise<void>,
   refreshSearch: () => void,
 ) {
+  useTranslation();
+
   const client = useQueryClient();
   const store = useLibrarySessionStore();
   const state = useStore(
@@ -37,7 +40,7 @@ export function useResourceEditor(
     callbacks.current = { onChanged, refreshSearch };
   }, [onChanged, refreshSearch]);
 
-  const setError = useCallback((error: string) => store.setState({ error }), [store]);
+  const setError = useCallback((error: unknown) => store.setState({ error }), [store]);
 
   const setConfirm = useCallback(
     (confirm: LibrarySessionState["confirm"]) => store.setState({ confirm }),
@@ -57,14 +60,18 @@ export function useResourceEditor(
     const proceed = () => {
       const current = store.getState();
       if (!isCurrent(operation) || current.busy) return;
-      if (current.dirty) setConfirm({ title: "放弃资源中未保存的修改？", action });
+      if (current.dirty)
+        setConfirm({ title: deferMessage(() => t("library.discardChanges")), action });
       else action();
     };
 
     if (!hasPendingWork()) proceed();
     else
       void waitForPendingWork().then(proceed, (cause: unknown) => {
-        if (isCurrent(operation)) setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
+        if (isCurrent(operation))
+          setError(
+            deferMessage(() => t("library.actionIncomplete", { value0: errorMessage(cause) })),
+          );
       });
   };
 
@@ -114,7 +121,7 @@ export function useResourceEditor(
           (resource) => {
             if (!isCurrent(operation)) return;
             if (!resource) {
-              setError("资源不存在，请刷新列表后重试。");
+              setError(deferMessage(() => t("library.resourceMissing")));
               return;
             }
             store.setState({
@@ -125,7 +132,7 @@ export function useResourceEditor(
             });
           },
           (cause: unknown) => {
-            if (isCurrent(operation)) setError(errorMessage(cause));
+            if (isCurrent(operation)) setError(cause);
           },
         )
         .finally(() => {
@@ -140,14 +147,16 @@ export function useResourceEditor(
       await waitForPendingWork();
     } catch (cause) {
       if (isCurrent(waitingOperation))
-        setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
+        setError(
+          deferMessage(() => t("library.actionIncomplete", { value0: errorMessage(cause) })),
+        );
       return;
     }
     const current = store.getState();
     if (!isCurrent(waitingOperation) || current.busy || !current.editor) return;
     const snapshot = current.editor;
     if (!snapshot.name.trim()) {
-      setError("请填写资源名称。");
+      setError(deferMessage(() => t("library.nameRequired")));
       return;
     }
     const request = { id: snapshot.id, version: current.version };
@@ -162,10 +171,12 @@ export function useResourceEditor(
         await refresh(saved.id);
       } catch (cause) {
         if (isCurrent(operation))
-          setError(`资源已保存，但刷新资源列表失败：${errorMessage(cause)}`);
+          setError(
+            deferMessage(() => t("library.savedRefreshFailed", { value0: errorMessage(cause) })),
+          );
       }
     } catch (cause) {
-      if (isCurrent(operation)) setError(errorMessage(cause));
+      if (isCurrent(operation)) setError(cause);
     } finally {
       if (isCurrent(operation)) setWorking(false);
     }
@@ -175,7 +186,7 @@ export function useResourceEditor(
     const { editor, busy } = store.getState();
     if (!editor || busy) return;
     setConfirm({
-      title: `删除“${editor.name}”？已有引用会保留并显示资源缺失。`,
+      title: deferMessage(() => t("library.confirmDelete", { value0: editor.name })),
       action: () => {
         const current = store.getState();
         if (current.editor?.id !== editor.id || current.busy) return;
@@ -190,7 +201,7 @@ export function useResourceEditor(
             await refresh(editor.id);
           })
           .catch((cause: unknown) => {
-            if (isCurrent(operation)) setError(errorMessage(cause));
+            if (isCurrent(operation)) setError(cause);
           })
           .finally(() => {
             if (isCurrent(operation)) setWorking(false);
@@ -210,5 +221,17 @@ export function useResourceEditor(
     });
   };
 
-  return { ...state, setConfirm, setError, change, leave, create, select, save, remove, dismiss };
+  return {
+    ...state,
+    error: state.error ? errorMessage(state.error) : "",
+    setConfirm,
+    setError,
+    change,
+    leave,
+    create,
+    select,
+    save,
+    remove,
+    dismiss,
+  };
 }

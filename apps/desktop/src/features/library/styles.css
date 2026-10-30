@@ -22,7 +22,8 @@
   padding-left: 31px;
 }
 .library-toolbar > select {
-  width: 105px;
+  width: auto;
+  flex-shrink: 0;
 }
 .library-body {
   flex: 1;

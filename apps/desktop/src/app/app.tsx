@@ -1,3 +1,4 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useState } from "react";
 import { AccountProvider } from "@/features/generation/account/account-provider";
 import { WorkspaceShell } from "./workspace-shell";
@@ -5,6 +6,7 @@ import { GenerationProvider } from "@/features/generation";
 import { StartupScreen } from "./startup-screen";
 import { TitleBar } from "./title-bar";
 import { useTheme } from "./use-theme";
+import { useLanguage } from "./use-language";
 import { useWorkspaceStartup } from "./use-workspace-startup";
 import { SettingsPage, type SettingsSection } from "./settings-page";
 import { useApplicationSettings } from "./use-application-settings";
@@ -14,12 +16,15 @@ import { errorMessage } from "@/shared/host/error";
 
 /** Composition root: application startup and theme, then domain-owned surfaces. */
 export default function App() {
+  useTranslation();
+
   const settings = useApplicationSettings();
   useTheme(settings.preferences.value?.theme);
+  useLanguage(settings.preferences.value?.language);
   const { workspace, loading, error, retry } = useWorkspaceStartup(settings.ready);
   const [startupPage, setStartupPage] = useState<"create" | "settings">("create");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("account");
-  const [closeError, setCloseError] = useState("");
+  const [closeError, setCloseError] = useMessageState();
   useCloseGuard({
     writer: settings.closeWriter,
     resourceDirty: false,
@@ -34,23 +39,24 @@ export default function App() {
   const readOnly = settings.migrationPending || Boolean(settings.storage?.restartRequired);
   const settingsNotice = (
     <>
-      {settings.migrationPending && (
-        <Notice>正在保存编辑、等待已发出的任务完成并迁移数据，请保持窗口打开。</Notice>
-      )}
-      {settings.storage?.restartRequired && (
-        <Notice>数据已迁移并验证。请重启应用；当前窗口已停止保存修改。</Notice>
-      )}
+      {settings.migrationPending && <Notice>{t("app.migrationInProgress")}</Notice>}
+      {settings.storage?.restartRequired && <Notice>{t("app.migrationComplete")}</Notice>}
       {Boolean(settings.preferences.error) && (
         <Notice
           actions={
-            <Button onClick={() => void settings.writer.flush().catch(() => {})}>重试同步</Button>
+            <Button onClick={() => void settings.writer.flush().catch(() => {})}>
+              {t("app.retrySync")}
+            </Button>
           }
         >
-          应用设置尚未保存：{errorMessage(settings.preferences.error)}
+          {t("app.preferencesUnsaved")}
+          {errorMessage(settings.preferences.error)}
         </Notice>
       )}
       {closeError && (
-        <Notice actions={<Button onClick={() => setCloseError("")}>关闭提示</Button>}>
+        <Notice
+          actions={<Button onClick={() => setCloseError("")}>{t("app.dismissNotice")}</Button>}
+        >
           {closeError}
         </Notice>
       )}
@@ -64,18 +70,18 @@ export default function App() {
             <TitleBar
               navigation={
                 settings.ready && (
-                  <nav className="desktop-navigation" aria-label="主导航">
+                  <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
                     <Button
                       aria-current={startupPage === "create" ? "page" : undefined}
                       onClick={() => setStartupPage("create")}
                     >
-                      创作
+                      {t("app.create")}
                     </Button>
                     <Button
                       aria-current={startupPage === "settings" ? "page" : undefined}
                       onClick={() => setStartupPage("settings")}
                     >
-                      设置
+                      {t("app.settings")}
                     </Button>
                   </nav>
                 )
@@ -96,10 +102,12 @@ export default function App() {
                   {error && (
                     <Notice
                       actions={
-                        <Button onClick={() => setStartupPage("settings")}>更改存储位置</Button>
+                        <Button onClick={() => setStartupPage("settings")}>
+                          {t("app.changeStorage")}
+                        </Button>
                       }
                     >
-                      创作数据无法打开。请在设置中检查存储位置与错误信息。原有数据仍保留。
+                      {t("app.dataUnavailable")}
                     </Notice>
                   )}
                   <StartupScreen loading={loading} error={error} retry={retry} />
@@ -110,7 +118,7 @@ export default function App() {
                 loading={settings.loading}
                 error={settings.error}
                 retry={settings.retry}
-                loadingLabel="正在同步应用设置…"
+                loadingLabel={t("app.syncingPreferences")}
               />
             )}
           </>

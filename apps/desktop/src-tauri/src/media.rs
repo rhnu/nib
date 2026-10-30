@@ -18,8 +18,6 @@ use crate::{commands::persistence_error, generation::blocking, state::DesktopSta
 
 /// PNG SDK validation is a rejected edit; storage failures keep the common persistence path.
 fn png_text_error(error: nib_app::persistence::PersistenceError) -> ApiError {
-    use std::error::Error as _;
-
     if let nib_app::persistence::PersistenceError::Failure { source, .. } = &error
         && let Some(bridge) = source.downcast_ref::<novelai_bridge::BridgeError>()
         && matches!(
@@ -28,17 +26,10 @@ fn png_text_error(error: nib_app::persistence::PersistenceError) -> ApiError {
                 | novelai_bridge::BridgeError::InvalidRequest(_)
         )
     {
-        let mut message = bridge.to_string();
-        let mut cause = bridge.source();
-        while let Some(source) = cause {
-            message.push_str(": ");
-            message.push_str(&source.to_string());
-            cause = source.source();
-        }
         return ApiError {
             code: nib_app::api::ErrorCode::Invalid,
             validation_fields: Vec::new(),
-            message,
+            message: nib_app::api::UserMessage::external(nib_app::api::error_detail(bridge)),
         };
     }
     persistence_error(error)

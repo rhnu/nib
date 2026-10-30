@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
@@ -17,13 +18,19 @@ export function VibeNormalize({
   inherited?: boolean | null;
   onChange: (value: boolean | null) => void;
 }) {
+  useTranslation();
+
   const id = useId();
   return (
     <FormField
       className="vibe-normalize"
-      label="强度归一化"
+      label={t("vibes.strengthNormalization")}
       htmlFor={id}
-      help={<HelpMarker label="归一化说明">对整个氛围转移集合的编码强度进行归一化。</HelpMarker>}
+      help={
+        <HelpMarker label={t("vibes.normalizationHelp")}>
+          {t("vibes.normalizationDescription")}
+        </HelpMarker>
+      }
     >
       <select
         id={id}
@@ -32,10 +39,11 @@ export function VibeNormalize({
         onChange={(event) => onChange(referenceMode(event.currentTarget.value))}
       >
         <option value="inherit">
-          {inherited == null ? "默认" : inherited ? "开启" : "关闭"} · 继承
+          {inherited == null ? t("vibes.default") : inherited ? t("vibes.on") : t("vibes.off")}
+          {t("vibes.inheritedTag")}
         </option>
-        <option value="true">开启</option>
-        <option value="false">关闭</option>
+        <option value="true">{t("vibes.on")}</option>
+        <option value="false">{t("vibes.off")}</option>
       </select>
     </FormField>
   );
@@ -52,6 +60,8 @@ export interface VibeReferenceEditorProps {
 }
 
 export function VibeReferenceEditor({ contextKey, ...props }: VibeReferenceEditorProps) {
+  useTranslation();
+
   return showVibeReferences(props.capabilities) ? <Editor key={contextKey} {...props} /> : null;
 }
 
@@ -63,6 +73,8 @@ function Editor({
   onNormalizeChange,
   issues,
 }: Omit<VibeReferenceEditorProps, "contextKey">) {
+  useTranslation();
+
   const [materials, setMaterials] = useState(false);
   const latest = useRef({ value, onChange });
   useLayoutEffect(() => {
@@ -85,17 +97,15 @@ function Editor({
 
   const message = capabilities ? preciseReferenceMessages(capabilities).vibe : null;
   return (
-    <section className="vibe-editor" aria-label="氛围转移参考">
+    <section className="vibe-editor" aria-label={t("vibes.vibeReferences")}>
       <header className="vibe-heading">
         <h3>
-          氛围转移{value.length ? ` · ${value.length}` : ""}
-          <HelpMarker label="氛围转移说明">
-            Vibe Transfer
-            使用原图或编码材料影响生成结果的氛围与风格，材料类型和可用性由当前模型决定。
-          </HelpMarker>
+          {t("vibes.vibeTransfer")}
+          {value.length ? ` · ${value.length}` : ""}
+          <HelpMarker label={t("vibes.vibeHelp")}>{t("vibes.vibeDescription")}</HelpMarker>
         </h3>
         <span className="spacer" />
-        <IconButton label="打开氛围转移材料" onClick={() => setMaterials(true)}>
+        <IconButton label={t("vibes.openMaterials")} onClick={() => setMaterials(true)}>
           <Plus size={14} />
         </IconButton>
       </header>
@@ -127,21 +137,21 @@ function Editor({
           actions={
             <>
               <IconButton
-                label={`上移氛围转移 ${index + 1}`}
+                label={t("vibes.moveVibeUp", { value0: index + 1 })}
                 disabled={index === 0}
                 onClick={() => move(index, -1)}
               >
                 <ArrowUp size={13} />
               </IconButton>
               <IconButton
-                label={`下移氛围转移 ${index + 1}`}
+                label={t("vibes.moveVibeDown", { value0: index + 1 })}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, 1)}
               >
                 <ArrowDown size={13} />
               </IconButton>
               <IconButton
-                label={`移除氛围转移 ${index + 1}`}
+                label={t("vibes.removeVibe", { value0: index + 1 })}
                 onClick={() =>
                   update(latest.current.value.filter((item) => item.id !== reference.id))
                 }

@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import { createContext, useContext } from "react";
 import type { Draft } from "@/bindings/workbench";
 import type { GenerationBatch } from "@/bindings/generation";
@@ -10,6 +11,7 @@ export const SubmissionContext = createContext<SubmissionContextValue | null>(nu
 
 export function useSubmission() {
   const value = useContext(SubmissionContext);
-  if (!value) throw new Error("提交组件需要位于 GenerationProvider 内。");
+  if (!value)
+    throw new MessageError(deferMessage(() => t("generation.submissionProviderRequired")));
   return value;
 }

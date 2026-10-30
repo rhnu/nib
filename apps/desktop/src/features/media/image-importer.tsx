@@ -1,7 +1,7 @@
+import { t, useTranslation, useMessageState, deferMessage } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
 import type { MediaAsset } from "@/bindings/media";
-import { errorMessage } from "@/shared/host/error";
 import { Button, FilePicker, Notice } from "@/shared/ui";
 import { importAndCommitImage } from "./image-import";
 import { mediaApi } from "./api";
@@ -11,14 +11,16 @@ import "./media.css";
 export function ImageImporter({
   onImported,
   onChooseExisting,
-  label = "选择文件",
+  label = t("media.chooseFile"),
 }: {
   onImported: (asset: MediaAsset) => void | Promise<void>;
   onChooseExisting?: () => void;
   label?: string;
 }) {
+  useTranslation();
+
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useMessageState();
   const [dragging, setDragging] = useState(false);
   const [lastFile, setLastFile] = useState<File | null>(null);
   const latest = useRef({ active: true, locked: false, onImported });
@@ -48,7 +50,7 @@ export function ImageImporter({
       });
       if (latest.current.active) setLastFile(null);
     } catch (cause) {
-      if (latest.current.active) setError(errorMessage(cause));
+      if (latest.current.active) setError(cause);
     } finally {
       latest.current.locked = false;
       if (latest.current.active) setBusy(false);
@@ -65,7 +67,7 @@ export function ImageImporter({
   };
 
   return (
-    <section className="image-importer" aria-label="导入图片" aria-busy={busy}>
+    <section className="image-importer" aria-label={t("media.importImage")} aria-busy={busy}>
       <div
         className={`image-drop-target ${dragging ? "is-dragging" : ""}`}
         onDragOver={(event) => {
@@ -84,31 +86,37 @@ export function ImageImporter({
           event.preventDefault();
           event.stopPropagation();
           setDragging(false);
-          if (event.dataTransfer.files.length === 0) setError("请拖入单张本地图片文件。");
+          if (event.dataTransfer.files.length === 0)
+            setError(deferMessage(() => t("media.dropSingleImage")));
           else choose(event.dataTransfer.files);
         }}
       >
         <FilePicker
           disabled={busy}
-          title="选择或拖入单张 PNG / JPEG / WebP"
-          label={busy ? "正在保存图片…" : label}
+          title={t("media.chooseOrDropImage")}
+          label={busy ? t("media.savingImage") : label}
           accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
           onChoose={(file) => choose([file])}
         />
         {onChooseExisting && (
           <Button disabled={busy} onClick={onChooseExisting}>
             <Image size={14} aria-hidden />
-            已有媒体
+            {t("media.existingMedia")}
           </Button>
         )}
       </div>
-      {busy && <output aria-live="polite">正在导入{lastFile ? ` ${lastFile.name}` : ""}…</output>}
+      {busy && (
+        <output aria-live="polite">
+          {t("media.importing")}
+          {lastFile ? ` ${lastFile.name}` : ""}…
+        </output>
+      )}
       {error && (
         <Notice
           actions={
             lastFile ? (
               <Button disabled={busy} onClick={() => void importFile(lastFile)}>
-                重试导入
+                {t("media.retryImport")}
               </Button>
             ) : undefined
           }

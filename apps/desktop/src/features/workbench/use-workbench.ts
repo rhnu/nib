@@ -1,8 +1,8 @@
+import { useMessageState, deferMessage, t, MessageError } from "@/shared/i18n";
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "@/bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "@/shared/host/use-close-guard";
-import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import { useResourceCache } from "@/features/library/use-resource-cache";
 import type { InsertTarget } from "@/features/library/resource-library";
@@ -37,7 +37,7 @@ export function useWorkbench(
   } = useResourceCache(initialResources, draft);
   const generationDraft = useGenerationDraft(draft);
   const resolution = useResolution(generationDraft, resourceVersion);
-  const [error, setError] = useState("");
+  const [error, setError] = useMessageState();
   const [librarySession] = useState(createLibrarySessionStore);
   const resourceDirty = useStore(librarySession, (value) => value.dirty || value.busy);
 
@@ -79,7 +79,7 @@ export function useWorkbench(
     resourceDirty,
     getResourceDirty,
     onResourceBlocked: () => {
-      setError("资源中有未保存的修改。请先保存资源，再关闭窗口。");
+      setError(deferMessage(() => t("workbench.saveResourcesBeforeClose")));
       setLibrary(true);
     },
     onError: setError,
@@ -139,21 +139,24 @@ export function useWorkbench(
       }
     });
     if (!resources.has(resource.id))
-      void ensureResources([resource.id]).catch((cause) => setError(errorMessage(cause)));
+      void ensureResources([resource.id]).catch((cause) => setError(cause));
   };
 
   const prepareMigration = async () => {
     if (getResourceDirty()) {
       setLibrary(true);
-      const message = "资源中有未保存的修改。请先保存资源，再更改存储位置。";
+      const message = new MessageError(
+        deferMessage(() => t("workbench.saveResourcesBeforeMigration")),
+      );
       setError(message);
-      throw new Error(message);
+      throw message;
     }
     do {
       await waitForPendingWork();
       await writer.flush();
     } while (hasPendingWork() || writer.getSnapshot().dirty);
-    if (getResourceDirty()) throw new Error("资源中有未保存的修改，请先保存后重试。");
+    if (getResourceDirty())
+      throw new MessageError(deferMessage(() => t("workbench.saveResourcesBeforeRetry")));
   };
 
   return {

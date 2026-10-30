@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use super::{AssetKind, AssetReader, AssetSource, MediaAsset, MediaContent, MediaLibrary};
 use crate::{
+    api::UserMessage,
     jobs::{FrozenSubmission, JobStore as _},
     persistence::PersistenceError,
     session::VibeEncodingInput,
@@ -257,8 +258,7 @@ impl MediaLibrary {
         };
         let (source_id, model, information_extracted, mask_id) =
             input.ok_or_else(|| PersistenceError::InvalidData {
-                message: "编码没有已知模型身份，无法创建官方 Vibe 文档；请导出原始编码。"
-                    .to_owned(),
+                message: UserMessage::VibeModelUnknown,
             })?;
         let mut file = VibeFile::encoded(&model, encoding.to_base64());
         let record = &mut file
@@ -410,7 +410,7 @@ impl MediaLibrary {
         let asset = self.asset(id)?;
         if asset.kind != AssetKind::VibeDocument || !asset.available {
             return Err(PersistenceError::InvalidData {
-                message: format!("所需媒体 {id} 不可用或类型不匹配。"),
+                message: UserMessage::MediaUnavailable { id: id.to_owned() },
             });
         }
         VibeDocument::from_json(&self.content(&asset)?.bytes)
@@ -558,7 +558,11 @@ impl MediaLibrary {
 
 fn missing_document_content(id: &str, entry_index: usize, kind: &str) -> PersistenceError {
     PersistenceError::InvalidData {
-        message: format!("Vibe 文档 {id} 的第 {entry_index} 项没有所需的 {kind}。"),
+        message: UserMessage::VibeDocumentContentMissing {
+            id: id.to_owned(),
+            entry_index,
+            content: kind.to_owned(),
+        },
     }
 }
 

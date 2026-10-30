@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 
 /** A common slider range complements numeric entry without rewriting values outside that range. */
@@ -20,12 +21,14 @@ export function NumberSlider({
   invalid?: boolean;
   describedBy?: string;
 }) {
+  useTranslation();
+
   const [typing, setTyping] = useState<{ source: number; text: string } | null>(null);
   return (
     <div className="number-slider">
       <input
         type="range"
-        aria-label={`${label}滑块`}
+        aria-label={t("common.sliderLabel", { value0: label })}
         min={sliderRange.min}
         max={sliderRange.max}
         step="0.01"

@@ -2,7 +2,7 @@ use novelai_bridge::{GeneratedImageMetadata, ImageSize, MetadataOrigin};
 use serde::Serialize;
 
 use super::{AssetReader as _, MediaLibrary};
-use crate::{persistence::PersistenceError, session::PngTextValue};
+use crate::{api::UserMessage, persistence::PersistenceError, session::PngTextValue};
 
 /// Complete SDK text values, including unrecognized keywords and repeated values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -10,7 +10,7 @@ use crate::{persistence::PersistenceError, session::PngTextValue};
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct PngTextInspection {
     pub entries: Vec<PngTextValue>,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<UserMessage>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -72,7 +72,7 @@ pub struct KnownCharacterMetadata {
 pub struct ImageMetadataReport {
     pub status: ImageMetadataStatus,
     pub generation: Option<KnownImageMetadata>,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<UserMessage>,
 }
 
 impl MediaLibrary {
@@ -117,7 +117,7 @@ pub(super) fn png_text_inspection(metadata: novelai_bridge::ImageMetadata) -> Pn
         warnings: metadata
             .warnings
             .iter()
-            .map(|warning| format!("{warning:?}"))
+            .map(|warning| UserMessage::external(format!("{warning:?}")))
             .collect(),
     }
 }
@@ -159,7 +159,7 @@ pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetad
             warnings: metadata
                 .warnings
                 .iter()
-                .map(|warning| format!("{warning:?}"))
+                .map(|warning| UserMessage::external(format!("{warning:?}")))
                 .collect(),
         },
         GeneratedImageMetadata::NotPresent => ImageMetadataReport {
@@ -175,7 +175,7 @@ pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetad
         GeneratedImageMetadata::Invalid { message } => ImageMetadataReport {
             status: ImageMetadataStatus::Invalid,
             generation: None,
-            warnings: vec![message.clone()],
+            warnings: vec![UserMessage::external(message.clone())],
         },
     }
 }

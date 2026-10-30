@@ -1,4 +1,5 @@
 //! SDK execution preserves request settlement and commits streamed finals only after clean EOF.
+
 use std::{
     collections::BTreeMap,
     sync::Arc,
@@ -16,7 +17,7 @@ use super::{
     ActiveJob, FrozenSubmission, JobError, JobFeedback, JobQueue, JobRecord, public_failure,
     report_failure,
 };
-use crate::{media::JobOutput, persistence::PersistenceError};
+use crate::{api::UserMessage, media::JobOutput, persistence::PersistenceError};
 
 impl JobQueue {
     pub(super) async fn run_inner(self: &Arc<Self>) -> Result<(), JobError> {
@@ -64,9 +65,9 @@ impl JobQueue {
                 },
                 Some(Err(error)) => {
                     report_failure(&id, &JobError::Worker(error));
-                    Some("生成执行过程已中断。".to_owned())
+                    Some(UserMessage::ExecutionInterrupted)
                 },
-                None => Some("生成执行过程已中断。".to_owned()),
+                None => Some(UserMessage::ExecutionInterrupted),
             };
             if let Some(message) = failure {
                 let store = Arc::clone(&self.store);

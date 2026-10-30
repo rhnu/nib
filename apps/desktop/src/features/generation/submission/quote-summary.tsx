@@ -1,28 +1,36 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { GenerationQuote } from "@/bindings/generation";
 import { HelpMarker } from "@/shared/ui";
 
 export function QuoteHelp() {
+  useTranslation();
+
   return (
-    <HelpMarker label="费用估算说明">
-      SDK 使用最近显式读取的账户信息估算；没有账户快照时使用非订阅条件。估算不代表实际扣费。
+    <HelpMarker label={t("generation.estimateHelpTitle")}>
+      {t("generation.estimateHelp")}
     </HelpMarker>
   );
 }
 
 export function QuoteSummary({ quote }: { quote: GenerationQuote }) {
+  useTranslation();
+
   return (
     <span className="generation-estimate">
       <span>
         {quote.estimatedAnlas === null ? (
-          <strong>费用未知</strong>
+          <strong>{t("generation.costUnknown")}</strong>
         ) : (
           <>
-            <strong>{quote.estimatedAnlas}</strong> Anlas
+            <strong>{quote.estimatedAnlas}</strong>
+            {t("generation.anlasSuffix")}
           </>
         )}
       </span>
       <QuoteHelp />
-      {quote.tooExpensive && <span className="generation-danger">超出费用限制</span>}
+      {quote.tooExpensive && (
+        <span className="generation-danger">{t("generation.costLimitExceeded")}</span>
+      )}
     </span>
   );
 }

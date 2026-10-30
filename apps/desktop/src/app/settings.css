@@ -38,6 +38,13 @@
   justify-content: space-between;
   gap: 12px;
 }
+.appearance-settings {
+  display: grid;
+  gap: 16px;
+}
+.appearance-settings h2 {
+  margin-bottom: 0;
+}
 .execution-settings summary {
   cursor: pointer;
   font-weight: 600;

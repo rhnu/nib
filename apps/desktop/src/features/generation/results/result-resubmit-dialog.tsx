@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { resultsApi } from "./api";
 import { useAccount } from "../account/account-context";
@@ -20,10 +21,14 @@ export function ResultResubmitDialog({
   result: GenerationResult;
   onClose: () => void;
 }) {
+  useTranslation();
+
   const { account, accountVersion, accountSummaryLoading } = useAccount();
   const { acceptBatch } = useJobData();
   const { submit: submitGeneration, submissionBlocked } = useSubmission();
-  const [submitError, setSubmitError] = useState<{ version: number; message: string } | null>(null);
+  const [submitError, setSubmitError] = useState<{ version: number; message: unknown } | null>(
+    null,
+  );
   const preview = useQuery({
     queryKey: ["results", "resubmit", result.id, result.submission.kind, accountVersion],
     queryFn: async () => {
@@ -38,7 +43,7 @@ export function ResultResubmitDialog({
   const prepared = accountSummaryLoading ? null : (preview.data ?? null);
   const error =
     submitError?.version === accountVersion
-      ? submitError.message
+      ? errorMessage(submitError.message)
       : preview.error
         ? errorMessage(preview.error)
         : null;
@@ -70,7 +75,7 @@ export function ResultResubmitDialog({
       acceptBatch(await submitGeneration(prepared.draft));
       if (active.current) onClose();
     } catch (cause) {
-      if (active.current) setSubmitError({ version: accountVersion, message: errorMessage(cause) });
+      if (active.current) setSubmitError({ version: accountVersion, message: cause });
     } finally {
       lock.current = false;
       if (active.current) setPending(false);
@@ -81,10 +86,14 @@ export function ResultResubmitDialog({
     <Modal
       open
       onClose={onClose}
-      title={result.submission.kind === "director" ? "再次处理" : "使用结果内容再次生成"}
+      title={
+        result.submission.kind === "director"
+          ? t("generation.processAgain")
+          : t("generation.regenerateResultTitle")
+      }
     >
       <div className="generation-dialog-body">
-        <p>用结果保存的内容、材料与有效设置创建新任务，不替换当前创作。</p>
+        <p>{t("generation.regenerateResultHelp")}</p>
         <SubmissionSummary submission={result.submission} />
         {prepared ? (
           <>
@@ -92,9 +101,9 @@ export function ResultResubmitDialog({
             <TokenUsageSummary tokens={prepared.quote.tokens} />
           </>
         ) : (
-          !error && <output>正在恢复内容并通过 SDK 估算费用…</output>
+          !error && <output>{t("generation.restoringAndEstimating")}</output>
         )}
-        {!account?.configured && <Notice>请先在设置中配置账户凭据。</Notice>}
+        {!account?.configured && <Notice>{t("generation.configureCredentialsHint")}</Notice>}
         {error && (
           <Notice
             actions={
@@ -105,7 +114,7 @@ export function ResultResubmitDialog({
                     void preview.refetch();
                   }}
                 >
-                  重试查询
+                  {t("generation.retryQuery")}
                 </Button>
               )
             }
@@ -114,7 +123,7 @@ export function ResultResubmitDialog({
           </Notice>
         )}
         <footer className="generation-dialog-actions">
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t("generation.cancel")}</Button>
           <Button
             className="primary"
             disabled={
@@ -129,12 +138,12 @@ export function ResultResubmitDialog({
             onClick={() => void submit()}
           >
             {pending
-              ? "正在提交…"
+              ? t("generation.submitting")
               : submissionBlocked
-                ? "正在保存设置…"
+                ? t("generation.savingSettings")
                 : result.submission.kind === "director"
-                  ? "确认处理"
-                  : "确认生成"}
+                  ? t("generation.confirmProcess")
+                  : t("generation.confirmGenerate")}
           </Button>
         </footer>
       </div>

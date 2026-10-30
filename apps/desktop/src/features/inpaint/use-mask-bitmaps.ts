@@ -9,7 +9,7 @@ export function useMaskBitmaps(sourceId: string, baseMaskId: string | null) {
     key: string;
     source: ImageBitmap | null;
     mask: ImageBitmap | null;
-    error: string | null;
+    error: unknown;
   } | null>(null);
   useEffect(() => {
     let active = true;
@@ -38,7 +38,7 @@ export function useMaskBitmaps(sourceId: string, baseMaskId: string | null) {
         setState({ key, source, mask, error: null });
       } catch (cause) {
         close();
-        if (active) setState({ key, source: null, mask: null, error: errorMessage(cause) });
+        if (active) setState({ key, source: null, mask: null, error: cause });
       }
     })();
     return () => {
@@ -50,7 +50,7 @@ export function useMaskBitmaps(sourceId: string, baseMaskId: string | null) {
   return {
     source: current?.source ?? null,
     mask: current?.mask ?? null,
-    error: current?.error ?? null,
+    error: current?.error ? errorMessage(current.error) : null,
     loading: current === null,
     retry: () => setAttempt((value) => value + 1),
   };

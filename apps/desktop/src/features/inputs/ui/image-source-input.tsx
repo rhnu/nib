@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Popover } from "@base-ui/react/popover";
 import { Info, Paintbrush, Replace, Settings2, X } from "lucide-react";
 import type { CreationOperation, ModelCapabilities } from "@/bindings/workbench";
@@ -27,14 +28,16 @@ export function ImageSourceInput({
   onEditMask: (assetId: string) => void;
   onReplace: () => void;
 }) {
+  useTranslation();
+
   return (
     <div className="image-source" data-setting-field="sourceImage">
-      {media.loading && <output className="muted">正在读取底图…</output>}
+      {media.loading && <output className="muted">{t("inputs.loadingSource")}</output>}
       {media.error && (
         <div className="inline-warning" role="alert">
           {media.error}
           <Button className="quiet" onClick={media.retry}>
-            重试
+            {t("inputs.retry")}
           </Button>
         </div>
       )}
@@ -42,10 +45,13 @@ export function ImageSourceInput({
         <>
           <div className="media-input-preview">
             <Popover.Root>
-              <Popover.Trigger className="image-source-preview" aria-label="查看输入图片名称与尺寸">
+              <Popover.Trigger
+                className="image-source-preview"
+                aria-label={t("inputs.viewInputDetails")}
+              >
                 <AssetImage
                   asset={media.asset}
-                  alt="当前操作的底图"
+                  alt={t("inputs.operationSource")}
                   className="image-source-thumbnail"
                 />
               </Popover.Trigger>
@@ -55,16 +61,19 @@ export function ImageSourceInput({
                     <header>
                       <Popover.Title>
                         {media.asset.source.kind === "import"
-                          ? (media.asset.source.name ?? "已保存图像")
-                          : "已保存图像"}
+                          ? (media.asset.source.name ?? t("inputs.savedImage"))
+                          : t("inputs.savedImage")}
                       </Popover.Title>
-                      <Popover.Close className="icon-button" aria-label="关闭输入图片详情">
+                      <Popover.Close
+                        className="icon-button"
+                        aria-label={t("inputs.closeInputDetails")}
+                      >
                         <X size={14} />
                       </Popover.Close>
                     </header>
                     <AssetImage
                       asset={media.asset}
-                      alt="输入图片预览"
+                      alt={t("inputs.inputPreview")}
                       className="image-source-detail"
                     />
                     <p>
@@ -75,34 +84,41 @@ export function ImageSourceInput({
                 </Popover.Positioner>
               </Popover.Portal>
             </Popover.Root>
-            <fieldset className="media-input-tools" aria-label="输入图片操作">
-              <IconButton label="图像信息与恢复" onClick={() => onMetadata(media.asset!)}>
+            <fieldset className="media-input-tools" aria-label={t("inputs.inputActions")}>
+              <IconButton
+                label={t("inputs.imageInfoRestore")}
+                onClick={() => onMetadata(media.asset!)}
+              >
                 <Info size={14} />
               </IconButton>
               {capabilities?.inpainting !== false && (
                 <IconButton
-                  label={operationKind === "inpainting" ? "编辑遮罩" : "绘制遮罩"}
+                  label={
+                    operationKind === "inpainting" ? t("inputs.editMask") : t("inputs.drawMask")
+                  }
                   disabled={!media.asset.available}
                   onClick={() => onEditMask(sourceId!)}
                 >
                   <Paintbrush size={14} />
                 </IconButton>
               )}
-              <IconButton label="替换输入图片" onClick={onReplace}>
+              <IconButton label={t("inputs.replaceInput")} onClick={onReplace}>
                 <Replace size={14} />
               </IconButton>
               {(operationKind === "imageToImage" || operationKind === "inpainting") && (
                 <Popover.Trigger
                   className="icon-button"
-                  title="图像输入高级设置"
-                  aria-label="图像输入高级设置"
+                  title={t("inputs.advancedInput")}
+                  aria-label={t("inputs.advancedInput")}
                 >
                   <Settings2 size={14} />
                 </Popover.Trigger>
               )}
             </fieldset>
           </div>
-          {!media.asset.available && <p className="inline-warning">底图不可用，请换图后再提交。</p>}
+          {!media.asset.available && (
+            <p className="inline-warning">{t("inputs.sourceUnavailable")}</p>
+          )}
         </>
       )}
     </div>
@@ -117,15 +133,17 @@ export function AppliedMaskInput({
   mask: MediaState;
   feedback: ImageOperationFeedback;
 }) {
+  useTranslation();
+
   const { messages } = feedback;
   return (
     <div className="image-source" data-setting-field="maskAssetId">
-      {mask.loading && <output className="muted">正在读取已应用遮罩…</output>}
+      {mask.loading && <output className="muted">{t("inputs.loadingAppliedMask")}</output>}
       {mask.error && (
         <div className="inline-warning" role="alert">
           {mask.error}
           <Button className="quiet" onClick={mask.retry}>
-            重试
+            {t("inputs.retry")}
           </Button>
         </div>
       )}
@@ -133,16 +151,16 @@ export function AppliedMaskInput({
         <>
           <AssetImage
             asset={mask.asset}
-            alt="已应用的局部重绘遮罩"
+            alt={t("inputs.appliedInpaintMask")}
             className="image-source-thumbnail"
           />
           <div className="image-source-info">
-            <strong>已应用遮罩</strong>
+            <strong>{t("inputs.appliedMask")}</strong>
             <small>
               {mask.asset.width ?? "?"} × {mask.asset.height ?? "?"}
             </small>
             {!mask.asset.available && (
-              <p className="inline-warning">遮罩不可用，请重新编辑并应用。</p>
+              <p className="inline-warning">{t("inputs.maskUnavailable")}</p>
             )}
           </div>
         </>

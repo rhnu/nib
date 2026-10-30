@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CreationOperation, Draft } from "@/bindings/workbench";
 import type { MediaAsset } from "@/bindings/media";
-import { errorMessage } from "@/shared/host/error";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { mediaApi } from "@/features/media/api";
 import {
@@ -22,7 +21,7 @@ export function useImageOperationRequest({
 }: {
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
   contextVersion: number;
 }) {
   const [candidateState, setCandidateState] = useState<{
@@ -81,8 +80,7 @@ export function useImageOperationRequest({
         })(),
       );
     } catch (cause) {
-      if (lifetime.current.active && sequence === lifetime.current.sequence)
-        onError(errorMessage(cause));
+      if (lifetime.current.active && sequence === lifetime.current.sequence) onError(cause);
       throw cause;
     } finally {
       if (lifetime.current.active && sequence === lifetime.current.sequence) setBusy(false);

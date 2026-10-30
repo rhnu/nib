@@ -4,9 +4,12 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::prompt::{
-    ValidationError,
-    validation::{invalid, nonempty},
+use crate::{
+    api::UserMessage,
+    prompt::{
+        ValidationError,
+        validation::{invalid, nonempty},
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,7 +45,7 @@ impl PngTextEditorState {
             if !images.insert(&session.asset_id) {
                 return Err(invalid(
                     "pngTextEditor.sessions.assetId",
-                    "duplicate image identity",
+                    UserMessage::DuplicateImage,
                 ));
             }
             if let Some(id) = &session.selected_output_asset_id {

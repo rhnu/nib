@@ -304,7 +304,12 @@ describe("SDK output field ownership", () => {
       creation(),
       resources,
       preview(),
-      [{ field: "characters.characters[1].position.x", change: "snapped" }],
+      [
+        {
+          field: "characters.characters[1].position.x",
+          change: { kind: "external", detail: "snapped" },
+        },
+      ],
       ["references.character_references[0].fidelity"],
     );
     expect(issues.presets["first:instance"].characters["role:with:colons"]).toEqual([
@@ -352,7 +357,12 @@ describe("SDK output field ownership", () => {
         draft,
         resources,
         resolved,
-        [{ field: "references.vibe_transfer.references[0].strength", change: "normalized" }],
+        [
+          {
+            field: "references.vibe_transfer.references[0].strength",
+            change: { kind: "external", detail: "normalized" },
+          },
+        ],
         [],
       ).draft.vibes["vibe:local"],
     ).toEqual([{ field: "strength", message: "normalized" }]);

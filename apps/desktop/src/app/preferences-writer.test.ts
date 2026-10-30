@@ -1,3 +1,4 @@
+import { MessageError } from "@/shared/i18n";
 import { describe, expect, it, vi } from "vitest";
 import type { ApplicationPreferences } from "@/bindings/settings";
 import { PreferencesWriter } from "./preferences-writer";
@@ -5,6 +6,7 @@ import { PreferencesWriter } from "./preferences-writer";
 function preferences(theme: ApplicationPreferences["theme"]): ApplicationPreferences {
   return {
     theme,
+    language: "system",
     recentImageLimit: 20,
     execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
   };
@@ -14,7 +16,7 @@ describe("PreferencesWriter", () => {
   it("cannot save defaults before preferences have loaded", async () => {
     const write = vi.fn(async (value: ApplicationPreferences) => value);
     const writer = new PreferencesWriter(write);
-    expect(() => writer.edit(preferences("light"))).toThrow("尚未加载");
+    expect(() => writer.edit(preferences("light"))).toThrow(MessageError);
     await writer.flush();
     expect(write).not.toHaveBeenCalled();
   });
@@ -35,6 +37,7 @@ describe("PreferencesWriter", () => {
     await Promise.resolve();
     const latest: ApplicationPreferences = {
       theme: "light",
+      language: "system",
       recentImageLimit: 20,
       execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     };

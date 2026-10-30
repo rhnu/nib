@@ -122,7 +122,7 @@ fn read_summaries(
             status: decode(&encode(&status)?)?,
             submitted_at,
             finished_at,
-            error,
+            error: error.as_deref().map(decode).transpose()?,
             execution: decode(&execution)?,
             observation: observation.as_deref().map(decode).transpose()?,
             operation: decode_operation_summary(&operation)?,
@@ -138,7 +138,7 @@ pub(super) fn list_jobs(
 ) -> Result<JobPage, PersistenceError> {
     if !(1..=100).contains(&query.limit) {
         return Err(PersistenceError::InvalidData {
-            message: "任务分页数量必须在 1 到 100 之间。".to_owned(),
+            message: crate::api::UserMessage::JobPageLimit,
         });
     }
     let bound = query

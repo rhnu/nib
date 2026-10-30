@@ -1,3 +1,4 @@
+import { t, errorMessage } from "@/shared/i18n";
 import { useId, useState } from "react";
 import type { ParameterDiagnostic } from "@/bindings/generation";
 
@@ -10,7 +11,9 @@ export function useImageOperationFeedback(
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dismissedAdvanced, setDismissedAdvanced] = useState("");
 
-  const diagnosticSignature = diagnostics.map((item) => `${item.field}:${item.change}`).join("|");
+  const diagnosticSignature = diagnostics
+    .map((item) => `${item.field}:${errorMessage(item.change)}`)
+    .join("|");
   const errorSignature = errorFields.join("|");
   const isAdvancedDiagnostic = [...diagnostics.map((item) => item.field), ...errorFields].some(
     (field) => /extra_?noise_?seed|color_?correct|add_?original_?image/i.test(field),
@@ -39,9 +42,9 @@ export function useImageOperationFeedback(
     diagnostic(field).length > 0 || rejected(field) ? (
       <output className="image-operation-diagnostic" id={`${prefix}-${field}-message`}>
         {diagnostic(field).map((item, index) => (
-          <span key={index}>{item.change}</span>
+          <span key={index}>{errorMessage(item.change)}</span>
         ))}
-        {rejected(field) && <span>SDK 拒绝该字段，请查看生成区错误并调整。</span>}
+        {rejected(field) && <span>{t("inputs.fieldRejected")}</span>}
       </output>
     ) : null;
 

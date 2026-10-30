@@ -1,3 +1,4 @@
+import { t, useTranslation, useMessageState, errorMessage } from "@/shared/i18n";
 import { useFeedback } from "./feedback-context";
 import { useJobData } from "./job-context";
 import { jobsApi } from "./api";
@@ -5,7 +6,6 @@ import { useRef, useState } from "react";
 import { Eye, ListOrdered, RotateCw, X } from "lucide-react";
 import type { JobSummary } from "@/bindings/generation";
 import { Button, IconButton, Modal, Notice } from "@/shared/ui";
-import { errorMessage } from "@/shared/host/error";
 import { JobRetryDialog } from "./job-retry-dialog";
 import { operationSummaryLabel } from "./summary";
 import { jobFeedbackText } from "./feedback-state";
@@ -20,12 +20,14 @@ export function JobQueue({
   onClose?: () => void;
   onViewJob?: (id: string) => void;
 }) {
+  useTranslation();
+
   const { jobs, acceptJob, queryError, hasMoreJobs, loadingMoreJobs, loadMoreJobs } = useJobData();
   const { feedback, jobObservations } = useFeedback();
   const [localOpen, setLocalOpen] = useState(false);
   const [pending, setPending] = useState<string[]>([]);
   const pendingRef = useRef(new Set<string>());
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useMessageState();
   const [retryJob, setRetryJob] = useState<JobSummary | null>(null);
 
   async function cancel(id: string) {
@@ -36,7 +38,7 @@ export function JobQueue({
     try {
       acceptJob(await jobsApi.cancel(id));
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
     } finally {
       pendingRef.current.delete(id);
       setPending([...pendingRef.current]);
@@ -53,7 +55,7 @@ export function JobQueue({
   return (
     <>
       {open === undefined && (
-        <IconButton label="任务队列" onClick={() => setLocalOpen(true)}>
+        <IconButton label={t("generation.taskQueue")} onClick={() => setLocalOpen(true)}>
           <ListOrdered size={17} />
         </IconButton>
       )}
@@ -64,14 +66,14 @@ export function JobQueue({
           setLocalOpen(false);
         }}
         showClose={false}
-        title="任务队列"
+        title={t("generation.taskQueue")}
         className="queue-drawer"
       >
         <div className="queue-drawer-body">
           {!jobs ? (
-            <output>{queryError ?? "正在读取任务…"}</output>
+            <output>{queryError ?? t("generation.loadingTasks")}</output>
           ) : !jobs.length ? (
-            <p className="generation-muted">尚无任务</p>
+            <p className="generation-muted">{t("generation.noTasks")}</p>
           ) : (
             groups.map((group) => {
               const ordered = [...group].sort((a, b) => a.requestIndex - b.requestIndex);
@@ -82,10 +84,10 @@ export function JobQueue({
                 <section className="queue-batch" key={ordered[0]!.batchId}>
                   <header>
                     <strong>{operationSummaryLabel(ordered[0]!.operation)}</strong>
-                    <span>{ordered[0]!.requestCount} 个请求</span>
+                    <span>{t("generation.requestCount", { count: ordered[0]!.requestCount })}</span>
                     {active.length > 1 && (
                       <IconButton
-                        label="取消此批未完成请求"
+                        label={t("generation.cancelBatchRequests")}
                         disabled={active.some((job) => pending.includes(job.id))}
                         onClick={() => {
                           for (const job of active) void cancel(job.id);
@@ -103,9 +105,13 @@ export function JobQueue({
                             {job.requestIndex + 1}. {jobFeedbackText(job, feedback[job.id])}
                           </strong>
                           {job.operation.kind === "generation" && (
-                            <span>{job.operation.sampleCount} 个样本</span>
+                            <span>
+                              {t("generation.sampleCount", { count: job.operation.sampleCount })}
+                            </span>
                           )}
-                          {job.error && <span className="generation-danger">{job.error}</span>}
+                          {job.error && (
+                            <span className="generation-danger">{errorMessage(job.error)}</span>
+                          )}
                           <JobCostSummary
                             job={
                               jobObservations[job.id]
@@ -115,13 +121,16 @@ export function JobQueue({
                           />
                         </div>
                         {onViewJob && job.operation.kind !== "encodeVibe" && (
-                          <IconButton label="查看请求" onClick={() => onViewJob(job.id)}>
+                          <IconButton
+                            label={t("generation.viewRequest")}
+                            onClick={() => onViewJob(job.id)}
+                          >
                             <Eye size={15} />
                           </IconButton>
                         )}
                         {(job.status === "queued" || job.status === "running") && (
                           <IconButton
-                            label="取消请求"
+                            label={t("generation.cancelRequest")}
                             disabled={pending.includes(job.id)}
                             onClick={() => void cancel(job.id)}
                           >
@@ -131,7 +140,10 @@ export function JobQueue({
                         {(job.status === "failed" ||
                           job.status === "cancelled" ||
                           job.status === "interrupted") && (
-                          <IconButton label="再次提交" onClick={() => setRetryJob(job)}>
+                          <IconButton
+                            label={t("generation.resubmit")}
+                            onClick={() => setRetryJob(job)}
+                          >
                             <RotateCw size={15} />
                           </IconButton>
                         )}
@@ -144,7 +156,7 @@ export function JobQueue({
           )}
           {hasMoreJobs && (
             <Button disabled={loadingMoreJobs} onClick={() => void loadMoreJobs()}>
-              {loadingMoreJobs ? "正在读取…" : "读取更早任务"}
+              {loadingMoreJobs ? t("generation.loadingMore") : t("generation.loadEarlierTasks")}
             </Button>
           )}
           {error && <Notice>{error}</Notice>}

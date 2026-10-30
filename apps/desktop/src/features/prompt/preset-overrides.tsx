@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import type { Composition, InstanceOverride, Resource } from "@/bindings/workbench";
@@ -23,6 +24,8 @@ export function PresetOverrides({
   onChange: (value: InstanceOverride) => void;
   errorScopes?: string[];
 }) {
+  useTranslation();
+
   const latest = useRef({ overrides, override });
   useLayoutEffect(() => {
     latest.current = { overrides, override };
@@ -49,8 +52,8 @@ export function PresetOverrides({
           data-character-field={scope}
           data-has-errors={errorScopes.includes(scope) || undefined}
         >
-          <h3>{scope === "positive" ? "基础提示" : "负面提示"}</h3>
-          {composition[scope].length === 0 && <p className="muted">没有内容</p>}
+          <h3>{scope === "positive" ? t("prompt.basePrompt") : t("prompt.negativePrompt")}</h3>
+          {composition[scope].length === 0 && <p className="muted">{t("prompt.noContent")}</p>}
           {composition[scope].map((node) => {
             const local = overrides.find((item) => item.nodeId === node.id) ?? {
               nodeId: node.id,
@@ -66,15 +69,19 @@ export function PresetOverrides({
             return (
               <div className="instance-override" key={node.id} data-prompt-node-id={node.id}>
                 <header>
-                  <span>{node.kind === "chunk" ? (source?.name ?? "Chunk 缺失") : "文本"}</span>
+                  <span>
+                    {node.kind === "chunk"
+                      ? (source?.name ?? t("prompt.chunkMissing"))
+                      : t("prompt.text")}
+                  </span>
                   <span className="spacer" />
                   <Toggle
-                    label="启用配方片段"
+                    label={t("prompt.enablePresetSegment")}
                     checked={local.enabled ?? node.enabled}
                     onChange={(enabled) => update(node.id, { enabled })}
                   />
                   <IconButton
-                    label="恢复原资源内容与状态"
+                    label={t("prompt.restoreResourceContent")}
                     disabled={local.enabled === null && local.text === null}
                     onClick={() => update(node.id, { enabled: null, text: null })}
                   >
@@ -82,13 +89,16 @@ export function PresetOverrides({
                   </IconButton>
                 </header>
                 <PromptTextEditor
-                  label={`${name} ${scope === "positive" ? "基础" : "负面"}提示本次覆盖`}
+                  label={t("prompt.instancePromptOverride", {
+                    value0: name,
+                    value1: scope === "positive" ? t("prompt.base") : t("prompt.negative"),
+                  })}
                   model={model}
                   value={local.text ?? original}
                   onChange={(text) => update(node.id, { text })}
                 />
                 {(local.text !== null || local.enabled !== null) && (
-                  <span className="tag">本次覆盖</span>
+                  <span className="tag">{t("prompt.instanceOverride")}</span>
                 )}
               </div>
             );

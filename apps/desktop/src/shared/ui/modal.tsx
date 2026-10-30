@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
@@ -19,6 +20,8 @@ export function Modal({
   showClose?: boolean;
   className?: string;
 }) {
+  useTranslation();
+
   return (
     <Dialog.Root
       open={open}
@@ -32,7 +35,11 @@ export function Modal({
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>
             {showClose && (
-              <Dialog.Close className="icon-button" aria-label="关闭" title="关闭">
+              <Dialog.Close
+                className="icon-button"
+                aria-label={t("common.close")}
+                title={t("common.close")}
+              >
                 <X size={17} />
               </Dialog.Close>
             )}

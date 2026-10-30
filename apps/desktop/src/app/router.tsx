@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import {
   createHashHistory,
   createRootRoute,
@@ -17,6 +18,8 @@ import { RecoveryBoundary, RenderFailure } from "@/shared/ui/recovery-boundary";
 import { pagePaths, startupPage } from "./navigation";
 
 function RouteOutlet() {
+  useTranslation();
+
   const { guardNavigation, page } = useWorkbenchContext();
   useBlocker({
     // The same guard covers links, application handoffs, and browser back/forward.
@@ -25,10 +28,15 @@ function RouteOutlet() {
     enableBeforeUnload: false,
   });
   return (
-    <RecoveryBoundary label="页面" resetKeys={[page]}>
+    <RecoveryBoundary label={t("app.page")} resetKeys={[page]}>
       <Outlet />
     </RecoveryBoundary>
   );
+}
+
+function PageFailure({ error, reset }: { error: unknown; reset: () => void }) {
+  useTranslation();
+  return <RenderFailure label={t("app.page")} error={error} retry={reset} />;
 }
 
 /** Restore the saved page once; after startup, the history owns navigation. */
@@ -48,9 +56,8 @@ export function createWorkspaceRouter(savedPage: Draft["activePage"], startupSet
     routeTree,
     history,
     defaultPreload: false,
-    defaultErrorComponent: ({ error, reset }) => (
-      <RenderFailure label="页面" error={error} retry={reset} />
-    ),
-    defaultOnCatch: (error, info) => console.error("页面渲染失败", error, info.componentStack),
+    defaultErrorComponent: PageFailure,
+    defaultOnCatch: (error, info) =>
+      console.error("Page render failed", error, info.componentStack),
   });
 }

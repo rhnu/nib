@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import { createContext, useContext } from "react";
 import type { useAccountData } from "./use-account-data";
 
@@ -5,6 +6,6 @@ export const AccountContext = createContext<ReturnType<typeof useAccountData> | 
 
 export function useAccount() {
   const value = useContext(AccountContext);
-  if (!value) throw new Error("账户组件需要位于 GenerationProvider 内。");
+  if (!value) throw new MessageError(deferMessage(() => t("generation.accountProviderRequired")));
   return value;
 }

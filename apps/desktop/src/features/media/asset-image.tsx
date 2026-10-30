@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { MediaAsset } from "@/bindings/media";
 import { Button, Notice } from "@/shared/ui";
 import { useMediaContent } from "./use-media-content";
@@ -20,20 +21,22 @@ export function AssetImage({
   alt: string;
   className?: string;
 }) {
+  useTranslation();
+
   const image = useAssetImage(asset);
   if (image.error)
     return (
       <Notice
         actions={
           asset.available && asset.kind === "image" ? (
-            <Button onClick={image.retry}>重试读取</Button>
+            <Button onClick={image.retry}>{t("media.retryRead")}</Button>
           ) : undefined
         }
       >
         {image.error}
       </Notice>
     );
-  if (!image.url) return <output className="media-loading">正在读取图片…</output>;
+  if (!image.url) return <output className="media-loading">{t("media.loadingImage")}</output>;
   return (
     <img className={className ?? "media-image"} src={image.url} alt={alt} onError={image.failed} />
   );

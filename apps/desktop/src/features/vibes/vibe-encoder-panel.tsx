@@ -1,3 +1,4 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useAccount } from "@/features/generation/account/account-context";
 import { useQuery } from "@tanstack/react-query";
 import { resultsApi } from "@/features/generation/results/api";
@@ -27,6 +28,8 @@ function EncoderOutput({
   assetId: string;
   onAddReference?: (reference: VibeReferenceInput) => void;
 }) {
+  useTranslation();
+
   const action = useVibeAction();
   return (
     <article className="vibe-encoder-output">
@@ -42,7 +45,7 @@ function EncoderOutput({
               })
             }
           >
-            添加到当前创作
+            {t("vibes.addToCreation")}
           </Button>
         )}
         <Button
@@ -54,7 +57,7 @@ function EncoderOutput({
             })
           }
         >
-          下载编码
+          {t("vibes.downloadEncoding")}
         </Button>
         <Button
           disabled={action.busy}
@@ -66,7 +69,7 @@ function EncoderOutput({
             })
           }
         >
-          导出氛围转移文件
+          {t("vibes.exportVibeFile")}
         </Button>
       </div>
       {action.error && <Notice>{action.error}</Notice>}
@@ -87,6 +90,8 @@ export function VibeEncoderPanel({
   refreshKey: unknown;
   onAddReference?: (reference: VibeReferenceInput) => void;
 }) {
+  useTranslation();
+
   const options = useMediaQuery(
     ["model", "vibe-encoding-options"],
     "encoding",
@@ -118,7 +123,7 @@ export function VibeEncoderPanel({
   );
   const [picker, setPicker] = useState<"source" | "mask" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useMessageState();
   const latest = useRef({ active: true, sequence: 0, readCurrentDraft, onChange });
   const root = useRef<HTMLDivElement>(null);
   const advanced = useRef<HTMLDetailsElement>(null);
@@ -162,7 +167,7 @@ export function VibeEncoderPanel({
         })(),
       );
     } catch (cause) {
-      if (current.active && current.sequence === sequence) setError(errorMessage(cause));
+      if (current.active && current.sequence === sequence) setError(cause);
     } finally {
       if (current.active && current.sequence === sequence) setBusy(false);
     }
@@ -195,25 +200,33 @@ export function VibeEncoderPanel({
   const encoded = input && results?.some((result) => isReusableEncoding(result, input));
   return (
     <div className="vibe-encoder" ref={root}>
-      {options.loading && <output>正在读取编码选项…</output>}
+      {options.loading && <output>{t("vibes.loadingEncodingOptions")}</output>}
       {options.error && (
-        <Notice actions={<Button onClick={options.retry}>重试</Button>}>{options.error}</Notice>
+        <Notice actions={<Button onClick={options.retry}>{t("vibes.retry")}</Button>}>
+          {options.error}
+        </Notice>
       )}
       {error && <Notice>{error}</Notice>}
       <div className="vibe-encoder-source" data-encoder-field="assetId">
         {media.asset && (
-          <AssetImage asset={media.asset} alt="编码源图" className="vibe-encoder-preview" />
+          <AssetImage
+            asset={media.asset}
+            alt={t("vibes.encodingSourceImage")}
+            className="vibe-encoder-preview"
+          />
         )}
         <div>
           {media.asset && <p>{imageName(media.asset)}</p>}
           {media.error && (
-            <Notice actions={<Button onClick={media.retry}>重试</Button>}>{media.error}</Notice>
+            <Notice actions={<Button onClick={media.retry}>{t("vibes.retry")}</Button>}>
+              {media.error}
+            </Notice>
           )}
           <Button
             disabled={busy || !options.value?.models.length}
             onClick={() => setPicker("source")}
           >
-            {busy ? "正在准备…" : input ? "更换图片" : "选择图片"}
+            {busy ? t("vibes.preparing") : input ? t("vibes.changeImage") : t("vibes.chooseImage")}
           </Button>
         </div>
       </div>
@@ -221,13 +234,16 @@ export function VibeEncoderPanel({
         <>
           <div className="vibe-encoder-fields">
             <div data-encoder-field="model">
-              <Field label="编码模型">
+              <Field label={t("vibes.encodingModel")}>
                 <select
                   value={input.model}
                   onChange={(event) => update({ model: event.target.value })}
                 >
                   {!options.value?.models.includes(input.model) && (
-                    <option value={input.model}>{input.model} · 已保存</option>
+                    <option value={input.model}>
+                      {input.model}
+                      {t("vibes.savedTag")}
+                    </option>
                   )}
                   {options.value?.models.map((model) => (
                     <option key={model}>{model}</option>
@@ -236,7 +252,7 @@ export function VibeEncoderPanel({
               </Field>
             </div>
             <div data-encoder-field="informationExtracted">
-              <Field label="信息提取量">
+              <Field label={t("vibes.informationExtracted")}>
                 <input
                   type="number"
                   step="any"
@@ -253,28 +269,28 @@ export function VibeEncoderPanel({
             </div>
           </div>
           <details ref={advanced} className="vibe-encoder-advanced">
-            <summary>高级</summary>
+            <summary>{t("vibes.advanced")}</summary>
             <div data-encoder-field="maskAssetId" className="vibe-encoder-mask">
               {mask.asset && (
                 <AssetImage
                   asset={mask.asset}
-                  alt="编码遮罩"
+                  alt={t("vibes.encodingMask")}
                   className="vibe-encoder-mask-preview"
                 />
               )}
               {mask.error && <Notice>{mask.error}</Notice>}
               <Button onClick={() => setPicker("mask")}>
-                {input.maskAssetId ? "更换遮罩" : "选择遮罩"}
+                {input.maskAssetId ? t("vibes.changeMask") : t("vibes.chooseMask")}
               </Button>
               {input.maskAssetId && (
                 <Button onClick={() => update({ maskAssetId: null, cropToMask: null })}>
-                  清除遮罩
+                  {t("vibes.clearMask")}
                 </Button>
               )}
             </div>
             <div className="vibe-encoder-fields">
               <div data-encoder-field="cropToMask">
-                <Field label="裁剪到遮罩">
+                <Field label={t("vibes.cropToMask")}>
                   <select
                     disabled={!input.maskAssetId}
                     value={input.cropToMask === null ? "" : String(input.cropToMask)}
@@ -285,20 +301,22 @@ export function VibeEncoderPanel({
                       })
                     }
                   >
-                    <option value="">默认</option>
-                    <option value="true">开启</option>
-                    <option value="false">关闭</option>
+                    <option value="">{t("vibes.default")}</option>
+                    <option value="true">{t("vibes.on")}</option>
+                    <option value="false">{t("vibes.off")}</option>
                   </select>
                 </Field>
               </div>
               {(["focusSeed", "infoExtractSeed"] as const).map((key) => (
                 <div key={key} data-encoder-field={key}>
-                  <Field label={key === "focusSeed" ? "Focus Seed" : "信息提取种子"}>
+                  <Field
+                    label={key === "focusSeed" ? t("vibes.focusSeed") : t("vibes.extractionSeed")}
+                  >
                     <input
                       type="number"
                       step={1}
                       value={input[key] ?? ""}
-                      placeholder="默认"
+                      placeholder={t("vibes.default")}
                       onWheel={(event) => event.currentTarget.blur()}
                       onChange={(event) =>
                         update({ [key]: optionalEncodingSeed(event.target.value) })
@@ -310,9 +328,11 @@ export function VibeEncoderPanel({
             </div>
           </details>
           <div className="vibe-encoder-status">
-            <span>{encoded ? "已有可复用编码" : "可编码当前输入，或从材料中选择已有编码"}</span>
-            <HelpMarker label="编码与参考">
-              改变提取量、模型或遮罩需要重新编码。编码结果可从材料库复用，添加已有材料不会重新编码。
+            <span>
+              {encoded ? t("vibes.reusableEncodingAvailable") : t("vibes.encodingChoices")}
+            </span>
+            <HelpMarker label={t("vibes.encodingReferenceHelp")}>
+              {t("vibes.encodingReferenceDescription")}
             </HelpMarker>
           </div>
           {submission && (
@@ -332,13 +352,19 @@ export function VibeEncoderPanel({
         </>
       )}
       {resultsQuery.error && (
-        <Notice actions={<Button onClick={() => void resultsQuery.refetch()}>重试读取编码</Button>}>
+        <Notice
+          actions={
+            <Button onClick={() => void resultsQuery.refetch()}>
+              {t("vibes.retryEncodingRead")}
+            </Button>
+          }
+        >
           {errorMessage(resultsQuery.error)}
         </Notice>
       )}
       {outputs.length > 0 && (
-        <section className="vibe-encoder-outputs" aria-label="已保存编码">
-          <h3>已保存编码</h3>
+        <section className="vibe-encoder-outputs" aria-label={t("vibes.savedEncodings")}>
+          <h3>{t("vibes.savedEncodings")}</h3>
           {outputs.slice(0, 4).map((result) => (
             <EncoderOutput
               key={result.id}
@@ -350,7 +376,7 @@ export function VibeEncoderPanel({
       )}
       <ImagePickerDialog
         open={picker !== null}
-        title={picker === "mask" ? "选择编码遮罩" : "选择编码图片"}
+        title={picker === "mask" ? t("vibes.chooseEncodingMask") : t("vibes.chooseEncodingImage")}
         onClose={() => setPicker(null)}
         onSelect={(asset) => {
           const target = picker;

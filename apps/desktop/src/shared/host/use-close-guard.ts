@@ -1,3 +1,4 @@
+import { t, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hasDesktopHost } from "./invoke";
@@ -19,7 +20,7 @@ export function useCloseGuard({
   resourceDirty: boolean;
   getResourceDirty?: () => boolean;
   onResourceBlocked: () => void;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
   enabled?: boolean;
   beforeClose?: () => Promise<boolean>;
 }) {
@@ -66,7 +67,9 @@ export function useCloseGuard({
           }
           await getCurrentWindow().destroy();
         } catch (cause) {
-          latest.current.onError(`窗口未关闭，仍有内容或设置未保存：${errorMessage(cause)}`);
+          latest.current.onError(
+            deferMessage(() => t("common.closeBlocked", { value0: errorMessage(cause) })),
+          );
         } finally {
           closing = false;
         }
@@ -76,7 +79,7 @@ export function useCloseGuard({
           if (stopped) off();
           else unlisten = off;
         },
-        (cause) => latest.current.onError(errorMessage(cause)),
+        (cause) => latest.current.onError(cause),
       );
     return () => {
       stopped = true;

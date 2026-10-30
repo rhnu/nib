@@ -1,3 +1,4 @@
+import { t, useTranslation, formatNumber } from "@/shared/i18n";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Popover } from "@base-ui/react/popover";
@@ -16,7 +17,7 @@ export function PromptTextEditor({
   model,
   disabled = false,
   readOnly = false,
-  tokenUnavailableLabel = "等待实际模型",
+  tokenUnavailableLabel = t("prompt.waitingForModel"),
 }: {
   value: string;
   onChange?: (text: string) => void;
@@ -27,6 +28,8 @@ export function PromptTextEditor({
   readOnly?: boolean;
   tokenUnavailableLabel?: string;
 }) {
+  useTranslation();
+
   const [open, setOpen] = useState(false);
   const key = JSON.stringify([model, value]);
   const settledKey = useDebouncedValue(key, 160);
@@ -46,10 +49,10 @@ export function PromptTextEditor({
   const status = !model
     ? tokenUnavailableLabel
     : error
-      ? `Token 计算失败：${error}`
+      ? t("prompt.tokenCountFailed", { value0: error })
       : count === undefined
-        ? "正在计算 Token…"
-        : `${count.toLocaleString()} Token`;
+        ? t("prompt.countingTokens")
+        : t("prompt.tokenCount", { count, formattedCount: formatNumber(count) });
   return (
     <div className={`prompt-text-editor${readOnly ? " prompt-text-readonly" : ""}`}>
       <textarea
@@ -82,7 +85,7 @@ export function PromptTextEditor({
               <Popover.Description>{status}</Popover.Description>
               {error && (
                 <button type="button" onClick={() => void query.refetch()}>
-                  重试
+                  {t("prompt.retry")}
                 </button>
               )}
             </Popover.Popup>

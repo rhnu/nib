@@ -1,3 +1,5 @@
+import { t, useTranslation } from "@/shared/i18n";
+import { errorMessage } from "@/shared/host/error";
 import type { Draft, Resource, ResolvedDraft } from "@/bindings/workbench";
 import { ContentSources, SettingsSources } from "./resolution-sources";
 import type { ParameterDiagnostic } from "@/bindings/generation";
@@ -26,9 +28,11 @@ export function ResolutionInspector({
   diagnostics?: ParameterDiagnostic[];
   onFocusField?: (field: string) => void;
 }) {
+  useTranslation();
+
   return (
-    <aside className="inspector" aria-label="解析与来源" aria-busy={pending}>
-      {pending && <output className="muted">正在更新…</output>}
+    <aside className="inspector" aria-label={t("prompt.resolutionSources")} aria-busy={pending}>
+      {pending && <output className="muted">{t("prompt.updating")}</output>}
       {error && (
         <p role="alert" className="inline-warning">
           {error}
@@ -37,49 +41,49 @@ export function ResolutionInspector({
       {resolved && (
         <>
           <section>
-            <h3>基础提示</h3>
+            <h3>{t("prompt.basePrompt")}</h3>
             <PromptTextEditor
-              label="基础提示"
+              label={t("prompt.basePrompt")}
               value={resolved.positive}
               model={tokenModel ?? resolved.settings.model}
               readOnly
-              placeholder="暂无基础提示"
+              placeholder={t("prompt.noBasePrompt")}
             />
           </section>
           <section>
-            <h3>负面提示</h3>
+            <h3>{t("prompt.negativePrompt")}</h3>
             <PromptTextEditor
-              label="负面提示"
+              label={t("prompt.negativePrompt")}
               value={resolved.negative}
               model={tokenModel ?? resolved.settings.model}
               readOnly
-              placeholder="暂无负面提示"
+              placeholder={t("prompt.noNegativePrompt")}
             />
           </section>
           <ResolvedOutputs resolved={resolved} tokenModel={tokenModel} />
           <section>
-            <h3>内容来源</h3>
+            <h3>{t("prompt.contentSources")}</h3>
             <ContentSources
               fragments={resolved.fragments}
               model={tokenModel ?? resolved.settings.model}
             />
           </section>
           <section>
-            <h3>生效设置</h3>
+            <h3>{t("prompt.effectiveSettings")}</h3>
             <SettingsSources settings={resolved.settings} provenance={resolved.provenance} />
           </section>
           {diagnostics.length > 0 && (
             <section className="resolution-diagnostics">
-              <h3>SDK 参数调整</h3>
+              <h3>{t("prompt.sdkAdjustments")}</h3>
               {diagnostics.map((diagnostic, index) => {
                 const key = diagnosticSetting(diagnostic.field);
                 return (
                   <div key={index}>
                     <strong>{key ? settingLabels[key] : diagnostic.field}</strong>
-                    <p>{diagnostic.change}</p>
+                    <p>{errorMessage(diagnostic.change)}</p>
                     {onFocusField && (
                       <Button className="quiet" onClick={() => onFocusField(diagnostic.field)}>
-                        定位设置
+                        {t("prompt.locateSetting")}
                       </Button>
                     )}
                   </div>
@@ -89,16 +93,16 @@ export function ResolutionInspector({
           )}
           {resolved.issues.length > 0 && (
             <section className="resolution-issues">
-              <h3>需要处理</h3>
+              <h3>{t("prompt.needsAttention")}</h3>
               {resolved.issues.map((issue, index) => {
                 const details = resolutionIssueDetails(issue, draft, resources);
                 return (
                   <div key={index}>
                     <h3>{details.label}</h3>
-                    <p>{issue.message}</p>
+                    <p>{errorMessage(issue.message)}</p>
                     {details.target && onFocusField && (
                       <Button className="quiet" onClick={() => onFocusField(details.target!)}>
-                        定位内容
+                        {t("prompt.locateContent")}
                       </Button>
                     )}
                   </div>

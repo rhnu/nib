@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import type { ApplicationPreferences } from "@/bindings/settings";
 import { createStore } from "zustand/vanilla";
 
@@ -49,14 +50,15 @@ export class PreferencesWriter {
   }
 
   initialize(value: ApplicationPreferences) {
-    if (this.getSnapshot().value) throw new Error("应用设置已经加载。");
+    if (this.getSnapshot().value)
+      throw new MessageError(deferMessage(() => t("app.preferencesAlreadyLoaded")));
     this.saved = value;
     this.publish({ value, dirty: false, saving: false, error: null });
   }
 
   edit(value: ApplicationPreferences) {
     const state = this.getSnapshot();
-    if (!state.value) throw new Error("应用设置尚未加载。");
+    if (!state.value) throw new MessageError(deferMessage(() => t("app.preferencesNotLoaded")));
     this.version++;
     this.publish({ ...state, value, dirty: true, error: null });
     void this.flush().catch(() => {});

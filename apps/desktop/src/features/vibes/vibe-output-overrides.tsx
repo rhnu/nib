@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { RotateCcw } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import type {
@@ -24,6 +25,8 @@ export interface VibeOutputOverridesProps {
 }
 
 export function VibeOutputOverrides({ contextKey, ...props }: VibeOutputOverridesProps) {
+  useTranslation();
+
   return showVibeReferences(props.capabilities) ? <Overrides key={contextKey} {...props} /> : null;
 }
 
@@ -37,6 +40,8 @@ function Overrides({
   onNormalizeChange,
   issues,
 }: Omit<VibeOutputOverridesProps, "contextKey">) {
+  useTranslation();
+
   const latest = useRef({ overrides, onChange });
   useLayoutEffect(() => {
     Object.assign(latest.current, { overrides, onChange });
@@ -50,8 +55,11 @@ function Overrides({
 
   const stale = overrides.filter((item) => !value.some((source) => source.id === item.id));
   return (
-    <section className="vibe-editor" aria-label="配方氛围转移覆盖">
-      <h3>氛围转移 · {value.length}</h3>
+    <section className="vibe-editor" aria-label={t("vibes.presetVibeOverrides")}>
+      <h3>
+        {t("vibes.vibeHeading")}
+        {value.length}
+      </h3>
       {onNormalizeChange && (
         <div data-vibe-field="normalizeStrength">
           <VibeNormalize
@@ -78,7 +86,7 @@ function Overrides({
             actions={
               override && (
                 <IconButton
-                  label={`撤销氛围转移 ${index + 1} 全部覆盖`}
+                  label={t("vibes.revertVibeOverrides", { value0: index + 1 })}
                   onClick={() => patch(original.id, { enabled: null, input: null, strength: null })}
                 >
                   <RotateCcw size={14} />
@@ -90,9 +98,9 @@ function Overrides({
       })}
       {stale.map((item) => (
         <div key={item.id} data-vibe-id={item.id} className="vibe-message">
-          原氛围转移已不存在，覆盖不生效。
+          {t("vibes.originalVibeMissing")}
           <IconButton
-            label="移除失效氛围转移覆盖"
+            label={t("vibes.removeStaleVibeOverride")}
             onClick={() => onChange(overrides.filter((value) => value.id !== item.id))}
           >
             <RotateCcw size={14} />

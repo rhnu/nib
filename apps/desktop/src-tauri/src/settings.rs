@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use nib_app::{
-    api::ApiError,
+    api::{ApiError, UserMessage},
     settings::{ApplicationPreferences, ApplicationSettingsSnapshot, StorageLocations},
 };
 
@@ -31,7 +31,7 @@ pub(crate) async fn save_application_preferences(
     let access = state.write_access().await.map_err(persistence_error)?;
     if !(1..=200).contains(&preferences.recent_image_limit) {
         return Err(crate::generation::generation_error(
-            nib_app::jobs::JobError::Invalid("最近图片数量应为 1 至 200。".into()),
+            nib_app::jobs::JobError::Invalid(UserMessage::RecentImageLimit),
         ));
     }
     let storage = Arc::clone(&state.storage);

@@ -1,3 +1,4 @@
+import { t, useTranslation, MessageError, deferMessage } from "@/shared/i18n";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { createStore } from "zustand/vanilla";
 import type { ResultSummary } from "@/bindings/generation";
@@ -28,12 +29,14 @@ const ResultViewsContext = createContext<{
 } | null>(null);
 
 export function ResultViewsProvider({ children }: { children: ReactNode }) {
+  useTranslation();
+
   const [views] = useState(() => ({ preview: createResultView(), gallery: createResultView() }));
   return <ResultViewsContext value={views}>{children}</ResultViewsContext>;
 }
 
 export function useResultViewStore(gallery: boolean) {
   const views = useContext(ResultViewsContext);
-  if (!views) throw new Error("图片视图缺少生成会话状态。");
+  if (!views) throw new MessageError(deferMessage(() => t("generation.sessionStateMissing")));
   return gallery ? views.gallery : views.preview;
 }

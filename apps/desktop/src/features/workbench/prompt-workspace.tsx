@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
@@ -9,7 +10,6 @@ import { SettingsEditor, focusSetting } from "@/features/prompt/settings-editor"
 import { diagnosticSetting } from "@/features/prompt/settings";
 import { ResolutionInspector } from "@/features/prompt/resolution-inspector";
 import { promptApi } from "@/features/prompt/api";
-import { errorMessage } from "@/shared/host/error";
 import { TokenUsageSummary } from "@/features/generation/submission/token-usage-summary";
 import type { InsertTarget } from "@/features/library/resource-library";
 
@@ -41,9 +41,11 @@ export function PromptWorkspace({
   errorFields: string[];
   openLibrary: (target: InsertTarget) => void;
   edit: (draft: Draft) => void;
-  setError: (message: string) => void;
+  setError: (message: unknown) => void;
   onFocusField?: (field: string) => void;
 }) {
+  useTranslation();
+
   const [inspector, setInspector] = useState(false);
   const issueCount = resolved?.issues.length ?? 0;
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -91,8 +93,8 @@ export function PromptWorkspace({
             >
               <Popover.Trigger
                 className="icon-button"
-                aria-label="提示词设置"
-                title="提示词设置"
+                aria-label={t("workbench.promptSettings")}
+                title={t("workbench.promptSettings")}
                 data-prompt-options-trigger
               >
                 <Settings2 size={15} aria-hidden />
@@ -106,8 +108,11 @@ export function PromptWorkspace({
                 >
                   <Popover.Popup className="prompt-options-popup" initialFocus={false}>
                     <header>
-                      <Popover.Title>提示词设置</Popover.Title>
-                      <Popover.Close className="icon-button" aria-label="关闭提示词设置">
+                      <Popover.Title>{t("workbench.promptSettings")}</Popover.Title>
+                      <Popover.Close
+                        className="icon-button"
+                        aria-label={t("workbench.closePromptSettings")}
+                      >
                         <X size={14} aria-hidden />
                       </Popover.Close>
                     </header>
@@ -128,10 +133,10 @@ export function PromptWorkspace({
             <IconButton
               label={
                 resolveError
-                  ? "解析失败，查看详情"
+                  ? t("workbench.resolutionFailedDetails")
                   : issueCount
-                    ? `查看 ${issueCount} 项解析问题`
-                    : "查看解析与来源"
+                    ? t("workbench.viewResolutionIssues", { value0: issueCount })
+                    : t("workbench.viewResolutionSources")
               }
               className={`resolution-trigger ${resolveError || issueCount ? "danger" : ""}`}
               onClick={() => setInspector(true)}
@@ -141,9 +146,8 @@ export function PromptWorkspace({
                 <span className="resolution-count">{resolveError ? "!" : issueCount}</span>
               )}
             </IconButton>
-            <HelpMarker label="提示词帮助">
-              添加文本或链接
-              Chunk，用片段菜单调整顺序、撤销覆盖或展开为独立文本。编辑链接只影响当前实例。
+            <HelpMarker label={t("workbench.promptHelp")}>
+              {t("workbench.promptDescription")}
             </HelpMarker>
           </>
         }
@@ -151,21 +155,26 @@ export function PromptWorkspace({
           try {
             return await promptApi.expandChunk(node);
           } catch (cause) {
-            setError(errorMessage(cause));
+            setError(cause);
             return node;
           }
         }}
       />
       <TokenUsageSummary tokens={tokens} />
       {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
-        <output className="inline-warning">此模型不接受自定义负面提示，已保留编辑内容。</output>
+        <output className="inline-warning">{t("workbench.customNegativeUnsupported")}</output>
       )}
       {resolveError && (
         <p className="inline-warning" role="alert">
           {resolveError}
         </p>
       )}
-      <Modal open={inspector} onClose={() => setInspector(false)} title="解析与来源" wide>
+      <Modal
+        open={inspector}
+        onClose={() => setInspector(false)}
+        title={t("workbench.resolutionSources")}
+        wide
+      >
         <ResolutionInspector
           resolved={resolved}
           pending={resolving}

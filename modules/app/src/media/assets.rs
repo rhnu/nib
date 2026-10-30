@@ -9,7 +9,7 @@ use novelai_bridge::{EncodedImage, GeneratedImageMetadata, ImageMediaFormat, Vib
 use serde::{Deserialize, Serialize};
 
 use super::{MediaContent, MediaLibrary};
-use crate::persistence::PersistenceError;
+use crate::{api::UserMessage, persistence::PersistenceError};
 
 /// Content type is independent of its use as a source, mask or reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,7 +193,7 @@ impl MediaLibrary {
         let asset = self.asset(id)?;
         if asset.kind != AssetKind::Image || !asset.available {
             return Err(PersistenceError::InvalidData {
-                message: "缩略图的源图不可用。".to_owned(),
+                message: UserMessage::ThumbnailSourceUnavailable,
             });
         }
         let directory = self.directory.join("thumbnails");
@@ -334,7 +334,7 @@ impl MediaLibrary {
             .map_err(|error| PersistenceError::failure("read immutable media content", error))?;
         if i64::try_from(bytes.len()).ok() != Some(asset.byte_length) {
             return Err(PersistenceError::InvalidData {
-                message: "媒体文件不完整。".to_owned(),
+                message: UserMessage::IncompleteMedia,
             });
         }
         Ok(MediaContent {
@@ -350,7 +350,7 @@ impl MediaLibrary {
                 .all(|byte| byte.is_ascii_digit() || byte == b'-' || byte.is_ascii_lowercase())
         {
             return Err(PersistenceError::InvalidData {
-                message: "媒体身份无效。".to_owned(),
+                message: UserMessage::InvalidMediaId,
             });
         }
         Ok(self.directory.join(id))
@@ -460,7 +460,10 @@ fn next_asset_id() -> Result<String, PersistenceError> {
 
 fn wrong_kind(id: &str, expected: AssetKind) -> PersistenceError {
     PersistenceError::InvalidData {
-        message: format!("媒体 {id} 不是所需的 {expected:?} 内容。"),
+        message: UserMessage::MediaKindMismatch {
+            id: id.to_owned(),
+            expected,
+        },
     }
 }
 

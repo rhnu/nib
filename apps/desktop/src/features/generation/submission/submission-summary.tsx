@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import type { JobRecord } from "@/bindings/generation";
 import { ContentSources, SettingsSources } from "@/features/prompt/resolution-sources";
@@ -9,24 +10,26 @@ import { ResolvedOutputs } from "@/features/prompt/resolved-outputs";
 import { commandTool, directorToolLabels } from "@/features/director/model";
 
 export function SubmissionSummary({ submission }: { submission: JobRecord["submission"] }) {
+  useTranslation();
+
   if (submission.kind !== "generation")
     return (
       <div>
         <dl className="generation-metadata">
           <div>
-            <dt>操作</dt>
+            <dt>{t("generation.operation")}</dt>
             <dd>{submissionLabel(submission)}</dd>
           </div>
           {submission.kind === "encodeVibe" && (
             <div>
-              <dt>信息提取</dt>
+              <dt>{t("generation.informationExtraction")}</dt>
               <dd>{submission.informationExtracted}</dd>
             </div>
           )}
           {submission.kind === "director" && (
             <>
               <div>
-                <dt>工具</dt>
+                <dt>{t("generation.tool")}</dt>
                 <dd>{directorToolLabels[commandTool(submission.command)]}</dd>
               </div>
               {typeof submission.command !== "string" &&
@@ -38,37 +41,41 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
                   return (
                     <>
                       <div>
-                        <dt>Prompt</dt>
+                        <dt>{t("generation.prompt")}</dt>
                         <dd>
                           <PromptTextEditor
                             value={options.prompt ?? ""}
-                            label="导演工具 Prompt"
+                            label={t("generation.directorPrompt")}
                             readOnly
-                            tokenUnavailableLabel="导演工具未提供本地 Token 规则"
+                            tokenUnavailableLabel={t("generation.directorTokenRulesUnavailable")}
                           />
                         </dd>
                       </div>
                       <div>
-                        <dt>Defry</dt>
+                        <dt>{t("generation.defry")}</dt>
                         <dd>{options.defry}</dd>
                       </div>
                     </>
                   );
                 })()}
               <div>
-                <dt>参数校验</dt>
-                <dd>{submission.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
+                <dt>{t("generation.parameterValidation")}</dt>
+                <dd>
+                  {submission.policy === "reject"
+                    ? t("generation.strictRejection")
+                    : t("generation.autoAdjust")}
+                </dd>
               </div>
             </>
           )}
           {submission.kind === "upscale" && (
             <>
               <div>
-                <dt>放大模型</dt>
+                <dt>{t("generation.upscaleModel")}</dt>
                 <dd>{submission.model}</dd>
               </div>
               <div>
-                <dt>Blur Sigma</dt>
+                <dt>{t("generation.blurSigma")}</dt>
                 <dd>{submission.declaredBlurSigma}</dd>
               </div>
             </>
@@ -84,72 +91,79 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
       <ParameterDiagnostics diagnostics={submission.diagnostics} />
       <dl className="generation-metadata">
         <div>
-          <dt>操作</dt>
+          <dt>{t("generation.operation")}</dt>
           <dd>
             {operationLabel(resolved.inputs.operation)}
             {resolved.inputs.operation.kind === "inpainting"
-              ? ` · ${resolved.inputs.operation.img2img ? "局部图生图" : "纯补绘"}`
+              ? ` · ${resolved.inputs.operation.img2img ? t("generation.regionalImageToImage") : t("generation.pureInpainting")}`
               : ""}
           </dd>
         </div>
         <div>
-          <dt>模型</dt>
+          <dt>{t("generation.model")}</dt>
           <dd>{resolved.settings.model}</dd>
         </div>
         <div>
-          <dt>尺寸</dt>
+          <dt>{t("generation.dimensions")}</dt>
           <dd>
             {resolved.settings.size.width} × {resolved.settings.size.height}
           </dd>
         </div>
         <div>
-          <dt>采样</dt>
+          <dt>{t("generation.sampling")}</dt>
           <dd>
-            {resolved.settings.sampler} · {resolved.settings.steps} 步 · Scale{" "}
-            {resolved.settings.scale}
+            {t("generation.samplingDetails", {
+              sampler: resolved.settings.sampler,
+              count: resolved.settings.steps,
+              scale: resolved.settings.scale,
+            })}
           </dd>
         </div>
         <div>
-          <dt>提交种子</dt>
+          <dt>{t("generation.submissionSeed")}</dt>
           <dd>{seed}</dd>
         </div>
         <div>
-          <dt>样本数</dt>
+          <dt>{t("generation.sampleCountLabel")}</dt>
           <dd>{resolved.settings.nSamples}</dd>
         </div>
         <div>
-          <dt>参数校验</dt>
-          <dd>{resolved.inputs.policy === "reject" ? "严格拒绝" : "自动调整"}</dd>
+          <dt>{t("generation.parameterValidation")}</dt>
+          <dd>
+            {resolved.inputs.policy === "reject"
+              ? t("generation.strictRejection")
+              : t("generation.autoAdjust")}
+          </dd>
         </div>
       </dl>
       <SubmissionImageInput operation={resolved.inputs.operation} seed={seed} />
       <details className="generation-prompts">
-        <summary>查看提交时的提示词</summary>
-        <h4>正面提示</h4>
+        <summary>{t("generation.viewSubmittedPrompts")}</summary>
+        <h4>{t("generation.positivePrompt")}</h4>
         <PromptTextEditor
           value={resolved.positive}
-          label="提交时正面提示词"
+          label={t("generation.submittedPositivePrompt")}
           model={resolved.settings.model}
           readOnly
         />
-        <h4>负面提示</h4>
+        <h4>{t("generation.negativePrompt")}</h4>
         <PromptTextEditor
           value={resolved.negative}
-          label="提交时负面提示词"
+          label={t("generation.submittedNegativePrompt")}
           model={resolved.settings.model}
           readOnly
         />
       </details>
       <ResolvedOutputs resolved={resolved} />
       <details className="generation-sources">
-        <summary>完整有效设置与内容来源</summary>
+        <summary>{t("generation.effectiveSettingsSources")}</summary>
         <div className="generation-source-details">
           <section>
-            <h4>内容来源</h4>
+            <h4>{t("generation.contentSources")}</h4>
             <ContentSources fragments={resolved.fragments} />
           </section>
           <section>
-            <h4>设置来源</h4>
+            <h4>{t("generation.settingsSources")}</h4>
             <SettingsSources settings={resolved.settings} provenance={resolved.provenance} />
           </section>
         </div>

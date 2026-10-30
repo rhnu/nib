@@ -1,3 +1,4 @@
+import { t } from "@/shared/i18n";
 import type {
   CreationOperation,
   DirectorToolKind,
@@ -11,13 +12,27 @@ import type { GenerationResult } from "@/bindings/generation";
 type DirectorOperation = Extract<CreationOperation, { kind: "director" }>;
 
 export const directorToolLabels: Record<DirectorToolKind, string> = {
-  lineart: "描线",
-  sketch: "草图",
-  bgRemoval: "去背景",
-  emotion: "情绪",
-  declutter: "清理",
-  declutterKeepBubbles: "保留对白清理",
-  colorize: "着色",
+  get lineart() {
+    return t("director.lineArt");
+  },
+  get sketch() {
+    return t("director.sketch");
+  },
+  get bgRemoval() {
+    return t("director.removeBackground");
+  },
+  get emotion() {
+    return t("director.emotion");
+  },
+  get declutter() {
+    return t("director.declutter");
+  },
+  get declutterKeepBubbles() {
+    return t("director.declutterKeepText");
+  },
+  get colorize() {
+    return t("director.colorize");
+  },
 };
 
 export function commandTool(command: DirectorOperation["command"]): DirectorToolKind {
@@ -94,5 +109,7 @@ export function directorOutputLabel(
   result: Pick<GenerationResult, "sampleIndex" | "imageSource">,
 ): string {
   const source = result.imageSource;
-  return source?.kind === "archive" ? source.name : `输出 ${result.sampleIndex + 1}`;
+  return source?.kind === "archive"
+    ? source.name
+    : t("director.outputNumber", { value0: result.sampleIndex + 1 });
 }

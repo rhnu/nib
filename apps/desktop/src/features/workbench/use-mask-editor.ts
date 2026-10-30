@@ -1,7 +1,7 @@
+import { deferMessage, t, MessageError } from "@/shared/i18n";
 import { useEffect, useRef, useState } from "react";
 import type { CreationOperation, Draft, MaskSession } from "@/bindings/workbench";
 import { invokeHost } from "@/shared/host/invoke";
-import { errorMessage } from "@/shared/host/error";
 import { mediaApi } from "@/features/media/api";
 import { renderMaskPng } from "@/features/inpaint/raster";
 
@@ -18,7 +18,7 @@ export function useMaskEditor({
   draft: Draft;
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
 }) {
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
@@ -117,7 +117,7 @@ export function useMaskEditor({
       const asset = await mediaApi.asset(id);
       if (!lifetime.current.active || sequence !== lifetime.current.sequence) return;
       if (!asset.available || asset.width === null || asset.height === null)
-        throw new Error("源图不可用。");
+        throw new MessageError(deferMessage(() => t("workbench.sourceUnavailable")));
       const current = readCurrentDraft();
       const existing = current.maskEditor.sessions.find((item) => item.sourceAssetId === id);
       const operation = current.inputs.operation;
@@ -158,7 +158,7 @@ export function useMaskEditor({
         },
       });
     } catch (cause) {
-      if (lifetime.current.active) onError(errorMessage(cause));
+      if (lifetime.current.active) onError(cause);
     } finally {
       if (lifetime.current.active && sequence === lifetime.current.sequence) setBusy(false);
     }
@@ -204,7 +204,7 @@ export function useMaskEditor({
           !latest ||
           latest.revision !== snapshot.revision
         )
-          throw new Error("遮罩已改变，请重新应用。");
+          throw new MessageError(deferMessage(() => t("workbench.maskChanged")));
         const previous = current.inputs.operation;
         const next =
           operation.kind === "inpainting" &&
@@ -226,7 +226,7 @@ export function useMaskEditor({
         });
         return true;
       } catch (cause) {
-        if (lifetime.current.active) onError(errorMessage(cause));
+        if (lifetime.current.active) onError(cause);
         return false;
       } finally {
         applying.current = null;

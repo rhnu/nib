@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
-import { errorMessage } from "@/shared/host/error";
 
 /** Finish input commits before replacing their editor; only the latest requested transition wins. */
-export function usePendingInputTransition(onError: (message: string) => void) {
+export function usePendingInputTransition(onError: (message: unknown) => void) {
   const lifetime = useRef({ active: true, sequence: 0 });
   useEffect(() => {
     const current = lifetime.current;
@@ -23,7 +22,7 @@ export function usePendingInputTransition(onError: (message: string) => void) {
           if (current.active && sequence === current.sequence) action();
         },
         (cause) => {
-          if (current.active && sequence === current.sequence) onError(errorMessage(cause));
+          if (current.active && sequence === current.sequence) onError(cause);
         },
       );
   };

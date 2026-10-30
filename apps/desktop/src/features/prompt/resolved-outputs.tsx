@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import type {
   InputProvenance,
@@ -14,15 +15,17 @@ import "./resolved-outputs.css";
 import { ResolvedVibes } from "@/features/vibes";
 
 function OutputSource({ source }: { source: InputProvenance | ResolvedCharacter | undefined }) {
-  if (!source) return <p className="muted">来源未记录</p>;
+  useTranslation();
+
+  if (!source) return <p className="muted">{t("prompt.sourceNotRecorded")}</p>;
   return (
     <dl className="resolved-output-metadata">
       <div>
-        <dt>来源</dt>
+        <dt>{t("prompt.source")}</dt>
         <dd>
-          {source.presetInstanceId ? "配方输出" : "当前创作"}
-          {source.expanded ? " · 已展开" : ""}
-          {source.overridden ? " · 实例覆盖" : ""}
+          {source.presetInstanceId ? t("prompt.presetOutput") : t("prompt.currentCreation")}
+          {source.expanded ? t("prompt.expandedTag") : ""}
+          {source.overridden ? t("prompt.instanceOverrideTag") : ""}
         </dd>
       </div>
     </dl>
@@ -40,38 +43,50 @@ function ResolvedCharacterDetails({
   model: string;
   useCoords: boolean | null;
 }) {
+  useTranslation();
+
   return (
     <article className="resolved-output-item">
       <header>
-        <h4>角色 {index + 1}</h4>
-        <span className="tag">{character.enabled ? "启用" : "停用"}</span>
+        <h4>
+          {t("prompt.characterPrefix")}
+          {index + 1}
+        </h4>
+        <span className="tag">
+          {character.enabled ? t("prompt.enabled") : t("prompt.disabled")}
+        </span>
       </header>
       <dl className="resolved-output-metadata">
         <div>
-          <dt>{useCoords === true ? "自定义坐标" : "保留坐标"}</dt>
+          <dt>
+            {useCoords === true ? t("prompt.customCoordinates") : t("prompt.retainedCoordinates")}
+          </dt>
           <dd>
-            X {character.position.x} · Y {character.position.y}
+            {t("prompt.xCoordinate")}
+            {character.position.x}
+            {t("prompt.yCoordinate")}
+            {character.position.y}
           </dd>
         </div>
       </dl>
-      <h5>正面提示</h5>
+      <h5>{t("prompt.positivePrompt")}</h5>
       <PromptTextEditor
-        label="角色正面提示"
+        label={t("prompt.characterPositivePrompt")}
         value={character.positive}
         model={model}
         readOnly
-        placeholder="（空）"
+        placeholder={t("prompt.empty")}
       />
-      <h5>负面提示</h5>
+      <h5>{t("prompt.negativePrompt")}</h5>
       <PromptTextEditor
-        label="角色负面提示"
+        label={t("prompt.characterNegativePrompt")}
         value={character.negative}
         model={model}
         readOnly
-        placeholder="（空）"
+        placeholder={t("prompt.empty")}
       />
       <details>
-        <summary>角色内容来源</summary>
+        <summary>{t("prompt.characterContentSources")}</summary>
         <OutputSource source={character} />
         <ContentSources fragments={character.fragments} model={model} />
       </details>
@@ -80,24 +95,44 @@ function ResolvedCharacterDetails({
 }
 
 function ReferenceMaterial({ id }: { id: string }) {
+  useTranslation();
+
   const media = useMediaAsset(id);
   if (media.error)
-    return <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>;
-  if (!media.asset) return <output>正在读取参考材料…</output>;
+    return (
+      <Notice actions={<Button onClick={media.retry}>{t("prompt.retryRead")}</Button>}>
+        {media.error}
+      </Notice>
+    );
+  if (!media.asset) return <output>{t("prompt.loadingReferences")}</output>;
   return (
     <div className="resolved-reference-material">
       <p className="muted">{imageName(media.asset)}</p>
-      <AssetImage asset={media.asset} alt="精确参考材料" className="resolved-reference-image" />
+      <AssetImage
+        asset={media.asset}
+        alt={t("prompt.preciseReferenceMaterial")}
+        className="resolved-reference-image"
+      />
     </div>
   );
 }
 
 const referenceTypes: Record<string, string> = {
-  character: "角色",
-  style: "风格",
-  "character&style": "角色与风格",
-  costume: "服装",
-  delta: "差异",
+  get character() {
+    return t("prompt.character");
+  },
+  get style() {
+    return t("prompt.style");
+  },
+  get "character&style"() {
+    return t("prompt.characterStyle");
+  },
+  get costume() {
+    return t("prompt.clothing");
+  },
+  get delta() {
+    return t("prompt.difference");
+  },
 };
 
 function ResolvedReferenceDetails({
@@ -109,34 +144,41 @@ function ResolvedReferenceDetails({
   index: number;
   source: InputProvenance | undefined;
 }) {
+  useTranslation();
+
   const [open, setOpen] = useState(false);
   return (
     <article className="resolved-output-item">
       <header>
-        <h4>精确参考 {index + 1}</h4>
-        <span className="tag">{reference.enabled ? "启用" : "停用"}</span>
+        <h4>
+          {t("prompt.preciseReferencePrefix")}
+          {index + 1}
+        </h4>
+        <span className="tag">
+          {reference.enabled ? t("prompt.enabled") : t("prompt.disabled")}
+        </span>
       </header>
       <dl className="resolved-output-metadata">
         <div>
-          <dt>用途</dt>
+          <dt>{t("prompt.purpose")}</dt>
           <dd>{referenceTypes[reference.referenceType] ?? reference.referenceType}</dd>
         </div>
         <div>
-          <dt>强度</dt>
+          <dt>{t("prompt.strength")}</dt>
           <dd>{reference.strength}</dd>
         </div>
         <div>
-          <dt>Fidelity</dt>
+          <dt>{t("prompt.fidelity")}</dt>
           <dd>{reference.fidelity}</dd>
         </div>
         <div>
-          <dt>信息提取量</dt>
+          <dt>{t("prompt.informationExtracted")}</dt>
           <dd>{reference.informationExtracted}</dd>
         </div>
       </dl>
       <OutputSource source={source} />
       <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary>查看参考材料</summary>
+        <summary>{t("prompt.viewReference")}</summary>
         {open && <ReferenceMaterial id={reference.assetId} />}
       </details>
     </article>
@@ -151,6 +193,8 @@ export function ResolvedOutputs({
   resolved: ResolvedDraft;
   tokenModel?: string;
 }) {
+  useTranslation();
+
   if (
     !resolved.characters.length &&
     !resolved.inputs.references.precise.length &&
@@ -162,14 +206,17 @@ export function ResolvedOutputs({
       <ResolvedVibes resolved={resolved} />
       {resolved.characters.length > 0 && (
         <section>
-          <h3>角色 · {resolved.characters.length}</h3>
+          <h3>
+            {t("prompt.charactersHeading")}
+            {resolved.characters.length}
+          </h3>
           <p className="muted">
-            全局定位：
+            {t("prompt.globalPositioningPrefix")}
             {resolved.settings.useCoords === true
-              ? "自定义"
+              ? t("prompt.custom")
               : resolved.settings.useCoords === false
-                ? "自动"
-                : "按角色位置"}
+                ? t("prompt.automatic")
+                : t("prompt.perCharacterPosition")}
           </p>
           {resolved.characters.map((character, index) => (
             <ResolvedCharacterDetails
@@ -184,7 +231,10 @@ export function ResolvedOutputs({
       )}
       {resolved.inputs.references.precise.length > 0 && (
         <section>
-          <h3>精确参考 · {resolved.inputs.references.precise.length}</h3>
+          <h3>
+            {t("prompt.preciseReferencesHeading")}
+            {resolved.inputs.references.precise.length}
+          </h3>
           {resolved.inputs.references.precise.map((reference, index) => (
             <ResolvedReferenceDetails
               key={reference.id}

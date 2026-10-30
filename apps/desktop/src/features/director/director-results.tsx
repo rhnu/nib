@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { resultsApi } from "@/features/generation/results/api";
 import { summarizeResult } from "@/features/generation/jobs/summary";
@@ -17,6 +18,8 @@ import { imageName } from "@/features/media/model";
 import { directorOutputLabel, directorToolLabels } from "./model";
 
 function SourceFrame({ id, title }: { id: string | null; title: string }) {
+  useTranslation();
+
   const media = useMediaAsset(id);
   return (
     <section className="director-image-frame">
@@ -28,11 +31,13 @@ function SourceFrame({ id, title }: { id: string | null; title: string }) {
       </header>
       <div className="director-image-surface">
         {media.error ? (
-          <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+          <Notice actions={<Button onClick={media.retry}>{t("director.retryLoad")}</Button>}>
+            {media.error}
+          </Notice>
         ) : media.asset ? (
           <AssetImage asset={media.asset} alt={title} className="director-image" />
         ) : (
-          <p className="muted">{id ? "正在读取输入…" : "未选择输入图片"}</p>
+          <p className="muted">{id ? t("director.loadingInput") : t("director.noInput")}</p>
         )}
       </div>
     </section>
@@ -48,6 +53,8 @@ function OutputThumbnail({
   selected: boolean;
   onSelect: () => void;
 }) {
+  useTranslation();
+
   const image = useMediaContent(result.assetId, "image/png", result.available, "thumbnail");
   const label = directorOutputLabel(result);
   return (
@@ -61,7 +68,13 @@ function OutputThumbnail({
       {image.url ? (
         <img src={image.url} alt="" onError={image.failed} />
       ) : (
-        <span>{!result.available ? "文件不可用" : image.error ? "读取失败" : "读取中…"}</span>
+        <span>
+          {!result.available
+            ? t("director.fileUnavailable")
+            : image.error
+              ? t("director.loadFailed")
+              : t("director.loading")}
+        </span>
       )}
       <span>{label}</span>
     </Button>
@@ -99,6 +112,8 @@ export function DirectorResults({
   canUsePreciseReference?: boolean;
   canUseVibeReference?: boolean;
 }) {
+  useTranslation();
+
   const generation = useJobData();
   const outputs =
     generation.results?.filter(
@@ -133,20 +148,29 @@ export function DirectorResults({
   const [detail, setDetail] = useState<ResultSummary | null>(null);
   const available = selected?.available ?? false;
   return (
-    <section className="director-results" aria-label="导演工具输入与输出">
+    <section className="director-results" aria-label={t("director.inputOutput")}>
       {retained.error && (
-        <Notice actions={<Button onClick={retained.retry}>重试读取选中结果</Button>}>
+        <Notice
+          actions={<Button onClick={retained.retry}>{t("director.retrySelectedOutput")}</Button>}
+        >
           {retained.error}
         </Notice>
       )}
       {generation.queryError && (
-        <Notice actions={<Button onClick={() => void generation.refresh()}>重试查询</Button>}>
+        <Notice
+          actions={
+            <Button onClick={() => void generation.refresh()}>{t("director.retryQuery")}</Button>
+          }
+        >
           {generation.queryError}
         </Notice>
       )}
       <div className={`director-comparison ${compare && selected ? "is-comparing" : ""}`}>
         {(!selected || compare) && (
-          <SourceFrame id={submittedSource} title={selected ? "提交源图" : "输入"} />
+          <SourceFrame
+            id={submittedSource}
+            title={selected ? t("director.submittedSource") : t("director.input")}
+          />
         )}
         {selected && (
           <ResultCanvas
@@ -160,32 +184,32 @@ export function DirectorResults({
             leadingTools={
               <>
                 <IconButton
-                  label="比较输入与输出"
+                  label={t("director.compare")}
                   aria-pressed={compare}
                   onClick={() => setCompare((value) => !value)}
                 >
                   <Columns2 size={17} />
                 </IconButton>
                 <ActionsMenu
-                  label="继续使用导演工具输出"
+                  label={t("director.continueWithOutput")}
                   items={[
                     ...tools.map((target) => ({
-                      label: `继续${directorToolLabels[target]}`,
+                      label: t("director.continueTool", { value0: directorToolLabels[target] }),
                       disabled: !available,
                       action: () => onContinue(selected.assetId, target),
                     })),
                     {
-                      label: "用作精确参考",
+                      label: t("director.useAsPreciseReference"),
                       disabled: !available || !canUsePreciseReference,
                       action: () => onReference(selected.assetId, "precise"),
                     },
                     {
-                      label: "用作氛围转移参考",
+                      label: t("director.useAsVibeReference"),
                       disabled: !available || !canUseVibeReference,
                       action: () => onReference(selected.assetId, "vibe"),
                     },
                     {
-                      label: "编码氛围转移",
+                      label: t("director.encodeVibe"),
                       disabled: !available,
                       action: () => onEncodeVibe(selected.assetId),
                     },
@@ -196,9 +220,9 @@ export function DirectorResults({
           />
         )}
       </div>
-      <div className="director-output-strip" aria-label="此工具的全部输出">
+      <div className="director-output-strip" aria-label={t("director.allOutputs")}>
         {generation.results === null ? (
-          <output className="muted">正在读取结果…</output>
+          <output className="muted">{t("director.loadingResults")}</output>
         ) : (
           outputs
             .slice(0, visibleCount)
@@ -212,14 +236,16 @@ export function DirectorResults({
             ))
         )}
         {outputs.length > visibleCount && (
-          <Button onClick={() => setVisibleCount((count) => count + 12)}>更多输出</Button>
+          <Button onClick={() => setVisibleCount((count) => count + 12)}>
+            {t("director.moreOutputs")}
+          </Button>
         )}
         {generation.hasMoreResults && (
           <Button
             disabled={generation.loadingMoreResults}
             onClick={() => void generation.loadMoreResults()}
           >
-            {generation.loadingMoreResults ? "正在读取…" : "读取更早结果"}
+            {generation.loadingMoreResults ? t("director.loadingMore") : t("director.loadEarlier")}
           </Button>
         )}
       </div>

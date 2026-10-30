@@ -1,3 +1,5 @@
+import { t, useTranslation, formatNumber } from "@/shared/i18n";
+import { errorMessage } from "@/shared/host/error";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftRight, RotateCcw } from "lucide-react";
 import type { GenerationSettings, ModelCapabilities, ResolvedSettings } from "@/bindings/workbench";
@@ -12,6 +14,14 @@ import {
 } from "./settings";
 
 export { focusSetting } from "./settings";
+
+const sizePresetLabels: Record<string, () => string> = {
+  portrait: () => t("presets.portrait"),
+  landscape: () => t("presets.landscape"),
+  square: () => t("presets.square"),
+  largePortrait: () => t("presets.largePortrait"),
+  largeLandscape: () => t("presets.largeLandscape"),
+};
 
 export interface SettingsEditorProps {
   value: GenerationSettings;
@@ -39,6 +49,8 @@ export function SettingsEditor({
   mode = "draft",
   advancedContent,
 }: SettingsEditorProps) {
+  useTranslation();
+
   const prefix = useId();
   const advanced = useRef<HTMLDetailsElement>(null);
   const effective = resolved ?? capabilities?.defaults;
@@ -46,9 +58,7 @@ export function SettingsEditor({
   const sizePreset = capabilities?.sizePresets.find(
     (preset) => preset.width === value.size?.width && preset.height === value.size?.height,
   );
-  const diagnosticSignature = diagnostics
-    .map(({ field, change }) => `${field}:${change}`)
-    .join("|");
+  const diagnosticSignature = JSON.stringify(diagnostics);
   const errorSignature = errorFields.join("|");
   const hasAdvancedDiagnostic = [...diagnostics.map((item) => item.field), ...errorFields].some(
     (field) => {
@@ -67,7 +77,9 @@ export function SettingsEditor({
     onChange({ ...value, [key]: next });
 
   const inherited = (key: SettingKey) =>
-    `${effective ? settingValue(key, effective[key]) : "默认"} · 继承`;
+    t("prompt.inheritedValue", {
+      value0: effective ? settingValue(key, effective[key]) : t("prompt.default"),
+    });
 
   const diagnosticsFor = (key: SettingKey) =>
     diagnostics.filter((item) => diagnosticSetting(item.field) === key);
@@ -86,10 +98,19 @@ export function SettingsEditor({
           htmlFor={`${prefix}-${key}`}
           inherited={value[key] === null}
           className={key === "model" && fields === "modelOnly" ? "model-form-field" : ""}
-          help={help && <HelpMarker label={`${settingLabels[key]}说明`}>{help}</HelpMarker>}
+          help={
+            help && (
+              <HelpMarker label={t("prompt.settingHelp", { value0: settingLabels[key] })}>
+                {help}
+              </HelpMarker>
+            )
+          }
           actions={
             value[key] !== null && (
-              <IconButton label={`恢复继承${settingLabels[key]}`} onClick={() => change(key, null)}>
+              <IconButton
+                label={t("prompt.restoreInheritance", { value0: settingLabels[key] })}
+                onClick={() => change(key, null)}
+              >
                 <RotateCcw size={12} />
               </IconButton>
             )
@@ -97,15 +118,17 @@ export function SettingsEditor({
         >
           {control}
         </FormField>
-        {unsupported && <small className="setting-note">当前模型不支持，已保留设置。</small>}
+        {unsupported && (
+          <small className="setting-note">{t("prompt.unsupportedSettingKept")}</small>
+        )}
         {messages.length > 0 && (
           <output id={`${prefix}-${key}-diagnostic`} className="setting-message">
             {messages.map((item, index) => (
-              <p key={index}>{item.change}</p>
+              <p key={index}>{errorMessage(item.change)}</p>
             ))}
           </output>
         )}
-        {rejected && <small className="setting-message">此项无效，详见生成区错误。</small>}
+        {rejected && <small className="setting-message">{t("prompt.invalidSetting")}</small>}
       </div>
     );
   };
@@ -142,7 +165,7 @@ export function SettingsEditor({
         <div className="setting-slider">
           <input
             type="range"
-            aria-label={`${settingLabels[key]}滑块`}
+            aria-label={t("prompt.settingSlider", { value0: settingLabels[key] })}
             aria-invalid={controlProps(key)["aria-invalid"]}
             aria-describedby={controlProps(key)["aria-describedby"]}
             min={range.min}
@@ -158,7 +181,7 @@ export function SettingsEditor({
         numericInput
       ),
       range && range.min === range.max
-        ? `${help ? `${help} ` : ""}当前模型固定为 ${range.min}，已保留设置。`
+        ? t("prompt.fixedValueKept", { value0: help ? `${help} ` : "", value1: range.min })
         : help,
     );
   };
@@ -189,14 +212,21 @@ export function SettingsEditor({
         onChange={(event) => change(key, (event.target.value || null) as GenerationSettings[K])}
       >
         <option value="">{inherited(key)}</option>
-        {current !== null && !hasCurrent && <option value={current}>{current} · 已保存</option>}
+        {current !== null && !hasCurrent && (
+          <option value={current}>
+            {current}
+            {t("prompt.savedTag")}
+          </option>
+        )}
         {choices?.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
       </select>,
-      fixed ? `${help ? `${help} ` : ""}当前模型固定为 ${fixed}；切换模型不会清除已有覆盖。` : help,
+      fixed
+        ? t("prompt.fixedValueOverrideKept", { value0: help ? `${help} ` : "", value1: fixed })
+        : help,
       current !== null && choices !== undefined && !hasCurrent,
     );
   };
@@ -224,16 +254,18 @@ export function SettingsEditor({
       >
         <option value="">{inherited(key)}</option>
         <option value="true" disabled={supported === false}>
-          开启
+          {t("prompt.on")}
         </option>
-        <option value="false">关闭</option>
+        <option value="false">{t("prompt.off")}</option>
       </select>,
       help,
       supported === false && value[key] === true,
     );
 
   const advancedCount = advancedSettingKeys.filter((key) => value[key] !== null).length;
-  const advancedSummary = advancedCount ? `${advancedCount} 项已设置` : "";
+  const advancedSummary = advancedCount
+    ? t("prompt.configuredCount", { count: advancedCount })
+    : "";
   return (
     <div className="settings-editor" data-setting-editor={mode}>
       {(fields === "all" || fields === "model" || fields === "modelOnly") && (
@@ -244,18 +276,14 @@ export function SettingsEditor({
       )}
       {(fields === "all" || fields === "prompt" || fields === "promptOptions") && (
         <FormGrid className="settings-fields settings-prompt">
-          {options(
-            "quality",
-            capabilities?.qualityPresets,
-            "自动追加模型质量标签；字面提示词保持原样。",
-          )}
-          {options("ucPreset", capabilities?.ucPresets, "与自定义负面提示一起组成实际提交文本。")}
+          {options("quality", capabilities?.qualityPresets, t("prompt.qualityTagsHelp"))}
+          {options("ucPreset", capabilities?.ucPresets, t("prompt.negativePresetHelp"))}
           {fields === "promptOptions" && boolean("furryMode", capabilities?.furryMode)}
           {(capabilities?.transparentBackground || value.transparentBackground !== null) &&
             boolean(
               "transparentBackground",
               capabilities?.transparentBackground,
-              "请求透明背景；适用于 V5。",
+              t("prompt.transparentBackgroundHelp"),
             )}
         </FormGrid>
       )}
@@ -265,7 +293,7 @@ export function SettingsEditor({
             "size",
             <div className="size-editor">
               <select
-                aria-label="尺寸预设"
+                aria-label={t("prompt.sizePreset")}
                 value={
                   value.size === null ? "" : customSize ? "custom" : (sizePreset?.id ?? "custom")
                 }
@@ -286,21 +314,22 @@ export function SettingsEditor({
                 <option value="">{inherited("size")}</option>
                 {capabilities?.sizePresets.map((preset) => (
                   <option key={preset.id} value={preset.id}>
-                    {preset.label} · {preset.width} × {preset.height}
+                    {sizePresetLabels[preset.id]?.() ?? preset.id} · {preset.width} ×{" "}
+                    {preset.height}
                   </option>
                 ))}
-                <option value="custom">Custom · 自定义</option>
+                <option value="custom">{t("prompt.customSize")}</option>
               </select>
               <div className="size-inputs">
                 <input
                   {...controlProps("size")}
-                  aria-label="宽度"
+                  aria-label={t("prompt.width")}
                   type="number"
                   min={capabilities?.ranges.dimension.min}
                   max={capabilities?.ranges.dimension.max}
                   step={capabilities?.ranges.dimensionMultiple}
                   value={value.size?.width ?? ""}
-                  placeholder={effective ? String(effective.size.width) : "继承宽度"}
+                  placeholder={effective ? String(effective.size.width) : t("prompt.inheritWidth")}
                   onChange={(event) => {
                     if (event.target.value !== "" && !Number.isFinite(event.target.valueAsNumber))
                       return;
@@ -321,13 +350,15 @@ export function SettingsEditor({
                 />
                 <span>×</span>
                 <input
-                  aria-label="高度"
+                  aria-label={t("prompt.height")}
                   type="number"
                   min={capabilities?.ranges.dimension.min}
                   max={capabilities?.ranges.dimension.max}
                   step={capabilities?.ranges.dimensionMultiple}
                   value={value.size?.height ?? ""}
-                  placeholder={effective ? String(effective.size.height) : "继承高度"}
+                  placeholder={
+                    effective ? String(effective.size.height) : t("prompt.inheritHeight")
+                  }
                   aria-describedby={
                     diagnosticsFor("size").length ? `${prefix}-size-diagnostic` : undefined
                   }
@@ -350,7 +381,7 @@ export function SettingsEditor({
                   }}
                 />
                 <IconButton
-                  label="交换宽高"
+                  label={t("prompt.swapDimensions")}
                   disabled={!value.size && !effective}
                   onClick={() => {
                     const size = value.size ?? effective?.size;
@@ -362,13 +393,16 @@ export function SettingsEditor({
               </div>
             </div>,
             capabilities
-              ? `尺寸步进 ${capabilities.ranges.dimensionMultiple}；最大像素 ${capabilities.ranges.maxPixels.toLocaleString()}。`
+              ? t("prompt.dimensionLimits", {
+                  value0: capabilities.ranges.dimensionMultiple,
+                  value1: formatNumber(capabilities.ranges.maxPixels),
+                })
               : undefined,
           )}
           {capabilities
             ? wrapper(
                 "nSamples",
-                <fieldset className="sample-options" aria-label="样本数">
+                <fieldset className="sample-options" aria-label={t("prompt.samples")}>
                   <button
                     id={`${prefix}-nSamples`}
                     type="button"
@@ -377,7 +411,7 @@ export function SettingsEditor({
                     aria-pressed={value.nSamples === null}
                     onClick={() => change("nSamples", null)}
                   >
-                    继承
+                    {t("prompt.inherit")}
                   </button>
                   {Array.from(
                     {
@@ -402,12 +436,15 @@ export function SettingsEditor({
                   {value.nSamples !== null &&
                     (value.nSamples < capabilities.ranges.nSamples.min ||
                       value.nSamples > capabilities.ranges.nSamples.max) && (
-                      <output className="sample-saved">{value.nSamples} · 已保存</output>
+                      <output className="sample-saved">
+                        {value.nSamples}
+                        {t("prompt.savedTag")}
+                      </output>
                     )}
                 </fieldset>,
-                "一次生成的图片数量，上限随尺寸变化。",
+                t("prompt.samplesHelp"),
               )
-            : number("nSamples", "一次生成的图片数量，上限随尺寸变化。")}
+            : number("nSamples", t("prompt.samplesHelp"))}
         </FormGrid>
       )}
       {(fields === "all" || fields === "parameters") && (
@@ -415,12 +452,12 @@ export function SettingsEditor({
           <FormGrid className="settings-fields settings-main">
             {number("steps")}
             {number("scale")}
-            {number("seed", "输入 0 使用随机种子；固定种子便于复现。")}
+            {number("seed", t("prompt.seedHelp"))}
             {options("sampler", capabilities?.samplers, undefined, capabilities?.fixedSampler)}
           </FormGrid>
           <details className="advanced-settings" ref={advanced}>
             <summary>
-              <span>高级设置</span>
+              <span>{t("prompt.advancedSettings")}</span>
               {advancedSummary && <small>{advancedSummary}</small>}
             </summary>
             <FormGrid className="settings-fields">
@@ -436,15 +473,15 @@ export function SettingsEditor({
               {boolean("smea", capabilities?.smea)}
               {boolean("smeaDyn", capabilities?.smea)}
               {boolean("legacyUc", capabilities?.legacyUc)}
-              <h4 className="settings-group-title">输出</h4>
+              <h4 className="settings-group-title">{t("prompt.output")}</h4>
               {options("alphaMode", capabilities?.alphaModes)}
               {options("imageFormat", capabilities?.imageFormats)}
               {options(
                 "responseFormat",
                 capabilities?.responseFormats,
-                "选择 ZIP 或 JSON 图像响应。",
+                t("prompt.responseFormatHelp"),
               )}
-              {advancedContent && <h4 className="settings-group-title">执行</h4>}
+              {advancedContent && <h4 className="settings-group-title">{t("prompt.execution")}</h4>}
               {advancedContent}
             </FormGrid>
           </details>

@@ -3,7 +3,10 @@
 use novelai_bridge::{Character, CharacterPosition, CharacterSet, GenerateImageRequest};
 use serde::{Deserialize, Serialize};
 
-use crate::{persistence::PersistenceError, prompt::ResolvedSettings, session::CreationInputs};
+use crate::{
+    api::UserMessage, persistence::PersistenceError, prompt::ResolvedSettings,
+    session::CreationInputs,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,7 +34,7 @@ pub struct ResolutionIssue {
     pub node_id: Option<String>,
     pub preset_instance_id: Option<String>,
     pub resource_id: Option<String>,
-    pub message: String,
+    pub message: UserMessage,
     pub character_id: Option<String>,
 }
 

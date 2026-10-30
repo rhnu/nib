@@ -3,9 +3,12 @@
 use novelai_bridge::{DirectorCommand, ValidationPolicy};
 use serde::{Deserialize, Serialize};
 
-use crate::prompt::{
-    ValidationError,
-    validation::{invalid, nonempty},
+use crate::{
+    api::UserMessage,
+    prompt::{
+        ValidationError,
+        validation::{invalid, nonempty},
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,12 +113,12 @@ impl DirectorWorkspace {
         let mut tools = Vec::new();
         for state in &self.tools {
             if tools.contains(&state.tool) {
-                return Err(invalid("director.tools", "duplicate tool identity"));
+                return Err(invalid("director.tools", UserMessage::DuplicateTool));
             }
             if state.tool != DirectorToolKind::from_command(&state.command) {
                 return Err(invalid(
                     "director.tools.command",
-                    "command belongs to a different tool",
+                    UserMessage::CommandToolMismatch,
                 ));
             }
             tools.push(state.tool);
@@ -127,7 +130,10 @@ impl DirectorWorkspace {
             }
         }
         if !tools.is_empty() && !tools.contains(&self.selected_tool) {
-            return Err(invalid("director.selectedTool", "selected tool is missing"));
+            return Err(invalid(
+                "director.selectedTool",
+                UserMessage::SelectedToolMissing,
+            ));
         }
         Ok(())
     }

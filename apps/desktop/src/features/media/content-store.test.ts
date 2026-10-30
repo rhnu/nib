@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { MediaContentStore } from "./content-store";
+import { applyLanguage, errorMessage } from "@/shared/i18n";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -10,6 +11,25 @@ function deferred<T>() {
 }
 
 describe("mounted media content", () => {
+  it("reformats a retained display failure when the language changes", () => {
+    const resource = new MediaContentStore(vi.fn()).resource(
+      "original:asset",
+      async () => "blob:image",
+    );
+    resource.failed();
+    const snapshot = resource.getSnapshot();
+    applyLanguage("en");
+    const english = errorMessage(snapshot.error);
+    try {
+      applyLanguage("zh-CN");
+      expect(errorMessage(snapshot.error)).not.toBe(english);
+      expect(resource.getSnapshot()).toBe(snapshot);
+      expect(snapshot.error).toBeInstanceOf(Error);
+    } finally {
+      applyLanguage("system");
+    }
+  });
+
   it("shares one load for consumers of the same immutable variant", async () => {
     const loaded = deferred<string>();
     const load = vi.fn(() => loaded.promise);

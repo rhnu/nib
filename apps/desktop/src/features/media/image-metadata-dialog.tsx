@@ -1,7 +1,8 @@
+import { errorMessage } from "@/shared/host/error";
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { KnownImageMetadata, MediaAsset, MetadataRestore } from "@/bindings/media";
 import type { Draft } from "@/bindings/workbench";
-import { errorMessage } from "@/shared/host/error";
 import { ActionsMenu, Button, Modal, Notice } from "@/shared/ui";
 import { useMediaTools } from "./media-tools-context";
 import { mediaApi } from "./api";
@@ -12,98 +13,119 @@ import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { settingLabels, settingValue, type SettingKey } from "@/features/prompt/settings";
 
 const statusLabels = {
-  parsed: "已解析已知生成信息",
-  notPresent: "图片未包含可识别的生成信息",
-  unsupportedFormat: "此图片格式不支持元信息检查",
-  invalid: "图片中的元信息无效",
+  get parsed() {
+    return t("media.metadataParsed");
+  },
+  get notPresent() {
+    return t("media.metadataAbsent");
+  },
+  get unsupportedFormat() {
+    return t("media.metadataUnsupported");
+  },
+  get invalid() {
+    return t("media.metadataInvalid");
+  },
 };
 const origins = {
-  png_text: "PNG 文本块",
-  exif_user_comment: "EXIF UserComment",
-  stealth_png_comp: "Stealth PNG",
+  get png_text() {
+    return t("media.pngTextChunks");
+  },
+  get exif_user_comment() {
+    return t("media.exifUserComment");
+  },
+  get stealth_png_comp() {
+    return t("media.stealthPng");
+  },
 };
 
 function MetadataField({ label, value }: { label: string; value: ReactNode }) {
+  useTranslation();
+
   return (
     <div>
       <dt>{label}</dt>
-      <dd>{value ?? "未记录"}</dd>
+      <dd>{value ?? t("media.notRecorded")}</dd>
     </div>
   );
 }
 
 function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
+  useTranslation();
+
   return (
     <>
       <dl className="media-metadata-fields">
         <MetadataField
-          label="元信息载体"
+          label={t("media.metadataCarrier")}
           value={
             metadata.origin === null ? null : `${origins[metadata.origin]} (${metadata.origin})`
           }
         />
-        <MetadataField label="模型" value={metadata.model} />
-        <MetadataField label="种子" value={metadata.seed} />
+        <MetadataField label={t("media.model")} value={metadata.model} />
+        <MetadataField label={t("media.seed")} value={metadata.seed} />
         <MetadataField
-          label="尺寸"
+          label={t("media.dimensions")}
           value={metadata.size && `${metadata.size.width} × ${metadata.size.height}`}
         />
-        <MetadataField label="步数" value={metadata.steps} />
-        <MetadataField label="采样器" value={metadata.sampler} />
-        <MetadataField label="Guidance" value={metadata.scale} />
-        <MetadataField label="Noise Schedule" value={metadata.noiseSchedule} />
-        <MetadataField label="CFG Rescale" value={metadata.cfgRescale} />
-        <MetadataField label="旧版 UC 索引" value={metadata.ucPreset} />
+        <MetadataField label={t("media.steps")} value={metadata.steps} />
+        <MetadataField label={t("media.sampler")} value={metadata.sampler} />
+        <MetadataField label={t("media.guidance")} value={metadata.scale} />
+        <MetadataField label={t("media.noiseSchedule")} value={metadata.noiseSchedule} />
+        <MetadataField label={t("media.cfgRescale")} value={metadata.cfgRescale} />
+        <MetadataField label={t("media.legacyUcIndex")} value={metadata.ucPreset} />
         <MetadataField
-          label="质量标签开关"
+          label={t("media.qualityTagsToggle")}
           value={metadata.qualityToggle === null ? null : String(metadata.qualityToggle)}
         />
-        <MetadataField label="来源" value={metadata.source} />
-        <MetadataField label="软件" value={metadata.software} />
-        <MetadataField label="嵌入氛围转移条目数" value={metadata.embeddedVibeCount} />
+        <MetadataField label={t("media.source")} value={metadata.source} />
+        <MetadataField label={t("media.software")} value={metadata.software} />
+        <MetadataField label={t("media.embeddedVibeCount")} value={metadata.embeddedVibeCount} />
       </dl>
       <section className="media-literal-content">
-        <h3>图片记录的正面提示词</h3>
+        <h3>{t("media.recordedPositivePrompt")}</h3>
         <PromptTextEditor
           value={metadata.prompt ?? ""}
-          label="图片记录的正面提示词"
-          placeholder="未记录"
+          label={t("media.recordedPositivePrompt")}
+          placeholder={t("media.notRecorded")}
           model={metadata.model ?? undefined}
           readOnly
-          tokenUnavailableLabel="图片未记录模型"
+          tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
-        <h3>图片记录的负面提示词</h3>
+        <h3>{t("media.recordedNegativePrompt")}</h3>
         <PromptTextEditor
           value={metadata.negativePrompt ?? ""}
-          label="图片记录的负面提示词"
-          placeholder="未记录"
+          label={t("media.recordedNegativePrompt")}
+          placeholder={t("media.notRecorded")}
           model={metadata.model ?? undefined}
           readOnly
-          tokenUnavailableLabel="图片未记录模型"
+          tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
       </section>
       {metadata.characters.length > 0 && (
         <section className="media-literal-content">
-          <h3>角色文字</h3>
-          <p className="muted">保留图片中的角色索引。文字不代表完整角色位置或可恢复的参考材料。</p>
+          <h3>{t("media.characterText")}</h3>
+          <p className="muted">{t("media.characterTextDescription")}</p>
           {metadata.characters.map((character, index) => (
             <div key={index}>
-              <h4>源角色索引 {character.sourceIndex}</h4>
-              <span className="muted">正面</span>
+              <h4>
+                {t("media.sourceCharacterIndex")}
+                {character.sourceIndex}
+              </h4>
+              <span className="muted">{t("media.positive")}</span>
               <PromptTextEditor
                 value={character.prompt ?? ""}
-                label={`角色 ${character.sourceIndex + 1} 正面提示词`}
+                label={t("media.characterPositivePrompt", { value0: character.sourceIndex + 1 })}
                 model={metadata.model ?? undefined}
                 readOnly
-                tokenUnavailableLabel="图片未记录模型"
+                tokenUnavailableLabel={t("media.modelNotRecorded")}
               />
-              <span className="muted">负面</span>
+              <span className="muted">{t("media.negative")}</span>
               <PromptTextEditor
                 value={character.negativePrompt ?? ""}
-                label={`角色 ${character.sourceIndex + 1} 负面提示词`}
+                label={t("media.characterNegativePrompt", { value0: character.sourceIndex + 1 })}
                 model={metadata.model ?? undefined}
                 readOnly
-                tokenUnavailableLabel="图片未记录模型"
+                tokenUnavailableLabel={t("media.modelNotRecorded")}
               />
             </div>
           ))}
@@ -122,39 +144,45 @@ function RestorePreview({
   confirm: () => void;
   cancel: () => void;
 }) {
+  useTranslation();
+
   const { draft, notices } = restore;
   return (
-    <section className="metadata-restore-preview" aria-label="恢复替换预览">
-      <h3>恢复到当前创作</h3>
-      <p>将替换当前提示词、配方、设置、角色和图像/参考输入，并自动保存。此操作不会发起生成。</p>
+    <section className="metadata-restore-preview" aria-label={t("media.restorePreview")}>
+      <h3>{t("media.restoreCreation")}</h3>
+      <p>{t("media.restoreConsequences")}</p>
       <ul className="media-notices">
         {notices.map((notice, index) => (
-          <li key={index}>{notice}</li>
+          <li key={index}>{errorMessage(notice)}</li>
         ))}
       </ul>
       <details open className="media-literal-content">
-        <summary>即将使用的内容</summary>
-        <h4>正面提示词</h4>
+        <summary>{t("media.contentToUse")}</summary>
+        <h4>{t("media.positivePrompt")}</h4>
         <PromptTextEditor
           value={draft.composition.positive
-            .map((node) => (node.kind === "text" ? node.text : (node.overrideText ?? "Chunk 引用")))
+            .map((node) =>
+              node.kind === "text" ? node.text : (node.overrideText ?? t("media.chunkReferences")),
+            )
             .join("\n")}
-          label="恢复正面提示词"
+          label={t("media.restorePositivePrompt")}
           model={draft.settings.model ?? undefined}
           readOnly
-          tokenUnavailableLabel="图片未记录模型"
+          tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
-        <h4>负面提示词</h4>
+        <h4>{t("media.negativePrompt")}</h4>
         <PromptTextEditor
           value={draft.composition.negative
-            .map((node) => (node.kind === "text" ? node.text : (node.overrideText ?? "Chunk 引用")))
+            .map((node) =>
+              node.kind === "text" ? node.text : (node.overrideText ?? t("media.chunkReferences")),
+            )
             .join("\n")}
-          label="恢复负面提示词"
+          label={t("media.restoreNegativePrompt")}
           model={draft.settings.model ?? undefined}
           readOnly
-          tokenUnavailableLabel="图片未记录模型"
+          tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
-        <h4>已知设置</h4>
+        <h4>{t("media.knownSettings")}</h4>
         <dl className="media-metadata-fields">
           {Object.entries(draft.settings)
             .filter(([, value]) => value !== null)
@@ -167,14 +195,20 @@ function RestorePreview({
             ))}
         </dl>
         <p className="muted">
-          配方 {draft.presets.length} 项 · 角色 {draft.characters.length} 项 · 操作{" "}
-          {draft.inputs.operation.kind === "textToImage" ? "文生图" : "图片操作"}
+          {t("media.presetCountPrefix")}
+          {draft.presets.length}
+          {t("media.characterCountPrefix")}
+          {draft.characters.length}
+          {t("media.operationPrefix")}{" "}
+          {draft.inputs.operation.kind === "textToImage"
+            ? t("media.textToImage")
+            : t("media.imageOperation")}
         </p>
       </details>
       <div className="media-dialog-actions">
-        <Button onClick={cancel}>保留当前创作</Button>
+        <Button onClick={cancel}>{t("media.keepCreation")}</Button>
         <Button className="primary" onClick={confirm}>
-          替换当前创作
+          {t("media.replaceCreation")}
         </Button>
       </div>
     </section>
@@ -192,6 +226,8 @@ function MetadataDialogContent({
   onRestore?: (draft: Draft) => void;
   onOpenTool?: () => void;
 }) {
+  useTranslation();
+
   const tools = useMediaTools();
   const unavailable = imageUnavailableReason(asset);
   const report = useMediaQuery(
@@ -201,7 +237,7 @@ function MetadataDialogContent({
   );
   const [restore, setRestore] = useState<MetadataRestore | null>(null);
   const [restoring, setRestoring] = useState(false);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useMessageState();
   const current = useRef({ active: true, locked: false });
   useEffect(() => {
     const state = current.current;
@@ -220,7 +256,7 @@ function MetadataDialogContent({
       const preview = await mediaApi.restoreMetadata(asset.id);
       if (current.current.active) setRestore(preview);
     } catch (cause) {
-      if (current.current.active) setRestoreError(errorMessage(cause));
+      if (current.current.active) setRestoreError(cause);
     } finally {
       current.current.locked = false;
       if (current.current.active) setRestoring(false);
@@ -228,17 +264,17 @@ function MetadataDialogContent({
   };
 
   return (
-    <Modal open onClose={onClose} title="图片元信息" wide>
+    <Modal open onClose={onClose} title={t("media.imageMetadata")} wide>
       <div className="media-metadata-dialog">
         <p className="media-asset-heading">
           {imageName(asset)} · {asset.mimeType}
         </p>
         {tools && asset.mimeType === "image/png" && (
           <ActionsMenu
-            label="图片高级操作"
+            label={t("media.advancedImageActions")}
             items={[
               {
-                label: "PNG 文本",
+                label: t("media.pngText"),
                 disabled: Boolean(unavailable),
                 action: () => {
                   onClose();
@@ -250,17 +286,19 @@ function MetadataDialogContent({
           />
         )}
         {unavailable && <Notice>{unavailable}</Notice>}
-        {report.loading && <output>正在检查 PNG / JPEG / WebP 元信息…</output>}
+        {report.loading && <output>{t("media.inspectingMetadata")}</output>}
         {report.error && (
-          <Notice actions={<Button onClick={report.retry}>重试检查</Button>}>{report.error}</Notice>
+          <Notice actions={<Button onClick={report.retry}>{t("media.retryInspection")}</Button>}>
+            {report.error}
+          </Notice>
         )}
         {report.value && (
           <>
             <output>{statusLabels[report.value.status]}</output>
             {report.value.warnings.length > 0 && (
-              <ul className="media-notices" aria-label="元信息提示">
+              <ul className="media-notices" aria-label={t("media.metadataNotice")}>
                 {report.value.warnings.map((warning, index) => (
-                  <li key={index}>{warning}</li>
+                  <li key={index}>{errorMessage(warning)}</li>
                 ))}
               </ul>
             )}
@@ -268,10 +306,10 @@ function MetadataDialogContent({
             {onRestore && report.value.status === "parsed" && !restore && (
               <Button disabled={restoring || !!unavailable} onClick={() => void prepareRestore()}>
                 {restoring
-                  ? "正在读取恢复预览…"
+                  ? t("media.loadingRestorePreview")
                   : restoreError
-                    ? "重试读取恢复预览"
-                    : "预览恢复已知生成内容"}
+                    ? t("media.retryRestorePreview")
+                    : t("media.previewRestore")}
               </Button>
             )}
           </>
@@ -301,5 +339,7 @@ export function ImageMetadataDialog(props: {
   onRestore?: (draft: Draft) => void;
   onOpenTool?: () => void;
 }) {
+  useTranslation();
+
   return <MetadataDialogContent key={props.asset.id} {...props} />;
 }

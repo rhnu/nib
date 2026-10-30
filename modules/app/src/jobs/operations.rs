@@ -1,4 +1,5 @@
 //! Resolve application asset identities into SDK inputs at local preparation boundaries.
+
 use novelai_bridge::{
     AnlasPricingContext, CharacterReference, EncodeVibeRequest, GenerateImageRequest,
     GenerationDelivery, GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet,
@@ -9,6 +10,7 @@ use super::{
     FrozenSubmission, GenerationQuote, JobError, JobQueue, ParameterDiagnostic, TokenFieldUsage,
 };
 use crate::{
+    api::UserMessage,
     media::AssetReader,
     prompt::{ResolvedDraft, ResolvedSettings},
     session::{CreationInputs, CreationOperation, Draft, VibeInput, validate_draft},
@@ -104,7 +106,12 @@ impl JobQueue {
                 Ok((submission, QuoteBasis::Upscale(prepared.estimated_cost())))
             },
             _ => {
-                validate_draft(draft).map_err(|error| JobError::Invalid(error.to_string()))?;
+                validate_draft(draft).map_err(|error| {
+                    JobError::Invalid(UserMessage::Validation {
+                        field: error.field,
+                        message: Box::new(error.message),
+                    })
+                })?;
                 let resolved = self.resolver.resolve(draft)?;
                 let (submission, prepared) = prepare_generation(resolved, self.assets.as_ref())?;
                 Ok((submission, QuoteBasis::Generation(Box::new(prepared))))
@@ -121,11 +128,14 @@ impl JobQueue {
         ) {
             let count = draft.inputs.request_count;
             if !(1..=8).contains(&count) {
-                return Err(JobError::Invalid(
-                    "一次生成必须包含 1 到 8 个请求。".to_owned(),
-                ));
+                return Err(JobError::Invalid(UserMessage::RequestCountRange));
             }
-            validate_draft(draft).map_err(|error| JobError::Invalid(error.to_string()))?;
+            validate_draft(draft).map_err(|error| {
+                JobError::Invalid(UserMessage::Validation {
+                    field: error.field,
+                    message: Box::new(error.message),
+                })
+            })?;
             let mut resolved = self.resolver.resolve(draft)?;
             resolved.inputs.request_count = 1;
             // Resource resolution happens once. Each SDK preparation independently resolves auto seeds.
@@ -198,9 +208,7 @@ impl JobQueue {
             1
         };
         if !(1..=8).contains(&request_count) {
-            return Err(JobError::Invalid(
-                "一次生成必须包含 1 到 8 个请求。".to_owned(),
-            ));
+            return Err(JobError::Invalid(UserMessage::RequestCountRange));
         }
         let total_samples = resolved.as_ref().map_or(request_count, |resolved| {
             resolved.settings.n_samples * request_count
@@ -294,25 +302,34 @@ fn prepare_generation(
             field: diagnostic.field.to_string(),
             change: match &diagnostic.change {
                 novelai_bridge::NormalizationChange::Adjusted { from, to } => {
-                    format!("已从 {from} 调整为 {to}。")
+                    UserMessage::NumericAdjusted {
+                        from: from.to_string(),
+                        to: to.to_string(),
+                    }
                 },
                 novelai_bridge::NormalizationChange::Unsupported => {
-                    "所选模型不支持，已移除。".to_owned()
+                    UserMessage::UnsupportedParameterRemoved
                 },
                 novelai_bridge::NormalizationChange::Fallback => {
                     if diagnostic.field == novelai_bridge::GenerationField::Model {
-                        format!("已改用 {}。", normalized.request().core.model.as_str())
+                        UserMessage::ModelFallback {
+                            model: normalized.request().core.model.as_str().to_owned(),
+                        }
                     } else {
-                        "已替换为所选模型支持的值。".to_owned()
+                        UserMessage::ParameterFallback
                     }
                 },
                 novelai_bridge::NormalizationChange::Conflict { retained_field } => {
-                    format!("与 {retained_field} 冲突，已移除。")
+                    UserMessage::ParameterConflict {
+                        retained_field: retained_field.to_string(),
+                    }
                 },
                 novelai_bridge::NormalizationChange::CharacterLimit { limit, .. } => {
-                    format!("超过模型的 {limit} 个角色上限，已停用。")
+                    UserMessage::CharacterLimit {
+                        limit: (*limit) as usize,
+                    }
                 },
-                _ => "SDK 已规范化该参数。".to_owned(),
+                _ => UserMessage::ParameterNormalized,
             },
         })
         .collect();
@@ -361,7 +378,10 @@ fn adjustments(values: &[novelai_bridge::ValidationAdjustment]) -> Vec<Parameter
         .iter()
         .map(|value| ParameterDiagnostic {
             field: value.field.to_string(),
-            change: format!("已从 {} 调整为 {}。", value.from, value.to),
+            change: UserMessage::NumericAdjusted {
+                from: value.from.to_string(),
+                to: value.to.to_string(),
+            },
         })
         .collect()
 }
@@ -417,8 +437,7 @@ fn freeze_extra_noise_seed(
     } else {
         body.parameters.extra_noise_seed
     };
-    *slot =
-        Some(seed.ok_or_else(|| JobError::Invalid("SDK 准备结果缺少有效噪声种子。".to_owned()))?);
+    *slot = Some(seed.ok_or_else(|| JobError::Invalid(UserMessage::MissingNoiseSeed))?);
     Ok(())
 }
 
@@ -457,7 +476,7 @@ pub(super) fn hydrate(
             img2img: img2img.clone(),
             add_original_image: *add_original_image,
         }),
-        _ => return Err(JobError::Invalid("该操作不是图像生成。".to_owned())),
+        _ => return Err(JobError::Invalid(UserMessage::NotImageGeneration)),
     };
     let references = &inputs.references;
     let suppress_vibes = references

@@ -1,7 +1,7 @@
+import { t, useTranslation, useMessageState, MessageError, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Eraser, Hand, Minus, Paintbrush, Plus, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import type { MaskPoint, MaskSession } from "@/bindings/workbench";
-import { errorMessage } from "@/shared/host/error";
 import { Button, HelpMarker, IconButton, Notice } from "@/shared/ui";
 import {
   appendCommand,
@@ -40,6 +40,8 @@ export function InpaintCanvasWorkspace({
   pending?: boolean;
   error?: string | null;
 }) {
+  useTranslation();
+
   const viewport = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -47,7 +49,7 @@ export function InpaintCanvasWorkspace({
   const [tool, setTool] = useState<Tool>("paint");
   const [preview, setPreview] = useState<Preview>("overlay");
   const [pointer, setPointer] = useState<MaskPoint | null>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
+  const [renderError, setRenderError] = useMessageState();
   const images = useMaskBitmaps(value.sourceAssetId, value.baseMaskAssetId);
   const { width, height, commands, cursor } = value;
   const raster = useRef<{
@@ -121,9 +123,9 @@ export function InpaintCanvasWorkspace({
     const frame = requestAnimationFrame(() => {
       try {
         if (source.width !== width || source.height !== height)
-          throw new Error("遮罩会话尺寸与底图原生尺寸不一致，请重新打开编辑器。");
+          throw new MessageError(deferMessage(() => t("inpaint.sessionSizeMismatch")));
         const context = target.getContext("2d");
-        if (!context) throw new Error("无法绘制遮罩预览，请重试读取底图。");
+        if (!context) throw new MessageError(deferMessage(() => t("inpaint.previewFailed")));
         target.width = width;
         target.height = height;
         context.drawImage(source, 0, 0);
@@ -142,7 +144,8 @@ export function InpaintCanvasWorkspace({
             overlay.width = width;
             overlay.height = height;
             const overlayContext = overlay.getContext("2d");
-            if (!overlayContext) throw new Error("无法创建遮罩叠加画布。");
+            if (!overlayContext)
+              throw new MessageError(deferMessage(() => t("inpaint.overlayCanvasFailed")));
             const pixels = mask.getContext("2d")!.getImageData(0, 0, width, height);
             pixels.data.set(overlayMaskPixels(pixels.data));
             overlayContext.putImageData(pixels, 0, 0);
@@ -153,11 +156,11 @@ export function InpaintCanvasWorkspace({
         }
         setRenderError(null);
       } catch (cause) {
-        setRenderError(errorMessage(cause));
+        setRenderError(cause);
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [width, height, commands, cursor, preview, images.source, images.mask]);
+  }, [width, height, commands, cursor, preview, images.source, images.mask, setRenderError]);
 
   const transform = canvasTransform(value, size);
   const ready =
@@ -270,7 +273,11 @@ export function InpaintCanvasWorkspace({
   };
 
   return (
-    <section className="inpaint-workspace" aria-label="局部重绘遮罩编辑器" aria-busy={pending}>
+    <section
+      className="inpaint-workspace"
+      aria-label={t("inpaint.editorTitle")}
+      aria-busy={pending}
+    >
       <header className="inpaint-toolbar">
         <div className="button-group">
           <Button
@@ -279,7 +286,7 @@ export function InpaintCanvasWorkspace({
             onClick={() => chooseTool("paint")}
           >
             <Paintbrush size={14} />
-            绘制
+            {t("inpaint.draw")}
           </Button>
           <Button
             aria-pressed={tool === "erase"}
@@ -287,7 +294,7 @@ export function InpaintCanvasWorkspace({
             onClick={() => chooseTool("erase")}
           >
             <Eraser size={14} />
-            擦除
+            {t("inpaint.erase")}
           </Button>
           <Button
             aria-pressed={tool === "pan"}
@@ -295,11 +302,15 @@ export function InpaintCanvasWorkspace({
             onClick={() => chooseTool("pan")}
           >
             <Hand size={14} />
-            平移
+            {t("inpaint.pan")}
           </Button>
         </div>
         <label className="inpaint-brush">
-          <span>笔刷 {value.brushSize}px</span>
+          <span>
+            {t("inpaint.brushPrefix")}
+            {value.brushSize}
+            {t("inpaint.pixels")}
+          </span>
           <input
             type="range"
             min={1}
@@ -314,14 +325,14 @@ export function InpaintCanvasWorkspace({
         </label>
         <div className="button-group">
           <IconButton
-            label="撤回遮罩操作"
+            label={t("inpaint.undo")}
             disabled={pending || value.cursor === 0}
             onClick={() => runHistory(undoMask)}
           >
             <Undo2 size={15} />
           </IconButton>
           <IconButton
-            label="重做遮罩操作"
+            label={t("inpaint.redo")}
             disabled={pending || value.cursor === value.commands.length}
             onClick={() => runHistory(redoMask)}
           >
@@ -331,17 +342,14 @@ export function InpaintCanvasWorkspace({
             disabled={pending}
             onClick={() => runHistory((session) => appendCommand(session, { kind: "clear" }))}
           >
-            清除遮罩
+            {t("inpaint.clear")}
           </Button>
         </div>
-        <HelpMarker label="遮罩与画布操作">
-          白色区域重绘，黑色区域保留。叠加颜色仅用于预览。滚轮缩放；平移工具或鼠标中键拖动。聚焦画布后可用方向键平移、+
-          / - 缩放、Ctrl+Z 撤回。
-        </HelpMarker>
+        <HelpMarker label={t("inpaint.canvasActions")}>{t("inpaint.canvasHelp")}</HelpMarker>
       </header>
       <div className="inpaint-view-toolbar">
         <label>
-          <span>预览</span>
+          <span>{t("inpaint.preview")}</span>
           <select
             value={preview}
             disabled={pending}
@@ -352,17 +360,17 @@ export function InpaintCanvasWorkspace({
               if (next === "original") setTool("pan");
             }}
           >
-            <option value="overlay">叠加遮罩</option>
-            <option value="original">原图</option>
-            <option value="mask">黑白遮罩</option>
+            <option value="overlay">{t("inpaint.overlay")}</option>
+            <option value="original">{t("inpaint.original")}</option>
+            <option value="mask">{t("inpaint.blackWhiteMask")}</option>
           </select>
         </label>
         <div className="button-group">
-          <IconButton label="缩小画布" disabled={pending} onClick={() => zoom(0.8)}>
+          <IconButton label={t("inpaint.zoomOut")} disabled={pending} onClick={() => zoom(0.8)}>
             <Minus size={15} />
           </IconButton>
           <output>{Math.round(transform.scale * 100)}%</output>
-          <IconButton label="放大画布" disabled={pending} onClick={() => zoom(1.25)}>
+          <IconButton label={t("inpaint.zoomIn")} disabled={pending} onClick={() => zoom(1.25)}>
             <Plus size={15} />
           </IconButton>
           <Button
@@ -370,7 +378,7 @@ export function InpaintCanvasWorkspace({
             onClick={() => change({ ...latest.current.value, zoom: 1, panX: 0, panY: 0 })}
           >
             <RotateCcw size={14} />
-            适应画布
+            {t("inpaint.fitCanvas")}
           </Button>
         </div>
         <span className="muted">
@@ -378,7 +386,7 @@ export function InpaintCanvasWorkspace({
         </span>
       </div>
       {(images.error || renderError) && (
-        <Notice actions={<Button onClick={images.retry}>重试读取</Button>}>
+        <Notice actions={<Button onClick={images.retry}>{t("inpaint.retryLoad")}</Button>}>
           {images.error ?? renderError}
         </Notice>
       )}
@@ -388,7 +396,7 @@ export function InpaintCanvasWorkspace({
         ref={viewport}
         className={`inpaint-viewport tool-${tool}`}
         role="application"
-        aria-label="遮罩画布。方向键平移，加减键缩放。"
+        aria-label={t("inpaint.canvasLabel")}
         tabIndex={0}
         onPointerDown={start}
         onPointerMove={move}
@@ -426,10 +434,14 @@ export function InpaintCanvasWorkspace({
           }
         }}
       >
-        {images.loading && <output className="inpaint-loading">正在读取底图与遮罩…</output>}
+        {images.loading && (
+          <output className="inpaint-loading">{t("inpaint.loadingSourceMask")}</output>
+        )}
         <canvas
           ref={canvas}
-          aria-label={preview === "original" ? "原图预览" : "局部重绘遮罩"}
+          aria-label={
+            preview === "original" ? t("inpaint.originalPreview") : t("inpaint.inpaintMask")
+          }
           style={{
             width: value.width * transform.scale,
             height: value.height * transform.scale,
@@ -454,19 +466,19 @@ export function InpaintCanvasWorkspace({
       <footer className="inpaint-footer">
         <div>
           {value.revision !== value.appliedRevision && (
-            <span className="muted">遮罩有未应用修改</span>
+            <span className="muted">{t("inpaint.unappliedChanges")}</span>
           )}
           {error && <Notice>{error}</Notice>}
         </div>
         <div className="button-group">
           <Button disabled={pending} onClick={onClose}>
-            退出遮罩
+            {t("inpaint.exitEditor")}
           </Button>
           <Button className="danger" disabled={pending} onClick={onDiscard}>
-            放弃修改
+            {t("inpaint.discardChanges")}
           </Button>
           <Button className="primary" disabled={!ready} onClick={onApply}>
-            {pending ? "正在应用…" : "应用遮罩"}
+            {pending ? t("inpaint.applying") : t("inpaint.apply")}
           </Button>
         </div>
       </footer>

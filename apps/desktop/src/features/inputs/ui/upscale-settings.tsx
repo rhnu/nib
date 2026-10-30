@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { CreationOperation, ImageOperationOptions } from "@/bindings/workbench";
 import { Button, Field } from "@/shared/ui";
 import type { ImageOperationFeedback } from "./image-operation-feedback";
@@ -20,11 +21,13 @@ export function UpscaleSettings({
   feedback: ImageOperationFeedback;
   updateOperation: (change: (current: CreationOperation) => CreationOperation) => void;
 }) {
+  useTranslation();
+
   const { messages, controlProps } = feedback;
   return (
     <div className="image-operation-fields">
       <div data-setting-field="upscaleModel">
-        <Field label="放大模型">
+        <Field label={t("inputs.upscaleModel")}>
           <select
             {...controlProps("model")}
             value={operation.model}
@@ -36,7 +39,10 @@ export function UpscaleSettings({
             }}
           >
             {!models.includes(operation.model) && (
-              <option value={operation.model}>{operation.model} · 已保存</option>
+              <option value={operation.model}>
+                {operation.model}
+                {t("inputs.savedSuffix")}
+              </option>
             )}
             {models.map((model) => (
               <option value={model} key={model}>
@@ -48,7 +54,7 @@ export function UpscaleSettings({
         {messages("model")}
       </div>
       <div data-setting-field="declaredBlurSigma">
-        <Field label="Blur Sigma">
+        <Field label={t("inputs.blurSigma")}>
           <select
             {...controlProps("declaredBlurSigma")}
             value={operation.declaredBlurSigma}
@@ -65,7 +71,8 @@ export function UpscaleSettings({
           >
             {!options?.upscaleBlurSigmas.includes(operation.declaredBlurSigma) && (
               <option value={operation.declaredBlurSigma}>
-                {operation.declaredBlurSigma} · 已保存
+                {operation.declaredBlurSigma}
+                {t("inputs.savedSuffix")}
               </option>
             )}
             {options?.upscaleBlurSigmas.map((sigma) => (
@@ -81,11 +88,13 @@ export function UpscaleSettings({
         <div className="inline-warning" role="alert">
           {optionsError}
           <Button className="quiet" onClick={retryOptions}>
-            重试
+            {t("inputs.retry")}
           </Button>
         </div>
       )}
-      {!options && !optionsError && <output className="muted">正在读取放大选项…</output>}
+      {!options && !optionsError && (
+        <output className="muted">{t("inputs.loadingUpscaleOptions")}</output>
+      )}
     </div>
   );
 }

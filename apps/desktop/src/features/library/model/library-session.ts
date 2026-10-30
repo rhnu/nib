@@ -10,8 +10,8 @@ export type LibrarySessionState = {
   busy: boolean;
   version: number;
   operation: number;
-  error: string;
-  confirm: { title: string; action: () => void } | null;
+  error: unknown;
+  confirm: { title: unknown; action: () => void } | null;
 };
 
 /** Own library edits and search context for the lifetime of one open workbench. */

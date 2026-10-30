@@ -50,7 +50,9 @@ describe("transient task feedback", () => {
     let state = receiveFeedback(emptyFeedback, preview(), [job]);
     state = receiveFeedback(state, { kind: "finalReceived", jobId: "a", sampleIndex: 0 }, [job]);
     expect(state.samples.a?.[0]?.finalReceived).toBe(true);
-    expect(jobFeedbackText(job, state.samples.a)).toContain("等待任务完成与保存");
+    expect(jobFeedbackText(job, state.samples.a)).not.toBe(
+      jobFeedbackText({ status: "completed" }),
+    );
     expect(receiveFeedback(state, preview("a", 0, 100), [job])).toBe(state);
     state = finishFeedback(state, "a");
     expect(state.samples.a?.[0]?.bytes).toEqual(new Uint8Array([1, 2, 3]));
@@ -65,7 +67,11 @@ describe("transient task feedback", () => {
     state = reconcileFeedback(state, [terminal]);
     expect(state.samples).toEqual({});
     expect(receiveFeedback(emptyFeedback, preview(), [terminal])).toBe(emptyFeedback);
-    expect(jobFeedbackText(terminal)).toBe("失败");
+    expect(
+      jobFeedbackText(terminal, [
+        { sampleIndex: 0, stepIndex: 5, bytes: null, mimeType: "image/jpeg", finalReceived: false },
+      ]),
+    ).toBe(jobFeedbackText(terminal));
   });
 
   it("discards frames on a subscription gap without losing terminal suppression", () => {

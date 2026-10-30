@@ -1,8 +1,9 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useRef, useState } from "react";
 import type { MediaAsset, PngTextInspection } from "@/bindings/media";
 import type { PngTextEditorState, PngTextSession, PngTextValue } from "@/bindings/workbench";
-import { errorMessage } from "@/shared/host/error";
 import { trackPendingWork } from "@/shared/host/pending-work";
+import { errorMessage } from "@/shared/host/error";
 import { Button, Field, HelpMarker, Modal, Notice } from "@/shared/ui";
 import { mediaApi } from "@/features/media/api";
 import { imageName, imageUnavailableReason } from "@/features/media/model";
@@ -34,25 +35,27 @@ function TextInspection({
   onEdit?: (entry: PngTextValue) => void;
   disabled?: boolean;
 }) {
+  useTranslation();
+
   return (
     <div className="png-text-inspection">
       {report.warnings.length > 0 && (
-        <ul className="media-notices" aria-label="PNG 文本提示">
+        <ul className="media-notices" aria-label={t("png-text.notice")}>
           {report.warnings.map((warning, index) => (
-            <li key={index}>{warning}</li>
+            <li key={index}>{errorMessage(warning)}</li>
           ))}
         </ul>
       )}
       {report.entries.length === 0 ? (
-        <p className="muted">没有 PNG 文本条目</p>
+        <p className="muted">{t("png-text.noEntries")}</p>
       ) : (
         report.entries.map((entry, index) => (
           <details className="png-text-inspection-entry" key={index}>
             <summary>{entry.keyword}</summary>
-            <pre>{entry.text === "" ? "（空文本）" : entry.text}</pre>
+            <pre>{entry.text === "" ? t("png-text.emptyText") : entry.text}</pre>
             {onEdit && (
               <Button disabled={disabled} onClick={() => onEdit(entry)}>
-                编辑此关键字
+                {t("png-text.editKeyword")}
               </Button>
             )}
           </details>
@@ -69,10 +72,12 @@ function PngTextDialogContent({
   onChange,
   onUseImage,
 }: PngTextDialogProps) {
+  useTranslation();
+
   const session = pngTextSession(readState(), asset.id);
   const unavailable =
     imageUnavailableReason(asset) ??
-    (asset.mimeType !== "image/png" ? "PNG 文本操作需要 PNG 图片。" : null);
+    (asset.mimeType !== "image/png" ? t("png-text.pngRequired") : null);
   const original = useMediaQuery(
     ["media", "png-text", asset.id],
     unavailable ? null : asset.id,
@@ -86,7 +91,7 @@ function PngTextDialogContent({
     pngTextApi.inspect,
   );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useMessageState();
   const current = useRef({ active: true, locked: false });
   const callbacks = useRef({ readState, onChange, onUseImage });
   const editor = useRef<HTMLDivElement>(null);
@@ -111,10 +116,10 @@ function PngTextDialogContent({
     const next = { ...readSession(), entries };
     try {
       void trackPendingWork(Promise.resolve(persist(next))).catch((cause: unknown) => {
-        if (current.current.active && readSession() === next) setError(errorMessage(cause));
+        if (current.current.active && readSession() === next) setError(cause);
       });
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
     }
   };
 
@@ -134,7 +139,7 @@ function PngTextDialogContent({
     try {
       await trackPendingWork(action());
     } catch (cause) {
-      if (current.current.active) setError(errorMessage(cause));
+      if (current.current.active) setError(cause);
     } finally {
       current.current.locked = false;
       if (current.current.active) setBusy(false);
@@ -153,15 +158,15 @@ function PngTextDialogContent({
     });
 
   return (
-    <Modal open onClose={onClose} title="PNG 文本" wide>
+    <Modal open onClose={onClose} title={t("png-text.title")} wide>
       <div className="png-text-dialog">
         <p className="media-asset-heading">{imageName(asset)}</p>
         {unavailable && <Notice>{unavailable}</Notice>}
-        <section aria-label="原图 PNG 文本">
-          <h3>原图文本</h3>
-          {original.loading && <output>正在读取 PNG 文本…</output>}
+        <section aria-label={t("png-text.sourcePngText")}>
+          <h3>{t("png-text.sourceText")}</h3>
+          {original.loading && <output>{t("png-text.loadingText")}</output>}
           {original.error && (
-            <Notice actions={<Button onClick={original.retry}>重试读取</Button>}>
+            <Notice actions={<Button onClick={original.retry}>{t("png-text.retryRead")}</Button>}>
               {original.error}
             </Notice>
           )}
@@ -169,18 +174,17 @@ function PngTextDialogContent({
             <TextInspection report={original.value} onEdit={editOriginal} disabled={busy} />
           )}
         </section>
-        <section aria-label="PNG 文本写入内容">
+        <section aria-label={t("png-text.writeContentLabel")}>
           <div className="png-text-heading">
-            <h3>写入内容</h3>
-            <HelpMarker label="PNG 文本写入规则">
-              已有关键字按 ASCII
-              大小写不敏感匹配，替换其全部同名条目；新关键字追加。未填写的关键字保持原样。空文本会写入空值，不会删除原条目。像素与原图保持不变，写入后另存为新图片。
+            <h3>{t("png-text.writeContent")}</h3>
+            <HelpMarker label={t("png-text.writeRules")}>
+              {t("png-text.writeRulesDescription")}
             </HelpMarker>
           </div>
           <div className="png-text-editor" ref={editor}>
             {session.entries.map((entry, index) => (
               <div className="png-text-editor-entry" key={index}>
-                <Field label={`关键字 ${index + 1}`}>
+                <Field label={t("png-text.keywordLabel", { value0: index + 1 })}>
                   <input
                     value={entry.keyword}
                     disabled={busy}
@@ -193,7 +197,7 @@ function PngTextDialogContent({
                     }
                   />
                 </Field>
-                <Field label={`文本 ${index + 1}`}>
+                <Field label={t("png-text.textLabel", { value0: index + 1 })}>
                   <textarea
                     rows={4}
                     value={entry.text}
@@ -213,7 +217,7 @@ function PngTextDialogContent({
                     edit(readSession().entries.filter((_, position) => position !== index))
                   }
                 >
-                  移除此项写入
+                  {t("png-text.removeWriteEntry")}
                 </Button>
               </div>
             ))}
@@ -223,31 +227,31 @@ function PngTextDialogContent({
               disabled={busy || !!unavailable}
               onClick={() => edit([...readSession().entries, { keyword: "", text: "" }])}
             >
-              添加关键字
+              {t("png-text.addKeyword")}
             </Button>
             <Button
               className="primary"
               disabled={busy || !!unavailable || !original.value || session.entries.length === 0}
               onClick={() => void write()}
             >
-              {busy ? "正在处理…" : "写入新图片"}
+              {busy ? t("png-text.processing") : t("png-text.writeNewImage")}
             </Button>
           </div>
         </section>
         {error && <Notice>{error}</Notice>}
         {session.selectedOutputAssetId && (
-          <section className="png-text-output" aria-label="写入后的 PNG">
+          <section className="png-text-output" aria-label={t("png-text.writtenPng")}>
             <div className="png-text-heading">
-              <h3>最近写入的图片</h3>
+              <h3>{t("png-text.lastWrittenImage")}</h3>
               {output.asset && (
                 <Button disabled={busy || written.loading} onClick={written.retry}>
-                  再次检查
+                  {t("png-text.inspectAgain")}
                 </Button>
               )}
             </div>
-            {output.loading && <output>正在读取新图片…</output>}
+            {output.loading && <output>{t("png-text.loadingNewImage")}</output>}
             {output.error && (
-              <Notice actions={<Button onClick={output.retry}>重试读取</Button>}>
+              <Notice actions={<Button onClick={output.retry}>{t("png-text.retryRead")}</Button>}>
                 {output.error}
               </Notice>
             )}
@@ -269,7 +273,7 @@ function PngTextDialogContent({
                       })
                     }
                   >
-                    导出 PNG
+                    {t("png-text.exportPng")}
                   </Button>
                   {onUseImage && (
                     <Button
@@ -281,13 +285,17 @@ function PngTextDialogContent({
                         })
                       }
                     >
-                      用作底图
+                      {t("png-text.useAsSource")}
                     </Button>
                   )}
                 </div>
-                {written.loading && <output>正在检查新图片的 PNG 文本…</output>}
+                {written.loading && <output>{t("png-text.inspectingNewText")}</output>}
                 {written.error && (
-                  <Notice actions={<Button onClick={written.retry}>重试检查</Button>}>
+                  <Notice
+                    actions={
+                      <Button onClick={written.retry}>{t("png-text.retryInspection")}</Button>
+                    }
+                  >
                     {written.error}
                   </Notice>
                 )}
@@ -302,5 +310,7 @@ function PngTextDialogContent({
 }
 
 export function PngTextDialog(props: PngTextDialogProps) {
+  useTranslation();
+
   return <PngTextDialogContent key={props.asset.id} {...props} />;
 }

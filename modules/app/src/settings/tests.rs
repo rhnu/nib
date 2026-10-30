@@ -40,3 +40,24 @@ fn custom_base_url_is_passed_to_the_sdk_with_its_path_prefix() {
         "https://example.test/novelai/"
     );
 }
+
+#[test]
+fn language_preferences_default_to_system_and_keep_the_selected_language() {
+    assert_eq!(ApplicationPreferences::default().language, Language::System);
+    for (language, wire) in [
+        (Language::System, "system"),
+        (Language::En, "en"),
+        (Language::ZhCn, "zh-CN"),
+    ] {
+        let preferences = ApplicationPreferences {
+            language,
+            ..ApplicationPreferences::default()
+        };
+        let json = serde_json::to_value(&preferences).unwrap();
+        assert_eq!(json["language"], wire);
+        assert_eq!(
+            serde_json::from_value::<ApplicationPreferences>(json).unwrap(),
+            preferences
+        );
+    }
+}

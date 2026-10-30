@@ -1,0 +1,33 @@
+import type { png_text as source } from "../en/png-text";
+
+export const png_text = {
+  notice: "PNG 文本提示",
+  noEntries: "没有 PNG 文本条目",
+  emptyText: "（空文本）",
+  editKeyword: "编辑此关键字",
+  pngRequired: "PNG 文本操作需要 PNG 图片。",
+  title: "PNG 文本",
+  sourcePngText: "原图 PNG 文本",
+  sourceText: "原图文本",
+  loadingText: "正在读取 PNG 文本…",
+  retryRead: "重试读取",
+  writeContentLabel: "PNG 文本写入内容",
+  writeContent: "写入内容",
+  writeRules: "PNG 文本写入规则",
+  writeRulesDescription:
+    "已有关键字按 ASCII 大小写不敏感匹配，替换其全部同名条目；新关键字追加。未填写的关键字保持原样。空文本会写入空值，不会删除原条目。像素与原图保持不变，写入后另存为新图片。",
+  keywordLabel: "关键字 {{value0}}",
+  textLabel: "文本 {{value0}}",
+  removeWriteEntry: "移除此项写入",
+  addKeyword: "添加关键字",
+  processing: "正在处理…",
+  writeNewImage: "写入新图片",
+  writtenPng: "写入后的 PNG",
+  lastWrittenImage: "最近写入的图片",
+  inspectAgain: "再次检查",
+  loadingNewImage: "正在读取新图片…",
+  exportPng: "导出 PNG",
+  useAsSource: "用作底图",
+  inspectingNewText: "正在检查新图片的 PNG 文本…",
+  retryInspection: "重试检查",
+} satisfies { [K in keyof typeof source]: string };

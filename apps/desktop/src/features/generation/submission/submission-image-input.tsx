@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import type { CreationOperation } from "@/bindings/workbench";
 import { SourceImageView } from "../results/source-image-view";
@@ -7,27 +8,30 @@ import { useMediaAsset } from "@/features/media/use-media-asset";
 import { Button } from "@/shared/ui";
 
 function SubmittedMask({ id }: { id: string }) {
+  useTranslation();
+
   const media = useMediaAsset(id);
   return (
     <div className="generation-source-view">
       {media.error ? (
         <div role="alert">
           {media.error}
-          <Button onClick={media.retry}>重试读取遮罩</Button>
+          <Button onClick={media.retry}>{t("generation.retryLoadMask")}</Button>
         </div>
       ) : media.asset ? (
         <>
           <div className="generation-canvas-metadata generation-muted">
-            已应用遮罩 · {media.asset.width} × {media.asset.height}
+            {t("generation.appliedMaskPrefix")}
+            {media.asset.width} × {media.asset.height}
           </div>
           <AssetImage
             asset={media.asset}
-            alt="提交时已应用的局部重绘遮罩"
+            alt={t("generation.submittedMask")}
             className="generation-source-image"
           />
         </>
       ) : (
-        <output>正在读取提交遮罩…</output>
+        <output>{t("generation.loadingSubmittedMask")}</output>
       )}
     </div>
   );
@@ -46,23 +50,30 @@ function ConditioningMetadata({
   noiseSeed: number | null;
   seed?: number;
 }) {
+  useTranslation();
+
   return (
     <>
       <div>
-        <dt>Strength</dt>
+        <dt>{t("generation.strength")}</dt>
         <dd>{strength}</dd>
       </div>
       <div>
-        <dt>Noise</dt>
+        <dt>{t("generation.noise")}</dt>
         <dd>{noise}</dd>
       </div>
       <div>
-        <dt>颜色校正</dt>
-        <dd>{colorCorrect ? "开启" : "关闭"}</dd>
+        <dt>{t("generation.colorCorrection")}</dt>
+        <dd>{colorCorrect ? t("generation.on") : t("generation.off")}</dd>
       </div>
       <div>
-        <dt>额外噪声种子</dt>
-        <dd>{noiseSeed ?? (seed !== undefined ? `${seed}（跟随提交种子）` : "跟随提交种子")}</dd>
+        <dt>{t("generation.extraNoiseSeed")}</dt>
+        <dd>
+          {noiseSeed ??
+            (seed !== undefined
+              ? t("generation.inheritedSeedValue", { value0: seed })
+              : t("generation.inheritSubmissionSeed"))}
+        </dd>
       </div>
     </>
   );
@@ -76,6 +87,8 @@ export function SubmissionImageInput({
   operation: CreationOperation;
   seed?: number;
 }) {
+  useTranslation();
+
   const [open, setOpen] = useState(false);
   if (operation.kind === "textToImage") return null;
   return (
@@ -85,7 +98,9 @@ export function SubmissionImageInput({
     >
       <summary>
         {operationLabel(operation)} ·{" "}
-        {operation.kind === "inpainting" ? "源图、遮罩与参数" : "源图与专有参数"}
+        {operation.kind === "inpainting"
+          ? t("generation.sourceMaskParameters")
+          : t("generation.sourceParameters")}
       </summary>
       <dl className="generation-metadata">
         {operation.kind === "imageToImage" && (
@@ -98,16 +113,20 @@ export function SubmissionImageInput({
               seed={seed}
             />
             <div>
-              <dt>保留原图</dt>
-              <dd>{operation.addOriginalImage ? "开启" : "关闭"}</dd>
+              <dt>{t("generation.keepOriginal")}</dt>
+              <dd>{operation.addOriginalImage ? t("generation.on") : t("generation.off")}</dd>
             </div>
           </>
         )}
         {operation.kind === "inpainting" && (
           <>
             <div>
-              <dt>局部条件</dt>
-              <dd>{operation.img2img ? "局部图生图" : "纯补绘"}</dd>
+              <dt>{t("generation.regionalConditioning")}</dt>
+              <dd>
+                {operation.img2img
+                  ? t("generation.regionalImageToImage")
+                  : t("generation.pureInpainting")}
+              </dd>
             </div>
             {operation.img2img && (
               <ConditioningMetadata
@@ -119,19 +138,19 @@ export function SubmissionImageInput({
               />
             )}
             <div>
-              <dt>保留遮罩外原图</dt>
-              <dd>{operation.addOriginalImage ? "开启" : "关闭"}</dd>
+              <dt>{t("generation.keepOutsideMask")}</dt>
+              <dd>{operation.addOriginalImage ? t("generation.on") : t("generation.off")}</dd>
             </div>
           </>
         )}
         {operation.kind === "upscale" && (
           <>
             <div>
-              <dt>模型</dt>
+              <dt>{t("generation.model")}</dt>
               <dd>{operation.model}</dd>
             </div>
             <div>
-              <dt>Blur Sigma</dt>
+              <dt>{t("generation.blurSigma")}</dt>
               <dd>{operation.declaredBlurSigma}</dd>
             </div>
           </>

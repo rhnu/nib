@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { Copy, Download, Focus, ImageOff, Info, Minus, Plus, ArrowDownToLine } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
@@ -17,23 +18,29 @@ export function ResultTile({
   selected: boolean;
   onSelect: () => void;
 }) {
+  useTranslation();
+
   const image = useMediaContent(result.assetId, result.mimeType, result.available, "thumbnail");
   return (
     <Button
       className={"generation-result-open" + (selected ? " selected" : "")}
       aria-pressed={selected}
-      aria-label={result.seed === null ? "查看图片" : "查看图片，种子 " + result.seed}
+      aria-label={
+        result.seed === null
+          ? t("generation.viewImage")
+          : t("generation.viewImageSeedPrefix") + result.seed
+      }
       onClick={onSelect}
     >
       <span className="generation-result-preview">
         {!result.available ? (
           <ImageOff size={22} />
         ) : image.error ? (
-          <span>读取失败</span>
+          <span>{t("generation.loadFailed")}</span>
         ) : image.url ? (
           <img src={image.url} alt="" loading="lazy" onError={image.failed} />
         ) : (
-          <span>读取中…</span>
+          <span>{t("generation.loading")}</span>
         )}
       </span>
     </Button>
@@ -66,12 +73,14 @@ export function ResultCanvas({
   fallback,
   onImageLoaded,
 }: ResultCanvasProps) {
+  useTranslation();
+
   const image = useMediaContent(result.assetId, result.mimeType, result.available);
   const [zoom, setZoom] = useState(1);
-  const [copyState, setCopyState] = useState("");
+  const [copyState, setCopyState] = useState<"copied" | "failed" | null>(null);
   useEffect(() => {
     if (!copyState) return;
-    const timer = setTimeout(() => setCopyState(""), 2500);
+    const timer = setTimeout(() => setCopyState(null), 2500);
     return () => clearTimeout(timer);
   }, [copyState]);
   const [decodedUrl, setDecodedUrl] = useState<string | null>(null);
@@ -82,15 +91,19 @@ export function ResultCanvas({
     if (result.seed === null) return;
     try {
       await navigator.clipboard.writeText(String(result.seed));
-      setCopyState("种子已复制");
+      setCopyState("copied");
     } catch {
-      setCopyState("无法复制种子");
+      setCopyState("failed");
     }
   };
 
   return (
-    <section className="image-viewer" aria-label="图片查看器">
-      <div className="image-overlay image-overlay-top" role="toolbar" aria-label="图片操作">
+    <section className="image-viewer" aria-label={t("generation.imageViewer")}>
+      <div
+        className="image-overlay image-overlay-top"
+        role="toolbar"
+        aria-label={t("generation.imageActions")}
+      >
         {leadingTools}
         <ImageResultActions
           assetId={result.assetId}
@@ -101,7 +114,7 @@ export function ResultCanvas({
           canInpaint={canInpaint}
         />
         <span className="image-tool-divider" />
-        <IconButton label="生成参数与来源" onClick={onOpen}>
+        <IconButton label={t("generation.parametersSources")} onClick={onOpen}>
           <Info size={17} />
         </IconButton>
         {image.url && (
@@ -109,8 +122,8 @@ export function ResultCanvas({
             className="image-icon-link"
             href={image.url}
             download={resultFilename(result)}
-            aria-label="保存原图"
-            title="保存原图"
+            aria-label={t("generation.saveOriginal")}
+            title={t("generation.saveOriginal")}
           >
             <Download size={17} />
           </a>
@@ -120,12 +133,12 @@ export function ResultCanvas({
         {!result.available ? (
           <div className="generation-canvas-status">
             <ImageOff size={28} />
-            <p>图片文件缺失或不完整</p>
+            <p>{t("generation.imageFileIncomplete")}</p>
           </div>
         ) : image.error ? (
           <div className="generation-canvas-status generation-danger">
             <p>{image.error}</p>
-            <Button onClick={image.retry}>重试读取</Button>
+            <Button onClick={image.retry}>{t("generation.retryLoad")}</Button>
           </div>
         ) : image.url ? (
           <div
@@ -140,7 +153,11 @@ export function ResultCanvas({
                 visibility: !decoded && fallback ? "hidden" : undefined,
               }}
               src={image.url}
-              alt={result.seed === null ? "生成图片" : "生成图片，种子 " + result.seed}
+              alt={
+                result.seed === null
+                  ? t("generation.generatedImage")
+                  : t("generation.generatedImageSeedPrefix") + result.seed
+              }
               onError={image.failed}
               onLoad={() => {
                 setDecodedUrl(image.url);
@@ -149,47 +166,61 @@ export function ResultCanvas({
             />
           </div>
         ) : (
-          (fallback ?? <output className="generation-muted">正在读取图片…</output>)
+          (fallback ?? (
+            <output className="generation-muted">{t("generation.loadingImages")}</output>
+          ))
         )}
       </div>
       {result.operation.kind === "generation" && (
         <div className="image-overlay image-overlay-bottom-left">
           <input
             className="image-seed"
-            aria-label="样本种子"
+            aria-label={t("generation.sampleSeed")}
             readOnly
-            value={result.seed ?? "种子未知"}
+            value={result.seed ?? t("generation.seedUnknown")}
           />
           <IconButton
-            label="将种子填入生成参数"
+            label={t("generation.useSeed")}
             disabled={result.seed === null || !onUseSeed}
             onClick={() => result.seed !== null && onUseSeed?.(result.seed)}
           >
             <ArrowDownToLine size={16} />
           </IconButton>
           <IconButton
-            label="复制种子"
+            label={t("generation.copySeed")}
             disabled={result.seed === null}
             onClick={() => void copySeed()}
           >
             <Copy size={16} />
           </IconButton>
-          {copyState && <output className="image-copy-status">{copyState}</output>}
+          {copyState && (
+            <output className="image-copy-status">
+              {copyState === "copied" ? t("generation.seedCopied") : t("generation.seedCopyFailed")}
+            </output>
+          )}
         </div>
       )}
-      <div className="image-overlay image-overlay-bottom-right" role="toolbar" aria-label="缩放">
+      <div
+        className="image-overlay image-overlay-bottom-right"
+        role="toolbar"
+        aria-label={t("generation.zoom")}
+      >
         <IconButton
-          label="缩小"
+          label={t("generation.zoomOut")}
           disabled={!canZoom || zoom <= 0.25}
           onClick={() => setZoom((value) => Math.max(0.25, value - 0.25))}
         >
           <Minus size={16} />
         </IconButton>
-        <IconButton label="适应画布" disabled={!canZoom} onClick={() => setZoom(1)}>
+        <IconButton
+          label={t("generation.fitCanvas")}
+          disabled={!canZoom}
+          onClick={() => setZoom(1)}
+        >
           <Focus size={16} />
         </IconButton>
         <IconButton
-          label="放大"
+          label={t("generation.zoomIn")}
           disabled={!canZoom || zoom >= 4}
           onClick={() => setZoom((value) => Math.min(4, value + 0.25))}
         >

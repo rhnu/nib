@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Button, Modal } from "@/shared/ui";
 import { operationLabel, operationSourceId } from "@/features/inputs/image-operation";
 import { PngTextDialog } from "@/features/png-text";
@@ -6,6 +7,8 @@ import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
 /** Shared transitions remain available even if the current page cannot render. */
 export function WorkspaceDialogs() {
+  useTranslation();
+
   const {
     state,
     pngAsset,
@@ -38,7 +41,7 @@ export function WorkspaceDialogs() {
       <Modal
         open={encoderOpen}
         onClose={() => afterInputs(() => setEncoderOpen(false))}
-        title="编码氛围转移"
+        title={t("app.encodeVibe")}
         className="vibe-encoder-modal"
       >
         <VibeEncoderPanel
@@ -50,42 +53,45 @@ export function WorkspaceDialogs() {
         />
       </Modal>
       {(imageOperation.busy || pendingInputs > 0) && (
-        <output className="generation-muted image-operation-progress">正在准备图像输入…</output>
+        <output className="generation-muted image-operation-progress">
+          {t("app.preparingInputs")}
+        </output>
       )}
       <Modal
         open={imageOperation.candidate !== null}
         onClose={imageOperation.cancel}
-        title="更改当前图像操作？"
+        title={t("app.changeOperationTitle")}
       >
         {imageOperation.candidate && (
           <div className="generation-dialog-body">
             <p>
-              将切换到{operationLabel(imageOperation.candidate.operation)}
-              ，替换当前图像操作。
+              {t("app.switchImageOperation", {
+                operation: operationLabel(imageOperation.candidate.operation),
+              })}
             </p>
             {imageOperation.candidate.operation.kind === "imageToImage" &&
-              imageOperation.candidate.operation.maxEnhance && <p>输入尺寸将采用源图尺寸。</p>}
+              imageOperation.candidate.operation.maxEnhance && <p>{t("app.useSourceSize")}</p>}
             <footer className="generation-dialog-actions">
-              <Button onClick={imageOperation.cancel}>保留当前操作</Button>
+              <Button onClick={imageOperation.cancel}>{t("app.keepOperation")}</Button>
               <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
-                应用更改
+                {t("app.applyChanges")}
               </Button>
             </footer>
           </div>
         )}
       </Modal>
-      <Modal open={mask.transition !== null} onClose={mask.cancel} title="遮罩尚未应用">
+      <Modal open={mask.transition !== null} onClose={mask.cancel} title={t("app.maskNotApplied")}>
         <div className="generation-dialog-body">
-          <p>保留编辑可在下次打开这张源图时继续。</p>
+          <p>{t("app.keepMaskHelp")}</p>
           <footer className="generation-dialog-actions">
             <Button disabled={mask.pending} onClick={mask.cancel}>
-              取消
+              {t("app.cancel")}
             </Button>
             <Button disabled={mask.pending} onClick={mask.discardAndContinue}>
-              放弃编辑
+              {t("app.discardEdits")}
             </Button>
             <Button disabled={mask.pending} onClick={mask.keep}>
-              保留编辑
+              {t("app.keepEdits")}
             </Button>
             <Button
               className="primary"
@@ -94,7 +100,7 @@ export function WorkspaceDialogs() {
                 void mask.applyAndContinue();
               }}
             >
-              {mask.pending ? "正在应用…" : "应用遮罩"}
+              {mask.pending ? t("app.applying") : t("app.applyMask")}
             </Button>
           </footer>
         </div>
@@ -102,31 +108,32 @@ export function WorkspaceDialogs() {
       <Modal
         open={mask.applyConfirmation !== null}
         onClose={() => mask.confirmApply(false)}
-        title="切换为局部重绘？"
+        title={t("app.switchToInpaintTitle")}
       >
         <div className="generation-dialog-body">
           <p>
-            将替换当前
-            {mask.applyConfirmation && operationLabel(mask.applyConfirmation.operation)}
             {mask.applyConfirmation &&
-            operationSourceId(mask.applyConfirmation.operation) !== mask.active?.sourceAssetId
-              ? "的源图与专有参数。"
-              : "的专有参数。"}
+              t(
+                operationSourceId(mask.applyConfirmation.operation) !== mask.active?.sourceAssetId
+                  ? "app.replaceOperationSource"
+                  : "app.replaceOperationParameters",
+                { operation: operationLabel(mask.applyConfirmation.operation) },
+              )}
           </p>
           <footer className="generation-dialog-actions">
-            <Button onClick={() => mask.confirmApply(false)}>取消</Button>
+            <Button onClick={() => mask.confirmApply(false)}>{t("app.cancel")}</Button>
             <Button className="primary" onClick={() => mask.confirmApply(true)}>
-              应用遮罩并切换
+              {t("app.applyMaskAndSwitch")}
             </Button>
           </footer>
         </div>
       </Modal>
-      <Modal open={mask.discarding} onClose={mask.cancelDiscard} title="放弃未应用的遮罩编辑？">
+      <Modal open={mask.discarding} onClose={mask.cancelDiscard} title={t("app.discardMaskTitle")}>
         <div className="generation-dialog-body">
           <footer className="generation-dialog-actions">
-            <Button onClick={mask.cancelDiscard}>取消</Button>
+            <Button onClick={mask.cancelDiscard}>{t("app.cancel")}</Button>
             <Button className="primary" onClick={mask.confirmDiscard}>
-              放弃编辑
+              {t("app.discardEdits")}
             </Button>
           </footer>
         </div>

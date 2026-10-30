@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Plus } from "lucide-react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "@/bindings/generation";
@@ -43,7 +44,7 @@ export function ContextRail({
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
   onAddPreset: () => void;
-  setError: (message: string) => void;
+  setError: (message: unknown) => void;
   estimate: GenerationQuote | null;
   onRestore: (draft: Draft) => void;
   onRequestOperation: (id: string, kind: ImageOperationAction) => void;
@@ -54,18 +55,21 @@ export function ContextRail({
   onPosition: (characterId?: string, presetInstanceId?: string) => void;
   outputIssues: ScopedOutputIssues;
 }) {
+  useTranslation();
+
   return (
     <div className="context-rail">
       {draft.inputs.operation.kind !== "upscale" && (
         <section className="preset-context">
           <header className="section-heading">
             <h2>
-              配方<span className="count">{draft.presets.length}</span>
-              <HelpMarker label="配方帮助">
-                配方按顺序应用，随后追加当前提示词。修改链接内容只覆盖当前实例；可在操作菜单中排序或展开为独立配方。
+              {t("workbench.presets")}
+              <span className="count">{draft.presets.length}</span>
+              <HelpMarker label={t("workbench.presetsHelp")}>
+                {t("workbench.presetsDescription")}
               </HelpMarker>
             </h2>
-            <IconButton label="添加 Preset" onClick={onAddPreset}>
+            <IconButton label={t("workbench.addPreset")} onClick={onAddPreset}>
               <Plus size={16} />
             </IconButton>
           </header>
@@ -182,7 +186,7 @@ export function ContextRail({
           )}
           <section className="settings-context">
             <header className="section-heading">
-              <h2>图像设置</h2>
+              <h2>{t("workbench.imageSettings")}</h2>
             </header>
             <SettingsEditor
               fields="image"
@@ -196,10 +200,10 @@ export function ContextRail({
             />
             <div className="request-count-control">
               <span>
-                生成请求{" "}
-                <HelpMarker>依次提交的独立请求数。每个请求按样本数同时生成多张图片。</HelpMarker>
+                {t("workbench.generationRequests")}{" "}
+                <HelpMarker>{t("workbench.requestCountHelp")}</HelpMarker>
               </span>
-              <fieldset className="sample-options" aria-label="生成请求数">
+              <fieldset className="sample-options" aria-label={t("workbench.requestCount")}>
                 {Array.from({ length: 8 }, (_, index) => index + 1).map((count) => (
                   <button
                     type="button"

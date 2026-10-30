@@ -1,3 +1,4 @@
+import { t, useMessageState, deferMessage } from "@/shared/i18n";
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hasDesktopHost } from "@/shared/host/invoke";
@@ -7,7 +8,7 @@ import { errorMessage } from "@/shared/host/error";
 export function useWindowControls() {
   const desktop = hasDesktopHost();
   const [maximized, setMaximized] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useMessageState();
 
   useEffect(() => {
     if (!desktop) return;
@@ -16,7 +17,8 @@ export function useWindowControls() {
     let unlisten: (() => void) | undefined;
 
     const reportError = (cause: unknown) => {
-      if (!stopped) setError(`无法读取窗口状态：${errorMessage(cause)}`);
+      if (!stopped)
+        setError(deferMessage(() => t("app.windowStateError", { value0: errorMessage(cause) })));
     };
 
     const refresh = async () => {
@@ -39,7 +41,7 @@ export function useWindowControls() {
       stopped = true;
       unlisten?.();
     };
-  }, [desktop]);
+  }, [desktop, setError]);
 
   const run = async (action: () => Promise<void>) => {
     if (!desktop) return;
@@ -47,7 +49,7 @@ export function useWindowControls() {
     try {
       await action();
     } catch (cause) {
-      setError(`窗口操作失败：${errorMessage(cause)}`);
+      setError(deferMessage(() => t("app.windowActionError", { value0: errorMessage(cause) })));
     }
   };
 

@@ -11,6 +11,7 @@ use std::{
 };
 
 use nib_app::{
+    api::UserMessage,
     persistence::PersistenceError,
     settings::{GlobalSettingsStore, StorageLocations},
 };
@@ -71,7 +72,7 @@ impl StorageManager {
             .as_ref()
             .unwrap_or(&self.default_data_directory);
         if directories.current.is_some() && !source.is_dir() {
-            return Err(invalid("数据目录不存在或不可访问，请恢复原目录后重试。"));
+            return Err(invalid(UserMessage::DataDirectoryUnavailable));
         }
         fs::create_dir_all(source).map_err(|error| {
             PersistenceError::failure("create the creation-data directory", error)
@@ -152,7 +153,7 @@ impl StorageManager {
         source: &Path,
     ) -> Result<PathBuf, PersistenceError> {
         if !requested.is_absolute() {
-            return Err(invalid("请选择绝对路径作为数据目录。"));
+            return Err(invalid(UserMessage::AbsoluteDirectoryRequired));
         }
         fs::create_dir_all(requested).map_err(|error| {
             PersistenceError::failure("create the selected data directory", error)
@@ -175,7 +176,7 @@ impl StorageManager {
             let marker = match fs::read(target.join(COPY_MARKER)) {
                 Ok(marker) => marker,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    return Err(invalid("目标目录必须为空，不能打开其他已有的数据目录。"));
+                    return Err(invalid(UserMessage::EmptyDirectoryRequired));
                 },
                 Err(error) => {
                     return Err(PersistenceError::failure(
@@ -188,7 +189,7 @@ impl StorageManager {
                 PersistenceError::failure("read the interrupted relocation source", error)
             })?;
             if !same_path(&recorded, source) {
-                return Err(invalid("目标目录属于另一份数据，请选择空目录。"));
+                return Err(invalid(UserMessage::DirectoryBelongsToOtherData));
             }
         }
         Ok(target)
@@ -260,12 +261,12 @@ fn validate_directory_relationship(
     config: &Path,
 ) -> Result<(), PersistenceError> {
     if contains_path(config, target) || contains_path(target, config) {
-        return Err(invalid("数据目录不能与全局配置目录重叠。"));
+        return Err(invalid(UserMessage::DirectoryOverlapsConfig));
     }
     if !same_path(target, source)
         && (contains_path(source, target) || contains_path(target, source))
     {
-        return Err(invalid("新旧数据目录不能相互包含。"));
+        return Err(invalid(UserMessage::DirectoryContainsSource));
     }
     Ok(())
 }
@@ -324,9 +325,7 @@ fn copy_directory(source: &Path, target: &Path) -> Result<(), PersistenceError> 
         let destination = target.join(entry.file_name());
         match fs::symlink_metadata(&destination) {
             Ok(metadata) if metadata.is_symlink() || metadata.is_dir() != kind.is_dir() => {
-                return Err(invalid(
-                    "迁移目标包含不匹配的文件或符号链接，请选择新的空目录。",
-                ));
+                return Err(invalid(UserMessage::MigrationTargetMismatch));
             },
             Ok(_) => {},
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
@@ -360,7 +359,7 @@ fn copy_directory(source: &Path, target: &Path) -> Result<(), PersistenceError> 
                     PersistenceError::failure("copy and sync retained creation data", error)
                 })?;
         } else {
-            return Err(invalid("数据目录含符号链接或不支持的文件，无法迁移。"));
+            return Err(invalid(UserMessage::MigrationUnsupportedFile));
         }
     }
     Ok(())
@@ -404,7 +403,7 @@ fn verify_directory(source: &Path, target: &Path) -> Result<(), PersistenceError
             .len()
             != remaining
         {
-            return Err(invalid("复制后的文件长度与原数据不一致，已保留原目录。"));
+            return Err(invalid(UserMessage::CopiedFileLengthMismatch));
         }
         let mut left = vec![0_u8; 65536];
         let mut right = vec![0_u8; 65536];
@@ -419,7 +418,7 @@ fn verify_directory(source: &Path, target: &Path) -> Result<(), PersistenceError
                 PersistenceError::failure("read copied verification data", error)
             })?;
             if left[..length] != right[..length] {
-                return Err(invalid("复制后的文件与原数据不一致，已保留原目录。"));
+                return Err(invalid(UserMessage::CopiedFileContentMismatch));
             }
             remaining = remaining.saturating_sub(65536);
         }
@@ -430,7 +429,7 @@ fn verify_directory(source: &Path, target: &Path) -> Result<(), PersistenceError
 fn display_path(path: &Path) -> Result<String, PersistenceError> {
     let value = path
         .to_str()
-        .ok_or_else(|| invalid("存储目录不能表示为 Unicode 路径。"))?;
+        .ok_or_else(|| invalid(UserMessage::NonUnicodeDirectory))?;
     Ok(readable_path(value))
 }
 
@@ -442,11 +441,7 @@ fn readable_path(value: &str) -> String {
     }
 }
 
-fn invalid(message: &str) -> PersistenceError {
-    PersistenceError::InvalidData {
-        message: message.to_owned(),
-    }
-}
+fn invalid(message: UserMessage) -> PersistenceError { PersistenceError::InvalidData { message } }
 
 #[cfg(test)]
 mod tests;

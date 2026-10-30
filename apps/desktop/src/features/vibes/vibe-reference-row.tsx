@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useId, useState, type ReactNode } from "react";
 import { Binary, ImagePlus, Info, RotateCcw } from "lucide-react";
 import type {
@@ -43,6 +44,8 @@ export function VibeReferenceRow({
   onReset?: (field: keyof VibePatch) => void;
   issues?: { field: string; message: string }[];
 }) {
+  useTranslation();
+
   const media = useMediaAsset(value.input.assetId);
   const encodedId = value.input.kind === "encoded" ? value.input.assetId : null;
   const inspection = useMediaQuery(
@@ -55,12 +58,20 @@ export function VibeReferenceRow({
   const [picking, setPicking] = useState(false);
   const [details, setDetails] = useState(false);
   const id = useId();
-  const label = `氛围转移 ${index + 1}`;
+  const label = t("vibes.namedVibe", { value0: index + 1 });
 
   const reset = (field: keyof VibePatch) =>
     override?.[field] != null && onReset ? (
       <IconButton
-        label={`撤销${label}${field === "strength" ? "强度" : field === "input" ? "材料" : "启用状态"}覆盖`}
+        label={t("vibes.revertFieldOverride", {
+          value0: label,
+          value1:
+            field === "strength"
+              ? t("vibes.strength")
+              : field === "input"
+                ? t("vibes.material")
+                : t("vibes.enabledState"),
+        })}
         onClick={() => onReset(field)}
       >
         <RotateCcw size={13} />
@@ -74,16 +85,22 @@ export function VibeReferenceRow({
           {preview?.kind === "image" ? (
             <AssetImage asset={preview} alt={label} className="vibe-thumbnail" />
           ) : (
-            <Binary size={28} aria-label="编码材料" />
+            <Binary size={28} aria-label={t("vibes.encodingMaterial")} />
           )}
-          <fieldset className="media-input-tools" aria-label={`${label}材料操作`}>
-            <IconButton label={`替换${label}材料`} onClick={() => setPicking(true)}>
+          <fieldset
+            className="media-input-tools"
+            aria-label={t("vibes.materialActions", { value0: label })}
+          >
+            <IconButton
+              label={t("vibes.replaceMaterial", { value0: label })}
+              onClick={() => setPicking(true)}
+            >
               <ImagePlus size={14} />
             </IconButton>
             {reset("input")}
             {encodingAction}
             <IconButton
-              label={`查看${label}材料信息`}
+              label={t("vibes.viewMaterialInfo", { value0: label })}
               disabled={!media.asset}
               onClick={() => setDetails(true)}
             >
@@ -94,18 +111,18 @@ export function VibeReferenceRow({
         <div className="media-input-settings">
           <div data-vibe-field="strength">
             <FormField
-              label="Strength"
+              label={t("vibes.strengthLabel")}
               htmlFor={`${id}-strength`}
               help={
-                <HelpMarker label="强度说明">
-                  控制参考影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。
+                <HelpMarker label={t("vibes.strengthHelp")}>
+                  {t("vibes.strengthDescription")}
                 </HelpMarker>
               }
               actions={reset("strength")}
             >
               <NumberSlider
                 id={`${id}-strength`}
-                label={`${label}强度`}
+                label={t("vibes.referenceStrength", { value0: label })}
                 value={value.strength}
                 invalid={issues.some((issue) => issue.field === "strength")}
                 describedBy={issues.length ? id : undefined}
@@ -116,17 +133,17 @@ export function VibeReferenceRow({
           {value.input.kind === "image" && (
             <div data-vibe-field="informationExtracted">
               <FormField
-                label="信息提取量"
+                label={t("vibes.informationExtracted")}
                 htmlFor={`${id}-information`}
                 help={
-                  <HelpMarker label="信息提取量说明">
-                    控制编码时提取的信息量，范围为 0–1。改变提取量后需重新编码。
+                  <HelpMarker label={t("vibes.informationHelp")}>
+                    {t("vibes.informationDescription")}
                   </HelpMarker>
                 }
               >
                 <NumberSlider
                   id={`${id}-information`}
-                  label={`${label}信息提取量`}
+                  label={t("vibes.referenceInformation", { value0: label })}
                   value={value.input.informationExtracted}
                   range={
                     capabilities?.vibeReferenceOptions.informationExtracted ?? { min: 0, max: 1 }
@@ -143,14 +160,16 @@ export function VibeReferenceRow({
           )}
         </div>
       </div>
-      {media.loading && <output className="vibe-status">正在读取材料…</output>}
+      {media.loading && <output className="vibe-status">{t("vibes.loadingMaterials")}</output>}
       {media.asset && !media.asset.available && (
         <p className="vibe-message" role="alert">
-          材料文件不可用
+          {t("vibes.materialUnavailable")}
         </p>
       )}
       {media.error && (
-        <Notice actions={<Button onClick={media.retry}>重试</Button>}>{media.error}</Notice>
+        <Notice actions={<Button onClick={media.retry}>{t("vibes.retry")}</Button>}>
+          {media.error}
+        </Notice>
       )}
       {encodingFeedback}
     </>
@@ -164,10 +183,12 @@ export function VibeReferenceRow({
     >
       <header data-vibe-field="enabled">
         <strong>{label}</strong>
-        <span className="vibe-status">{value.input.kind === "encoded" ? "已编码" : "原图"}</span>
+        <span className="vibe-status">
+          {value.input.kind === "encoded" ? t("vibes.encoded") : t("vibes.originalImage")}
+        </span>
         <span className="spacer" />
         <Toggle
-          label={`启用${label}`}
+          label={t("vibes.enableVibe", { value0: label })}
           checked={value.enabled}
           onChange={(enabled) => onChange({ enabled })}
         />
@@ -185,8 +206,12 @@ export function VibeReferenceRow({
         ((value.input.kind === "image" && capabilities.vibeInputPath !== "image") ||
           (value.input.kind === "encoded" && capabilities.vibeInputPath === "image")) && (
           <p className="vibe-message">
-            此材料类型不适用于当前模型，请选择
-            {capabilities.vibeInputPath === "image" ? "原图" : "编码"}。
+            {t("vibes.unsupportedMaterial", {
+              material:
+                capabilities.vibeInputPath === "image"
+                  ? t("vibes.originalImage")
+                  : t("vibes.encodedMaterial"),
+            })}
           </p>
         )}
       {issues.length > 0 && (
@@ -196,7 +221,11 @@ export function VibeReferenceRow({
           ))}
         </output>
       )}
-      <Modal open={details} onClose={() => setDetails(false)} title={`${label} · 材料信息`}>
+      <Modal
+        open={details}
+        onClose={() => setDetails(false)}
+        title={t("vibes.materialInfoTitle", { value0: label })}
+      >
         {details && (
           <div className="vibe-material-details">
             {media.asset && <p>{vibeMaterialName(media.asset)}</p>}

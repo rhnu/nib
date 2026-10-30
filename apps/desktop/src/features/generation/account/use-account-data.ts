@@ -64,8 +64,11 @@ export function useAccountData(executionVersion = 0) {
     },
     accountChanged,
     accountSummary: snapshot.data?.summary ?? null,
-    accountSummaryError:
-      snapshot.data?.error ?? (snapshot.error ? errorMessage(snapshot.error) : null),
+    accountSummaryError: snapshot.data?.error
+      ? errorMessage(snapshot.data.error)
+      : snapshot.error
+        ? errorMessage(snapshot.error)
+        : null,
     accountSummaryLoading:
       snapshot.isLoading || retry.isPending || Boolean(snapshot.data?.refreshing),
     accountSummaryStale: Boolean(snapshot.data?.stale),

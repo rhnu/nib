@@ -8,7 +8,7 @@ use super::{
     CharacterComposition, Composition, PresetBinding, PresetInstance, PresetOutputOverrides,
     PromptNode, Resource, ResourceContent,
 };
-use crate::session::ReferenceInputs;
+use crate::{api::UserMessage, session::ReferenceInputs};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "camelCase")]
@@ -16,19 +16,19 @@ use crate::session::ReferenceInputs;
 #[error("{field}: {message}")]
 pub struct ValidationError {
     pub field: String,
-    pub message: String,
+    pub message: UserMessage,
 }
 
-pub(crate) fn invalid(field: &str, message: &str) -> ValidationError {
+pub(crate) fn invalid(field: &str, message: UserMessage) -> ValidationError {
     ValidationError {
         field: field.into(),
-        message: message.into(),
+        message,
     }
 }
 
 pub(crate) fn nonempty(value: &str, field: &str) -> Result<(), ValidationError> {
     if value.trim().is_empty() {
-        return Err(invalid(field, "must not be empty"));
+        return Err(invalid(field, UserMessage::ValueRequired));
     }
     Ok(())
 }
@@ -40,15 +40,12 @@ fn composition(value: &Composition, expanded: bool) -> Result<(), ValidationErro
         if !ids.insert(node.id()) {
             return Err(invalid(
                 "composition.node.id",
-                "duplicate node identity across scopes",
+                UserMessage::DuplicateNodeAcrossScopes,
             ));
         }
         if let PromptNode::Chunk { resource_id, .. } = node {
             if expanded {
-                return Err(invalid(
-                    "composition",
-                    "expanded presets must contain only text nodes",
-                ));
+                return Err(invalid("composition", UserMessage::ExpandedRequiresText));
             }
             nonempty(resource_id, "composition.node.resourceId")?;
         }
@@ -73,7 +70,7 @@ pub(crate) fn outputs(
     for character in characters {
         nonempty(&character.id, "characters.id")?;
         if !character_ids.insert(&character.id) {
-            return Err(invalid("characters.id", "duplicate character identity"));
+            return Err(invalid("characters.id", UserMessage::DuplicateCharacter));
         }
         composition(&character.composition, expanded)?;
         for node in character
@@ -85,7 +82,7 @@ pub(crate) fn outputs(
             if !node_ids.insert(node.id()) {
                 return Err(invalid(
                     "composition.node.id",
-                    "duplicate node identity across prompt targets",
+                    UserMessage::DuplicateNodeAcrossTargets,
                 ));
             }
         }
@@ -105,7 +102,7 @@ pub(crate) fn outputs(
         nonempty(id, "references.id")?;
         nonempty(asset_id, "references.assetId")?;
         if !reference_ids.insert(id) {
-            return Err(invalid("references.id", "duplicate reference identity"));
+            return Err(invalid("references.id", UserMessage::DuplicateReference));
         }
     }
     Ok(())
@@ -135,7 +132,7 @@ pub(crate) fn validate_presets(presets: &[PresetInstance]) -> Result<(), Validat
     for instance in presets {
         nonempty(&instance.id, "presets.id")?;
         if !ids.insert(&instance.id) {
-            return Err(invalid("presets.id", "duplicate preset instance identity"));
+            return Err(invalid("presets.id", UserMessage::DuplicatePreset));
         }
         match &instance.binding {
             PresetBinding::Linked {
@@ -151,7 +148,7 @@ pub(crate) fn validate_presets(presets: &[PresetInstance]) -> Result<(), Validat
                     if !targets.insert(&edit.node_id) {
                         return Err(invalid(
                             "presets.overrides.nodeId",
-                            "duplicate override target",
+                            UserMessage::DuplicateOverride,
                         ));
                     }
                 }
@@ -205,7 +202,7 @@ fn validate_output_overrides(
         for id in values {
             nonempty(id, field)?;
             if !targets.insert(id) {
-                return Err(invalid(field, "duplicate output override target"));
+                return Err(invalid(field, UserMessage::DuplicateOutputOverride));
             }
         }
     }

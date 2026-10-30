@@ -23,7 +23,10 @@ fn png_text_validation_exposes_sdk_duplicate_and_keyword_causes() {
             sdk_error,
         ));
         assert!(matches!(error.code, ErrorCode::Invalid));
-        assert!(error.message.contains(expected_cause), "{}", error.message);
+        let nib_app::api::UserMessage::External { detail } = error.message else {
+            panic!("SDK validation must preserve its external detail");
+        };
+        assert!(detail.contains(expected_cause), "{detail}");
     }
 }
 

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useStore } from "zustand";
 import { useResultViewStore, type ResultSelection as Selection } from "./result-view-state";
 import { useCallback, useEffect, useState } from "react";
@@ -41,6 +42,8 @@ export function GenerationResults({
   recentImageLimit?: number;
   gallery?: boolean;
 }) {
+  useTranslation();
+
   const {
     jobs,
     results,
@@ -141,18 +144,22 @@ export function GenerationResults({
   return (
     <section
       className={"generation-results" + (gallery ? " gallery-page" : "")}
-      aria-label={gallery ? "画廊" : "生成预览与结果"}
+      aria-label={gallery ? t("generation.gallery") : t("generation.previewResults")}
     >
       <div className="generation-view-controls">
         <span className="generation-spacer" />
         {gallery && selection && (
-          <IconButton label="返回画廊" onClick={() => setSelection(null)}>
+          <IconButton label={t("generation.backToGallery")} onClick={() => setSelection(null)}>
             <Grid2X2 size={17} />
           </IconButton>
         )}
         {!gallery && sourceId && (
           <IconButton
-            label={selected?.kind === "source" ? "返回结果" : "查看输入图片"}
+            label={
+              selected?.kind === "source"
+                ? t("generation.backToResults")
+                : t("generation.viewInputImage")
+            }
             aria-pressed={selected?.kind === "source"}
             onClick={() => {
               if (selected?.kind === "source") setSelection(view.getState().sourceReturn);
@@ -166,7 +173,7 @@ export function GenerationResults({
           </IconButton>
         )}
         <IconButton
-          label="任务队列"
+          label={t("generation.taskQueue")}
           data-generation-tasks={!gallery || undefined}
           onClick={() => setQueueOpen(true)}
         >
@@ -177,7 +184,7 @@ export function GenerationResults({
         <Notice
           actions={
             <Button disabled={refreshing} onClick={() => void refresh()}>
-              重试查询
+              {t("generation.retryQuery")}
             </Button>
           }
         >
@@ -185,12 +192,18 @@ export function GenerationResults({
         </Notice>
       )}
       {jobQuery.error && (
-        <Notice actions={<Button onClick={() => void jobQuery.refetch()}>重试读取任务</Button>}>
+        <Notice
+          actions={
+            <Button onClick={() => void jobQuery.refetch()}>{t("generation.retryLoadTask")}</Button>
+          }
+        >
           {errorMessage(jobQuery.error)}
         </Notice>
       )}
       {feedbackError && (
-        <Notice actions={<Button onClick={reconnectFeedback}>重新连接预览</Button>}>
+        <Notice
+          actions={<Button onClick={reconnectFeedback}>{t("generation.reconnectPreview")}</Button>}
+        >
           {feedbackError}
         </Notice>
       )}
@@ -210,7 +223,7 @@ export function GenerationResults({
             {!results?.length && (
               <div className="generation-canvas-status">
                 <Image size={30} />
-                <p>{results ? "尚无图片" : "正在读取图片…"}</p>
+                <p>{results ? t("generation.noImages") : t("generation.loadingImages")}</p>
               </div>
             )}
             {hasMoreResults && (
@@ -219,7 +232,7 @@ export function GenerationResults({
                 disabled={loadingMoreResults}
                 onClick={() => void loadMoreResults()}
               >
-                {loadingMoreResults ? "正在读取…" : "加载更多"}
+                {loadingMoreResults ? t("generation.loadingMore") : t("generation.loadMore")}
               </Button>
             )}
           </div>
@@ -231,11 +244,17 @@ export function GenerationResults({
             onOpen={() => setDetail(selected.result)}
             leadingTools={
               selected.backJob ? (
-                <IconButton label="返回全部样本" onClick={() => selectJob(selected.backJob!)}>
+                <IconButton
+                  label={t("generation.backToAllSamples")}
+                  onClick={() => selectJob(selected.backJob!)}
+                >
                   <Grid2X2 size={17} />
                 </IconButton>
               ) : gallery ? (
-                <IconButton label="返回画廊" onClick={() => setSelection(null)}>
+                <IconButton
+                  label={t("generation.backToGallery")}
+                  onClick={() => setSelection(null)}
+                >
                   <ArrowLeft size={17} />
                 </IconButton>
               ) : undefined
@@ -262,11 +281,11 @@ export function GenerationResults({
         ) : (
           <div className="generation-canvas generation-canvas-empty">
             <Image size={32} />
-            <p>{jobId ? "正在读取任务…" : "生成的图片会显示在这里"}</p>
+            <p>{jobId ? t("generation.loadingTasks") : t("generation.emptyResultsHint")}</p>
           </div>
         )}
         {!gallery && (
-          <div className="generation-filmstrip" aria-label="最近图片">
+          <div className="generation-filmstrip" aria-label={t("generation.recentImages")}>
             <div className="generation-result-grid">
               {active && (
                 <Button
@@ -278,11 +297,15 @@ export function GenerationResults({
                   onClick={() => selectJob(active.id)}
                 >
                   <LoaderCircle size={22} />
-                  <span>{active.status === "running" ? "生成中" : "排队中"}</span>
+                  <span>
+                    {active.status === "running"
+                      ? t("generation.generating")
+                      : t("generation.queued")}
+                  </span>
                   <small>
                     {active.operation.kind === "generation"
-                      ? `${active.operation.sampleCount} 个样本`
-                      : "处理中"}
+                      ? t("generation.sampleCount", { count: active.operation.sampleCount })
+                      : t("generation.processing")}
                   </small>
                 </Button>
               )}

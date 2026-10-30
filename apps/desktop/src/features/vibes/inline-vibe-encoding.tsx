@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Binary, LoaderCircle } from "lucide-react";
@@ -35,6 +36,8 @@ export function InlineVibeEncoding({
   onChange: (patch: VibePatch) => void;
   children: (action: ReactNode, feedback: ReactNode) => ReactNode;
 }) {
+  useTranslation();
+
   const { accountVersion, accountSummaryLoading } = useAccount();
   const { submissionBlocked } = useSubmission();
   const { acceptJob } = useJobData();
@@ -125,7 +128,7 @@ export function InlineVibeEncoding({
   const working =
     encode.isPending || Boolean(queued && activeStatuses.has(job.data?.status ?? queued.status));
   const cost = ready && !accountSummaryLoading ? quote.data?.estimatedAnlas : undefined;
-  const costLabel = cost == null ? "费用未知" : `${cost} Anlas`;
+  const costLabel = cost == null ? t("vibes.unknownCost") : `${cost} Anlas`;
   const failure =
     currentRequest && encode.error
       ? errorMessage(encode.error)
@@ -137,7 +140,9 @@ export function InlineVibeEncoding({
               job.data &&
               !activeStatuses.has(job.data.status) &&
               job.data.status !== "completed"
-            ? (job.data.error ?? "编码未完成，请重新编码。")
+            ? job.data.error
+              ? errorMessage(job.data.error)
+              : t("vibes.encodingIncomplete")
             : inputQuery.error
               ? errorMessage(inputQuery.error)
               : ready && quote.error
@@ -147,7 +152,7 @@ export function InlineVibeEncoding({
     queued && job.data?.status === "completed" && result.isSuccess && !encodedAsset;
   return children(
     <IconButton
-      label={working ? "正在编码" : `编码 · 预计 ${costLabel}；已有匹配编码时直接复用`}
+      label={working ? t("vibes.encoding") : t("vibes.encodeWithReuseCost", { value0: costLabel })}
       disabled={
         working ||
         !ready ||
@@ -171,9 +176,9 @@ export function InlineVibeEncoding({
       <output className="vibe-status" aria-live="polite">
         {working
           ? job.data?.status === "running"
-            ? "编码中…"
-            : "排队中…"
-          : `编码 · 预计 ${costLabel}`}
+            ? t("vibes.encodingProgress")
+            : t("vibes.queued")
+          : t("vibes.encodeCost", { value0: costLabel })}
       </output>
       {failure && (
         <Notice
@@ -187,7 +192,7 @@ export function InlineVibeEncoding({
                   else if (result.error) void result.refetch();
                 }}
               >
-                重试读取
+                {t("vibes.retryRead")}
               </Button>
             ) : undefined
           }
@@ -196,8 +201,10 @@ export function InlineVibeEncoding({
         </Notice>
       )}
       {completedWithoutAsset && (
-        <Notice actions={<Button onClick={() => void result.refetch()}>重试读取</Button>}>
-          未读取到可用编码，原图片已保留。
+        <Notice
+          actions={<Button onClick={() => void result.refetch()}>{t("vibes.retryRead")}</Button>}
+        >
+          {t("vibes.noUsableEncoding")}
         </Notice>
       )}
     </>,

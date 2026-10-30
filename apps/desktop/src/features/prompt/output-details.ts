@@ -1,11 +1,15 @@
+import { t } from "@/shared/i18n";
 import type { Draft, ResolutionIssue, Resource } from "@/bindings/workbench";
 
 export function tokenFieldLabel(field: string): string {
-  if (field === "prompt") return "正面";
-  if (field === "negativePrompt") return "负面";
+  if (field === "prompt") return t("prompt.positive");
+  if (field === "negativePrompt") return t("prompt.negative");
   const character = /^characters\[(\d+)\]\.(prompt|negativePrompt)$/.exec(field);
   if (character)
-    return `角色 ${Number(character[1]) + 1} · ${character[2] === "prompt" ? "正面" : "负面"}`;
+    return t("prompt.characterScope", {
+      value0: Number(character[1]) + 1,
+      value1: character[2] === "prompt" ? t("prompt.positive") : t("prompt.negative"),
+    });
   return field;
 }
 
@@ -29,8 +33,8 @@ export function resolutionIssueDetails(
     instance
       ? instance.binding.kind === "expanded"
         ? instance.binding.name
-        : (resource?.name ?? "缺失的 Preset")
-      : "当前创作",
+        : (resource?.name ?? t("prompt.missingPreset"))
+      : t("prompt.currentCreation"),
   ];
   let composition = output?.composition;
   let target: string | null = null;
@@ -39,7 +43,11 @@ export function resolutionIssueDetails(
       output?.characters.findIndex((character) => character.id === issue.characterId) ?? -1;
     const character = index >= 0 ? output?.characters[index] : undefined;
     composition = character?.composition;
-    labels.push(index >= 0 ? `角色 ${index + 1}` : "已移除的角色覆盖");
+    labels.push(
+      index >= 0
+        ? t("prompt.namedCharacter", { value0: index + 1 })
+        : t("prompt.removedCharacterOverride"),
+    );
     target = `character:${JSON.stringify({ id: issue.characterId, presetInstanceId: issue.presetInstanceId, scope: issue.scope, nodeId: issue.nodeId })}`;
   }
   if (!target && issue.nodeId && instance) {
@@ -51,7 +59,7 @@ export function resolutionIssueDetails(
         : instance.binding.references.precise.some((reference) => reference.id === issue.nodeId);
     if (precise) {
       composition = undefined;
-      labels.push("精确参考");
+      labels.push(t("prompt.preciseReference"));
       target = `reference:${JSON.stringify({ id: issue.nodeId, presetInstanceId: issue.presetInstanceId })}`;
     }
     const vibe =
@@ -60,17 +68,22 @@ export function resolutionIssueDetails(
         : instance.binding.references.vibes.some((reference) => reference.id === issue.nodeId);
     if (!target && vibe) {
       composition = undefined;
-      labels.push("氛围转移");
+      labels.push(t("prompt.vibeTransfer"));
       target = `vibe:${JSON.stringify({ id: issue.nodeId, presetInstanceId: issue.presetInstanceId })}`;
     }
   }
-  if (issue.scope) labels.push(issue.scope === "positive" ? "基础提示" : "负面提示");
+  if (issue.scope)
+    labels.push(issue.scope === "positive" ? t("prompt.basePrompt") : t("prompt.negativePrompt"));
   if (issue.nodeId && composition) {
     const nodes = issue.scope
       ? composition[issue.scope]
       : [...composition.positive, ...composition.negative];
     const index = nodes.findIndex((node) => node.id === issue.nodeId);
-    labels.push(index >= 0 ? `第 ${index + 1} 个片段` : "已移除的片段覆盖");
+    labels.push(
+      index >= 0
+        ? t("prompt.segmentNumber", { value0: index + 1 })
+        : t("prompt.removedSegmentOverride"),
+    );
   }
   return { label: labels.join(" · "), target };
 }

@@ -1,3 +1,4 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { resultsApi } from "./api";
 import { useEffect, useRef, useState } from "react";
@@ -5,7 +6,6 @@ import { ArrowUpLeft, RotateCw } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { GenerationResult } from "@/bindings/generation";
 import { Button, Modal, Notice } from "@/shared/ui";
-import { errorMessage } from "@/shared/host/error";
 import { ResultResubmitDialog } from "./result-resubmit-dialog";
 import { SubmissionSummary } from "../submission/submission-summary";
 import { useMediaContent } from "@/features/media/use-media-content";
@@ -24,12 +24,14 @@ function ResultDetailContent({
   canMaxEnhance: boolean;
   canInpaint: boolean;
 }) {
+  useTranslation();
+
   const isDirector = result.submission.kind === "director";
   const image = useMediaContent(result.assetId, result.mimeType, result.available);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [resubmitOpen, setResubmitOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useMessageState();
   const active = useRef(true);
   const lock = useRef(false);
   useEffect(() => {
@@ -50,7 +52,7 @@ function ResultDetailContent({
       onRestore(draft);
       onClose();
     } catch (cause) {
-      if (active.current) setError(errorMessage(cause));
+      if (active.current) setError(cause);
     } finally {
       lock.current = false;
       if (active.current) setRestoring(false);
@@ -63,29 +65,31 @@ function ResultDetailContent({
       onClose={onClose}
       title={
         isDirector
-          ? `导演工具结果 · 输出 ${result.sampleIndex + 1}`
-          : `生成结果 · 样本 ${result.sampleIndex + 1}`
+          ? t("generation.directorOutputLabel", { value0: result.sampleIndex + 1 })
+          : t("generation.generationSampleLabel", { value0: result.sampleIndex + 1 })
       }
       wide
     >
       <div className="generation-detail">
         <div className="generation-detail-image">
           {!result.available ? (
-            <p className="generation-muted">媒体文件缺失，无法查看图像。</p>
+            <p className="generation-muted">{t("generation.mediaMissing")}</p>
           ) : image.error ? (
-            <Notice actions={<Button onClick={image.retry}>重试读取</Button>}>{image.error}</Notice>
+            <Notice actions={<Button onClick={image.retry}>{t("generation.retryLoad")}</Button>}>
+              {image.error}
+            </Notice>
           ) : image.url ? (
             <img
               src={image.url}
               alt={
                 result.seed === null
-                  ? "生成结果，样本种子未记录"
-                  : `生成结果，样本种子 ${result.seed}`
+                  ? t("generation.resultSeedMissing")
+                  : t("generation.resultSeedLabel", { value0: result.seed })
               }
               onError={image.failed}
             />
           ) : (
-            <output>正在读取结果图像…</output>
+            <output>{t("generation.loadingResultImage")}</output>
           )}
         </div>
         <div className="generation-detail-info">
@@ -93,8 +97,8 @@ function ResultDetailContent({
           {result.submission.kind === "generation" && (
             <p className="generation-muted">
               {result.seed === null
-                ? "图片未记录样本种子；恢复时使用原提交种子，无法据此精确重现此样本。"
-                : `样本种子：${result.seed}`}
+                ? t("generation.sampleSeedMissingHelp")
+                : t("generation.sampleSeedValue", { value0: result.seed })}
             </p>
           )}
           <div className="generation-detail-actions">
@@ -106,27 +110,33 @@ function ResultDetailContent({
               disabled={restoring || !result.available}
             >
               <ArrowUpLeft size={14} />
-              {isDirector ? "恢复工具输入" : "恢复到当前创作"}
+              {isDirector ? t("generation.restoreToolInput") : t("generation.restoreToCreation")}
             </Button>
             <Button onClick={() => setResubmitOpen(true)} disabled={restoring || !result.available}>
               <RotateCw size={14} />
-              {isDirector ? "再次处理" : "再次生成"}
+              {isDirector ? t("generation.processAgain") : t("generation.generateAgain")}
             </Button>
           </div>
           {confirmRestore && (
             <fieldset className="generation-restore-confirm">
-              <legend>{isDirector ? "替换工具输入？" : "替换当前创作？"}</legend>
-              <p>
+              <legend>
                 {isDirector
-                  ? "将恢复此结果使用的工具、源图和参数。"
-                  : "当前提示词、配方与设置将替换为此结果保存的独立内容，并自动保存。此操作不会发起生成。"}
+                  ? t("generation.replaceToolInputTitle")
+                  : t("generation.replaceCreationTitle")}
+              </legend>
+              <p>
+                {isDirector ? t("generation.restoreToolHelp") : t("generation.restoreCreationHelp")}
               </p>
               <div className="generation-dialog-actions">
                 <Button disabled={restoring} onClick={() => setConfirmRestore(false)}>
-                  {isDirector ? "保留工具输入" : "保留当前创作"}
+                  {isDirector ? t("generation.keepToolInput") : t("generation.keepCreation")}
                 </Button>
                 <Button className="primary" disabled={restoring} onClick={() => void restore()}>
-                  {restoring ? "正在恢复…" : isDirector ? "恢复工具输入" : "替换当前创作"}
+                  {restoring
+                    ? t("generation.restoring")
+                    : isDirector
+                      ? t("generation.restoreToolInput")
+                      : t("generation.replaceCreation")}
                 </Button>
               </div>
             </fieldset>
@@ -147,6 +157,8 @@ export function ResultDetail(
     result: Pick<GenerationResult, "id">;
   },
 ) {
+  useTranslation();
+
   const detail = useMediaQuery(
     ["results", "detail", props.result.id],
     props.result.id,
@@ -154,12 +166,14 @@ export function ResultDetail(
   );
   if (detail.value) return <ResultDetailContent {...props} result={detail.value} />;
   return (
-    <Modal open onClose={props.onClose} title="生成结果">
+    <Modal open onClose={props.onClose} title={t("generation.generationResult")}>
       <div className="generation-dialog-body">
         {detail.error ? (
-          <Notice actions={<Button onClick={detail.retry}>重试读取</Button>}>{detail.error}</Notice>
+          <Notice actions={<Button onClick={detail.retry}>{t("generation.retryLoad")}</Button>}>
+            {detail.error}
+          </Notice>
         ) : (
-          <output>正在读取结果详情…</output>
+          <output>{t("generation.loadingResultDetails")}</output>
         )}
       </div>
     </Modal>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { isCancelledError, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Draft, Resource } from "@/bindings/workbench";
 import { errorMessage } from "@/shared/host/error";
+import { useTranslation } from "@/shared/i18n";
 import { draftResourceIds } from "./resource-dependencies";
 import { resourceQuery } from "./resource-queries";
 
@@ -14,11 +15,7 @@ function resourceSnapshot(client: QueryClient) {
         return resource ? [[resource.id, resource] as const] : [];
       }),
     ),
-    resourceError: queries
-      .map((query) => query.state.error)
-      .filter(Boolean)
-      .map(errorMessage)
-      .join("；"),
+    resourceErrors: queries.map((query) => query.state.error).filter(Boolean),
   };
 }
 
@@ -44,6 +41,8 @@ function resourceStore(client: QueryClient) {
 
 /** Query owns fetched definitions; the returned map is a read-only projection for prompt consumers. */
 export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
+  useTranslation();
+
   const client = useQueryClient();
   const [resourceVersion, setResourceVersion] = useState(0);
   useState(() => {
@@ -55,7 +54,8 @@ export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
     return true;
   });
   const store = useMemo(() => resourceStore(client), [client]);
-  const { resources, resourceError } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { resources, resourceErrors } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const resourceError = resourceErrors.map(errorMessage).join("; ");
 
   const ensureResources = useCallback(
     async (ids: string[], force = false) => {

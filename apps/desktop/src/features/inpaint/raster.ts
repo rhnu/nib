@@ -1,3 +1,4 @@
+import { t, MessageError, deferMessage } from "@/shared/i18n";
 import type { MaskSession } from "@/bindings/workbench";
 import { mediaApi } from "@/features/media/api";
 import { imageUnavailableReason } from "@/features/media/model";
@@ -17,7 +18,7 @@ export function drawMask(
   canvas.width = session.width;
   canvas.height = session.height;
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("无法创建遮罩画布，请重新打开编辑器。");
+  if (!context) throw new MessageError(deferMessage(() => t("inpaint.canvasFailed")));
   context.fillStyle = "black";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.imageSmoothingEnabled = false;
@@ -56,15 +57,18 @@ export function drawMask(
 export async function renderMaskPng(session: MaskSession): Promise<Uint8Array> {
   const source = await mediaApi.asset(session.sourceAssetId);
   const unavailable = imageUnavailableReason(source);
-  if (unavailable) throw new Error(unavailable);
+  if (unavailable) throw new MessageError(deferMessage(() => imageUnavailableReason(source)!));
   if (source.width !== session.width || source.height !== session.height)
-    throw new Error("遮罩会话尺寸与底图原生尺寸不一致，请重新打开此底图的遮罩编辑器。");
+    throw new MessageError(deferMessage(() => t("inpaint.sourceSizeMismatch")));
   const base = session.baseMaskAssetId ? await loadMaskBitmap(session.baseMaskAssetId) : null;
   try {
     const canvas = drawMask(session, base);
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (value) => (value ? resolve(value) : reject(new Error("无法导出遮罩 PNG，请重试。"))),
+        (value) =>
+          value
+            ? resolve(value)
+            : reject(new MessageError(deferMessage(() => t("inpaint.exportFailed")))),
         "image/png",
       );
     });

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { GenerationQuote } from "@/bindings/generation";
 import type { CreationOperation, ModelCapabilities } from "@/bindings/workbench";
 import { FormField, FormGrid, NumberSlider } from "@/shared/ui";
@@ -22,6 +23,8 @@ export function ImageToImageSettings({
   feedback,
   updateOperation,
 }: ImageToImageSettingsProps) {
+  useTranslation();
+
   const { prefix, messages, rejected, controlProps } = feedback;
   const effectiveOperation = estimate?.resolved?.inputs.operation;
   const geometry =
@@ -43,25 +46,25 @@ export function ImageToImageSettings({
         <>
           {capabilities?.maxEnhance === false && (
             <p className="inline-warning" role="alert">
-              当前模型不支持 Max Enhance；已编辑值保留，请更换模型或操作。
+              {t("inputs.maxEnhanceUnsupported")}
             </p>
           )}
           {geometry ? (
             <dl className="image-operation-geometry">
               <div>
-                <dt>输入</dt>
+                <dt>{t("inputs.input")}</dt>
                 <dd>
                   {geometry.input_size.width} × {geometry.input_size.height}
                 </dd>
               </div>
               <div>
-                <dt>输出</dt>
+                <dt>{t("inputs.output")}</dt>
                 <dd>
                   {geometry.output_size.width} × {geometry.output_size.height}
                 </dd>
               </div>
               <div>
-                <dt>计价</dt>
+                <dt>{t("inputs.pricing")}</dt>
                 <dd>
                   {geometry.pricing_size.width} × {geometry.pricing_size.height}
                 </dd>
@@ -72,8 +75,8 @@ export function ImageToImageSettings({
               {estimate &&
               effectiveOperation?.kind === "imageToImage" &&
               !effectiveOperation.maxEnhance
-                ? "SDK 有效操作为普通图生图；Max Enhance 未生效，不能以该操作提交。"
-                : "等待估费确认输出与计价尺寸。"}
+                ? t("inputs.maxEnhanceInactive")
+                : t("inputs.awaitingGeometry")}
             </p>
           )}
         </>
@@ -82,7 +85,7 @@ export function ImageToImageSettings({
         {(["strength", "noise"] as const).map((field) => {
           const range =
             capabilities?.ranges[field === "strength" ? "img2imgStrength" : "img2imgNoise"];
-          const label = field === "strength" ? "Strength" : "Noise";
+          const label = field === "strength" ? t("inputs.strength") : t("inputs.noise");
           return (
             <div key={field} data-setting-field={field}>
               <FormField label={label} htmlFor={`${prefix}-${field}`} feedback={messages(field)}>

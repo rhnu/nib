@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use nib_app::{
-    api::{ApiError, ErrorCode},
+    api::{ApiError, ErrorCode, UserMessage},
     jobs::{GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobRecord},
     session::Draft,
     settings::{AccountStatus, CredentialError, CredentialStore as _},
@@ -23,11 +23,10 @@ fn credential_error(error: &CredentialError) -> ApiError {
             ErrorCode::Unavailable
         },
         message: if matches!(error, CredentialError::InvalidKey) {
-            "API Key 格式无效，请重新输入。"
+            UserMessage::InvalidApiKey
         } else {
-            "无法访问系统凭据。请重试，或检查 Windows 凭据管理器。"
-        }
-        .to_owned(),
+            UserMessage::CredentialUnavailable
+        },
     }
 }
 
@@ -38,42 +37,46 @@ pub(crate) fn generation_error(error: JobError) -> ApiError {
         JobError::MissingCredentials => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
-            message: "请先配置 NovelAI API Key。".to_owned(),
+            message: UserMessage::MissingCredentials,
         },
         JobError::Unresolved => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unresolved,
-            message: "当前创作有未解决的资源引用，请在解析面板中处理后再生成。".to_owned(),
+            message: UserMessage::UnresolvedResources,
         },
         JobError::Unavailable => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
-            message: "生成队列已停止，请重新打开应用。未完成任务不会自动重新请求。".to_owned(),
+            message: UserMessage::QueueUnavailable,
         },
         JobError::Worker(_) => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
-            message: "后台生成操作中断，请确认任务状态后重试。".to_owned(),
+            message: UserMessage::WorkerInterrupted,
         },
-        JobError::Bridge(novelai_bridge::BridgeError::Api(error)) => ApiError {
+        error @ JobError::Bridge(
+            novelai_bridge::BridgeError::Api(_) | novelai_bridge::BridgeError::Transport(_),
+        ) => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
-            message: format!("NovelAI 请求失败（HTTP {}）。", error.status()),
-        },
-        JobError::Bridge(novelai_bridge::BridgeError::Transport(_)) => ApiError {
-            validation_fields: Vec::new(),
-            code: ErrorCode::Unavailable,
-            message: "无法连接 NovelAI。请求可能已被服务端处理，请确认后再重试。".to_owned(),
+            message: error.user_message(),
         },
         JobError::Bridge(novelai_bridge::BridgeError::InvalidRequest(error)) => ApiError {
             validation_fields: nib_app::api::request_error_fields(&error),
             code: ErrorCode::Invalid,
-            message: error.to_string(),
+            message: UserMessage::external(nib_app::api::error_detail(&error)),
         },
-        error => ApiError {
-            validation_fields: Vec::new(),
-            code: ErrorCode::Invalid,
-            message: error.user_message(),
+        error => {
+            let message = error.user_message();
+            let validation_fields = match &message {
+                UserMessage::Validation { field, .. } => vec![field.clone()],
+                _ => Vec::new(),
+            };
+            ApiError {
+                validation_fields,
+                code: ErrorCode::Invalid,
+                message,
+            }
         },
     }
 }
@@ -86,7 +89,7 @@ pub(crate) async fn blocking<T: Send + 'static>(
         .map_err(|_worker_error| ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unavailable,
-            message: "操作未完成，请重试。".to_owned(),
+            message: UserMessage::OperationIncomplete,
         })?
 }
 
@@ -164,7 +167,7 @@ pub(crate) async fn save_account_key(
         let name = name.trim();
         if name.is_empty() {
             return Err(generation_error(JobError::Invalid(
-                "请输入账户名称。".into(),
+                UserMessage::AccountNameRequired,
             )));
         }
         let new_profile = id.is_none();
@@ -177,7 +180,7 @@ pub(crate) async fn save_account_key(
             .map(|value| SecretString::from(value.to_owned()));
         if new_profile && secret.is_none() {
             return Err(generation_error(JobError::Invalid(
-                "请输入 API Key。".into(),
+                UserMessage::ApiKeyRequired,
             )));
         }
         let secret_id = secret.as_ref().map(|_| account_id());
@@ -267,8 +270,7 @@ pub(crate) async fn delete_account_key(
             {
                 return Err(ApiError {
                     code: ErrorCode::Conflict,
-                    message: "此账户仍有未完成任务。请在任务列表中取消或等待这些任务完成后再删除。"
-                        .into(),
+                    message: UserMessage::AccountHasPendingJobs,
                     validation_fields: Vec::new(),
                 });
             }

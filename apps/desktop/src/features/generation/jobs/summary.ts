@@ -1,3 +1,4 @@
+import { t } from "@/shared/i18n";
 import type {
   FrozenSubmission,
   JobRecord,
@@ -53,10 +54,11 @@ export function summarizeResult(record: GenerationResult): ResultSummary {
 }
 
 export function operationSummaryLabel(operation: OperationSummary): string {
-  if (operation.kind === "generation") return "图像生成";
+  if (operation.kind === "generation") return t("generation.imageGeneration");
   if (operation.kind === "director") return directorToolLabels[operation.tool];
-  if (operation.kind === "encodeVibe") return `氛围转移编码 · ${operation.input.model}`;
-  return "独立放大";
+  if (operation.kind === "encodeVibe")
+    return t("generation.vibeEncodingLabel", { value0: operation.input.model });
+  return t("generation.standaloneUpscale");
 }
 
 /** New head data replaces matching identities, while already loaded older pages remain reachable. */

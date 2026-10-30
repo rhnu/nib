@@ -1,3 +1,5 @@
+import { t } from "@/shared/i18n";
+import { errorMessage } from "@/shared/host/error";
 import type { Draft, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { ParameterDiagnostic } from "@/bindings/generation";
 import { characterDefinition } from "@/features/positioning/model";
@@ -98,8 +100,8 @@ export function collectOutputIssues(
 ): ScopedOutputIssues {
   const result: ScopedOutputIssues = { draft: empty(), presets: {} };
   for (const issue of [
-    ...diagnostics.map((item) => ({ field: item.field, message: item.change })),
-    ...rejected.map((field) => ({ field, message: "此项未通过校验。" })),
+    ...diagnostics.map((item) => ({ field: item.field, message: errorMessage(item.change) })),
+    ...rejected.map((field) => ({ field, message: t("workbench.validationFailed") })),
   ]) {
     const target = outputTarget(issue.field, resolved, draft, resources);
     if (!target) continue;

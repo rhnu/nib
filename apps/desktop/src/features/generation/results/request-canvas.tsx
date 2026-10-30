@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Expand, ImageOff } from "lucide-react";
@@ -11,6 +12,8 @@ import { errorMessage } from "@/shared/host/error";
 import { resultsApi } from "./api";
 
 export function PreviewImage({ sample }: { sample: FeedbackSample }) {
+  useTranslation();
+
   const [frame, setFrame] = useState<{ bytes: FeedbackSample["bytes"]; url: string } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useLayoutEffect(() => {
@@ -26,7 +29,7 @@ export function PreviewImage({ sample }: { sample: FeedbackSample }) {
     <img
       className="generation-live-image"
       src={url}
-      alt={`样本 ${sample.sampleIndex + 1} 预览`}
+      alt={t("generation.samplePreview", { value0: sample.sampleIndex + 1 })}
       onError={() => setFailed(url)}
     />
   ) : null;
@@ -45,6 +48,8 @@ function SampleCell({
   sample?: FeedbackSample;
   onSelect: (result: ResultSummary) => void;
 }) {
+  useTranslation();
+
   const image = useMediaContent(
     result?.assetId ?? null,
     result?.mimeType ?? "image/png",
@@ -54,13 +59,16 @@ function SampleCell({
   const decoded = Boolean(image.url && !image.error && decodedUrl === image.url);
   const { releasePreview } = useFeedback();
   return (
-    <section className="request-sample" aria-label={`样本 ${index + 1}`}>
+    <section
+      className="request-sample"
+      aria-label={t("generation.sampleNumber", { value0: index + 1 })}
+    >
       {!decoded && sample?.bytes && <PreviewImage sample={sample} />}
       {image.url && (
         <img
           className="generation-live-image"
           src={image.url}
-          alt={`样本 ${index + 1}`}
+          alt={t("generation.sampleNumber", { value0: index + 1 })}
           style={{ opacity: decoded ? 1 : 0 }}
           onError={image.failed}
           onLoad={() => {
@@ -77,13 +85,16 @@ function SampleCell({
       )}
       {image.error && (
         <Button className="sample-retry" onClick={image.retry}>
-          重试读取
+          {t("generation.retryLoad")}
         </Button>
       )}
       <span className="request-sample-number">{index + 1}</span>
       {result && (
         <div className="image-overlay image-overlay-top">
-          <IconButton label={`查看样本 ${index + 1}`} onClick={() => onSelect(result)}>
+          <IconButton
+            label={t("generation.viewSample", { value0: index + 1 })}
+            onClick={() => onSelect(result)}
+          >
             <Expand size={17} />
           </IconButton>
         </div>
@@ -104,6 +115,8 @@ export function RequestCanvas({
     onOpen: (result: ResultSummary) => void;
   };
 }) {
+  useTranslation();
+
   const { feedback, releasePreview } = useFeedback();
   const query = useQuery({
     queryKey: ["results", "job", job.id, job.status],
@@ -121,7 +134,11 @@ export function RequestCanvas({
   return (
     <div className="request-view">
       {query.error && (
-        <Notice actions={<Button onClick={() => void query.refetch()}>重试读取</Button>}>
+        <Notice
+          actions={
+            <Button onClick={() => void query.refetch()}>{t("generation.retryLoad")}</Button>
+          }
+        >
           {errorMessage(query.error)}
         </Notice>
       )}
@@ -153,7 +170,7 @@ export function RequestCanvas({
           ))}
         </div>
       )}
-      {job.error && <Notice>{job.error}</Notice>}
+      {job.error && <Notice>{errorMessage(job.error)}</Notice>}
     </div>
   );
 }

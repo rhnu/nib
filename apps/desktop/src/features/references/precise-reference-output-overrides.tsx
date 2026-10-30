@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import type {
@@ -28,6 +29,8 @@ export function PreciseReferenceOutputOverrides({
   contextKey,
   ...props
 }: PreciseReferenceOutputOverridesProps) {
+  useTranslation();
+
   return <OutputOverridesContent key={contextKey} {...props} />;
 }
 
@@ -38,6 +41,8 @@ function OutputOverridesContent({
   capabilities,
   issues,
 }: Omit<PreciseReferenceOutputOverridesProps, "contextKey">) {
+  useTranslation();
+
   const latest = useRef({ active: true, overrides, onChange });
   useLayoutEffect(() => {
     Object.assign(latest.current, { overrides, onChange });
@@ -63,8 +68,14 @@ function OutputOverridesContent({
     (override) => !value.some((reference) => reference.id === override.id),
   );
   return (
-    <section className="precise-reference-editor" aria-label="配方精确参考覆盖">
-      <h3>精确参考 · {value.length}</h3>
+    <section
+      className="precise-reference-editor"
+      aria-label={t("references.presetPreciseOverrides")}
+    >
+      <h3>
+        {t("references.preciseReferencePrefix")}
+        {value.length}
+      </h3>
       <PreciseReferenceAvailability capabilities={capabilities} />
       {value.map((original, index) => {
         const override = overrides.find((item) => item.id === original.id);
@@ -87,7 +98,7 @@ function OutputOverridesContent({
             actions={
               override && (
                 <IconButton
-                  label={`撤销精确参考 ${index + 1} 全部覆盖`}
+                  label={t("references.revertPreciseOverrides", { value0: index + 1 })}
                   onClick={() =>
                     update((overrides) => overrides.filter((item) => item.id !== original.id))
                   }
@@ -105,9 +116,9 @@ function OutputOverridesContent({
           className="precise-reference-message"
           data-reference-id={override.id}
         >
-          原精确参考已不存在，覆盖不生效。
+          {t("references.originalReferenceMissing")}
           <IconButton
-            label="移除失效的精确参考覆盖"
+            label={t("references.removeStalePreciseOverride")}
             onClick={() =>
               update((overrides) => overrides.filter((item) => item.id !== override.id))
             }

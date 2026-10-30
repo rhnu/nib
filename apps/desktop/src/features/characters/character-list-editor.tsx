@@ -1,8 +1,8 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "@/bindings/workbench";
 import { IconButton, Toggle } from "@/shared/ui";
-import { errorMessage } from "@/shared/host/error";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { promptApi } from "@/features/prompt/api";
 import { moveItem } from "@/features/prompt/model";
@@ -20,7 +20,7 @@ type EditorProps = {
   onChange: (value: CharacterComposition[]) => void;
   resources: Map<string, Resource>;
   capabilities: ModelCapabilities | null;
-  onError: (message: string) => void;
+  onError: (message: unknown) => void;
   onPosition?: (characterId: string) => void;
   allowChunk?: boolean;
   title?: string;
@@ -51,6 +51,8 @@ function CharacterRow({
   };
   fieldIssues: CharacterFieldIssue[];
 }) {
+  useTranslation();
+
   const root = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const textIssue = fieldIssues.find(
@@ -70,28 +72,38 @@ function CharacterRow({
       data-has-errors={fieldIssues.length > 0 || undefined}
     >
       <header>
-        <strong>角色 {index + 1}</strong>
+        <strong>
+          {t("characters.characterNumber")}
+          {index + 1}
+        </strong>
         <span className="spacer" />
-        <IconButton label={`上移角色 ${index + 1}`} disabled={!actions.canUp} onClick={actions.up}>
+        <IconButton
+          label={t("characters.moveUp", { value0: index + 1 })}
+          disabled={!actions.canUp}
+          onClick={actions.up}
+        >
           <ArrowUp size={14} />
         </IconButton>
         <IconButton
-          label={`下移角色 ${index + 1}`}
+          label={t("characters.moveDown", { value0: index + 1 })}
           disabled={!actions.canDown}
           onClick={actions.down}
         >
           <ArrowDown size={14} />
         </IconButton>
         <Toggle
-          label={`启用角色 ${index + 1}`}
+          label={t("characters.enable", { value0: index + 1 })}
           checked={character.enabled}
           onChange={(enabled) => update({ enabled })}
         />
-        <IconButton label={`移除角色 ${index + 1}`} onClick={actions.remove}>
+        <IconButton label={t("characters.remove", { value0: index + 1 })} onClick={actions.remove}>
           <Trash2 size={14} />
         </IconButton>
         <IconButton
-          label={`${isCollapsed ? "展开" : "折叠"}角色 ${index + 1}`}
+          label={t("characters.toggleExpanded", {
+            value0: isCollapsed ? t("characters.expand") : t("characters.collapse"),
+            value1: index + 1,
+          })}
           data-character-expand
           aria-expanded={!isCollapsed}
           onClick={() => setCollapsed(!isCollapsed)}
@@ -117,7 +129,7 @@ function CharacterRow({
               try {
                 return await promptApi.expandChunk(node);
               } catch (cause) {
-                onError(errorMessage(cause));
+                onError(cause);
                 return node;
               }
             }}
@@ -145,9 +157,11 @@ export function CharacterListEditor({
   onError,
   onPosition,
   allowChunk = true,
-  title = "角色",
+  title = t("characters.characters"),
   issues = {},
 }: EditorProps) {
+  useTranslation();
+
   const latest = useRef({ value, onChange });
   useLayoutEffect(() => {
     latest.current = { value, onChange };
@@ -171,7 +185,7 @@ export function CharacterListEditor({
           </span>
         </h3>
         <IconButton
-          label="添加角色"
+          label={t("characters.add")}
           disabled={!capabilities || max === 0 || enabled >= max}
           onClick={() => {
             if (!capabilities) return;
@@ -186,13 +200,15 @@ export function CharacterListEditor({
       </header>
       {capabilities && max > 0 && enabled > max && (
         <p className="inline-warning">
-          已启用 {enabled} 个角色，当前模型上限为 {max}。
+          {t("characters.enabledLimit", { count: enabled, maximum: max })}
         </p>
       )}
       {capabilities?.maxCharacters === 0 && value.length > 0 && (
-        <p className="inline-warning">当前模型不支持角色提示，已保留角色内容。</p>
+        <p className="inline-warning">{t("characters.unsupported")}</p>
       )}
-      {!capabilities && value.length > 0 && <output className="muted">角色能力尚未加载。</output>}
+      {!capabilities && value.length > 0 && (
+        <output className="muted">{t("characters.capabilitiesNotLoaded")}</output>
+      )}
       {value.map((character, index) => (
         <CharacterRow
           key={character.id}

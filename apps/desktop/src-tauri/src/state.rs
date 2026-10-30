@@ -10,6 +10,7 @@ use std::{
 };
 
 use nib_app::{
+    api::UserMessage,
     jobs::{JobError, JobQueue},
     media::MediaLibrary,
     persistence::{PersistenceError, SqliteDatabase},
@@ -67,7 +68,7 @@ impl DesktopState {
         let guard = Arc::clone(&self.data_access).read_owned().await;
         if self.migration_state.load(Ordering::Acquire) != 0 {
             return Err(PersistenceError::InvalidData {
-                message: "数据正在迁移或已迁移，请等待完成并重启应用。".into(),
+                message: UserMessage::MigrationInProgress,
             });
         }
         Ok(guard)
@@ -79,7 +80,7 @@ impl DesktopState {
         let guard = Arc::clone(&self.data_access).write_owned().await;
         if self.migration_state.load(Ordering::Acquire) != 0 {
             return Err(PersistenceError::InvalidData {
-                message: "迁移完成后请重启应用。".into(),
+                message: UserMessage::RestartRequired,
             });
         }
         Ok(guard)
@@ -108,9 +109,7 @@ impl DesktopState {
             .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
             .is_err()
         {
-            return Err(JobError::Invalid(
-                "数据正在迁移或已迁移，请重启应用。".into(),
-            ));
+            return Err(JobError::Invalid(UserMessage::MigrationInProgress));
         }
         let queue = if let Ok(slot) = self.generation.lock() {
             slot.as_ref().map(|runtime| Arc::clone(&runtime.queue))
@@ -167,7 +166,7 @@ impl DesktopState {
         }
         if self.migration_state.load(Ordering::Acquire) != 0 {
             return Err(PersistenceError::InvalidData {
-                message: "迁移期间不能初始化创作数据库。".into(),
+                message: UserMessage::MigrationDatabaseUnavailable,
             });
         }
         let data_dir = self.storage.data_directory()?;
@@ -187,7 +186,7 @@ impl DesktopState {
         }
         if self.migration_state.load(Ordering::Acquire) != 0 {
             return Err(PersistenceError::InvalidData {
-                message: "迁移期间不能初始化媒体目录。".into(),
+                message: UserMessage::MigrationMediaUnavailable,
             });
         }
         let database = self.database()?;

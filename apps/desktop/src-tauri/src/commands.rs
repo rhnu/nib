@@ -1,7 +1,7 @@
 //! IPC adaptation and blocking database work. Domain behavior stays in nib-app.
 
 use nib_app::{
-    api::{ApiError, DraftAnalysis, ErrorCode, WorkspaceSnapshot},
+    api::{ApiError, DraftAnalysis, ErrorCode, UserMessage, WorkspaceSnapshot},
     library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{
@@ -13,36 +13,29 @@ use nib_app::{
 
 use crate::state::DesktopState;
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "IPC adapters consume repository errors through Result::map_err"
+)]
 pub(crate) fn persistence_error(error: PersistenceError) -> ApiError {
-    let (code, message) = match error {
-        PersistenceError::NotFound { .. } => (ErrorCode::NotFound, "内容已不存在，请刷新后重试。"),
-        PersistenceError::Conflict { .. } => (
-            ErrorCode::Conflict,
-            "内容已被修改。当前编辑仍保留，请重新加载后处理冲突。",
-        ),
-        PersistenceError::InvalidData { message } => {
-            return ApiError {
-                validation_fields: Vec::new(),
-                code: ErrorCode::Invalid,
-                message,
-            };
-        },
-        PersistenceError::UnsupportedSchema { .. } => (
-            ErrorCode::Unavailable,
-            "本地数据库结构与当前版本不兼容，请移走旧 nib.sqlite3 后重新打开。",
-        ),
-        _ => (
-            ErrorCode::Unavailable,
-            "无法读写本地数据。当前编辑仍保留，请重试。",
-        ),
+    let code = match &error {
+        PersistenceError::NotFound { .. } => ErrorCode::NotFound,
+        PersistenceError::Conflict { .. } => ErrorCode::Conflict,
+        PersistenceError::InvalidData { .. } => ErrorCode::Invalid,
+        _ => ErrorCode::Unavailable,
     };
     if matches!(code, ErrorCode::Unavailable) {
         tracing::error!(error = ?error, "local data operation failed");
     }
+    let message = error.user_message();
+    let validation_fields = match &message {
+        UserMessage::Validation { field, .. } => vec![field.clone()],
+        _ => Vec::new(),
+    };
     ApiError {
-        validation_fields: Vec::new(),
+        validation_fields,
         code,
-        message: message.to_owned(),
+        message,
     }
 }
 
@@ -52,11 +45,9 @@ fn expansion_error(error: ExpansionError) -> ApiError {
         ExpansionError::Unresolved { issues } => ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Unresolved,
-            message: issues
-                .into_iter()
-                .map(|issue| issue.message)
-                .collect::<Vec<_>>()
-                .join("\n"),
+            message: UserMessage::Messages {
+                messages: issues.into_iter().map(|issue| issue.message).collect(),
+            },
         },
     }
 }
@@ -230,7 +221,10 @@ pub(crate) async fn resolve_draft(
         nib_app::session::validate_draft(&draft).map_err(|error| ApiError {
             validation_fields: Vec::new(),
             code: ErrorCode::Invalid,
-            message: error.to_string(),
+            message: UserMessage::Validation {
+                field: error.field.clone(),
+                message: Box::new(error.message),
+            },
         })?;
         let resolved = database
             .read_resources(|reader| prompt::resolve_draft(&draft, reader))

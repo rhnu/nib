@@ -1,5 +1,7 @@
 //! Durable immutable media assets, operation outputs and independent result reuse.
 
+use crate::api::UserMessage;
+
 mod assets;
 mod metadata;
 mod query;
@@ -92,7 +94,7 @@ impl TryFrom<&GeneratedImageSource> for ResultImageSource {
                 seed: *seed,
             }),
             _ => Err(PersistenceError::InvalidData {
-                message: "SDK 返回了尚不支持保存的图片来源类型。".to_owned(),
+                message: UserMessage::UnsupportedImageSource,
             }),
         }
     }
@@ -139,7 +141,7 @@ fn generation_samples(
 fn image_samples(images: Vec<GeneratedImage>) -> Result<Vec<GenerationSample>, PersistenceError> {
     if images.is_empty() {
         return Err(PersistenceError::InvalidData {
-            message: "NovelAI 未返回最终图像。".to_owned(),
+            message: UserMessage::NoFinalImages,
         });
     }
     images
@@ -171,7 +173,7 @@ pub struct MediaLibrary {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct MetadataRestore {
     pub draft: Draft,
-    pub notices: Vec<String>,
+    pub notices: Vec<UserMessage>,
 }
 
 impl MediaLibrary {
@@ -256,7 +258,7 @@ impl MediaLibrary {
         let asset = self.asset(id)?;
         if asset.kind != AssetKind::Image {
             return Err(PersistenceError::InvalidData {
-                message: "Vibe 编码不是可读取生成信息的图片。".to_owned(),
+                message: UserMessage::VibeIsNotImage,
             });
         }
         let inspection = self.inspect_sdk_metadata(id)?;
@@ -264,19 +266,17 @@ impl MediaLibrary {
             .parsed()
             .filter(|metadata| metadata.has_generation_data())
             .ok_or_else(|| PersistenceError::InvalidData {
-                message: "图片没有可恢复的生成信息。".to_owned(),
+                message: UserMessage::NoRestorableMetadata,
             })?;
-        let mut notices =
-            vec!["仅恢复图片中已知的字段；未包含的设置、参考材料和遮罩无法还原。".to_owned()];
+        let mut notices = vec![UserMessage::RestoreKnownFieldsOnly];
         if !metadata.characters.is_empty() {
-            notices
-                .push("角色文字可在元信息详情查看；缺少完整位置，角色与位置均未恢复。".to_owned());
+            notices.push(UserMessage::RestoreCharactersUnavailable);
         }
         if !metadata.vibe_entries.is_empty() {
-            notices.push("嵌入 Vibe 材料可单独导入；生成信息不代表完整参考配置。".to_owned());
+            notices.push(UserMessage::RestoreEmbeddedVibesSeparately);
         }
         if !metadata.warnings.is_empty() {
-            notices.push("SDK 在元信息中发现无法解释的字段，请检查导入内容。".to_owned());
+            notices.push(UserMessage::RestoreUnknownFields);
         }
         let mut draft = crate::session::draft_from_metadata(metadata);
         let current = self.database.get_draft()?;
@@ -286,21 +286,19 @@ impl MediaLibrary {
         draft.png_text_editor = current.png_text_editor;
         draft.active_page = crate::session::ActivePage::Create;
         if metadata.uc_preset.is_some() && metadata.negative_prompt.is_none() {
-            notices.push("图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。".to_owned());
+            notices.push(UserMessage::RestoreLegacyUcUnknown);
         }
         if metadata.model.is_some() && draft.settings.model.is_none() {
-            notices.push("图片中的模型标识不受当前 SDK 识别，未据此选择模型。".to_owned());
+            notices.push(UserMessage::RestoreModelUnknown);
         }
         if metadata.sampler.is_some() && draft.settings.sampler.is_none() {
-            notices.push("图片中的采样器标识不受当前 SDK 识别，未据此选择采样器。".to_owned());
+            notices.push(UserMessage::RestoreSamplerUnknown);
         }
         if metadata.noise_schedule.is_some() && draft.settings.noise_schedule.is_none() {
-            notices.push("图片中的噪声调度标识不受当前 SDK 识别，未据此选择噪声调度。".to_owned());
+            notices.push(UserMessage::RestoreNoiseScheduleUnknown);
         }
         if metadata.prompt.is_some() || metadata.negative_prompt.is_some() {
-            notices.push(
-                "提示词按图片记录的实际文字恢复，自动质量与负面预设不会重复追加。".to_owned(),
-            );
+            notices.push(UserMessage::RestoreLiteralPrompts);
         }
         Ok(MetadataRestore { draft, notices })
     }
@@ -349,7 +347,7 @@ impl MediaLibrary {
         let asset = self.asset(id)?;
         if asset.kind != kind || !asset.available {
             return Err(PersistenceError::InvalidData {
-                message: format!("所需媒体 {id} 不可用或类型不匹配。"),
+                message: UserMessage::MediaUnavailable { id: id.to_owned() },
             });
         }
         Ok(())
@@ -401,7 +399,7 @@ fn restore_director(
         .iter_mut()
         .find(|state| state.tool == tool)
         .ok_or_else(|| PersistenceError::InvalidData {
-            message: "Director 工具编辑状态缺失，请重新加载当前创作。".to_owned(),
+            message: UserMessage::DirectorStateMissing,
         })?;
     state.asset_id = Some(asset_id.to_owned());
     state.command = command.clone();

@@ -1,3 +1,4 @@
+import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useAccount } from "../account/account-context";
 import { useJobData } from "../jobs/job-context";
 import { useSubmission } from "./submission-context";
@@ -32,6 +33,8 @@ export function GenerationActions({
   operationPending: boolean;
   onFocusField?: (field: string) => void;
 }) {
+  useTranslation();
+
   const { account, accountLoading, accountError, refreshAccount, accountSummaryLoading } =
     useAccount();
   const { acceptBatch } = useJobData();
@@ -42,10 +45,12 @@ export function GenerationActions({
     estimate.quote?.resolved?.inputs.operation ?? null,
   );
   const actionLabel =
-    draft.inputs.operation.kind === "textToImage" ? "生成" : operationLabel(draft.inputs.operation);
+    draft.inputs.operation.kind === "textToImage"
+      ? t("generation.generate")
+      : operationLabel(draft.inputs.operation);
   const [accountOpen, setAccountOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<{ key: string; message: string } | null>(null);
+  const [submitError, setSubmitError] = useState<{ key: string; message: unknown } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitFields, setSubmitFields] = useState<string[]>([]);
   const submittingRef = useRef(false);
@@ -72,7 +77,10 @@ export function GenerationActions({
       return;
     const snapshot = structuredClone(readCurrentDraft());
     if (generationQuoteKey(snapshot, refreshKey) !== estimate.key) {
-      setSubmitError({ key: estimate.key, message: "当前创作已改变，请等待费用重新估算后提交。" });
+      setSubmitError({
+        key: estimate.key,
+        message: deferMessage(() => t("generation.creationChanged")),
+      });
       estimate.retry();
       return;
     }
@@ -84,7 +92,7 @@ export function GenerationActions({
       acceptBatch(await submitGeneration(snapshot), true);
       setSubmitted(true);
     } catch (cause) {
-      setSubmitError({ key: estimate.key, message: errorMessage(cause) });
+      setSubmitError({ key: estimate.key, message: cause });
       setSubmitFields(validationFields(cause));
     } finally {
       submittingRef.current = false;
@@ -93,7 +101,7 @@ export function GenerationActions({
   }
 
   const currentSubmitError =
-    hasPrompt && submitError?.key === estimate.key ? submitError.message : null;
+    hasPrompt && submitError?.key === estimate.key ? errorMessage(submitError.message) : null;
   const error = currentSubmitError ?? accountError ?? estimate.error;
   return (
     <div className="generation-actions">
@@ -120,33 +128,35 @@ export function GenerationActions({
           <span className="generation-submit-label">
             {account?.configured ? <Play size={14} /> : <KeyRound size={14} />}
             {submitting
-              ? "正在提交…"
+              ? t("generation.submitting")
               : submissionBlocked
-                ? "正在保存设置…"
+                ? t("generation.savingSettings")
                 : accountLoading
-                  ? "读取账户…"
+                  ? t("generation.loadingAccount")
                   : account?.configured
                     ? actionLabel
-                    : "配置账户"}
+                    : t("generation.configureAccount")}
             {account?.configured &&
               estimate.quote?.operation === "generation" &&
               estimate.quote.requestCount > 1 && (
                 <small>
-                  {estimate.quote.requestCount} 次 ·{" "}
-                  {estimate.quote.totalSamples / estimate.quote.requestCount} 张/次
+                  {t("generation.requestBatchSize", {
+                    requests: estimate.quote.requestCount,
+                    samples: estimate.quote.totalSamples / estimate.quote.requestCount,
+                  })}
                 </small>
               )}
           </span>
           {estimate.quote && !effectiveOperation ? (
-            <span className="generation-submit-cost">操作未生效</span>
+            <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
           ) : estimate.quote ? (
             <span className="generation-submit-cost">
               {estimate.quote.estimatedAnlas === null
-                ? "费用未知"
+                ? t("generation.costUnknown")
                 : `${estimate.quote.estimatedAnlas} Anlas`}
             </span>
           ) : estimate.loading ? (
-            <span className="generation-submit-cost">估算中…</span>
+            <span className="generation-submit-cost">{t("generation.estimating")}</span>
           ) : null}
         </Button>
       </div>
@@ -154,21 +164,23 @@ export function GenerationActions({
       {estimate.quote && !effectiveOperation && (
         <p className="generation-danger" role="alert">
           {draft.inputs.operation.kind === "inpainting"
-            ? "局部重绘或所选局部条件未生效。请选择纯补绘或更换模型后再提交。"
-            : "SDK 未保留 Max Enhance 操作。请切换支持的模型，或明确选择普通图生图后再提交。"}
+            ? t("generation.inpaintNotApplied")
+            : t("generation.maxEnhanceNotApplied")}
         </p>
       )}
-      {estimate.quote?.tooExpensive && <span className="generation-danger">超出费用限制</span>}
+      {estimate.quote?.tooExpensive && (
+        <span className="generation-danger">{t("generation.costLimitExceeded")}</span>
+      )}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}
-      {submitted && <output className="generation-muted">已加入顺序队列</output>}
+      {submitted && <output className="generation-muted">{t("generation.addedToQueue")}</output>}
       {error && (
         <div className="generation-action-error" role="alert">
           <span>{error}</span>
           {(currentSubmitError ? submitFields : estimate.fields).map((field) => (
             <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
-              定位参数
+              {t("generation.locateParameter")}
             </Button>
           ))}
           <Button
@@ -181,7 +193,7 @@ export function GenerationActions({
             }}
           >
             <RotateCw size={13} />
-            重试查询
+            {t("generation.retryQuery")}
           </Button>
         </div>
       )}

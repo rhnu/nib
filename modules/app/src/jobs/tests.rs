@@ -158,14 +158,12 @@ fn provider_echoes_and_credential_causes_do_not_enter_public_failures() {
         false,
     );
     let message = JobError::Bridge(api.into()).user_message();
-    assert!(message.contains("401"));
-    assert!(!message.contains("secret"));
+    assert_eq!(message, UserMessage::ProviderHttpFailure { status: 401 });
     let credential =
         CredentialError::failure("native failure", std::io::Error::other("secret-cause"));
-    assert!(
-        !JobError::Credential(credential)
-            .user_message()
-            .contains("secret")
+    assert_eq!(
+        JobError::Credential(credential).user_message(),
+        UserMessage::CredentialUnavailable
     );
 }
 
@@ -346,8 +344,9 @@ impl JobStore for MemoryJobs {
             .any(|record| record.status == JobStatus::Running)
         {
             return Err(PersistenceError::InvalidData {
-                message: "the worker claimed another task before finishing its current task"
-                    .to_owned(),
+                message: UserMessage::external(
+                    "the worker claimed another task before finishing its current task",
+                ),
             });
         }
         let Some(record) = records
@@ -376,7 +375,7 @@ impl JobStore for MemoryJobs {
         Ok(record.clone())
     }
 
-    fn fail_job(&self, id: &str, message: &str) -> Result<(), PersistenceError> {
+    fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError> {
         let mut records = self.records.lock().unwrap();
         let record = records.iter_mut().find(|record| record.id == id).unwrap();
         if record.status == JobStatus::Running {
@@ -400,7 +399,7 @@ impl FinalOutputStore for NoOutput {
     ) -> Result<(), PersistenceError> {
         self.unexpected_call.store(true, Ordering::Release);
         Err(PersistenceError::InvalidData {
-            message: "a credential failure cannot produce media".to_owned(),
+            message: UserMessage::external("a credential failure cannot produce media"),
         })
     }
 }

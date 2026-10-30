@@ -1,26 +1,29 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
+import type { Language } from "@/bindings/settings";
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "@/features/generation";
 import { Button, Field, HelpMarker, Notice, Toggle } from "@/shared/ui";
-import { errorMessage } from "@/shared/host/error";
 import type { ApplicationSettingsState } from "./use-application-settings";
 
 function ExecutionSettings({ settings }: { settings: ApplicationSettingsState }) {
+  useTranslation();
+
   const value = settings.preferences.value;
   if (!value) return null;
   const execution = value.execution;
   return (
     <section className="preference-section">
       <details className="execution-settings">
-        <summary>高级执行设置</summary>
+        <summary>{t("app.advancedExecution")}</summary>
         <div className="execution-settings-fields">
-          <Field label="API 端点基址">
+          <Field label={t("app.apiBaseUrl")}>
             <input
               type="url"
               value={execution.imageBaseUrl ?? ""}
-              placeholder="留空使用默认端点"
+              placeholder={t("app.defaultEndpointHint")}
               spellCheck={false}
               onChange={(event) =>
                 settings.writer.edit({
@@ -30,7 +33,7 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
               }
             />
           </Field>
-          <Field label="图像请求编码">
+          <Field label={t("app.requestEncoding")}>
             <select
               value={execution.imageRequestEncoding}
               onChange={(event) =>
@@ -43,19 +46,19 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
                 })
               }
             >
-              <option value="json">JSON</option>
-              <option value="multipart">Multipart</option>
+              <option value="json">{t("app.json")}</option>
+              <option value="multipart">{t("app.multipart")}</option>
             </select>
           </Field>
           <div className="preference-row">
             <span className="execution-setting-label">
-              服务端图像缓存
-              <HelpMarker label="服务端图像缓存说明">
-                复用上传到 NovelAI 的图像。更改后对新提交的任务生效。
+              {t("app.serverImageCache")}
+              <HelpMarker label={t("app.serverImageCacheHelpLabel")}>
+                {t("app.serverImageCacheHelp")}
               </HelpMarker>
             </span>
             <Toggle
-              label="服务端图像缓存"
+              label={t("app.serverImageCache")}
               checked={execution.serverImageCache}
               onChange={(serverImageCache) =>
                 settings.writer.edit({ ...value, execution: { ...execution, serverImageCache } })
@@ -75,20 +78,26 @@ function StorageSettings({
   settings: ApplicationSettingsState;
   beforeMigrate?: () => Promise<void>;
 }) {
+  useTranslation();
+
   const { storage, setDataDirectory } = settings;
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useMessageState();
   if (!storage) return null;
 
   const choose = async () => {
     setError("");
     try {
-      const directory = await open({ directory: true, multiple: false, title: "选择新的数据目录" });
+      const directory = await open({
+        directory: true,
+        multiple: false,
+        title: t("app.chooseDataDirectory"),
+      });
       if (!directory) return;
       setSaving(true);
       await setDataDirectory(directory, beforeMigrate);
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
     } finally {
       setSaving(false);
     }
@@ -98,26 +107,28 @@ function StorageSettings({
     try {
       await revealItemInDir(path);
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
     }
   };
 
   return (
     <section className="preference-section storage-settings">
       <div className="section-heading">
-        <h2>存储位置</h2>
-        {storage.development && <span className="tag">开发环境</span>}
+        <h2>{t("app.storageLocation")}</h2>
+        {storage.development && <span className="tag">{t("app.developmentEnvironment")}</span>}
       </div>
       <div className="settings-path-row">
         <div className="settings-path">
-          <span>配置目录</span>
+          <span>{t("app.configDirectory")}</span>
           <code>{storage.configDirectory}</code>
         </div>
-        <Button onClick={() => void showDirectory(storage.configDirectory)}>打开位置</Button>
+        <Button onClick={() => void showDirectory(storage.configDirectory)}>
+          {t("app.openLocation")}
+        </Button>
       </div>
       <div className="settings-path-row">
         <div className="settings-path">
-          <span>数据目录</span>
+          <span>{t("app.dataDirectory")}</span>
           <code>{storage.relocatedDataDirectory ?? storage.dataDirectory}</code>
         </div>
         <Button
@@ -125,21 +136,25 @@ function StorageSettings({
             void showDirectory(storage.relocatedDataDirectory ?? storage.dataDirectory)
           }
         >
-          打开位置
+          {t("app.openLocation")}
         </Button>
       </div>
       <div className="settings-actions">
         <Button disabled={saving || storage.restartRequired} onClick={() => void choose()}>
-          {saving ? "正在等待任务完成并迁移…" : "更改位置"}
+          {saving ? t("app.migrating") : t("app.changeLocation")}
         </Button>
-        <HelpMarker label="更改存储位置说明">
-          请选择空目录。完成后需重启应用，原目录会保留。
+        <HelpMarker label={t("app.changeStorageHelpLabel")}>
+          {t("app.changeStorageHelp")}
         </HelpMarker>
       </div>
-      {storage.restartRequired && <Notice>位置已更改，请重启应用。</Notice>}
+      {storage.restartRequired && <Notice>{t("app.locationChanged")}</Notice>}
       {error && <Notice>{error}</Notice>}
       {settings.storageError && (
-        <Notice actions={<Button onClick={() => void settings.refreshStorage()}>重新读取</Button>}>
+        <Notice
+          actions={
+            <Button onClick={() => void settings.refreshStorage()}>{t("app.reload")}</Button>
+          }
+        >
           {settings.storageError}
         </Notice>
       )}
@@ -148,10 +163,30 @@ function StorageSettings({
 }
 
 const sections = [
-  { id: "account", name: "账户与连接" },
-  { id: "generation", name: "生成与预览" },
-  { id: "appearance", name: "外观" },
-  { id: "storage", name: "存储" },
+  {
+    id: "account",
+    get name() {
+      return t("app.accountConnection");
+    },
+  },
+  {
+    id: "generation",
+    get name() {
+      return t("app.generationPreview");
+    },
+  },
+  {
+    id: "appearance",
+    get name() {
+      return t("app.appearance");
+    },
+  },
+  {
+    id: "storage",
+    get name() {
+      return t("app.storage");
+    },
+  },
 ] as const;
 export type SettingsSection = (typeof sections)[number]["id"];
 
@@ -170,15 +205,17 @@ export function SettingsPage({
   section: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
 }) {
+  useTranslation();
+
   const { preferences, writer } = settings;
   const theme = preferences.value?.theme;
   return (
-    <main className="settings-page" aria-label="设置">
+    <main className="settings-page" aria-label={t("app.settings")}>
       <header className="page-toolbar">
-        <h1>设置</h1>
+        <h1>{t("app.settings")}</h1>
       </header>
       <div className="settings-layout">
-        <nav className="settings-navigation" aria-label="设置分类">
+        <nav className="settings-navigation" aria-label={t("app.settingsCategories")}>
           {sections.map((item) => (
             <button
               key={item.id}
@@ -194,16 +231,16 @@ export function SettingsPage({
           <div hidden={section !== "account"}>
             {showAccount && (
               <section className="preference-section">
-                <h2>账户与连接</h2>
+                <h2>{t("app.accountConnection")}</h2>
                 <AccountSettings onOpenTasks={onOpenTasks} />
               </section>
             )}
             <ExecutionSettings settings={settings} />
           </div>
           <section className="preference-section" hidden={section !== "generation"}>
-            <h2>生成与预览</h2>
+            <h2>{t("app.generationPreview")}</h2>
             {preferences.value && (
-              <Field label="最近图片数量">
+              <Field label={t("app.recentImageCount")}>
                 <input
                   type="number"
                   min={1}
@@ -218,10 +255,27 @@ export function SettingsPage({
               </Field>
             )}
           </section>
-          <section className="preference-section" hidden={section !== "appearance"}>
-            <h2>外观</h2>
+          <section
+            className="preference-section appearance-settings"
+            hidden={section !== "appearance"}
+          >
+            <h2>{t("app.appearance")}</h2>
+            <Field label={t("language.label")}>
+              <select
+                value={preferences.value?.language ?? "system"}
+                disabled={!preferences.value}
+                onChange={(event) => {
+                  if (preferences.value)
+                    writer.edit({ ...preferences.value, language: event.target.value as Language });
+                }}
+              >
+                <option value="system">{t("language.system")}</option>
+                <option value="en">{t("language.english")}</option>
+                <option value="zh-CN">{t("language.simplifiedChinese")}</option>
+              </select>
+            </Field>
             <div className="preference-row">
-              <span>主题</span>
+              <span>{t("app.theme")}</span>
               <Button
                 disabled={!theme}
                 onClick={() => {
@@ -233,7 +287,7 @@ export function SettingsPage({
                 }}
               >
                 {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
-                {theme === "dark" ? "切换浅色" : "切换深色"}
+                {theme === "dark" ? t("app.switchToLight") : t("app.switchToDark")}
               </Button>
             </div>
           </section>

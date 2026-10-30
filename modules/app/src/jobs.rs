@@ -1,5 +1,7 @@
 //! Frozen submissions and one sequential queue for all `NovelAI` operations.
 
+use crate::api::UserMessage;
+
 mod execution;
 mod observation;
 mod operations;
@@ -124,7 +126,7 @@ impl FrozenSubmission {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ParameterDiagnostic {
     pub field: String,
-    pub change: String,
+    pub change: UserMessage,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,7 +166,7 @@ pub struct JobRecord {
     pub submitted_at: i64,
     #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
     pub finished_at: Option<i64>,
-    pub error: Option<String>,
+    pub error: Option<UserMessage>,
     pub result_ids: Vec<String>,
     pub submission: FrozenSubmission,
     pub execution: ExecutionPreferences,
@@ -245,7 +247,7 @@ pub enum JobFeedback {
     Finished {
         job_id: String,
         status: JobStatus,
-        error: Option<String>,
+        error: Option<UserMessage>,
         observation: Option<JobObservation>,
     },
     Observation {
@@ -272,7 +274,7 @@ pub enum JobError {
     #[error("当前创作有未解决的资源引用。")]
     Unresolved,
     #[error("{0}")]
-    Invalid(String),
+    Invalid(UserMessage),
     #[error("生成队列已停止，请重新打开应用。")]
     Unavailable,
     #[error("后台生成操作已中断。")]
@@ -280,7 +282,7 @@ pub enum JobError {
 }
 
 impl JobError {
-    pub fn user_message(&self) -> String { public_failure(self) }
+    pub fn user_message(&self) -> UserMessage { public_failure(self) }
 }
 
 /// The host owns SDK construction, credential changes, shared account state and observation.
@@ -391,7 +393,7 @@ pub trait JobStore: Send + Sync {
 
     /// # Errors
     /// Returns a backend failure.
-    fn fail_job(&self, id: &str, message: &str) -> Result<(), PersistenceError>;
+    fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError>;
 
     /// # Errors
     /// Returns missing task or backend failure.
@@ -494,9 +496,7 @@ impl JobQueue {
             record.status,
             JobStatus::Failed | JobStatus::Cancelled | JobStatus::Interrupted
         ) {
-            return Err(JobError::Invalid(
-                "只能重试失败、取消或中断的任务。".to_owned(),
-            ));
+            return Err(JobError::Invalid(UserMessage::RetryRequiresTerminalJob));
         }
         let batch = self.enqueue_with(
             &[record.submission],
@@ -506,7 +506,7 @@ impl JobQueue {
         )?;
         batch.jobs.into_iter().next().ok_or_else(|| {
             PersistenceError::InvalidData {
-                message: "任务存储未返回已提交的重试任务。".to_owned(),
+                message: UserMessage::RetryJobMissing,
             }
             .into()
         })
@@ -641,19 +641,32 @@ impl JobQueue {
     }
 }
 
-fn public_failure(error: &JobError) -> String {
+fn public_failure(error: &JobError) -> UserMessage {
     match error {
+        JobError::Persistence(error) => error.user_message(),
+        JobError::InputMedia { source } => UserMessage::InputMedia {
+            message: Box::new(source.user_message()),
+        },
+        JobError::Credential(CredentialError::InvalidKey) => UserMessage::InvalidApiKey,
+        JobError::Credential(_) => UserMessage::CredentialUnavailable,
+        JobError::MissingCredentials => UserMessage::MissingCredentials,
+        JobError::Unresolved => UserMessage::UnresolvedResources,
+        JobError::Invalid(message) => message.clone(),
+        JobError::Unavailable => UserMessage::QueueUnavailable,
+        JobError::Worker(_) => UserMessage::WorkerInterrupted,
+        // Provider responses and transport errors may echo rejected credentials.
         JobError::Bridge(novelai_bridge::BridgeError::Api(error)) => {
-            format!("NovelAI 拒绝了请求（HTTP {}）。", error.status())
+            UserMessage::ProviderHttpFailure {
+                status: error.status(),
+            }
         },
         JobError::Bridge(novelai_bridge::BridgeError::Transport(_)) => {
-            "无法连接 NovelAI，请求可能已被服务端处理并扣费。".to_owned()
+            UserMessage::ProviderTransportFailure
         },
         JobError::Bridge(novelai_bridge::BridgeError::Stream(_)) => {
-            "NovelAI 流式响应未完整结束，未保留最终结果；请求可能已被扣费。".to_owned()
+            UserMessage::ProviderStreamFailure
         },
-        JobError::Credential(_) => "无法读取系统凭据。".to_owned(),
-        _ => error.to_string(),
+        JobError::Bridge(error) => UserMessage::external(crate::api::error_detail(error)),
     }
 }
 

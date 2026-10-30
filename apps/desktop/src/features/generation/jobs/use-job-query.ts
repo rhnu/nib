@@ -153,7 +153,7 @@ export function useJobQuery() {
     refresh,
     refreshJob,
     queryError:
-      [jobsQuery.error, resultsQuery.error].filter(Boolean).map(errorMessage).join("；") || null,
+      [jobsQuery.error, resultsQuery.error].filter(Boolean).map(errorMessage).join("\n") || null,
     refreshing: jobsQuery.isFetching || resultsQuery.isFetching,
     hasMoreJobs: jobsQuery.hasNextPage,
     hasMoreResults: resultsQuery.hasNextPage,

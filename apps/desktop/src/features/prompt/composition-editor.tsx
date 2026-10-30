@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState, type ReactNode } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import { Link2, Plus } from "lucide-react";
@@ -28,6 +29,8 @@ export function CompositionEditor({
   toolbarActions?: ReactNode;
   model?: string;
 }) {
+  useTranslation();
+
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
   const [activeScope, setActiveScope] = useState<"positive" | "negative">("positive");
 
@@ -43,25 +46,25 @@ export function CompositionEditor({
       className={`composition ${compact ? "compact-composition" : ""}`}
     >
       <header className="composition-toolbar">
-        <Tabs.List className="prompt-tabs" aria-label="提示词作用域">
+        <Tabs.List className="prompt-tabs" aria-label={t("prompt.scope")}>
           <Tabs.Tab value="positive" data-prompt-tab="positive">
-            提示词
+            {t("prompt.prompt")}
           </Tabs.Tab>
           <Tabs.Tab value="negative" data-prompt-tab="negative">
-            负面内容
+            {t("prompt.negativeContent")}
           </Tabs.Tab>
         </Tabs.List>
         <div className="button-group">
           {allowChunk && (
             <IconButton
-              label="添加 Chunk"
+              label={t("prompt.addChunk")}
               onClick={() => (addChunk ? addChunk(activeScope) : setPickerScope(activeScope))}
             >
               <Link2 size={14} />
             </IconButton>
           )}
           <IconButton
-            label="添加文本片段"
+            label={t("prompt.addTextSegment")}
             onClick={() => update(activeScope, [...value[activeScope], textNode()])}
           >
             <Plus size={14} />
@@ -81,7 +84,9 @@ export function CompositionEditor({
             <div className="scope-empty">
               <Button type="button" className="quiet" onClick={() => update(scope, [textNode()])}>
                 <Plus size={14} />
-                {scope === "positive" ? "编写正面提示词" : "编写负面提示词"}
+                {scope === "positive"
+                  ? t("prompt.writePositivePrompt")
+                  : t("prompt.writeNegativePrompt")}
               </Button>
             </div>
           )}

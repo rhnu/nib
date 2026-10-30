@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useRef } from "react";
 import type { CharacterComposition, ModelCapabilities } from "@/bindings/workbench";
 import { LocateFixed, RotateCcw } from "lucide-react";
@@ -18,34 +19,37 @@ export function CharacterPositionPolicy({
   onPosition?: () => void;
   disabled?: boolean;
 }) {
+  useTranslation();
+
   const effective = value ?? inherited;
   return (
     <div className="character-position-policy" data-setting-field="useCoords">
-      <fieldset className="character-position-options" aria-label="角色位置">
+      <fieldset className="character-position-options" aria-label={t("characters.positionTitle")}>
         <button type="button" aria-pressed={effective === false} onClick={() => onChange(false)}>
-          AI's Choice
+          {t("characters.aiChoice")}
         </button>
         <button type="button" aria-pressed={effective === true} onClick={() => onChange(true)}>
-          Custom
+          {t("characters.custom")}
         </button>
       </fieldset>
       {onPosition && (
-        <IconButton label="在画布定位角色" disabled={disabled} onClick={onPosition}>
+        <IconButton
+          label={t("characters.positionOnCanvas")}
+          disabled={disabled}
+          onClick={onPosition}
+        >
           <LocateFixed size={14} />
         </IconButton>
       )}
       <span className="spacer" />
       <IconButton
-        label="恢复继承的角色定位方式"
+        label={t("characters.resetPositionMode")}
         disabled={value === null}
         onClick={() => onChange(null)}
       >
         <RotateCcw size={14} />
       </IconButton>
-      <HelpMarker label="角色位置方式">
-        自动由模型安排位置，保留已编辑坐标；使用坐标时由 SDK
-        适配当前模型。未声明时继续继承；最终仍未指定时，SDK 根据启用角色是否偏离中心决定。
-      </HelpMarker>
+      <HelpMarker label={t("characters.positionMode")}>{t("characters.positionHelp")}</HelpMarker>
     </div>
   );
 }
@@ -67,6 +71,8 @@ export function CharacterPositionFields({
   overridden?: boolean;
   issues?: CharacterFieldIssue[];
 }) {
+  useTranslation();
+
   const details = useRef<HTMLDetailsElement>(null);
   const signature = issues
     .filter((issue) => issue.field === "x" || issue.field === "y")
@@ -79,7 +85,10 @@ export function CharacterPositionFields({
   const grid = options?.gridCoordinates;
   return (
     <details className="character-position-fields" ref={details}>
-      <summary>位置{overridden && <span className="tag">本次覆盖</span>}</summary>
+      <summary>
+        {t("characters.position")}
+        {overridden && <span className="tag">{t("characters.currentOverride")}</span>}
+      </summary>
       <div className="character-position-controls">
         {(["x", "y"] as const).map((axis) => (
           <Field key={axis} label={axis.toUpperCase()}>
@@ -91,7 +100,10 @@ export function CharacterPositionFields({
                 onChange={(event) => onChange({ ...value, [axis]: Number(event.target.value) })}
               >
                 {!grid.includes(value[axis]) && (
-                  <option value={value[axis]}>当前 {value[axis]}</option>
+                  <option value={value[axis]}>
+                    {t("characters.currentValue")}
+                    {value[axis]}
+                  </option>
                 )}
                 {grid.map((coordinate) => (
                   <option key={coordinate} value={coordinate}>
@@ -118,18 +130,25 @@ export function CharacterPositionFields({
           </Field>
         ))}
         {options && (
-          <IconButton label="居中角色位置" onClick={() => onChange({ ...options.defaultPosition })}>
+          <IconButton
+            label={t("characters.center")}
+            onClick={() => onChange({ ...options.defaultPosition })}
+          >
             <LocateFixed size={14} />
           </IconButton>
         )}
         {onRestore && (
-          <IconButton label="撤销角色位置覆盖" disabled={!overridden} onClick={onRestore}>
+          <IconButton
+            label={t("characters.resetPosition")}
+            disabled={!overridden}
+            onClick={onRestore}
+          >
             <RotateCcw size={14} />
           </IconButton>
         )}
         {onPosition && (
           <Button disabled={!capabilities?.characterPositioning} onClick={onPosition}>
-            在画布定位
+            {t("characters.placeOnCanvas")}
           </Button>
         )}
       </div>

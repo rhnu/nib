@@ -1,3 +1,4 @@
+import { t } from "@/shared/i18n";
 import type { MediaAsset } from "@/bindings/media";
 import type {
   CreationOperation,
@@ -29,12 +30,13 @@ export function imageOperationAction(
 }
 
 export function operationLabel(operation: CreationOperation): string {
-  if (operation.kind === "imageToImage") return operation.maxEnhance ? "Max Enhance" : "图生图";
-  if (operation.kind === "upscale") return "独立放大";
-  if (operation.kind === "textToImage") return "文生图";
-  if (operation.kind === "inpainting") return "局部重绘";
-  if (operation.kind === "encodeVibe") return "氛围转移编码";
-  return "导演工具";
+  if (operation.kind === "imageToImage")
+    return operation.maxEnhance ? t("inputs.maxEnhance") : t("inputs.imageToImage");
+  if (operation.kind === "upscale") return t("inputs.standaloneUpscale");
+  if (operation.kind === "textToImage") return t("inputs.textToImage");
+  if (operation.kind === "inpainting") return t("inputs.inpainting");
+  if (operation.kind === "encodeVibe") return t("inputs.vibeEncoding");
+  return t("inputs.directorTools");
 }
 
 /** Source changes keep edits within the same operation instead of SDK constructor defaults. */

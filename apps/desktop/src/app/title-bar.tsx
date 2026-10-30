@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { ReactNode } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { Button, IconButton, Notice } from "@/shared/ui";
@@ -5,28 +6,30 @@ import { useWindowControls } from "./use-window-controls";
 
 /** Application chrome stays available during workspace startup and failures. */
 export function TitleBar({ navigation }: { navigation?: ReactNode }) {
+  useTranslation();
+
   const controls = useWindowControls();
   return (
     <>
-      <header className="titlebar" aria-label="窗口标题栏">
-        <span className="titlebar-brand">nib</span>
+      <header className="titlebar" aria-label={t("app.titleBar")}>
+        <span className="titlebar-brand">{t("app.brandName")}</span>
         {navigation}
         <div
           className="titlebar-drag-region"
           data-tauri-drag-region={controls.desktop || undefined}
         ></div>
         {controls.desktop && (
-          <fieldset className="window-controls" aria-label="窗口控制">
+          <fieldset className="window-controls" aria-label={t("app.windowControls")}>
             <IconButton
               className="window-control"
-              label="最小化"
+              label={t("app.minimize")}
               onClick={() => void controls.minimize()}
             >
               <Minus size={15} aria-hidden />
             </IconButton>
             <IconButton
               className="window-control"
-              label={controls.maximized ? "还原窗口" : "最大化"}
+              label={controls.maximized ? t("app.restoreWindow") : t("app.maximize")}
               onClick={() => void controls.toggleMaximize()}
             >
               {controls.maximized ? (
@@ -37,7 +40,7 @@ export function TitleBar({ navigation }: { navigation?: ReactNode }) {
             </IconButton>
             <IconButton
               className="window-control window-close"
-              label="关闭窗口"
+              label={t("app.closeWindow")}
               onClick={() => void controls.close()}
             >
               <X size={17} aria-hidden />
@@ -46,7 +49,7 @@ export function TitleBar({ navigation }: { navigation?: ReactNode }) {
         )}
       </header>
       {controls.error && (
-        <Notice actions={<Button onClick={controls.clearError}>关闭提示</Button>}>
+        <Notice actions={<Button onClick={controls.clearError}>{t("app.dismissNotice")}</Button>}>
           {controls.error}
         </Notice>
       )}

@@ -1,3 +1,4 @@
+import { deferMessage, t, MessageError } from "@/shared/i18n";
 import { produce, type Draft } from "immer";
 import { createStore } from "zustand/vanilla";
 
@@ -35,7 +36,8 @@ export class DraftWriter<T extends { revision: number }> {
   }
 
   replace(value: T) {
-    if (this.getSnapshot().dirty || this.pending) throw new Error("当前创作仍有待写入的修改。");
+    if (this.getSnapshot().dirty || this.pending)
+      throw new MessageError(deferMessage(() => t("workbench.pendingDraftChanges")));
     this.version = 0;
     this.savedVersion = 0;
     this.publish({ value, dirty: false, saving: false, error: null });
@@ -43,7 +45,7 @@ export class DraftWriter<T extends { revision: number }> {
 
   edit(value: T) {
     const state = this.getSnapshot();
-    if (!state.value) throw new Error("当前创作尚未加载。");
+    if (!state.value) throw new MessageError(deferMessage(() => t("workbench.draftNotLoaded")));
     this.version++;
     this.publish({
       ...state,
@@ -60,7 +62,7 @@ export class DraftWriter<T extends { revision: number }> {
   /** Apply a domain edit to the current draft while preserving unchanged branches. */
   update(recipe: (draft: Draft<T>) => void) {
     const value = this.getSnapshot().value;
-    if (!value) throw new Error("当前创作尚未加载。");
+    if (!value) throw new MessageError(deferMessage(() => t("workbench.draftNotLoaded")));
     const next = produce(value, recipe);
     if (next !== value) this.edit(next);
   }

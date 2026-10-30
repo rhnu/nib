@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Button, Field, Notice } from "@/shared/ui";
 import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
 import { PromptWorkspace } from "@/features/workbench/prompt-workspace";
@@ -13,6 +14,8 @@ import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { ResultPanel } from "./result-panel";
 
 export function CreatePage() {
+  useTranslation();
+
   const {
     state,
     workspace,
@@ -52,7 +55,7 @@ export function CreatePage() {
   } = state;
   return (
     <div className="workspace-body">
-      <aside className="generation-sidebar" aria-label="生成侧栏">
+      <aside className="generation-sidebar" aria-label={t("workbench.generationSidebar")}>
         <div className="generation-sidebar-scroll">
           {draft.inputs.operation.kind !== "upscale" && (
             <PromptWorkspace
@@ -88,7 +91,9 @@ export function CreatePage() {
             />
           )}
           {model.error && (
-            <Notice actions={<Button onClick={model.retry}>重试模型查询</Button>}>
+            <Notice
+              actions={<Button onClick={model.retry}>{t("workbench.retryModelQuery")}</Button>}
+            >
               {model.error}
             </Notice>
           )}
@@ -136,7 +141,7 @@ export function CreatePage() {
                   }}
                 />
                 <div data-setting-field="policy">
-                  <Field label="参数校验">
+                  <Field label={t("workbench.parameterValidation")}>
                     <select
                       value={draft.inputs.policy}
                       onChange={(event) => {
@@ -150,8 +155,8 @@ export function CreatePage() {
                         });
                       }}
                     >
-                      <option value="normalize">自动调整</option>
-                      <option value="reject">严格拒绝</option>
+                      <option value="normalize">{t("workbench.autoAdjust")}</option>
+                      <option value="reject">{t("workbench.strictReject")}</option>
                     </select>
                   </Field>
                 </div>
@@ -179,7 +184,7 @@ export function CreatePage() {
           <ResultPanel />
         </div>
         <RecoveryBoundary
-          label="画布"
+          label={t("workbench.canvas")}
           resetKeys={[mask.active?.sourceAssetId, Boolean(positioning)]}
         >
           {mask.active && (
@@ -221,8 +226,8 @@ export function CreatePage() {
           )}
           {positioning && !mask.active && !positionSize && (
             <div>
-              <output>正在读取画布设置…</output>
-              <Button onClick={() => setPositioning(null)}>返回图像</Button>
+              <output>{t("workbench.loadingCanvasSettings")}</output>
+              <Button onClick={() => setPositioning(null)}>{t("workbench.backToImage")}</Button>
             </div>
           )}
         </RecoveryBoundary>

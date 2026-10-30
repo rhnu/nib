@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
 import { Button, HelpMarker, IconButton } from "@/shared/ui";
@@ -18,6 +19,8 @@ import "./image-operation.css";
 
 /** Composes source selection and operation settings while the draft owns all input values. */
 export function ImageOperationPanel(props: ImageOperationPanelProps) {
+  useTranslation();
+
   const {
     draft,
     capabilities,
@@ -59,15 +62,14 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
       <section className="image-operation-panel media-input-container">
         <header className="section-heading">
           <h2>
-            图像输入
-            <HelpMarker label="图像输入说明">
-              局部重绘先编辑并应用遮罩。纯补绘与局部图生图的可用性来自模型能力；Max Enhance
-              的输出与计价尺寸来自估费。
+            {t("inputs.imageInput")}
+            <HelpMarker label={t("inputs.imageInputHelpTitle")}>
+              {t("inputs.imageInputHelp")}
             </HelpMarker>
           </h2>
           {sourceId && (
             <IconButton
-              label="移除图像输入"
+              label={t("inputs.removeInput")}
               onClick={() => {
                 setImportAction(null);
                 onReturnToText();
@@ -80,7 +82,7 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
         {draft.maskEditor.sessions.some(
           (session) => session.revision !== session.appliedRevision,
         ) && (
-          <div className="image-source-actions" aria-label="待继续的遮罩">
+          <div className="image-source-actions" aria-label={t("inputs.unfinishedMasks")}>
             {draft.maskEditor.sessions
               .filter((session) => session.revision !== session.appliedRevision)
               .map((session, index) => (
@@ -88,7 +90,8 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
                   key={session.sourceAssetId}
                   onClick={() => onEditMask(session.sourceAssetId)}
                 >
-                  继续遮罩 {index + 1} · {session.width} × {session.height}
+                  {t("inputs.continueMaskPrefix")}
+                  {index + 1} · {session.width} × {session.height}
                 </Button>
               ))}
           </div>
@@ -104,7 +107,7 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
                 inputVersion,
               ])}
               onImported={prepareImportedSource}
-              label="选择文件"
+              label={t("inputs.chooseFile")}
               onChooseExisting={() => setPickerOpen(true)}
             />
           </div>
@@ -124,17 +127,17 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
               <div className="image-source-operation" data-setting-field="maxEnhance">
                 <select
                   {...controlProps("maxEnhance")}
-                  aria-label="图像操作"
+                  aria-label={t("inputs.imageOperation")}
                   value={action ?? operation.kind}
                   onChange={(event) => selectAction(event.target.value)}
                 >
-                  <option value="imageToImage">图生图</option>
+                  <option value="imageToImage">{t("inputs.imageToImage")}</option>
                   <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
-                    Max Enhance
+                    {t("inputs.maxEnhance")}
                   </option>
-                  <option value="upscale">独立放大</option>
+                  <option value="upscale">{t("inputs.standaloneUpscale")}</option>
                   <option value="inpainting" disabled={capabilities?.inpainting === false}>
-                    局部重绘
+                    {t("inputs.inpainting")}
                   </option>
                   {currentAction === null && (
                     <option value={operation.kind}>{operationLabel(operation)}</option>

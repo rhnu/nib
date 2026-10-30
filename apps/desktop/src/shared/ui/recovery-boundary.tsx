@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import type { ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { errorMessage } from "@/shared/host/error";
@@ -13,9 +14,11 @@ export function RenderFailure({
   error: unknown;
   retry: () => void;
 }) {
+  useTranslation();
+
   return (
-    <Notice actions={<Button onClick={retry}>重试显示</Button>}>
-      {label}显示失败：{errorMessage(error)}
+    <Notice actions={<Button onClick={retry}>{t("common.retryDisplay")}</Button>}>
+      {t("common.displayFailed", { label, detail: errorMessage(error) })}
     </Notice>
   );
 }
@@ -30,10 +33,14 @@ export function RecoveryBoundary({
   label: string;
   resetKeys?: unknown[];
 }) {
+  useTranslation();
+
   return (
     <ErrorBoundary
       resetKeys={resetKeys}
-      onError={(error, info) => console.error(`${label}渲染失败`, error, info.componentStack)}
+      onError={(error, info) =>
+        console.error(t("common.renderFailed", { value0: label }), error, info.componentStack)
+      }
       fallbackRender={({ error, resetErrorBoundary }) => (
         <RenderFailure label={label} error={error} retry={resetErrorBoundary} />
       )}

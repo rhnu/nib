@@ -1,3 +1,4 @@
+import { t } from "@/shared/i18n";
 import type { JobFeedback, JobObservation, JobSummary, JobStatus } from "@/bindings/generation";
 
 export type FeedbackSample = {
@@ -148,16 +149,19 @@ export function jobFeedbackText(
   job: Pick<JobSummary, "status">,
   samples: readonly FeedbackSample[] = [],
 ) {
-  if (job.status === "queued") return "排队中";
+  if (job.status === "queued") return t("generation.queued");
   if (job.status === "running") {
     const received = samples.filter((sample) => sample.finalReceived).length;
-    if (received) return `已接收 ${received} 个最终样本 · 等待任务完成与保存`;
+    if (received) return t("generation.finalSamplesReceived", { count: received });
     const preview = samples.filter((sample) => sample.stepIndex !== null).at(-1);
     return preview
-      ? `样本 ${preview.sampleIndex + 1} · 步骤 ${preview.stepIndex}`
-      : "执行中 · 等待返回";
+      ? t("generation.sampleStep", { value0: preview.sampleIndex + 1, value1: preview.stepIndex! })
+      : t("generation.runningAwaitingResponse");
   }
-  return { completed: "已完成", failed: "失败", cancelled: "已取消", interrupted: "已中断" }[
-    job.status
-  ];
+  return {
+    completed: t("generation.completed"),
+    failed: t("generation.failed"),
+    cancelled: t("generation.cancelled"),
+    interrupted: t("generation.interrupted"),
+  }[job.status];
 }

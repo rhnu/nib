@@ -76,7 +76,9 @@ impl FinalOutputStore for MemoryOutputs {
             crate::media::JobOutput::Upscale(output) => output.images.len(),
             _ => {
                 return Err(PersistenceError::InvalidData {
-                    message: "image execution test only retains image collections".to_owned(),
+                    message: UserMessage::external(
+                        "image execution test only retains image collections",
+                    ),
                 });
             },
         };
@@ -251,13 +253,9 @@ async fn incomplete_eof_and_error_after_final_do_not_retain_outputs() {
             jobs.get_job(&job.id).unwrap().observation.unwrap().outcome,
             Some(RequestSettlement::Failed { .. })
         ));
-        assert!(
-            !jobs
-                .get_job(&job.id)
-                .unwrap()
-                .error
-                .unwrap()
-                .contains("private-provider-message")
+        assert_eq!(
+            jobs.get_job(&job.id).unwrap().error.unwrap(),
+            UserMessage::ProviderStreamFailure
         );
         worker.abort();
         drop(worker.await);

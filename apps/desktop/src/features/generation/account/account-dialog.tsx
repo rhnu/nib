@@ -1,9 +1,9 @@
+import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useAccount } from "./account-context";
 import { accountApi } from "./api";
 import { useState } from "react";
 import { KeyRound, Trash2 } from "lucide-react";
 import { Button, Field, Modal, Notice } from "@/shared/ui";
-import { errorMessage } from "@/shared/host/error";
 
 export function AccountDialog({
   id = null,
@@ -14,6 +14,8 @@ export function AccountDialog({
   onClose: () => void;
   onOpenTasks?: () => void;
 }) {
+  useTranslation();
+
   const { account, accountChanged } = useAccount();
   const [name, setName] = useState(
     () => account?.credentials.find((profile) => profile.id === id)?.name ?? "",
@@ -21,7 +23,7 @@ export function AccountDialog({
   const [key, setKey] = useState("");
   const [pending, setPending] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useMessageState();
   const [blockedByTasks, setBlockedByTasks] = useState(false);
 
   async function save() {
@@ -33,7 +35,7 @@ export function AccountDialog({
       setKey("");
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
     } finally {
       setPending(false);
     }
@@ -49,7 +51,7 @@ export function AccountDialog({
       setKey("");
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(cause);
       setBlockedByTasks(
         typeof cause === "object" && cause !== null && "code" in cause && cause.code === "conflict",
       );
@@ -67,7 +69,7 @@ export function AccountDialog({
           onClose();
         }
       }}
-      title={id ? "编辑账户" : "添加账户"}
+      title={id ? t("generation.editAccount") : t("generation.addAccount")}
     >
       <form
         className="generation-dialog-body"
@@ -76,7 +78,7 @@ export function AccountDialog({
           void save();
         }}
       >
-        <Field label="账户名称">
+        <Field label={t("generation.accountName")}>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -84,7 +86,7 @@ export function AccountDialog({
             required
           />
         </Field>
-        <Field label={id ? "新的 API Key（留空保留）" : "NovelAI API Key"}>
+        <Field label={id ? t("generation.newApiKey") : t("generation.apiKeyLabel")}>
           <input
             type="password"
             value={key}
@@ -95,9 +97,7 @@ export function AccountDialog({
             required={!id}
           />
         </Field>
-        <p className="generation-muted">
-          API Key 仅保存在 Windows 凭据管理器。更换后，已有任务继续使用提交时的凭据。
-        </p>
+        <p className="generation-muted">{t("generation.credentialStorageHelp")}</p>
         {error && (
           <Notice
             actions={
@@ -109,7 +109,7 @@ export function AccountDialog({
                     onOpenTasks();
                   }}
                 >
-                  查看任务
+                  {t("generation.viewTasks")}
                 </Button>
               ) : undefined
             }
@@ -122,22 +122,22 @@ export function AccountDialog({
             actions={
               <>
                 <Button disabled={pending} onClick={() => setConfirmDelete(false)}>
-                  取消删除
+                  {t("generation.cancelDeletion")}
                 </Button>
                 <Button className="danger" disabled={pending} onClick={() => void remove()}>
-                  确认删除
+                  {t("generation.confirmDeletion")}
                 </Button>
               </>
             }
           >
-            删除“{name}”及其保存的凭据？有未完成任务时须先处理任务。
+            {t("generation.deleteAccountConfirmation", { name })}
           </Notice>
         )}
         <footer className="generation-dialog-actions">
           {id && (
             <Button className="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
               <Trash2 size={14} />
-              删除账户
+              {t("generation.deleteAccount")}
             </Button>
           )}
           <span className="generation-spacer" />
@@ -148,7 +148,7 @@ export function AccountDialog({
               onClose();
             }}
           >
-            取消
+            {t("generation.cancel")}
           </Button>
           <Button
             type="submit"
@@ -156,7 +156,7 @@ export function AccountDialog({
             disabled={pending || !name.trim() || (!id && !key.trim())}
           >
             <KeyRound size={14} />
-            {pending ? "正在保存…" : "保存"}
+            {pending ? t("generation.saving") : t("generation.save")}
           </Button>
         </footer>
       </form>

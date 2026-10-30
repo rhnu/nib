@@ -331,7 +331,10 @@ fn absent_and_invalid_metadata_remain_distinct() {
     });
     assert_eq!(invalid.status, ImageMetadataStatus::Invalid);
     assert!(invalid.generation.is_none());
-    assert_eq!(invalid.warnings, vec!["invalid text data"]);
+    assert_eq!(
+        invalid.warnings,
+        vec![UserMessage::external("invalid text data")]
+    );
 }
 
 #[test]

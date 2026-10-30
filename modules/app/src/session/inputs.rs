@@ -3,7 +3,10 @@
 use novelai_bridge::{CharacterReferenceType, DirectorCommand, Model};
 use serde::{Deserialize, Serialize};
 
-use crate::prompt::{ValidationError, validation::nonempty};
+use crate::{
+    api::UserMessage,
+    prompt::{ValidationError, validation::nonempty},
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,7 +179,7 @@ pub fn create_vibe_reference(
         },
         crate::media::AssetKind::VibeDocument => {
             return Err(crate::persistence::PersistenceError::InvalidData {
-                message: "请先从 Vibe 文档中选择原图或编码缓存。".to_owned(),
+                message: UserMessage::VibeContentSelectionRequired,
             });
         },
     };

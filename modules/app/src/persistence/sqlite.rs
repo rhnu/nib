@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::PersistenceError;
-use crate::prompt::ResourceSnapshot;
+use crate::{api::UserMessage, prompt::ResourceSnapshot};
 
 /// One local database, shared by independent domain capabilities.
 pub struct SqliteDatabase {
@@ -38,7 +38,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version != 0 && version != 11 {
+        if version != 0 && version != 12 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -76,7 +76,7 @@ impl SqliteDatabase {
             })?;
         if busy != 0 {
             return Err(PersistenceError::InvalidData {
-                message: "数据库仍在使用，无法开始迁移。".to_owned(),
+                message: UserMessage::DatabaseBusy,
             });
         }
         Ok(())
@@ -97,7 +97,7 @@ impl SqliteDatabase {
             .map_err(|error| PersistenceError::failure("verify the relocated database", error))?;
         if check != "ok" {
             return Err(PersistenceError::InvalidData {
-                message: "复制后的数据库未通过完整性检查。".to_owned(),
+                message: UserMessage::DatabaseIntegrityFailed,
             });
         }
         Ok(())
@@ -146,7 +146,7 @@ pub(crate) fn next_revision(revision: u32) -> Result<u32, PersistenceError> {
     revision
         .checked_add(1)
         .ok_or_else(|| PersistenceError::InvalidData {
-            message: "the record revision cannot be incremented".to_owned(),
+            message: UserMessage::RevisionOverflow,
         })
 }
 

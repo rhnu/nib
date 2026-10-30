@@ -5,7 +5,7 @@ use super::{
     PresetOutputOverrides, PromptScope, ReferenceInputs, ResolutionIssue, ResolutionIssueKind,
     ResolvedCharacter, ResolvedFragment, ResourceReader, issue, resolve_composition,
 };
-use crate::prompt::scoped_output_id;
+use crate::{api::UserMessage, prompt::scoped_output_id};
 
 fn join_fragments(fragments: &[ResolvedFragment], scope: PromptScope) -> String {
     fragments
@@ -31,7 +31,7 @@ fn missing_output_override<'a>(
             ..context
         },
         context.resource.map(|resource| resource.id.as_str()),
-        format!("Override target '{id}' no longer exists in this preset output."),
+        UserMessage::StaleOutputOverride { id: id.to_owned() },
     ));
 }
 

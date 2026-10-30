@@ -1,41 +1,47 @@
+import { t, useTranslation, formatDate } from "@/shared/i18n";
 import type { JobSummary } from "@/bindings/generation";
 import { settlementSummary } from "./job-observation";
 
 /** Request observations and sampled balances are not an inferred charge. */
 export function JobCostSummary({ job }: { job: JobSummary }) {
+  useTranslation();
+
   const observation = job.observation;
   if (!observation) return null;
   const outcome = observation.outcome;
   return (
     <details className="generation-job-cost">
       <summary>
-        费用 ·{" "}
+        {t("generation.costPrefix")}{" "}
         {observation.estimatedAnlas === null
-          ? "估算未知"
-          : `估算 ${observation.estimatedAnlas} Anlas`}
+          ? t("generation.estimateUnknown")
+          : t("generation.estimatedAnlas", { value0: observation.estimatedAnlas })}
       </summary>
       <dl className="generation-metadata">
         <div>
-          <dt>状态</dt>
+          <dt>{t("generation.status")}</dt>
           <dd>{settlementSummary(outcome, job.operation.kind)}</dd>
         </div>
         {observation.account && (
           <>
             <div>
-              <dt>账户采样</dt>
+              <dt>{t("generation.accountSample")}</dt>
               <dd>
                 {observation.account.sampledAt === null
-                  ? "时间未知"
-                  : new Date(observation.account.sampledAt).toLocaleString()}
+                  ? t("generation.timeUnknown")
+                  : formatDate(observation.account.sampledAt)}
               </dd>
             </div>
             <div>
-              <dt>采样余额</dt>
-              <dd>{observation.account.anlasBalance} Anlas</dd>
+              <dt>{t("generation.sampledBalance")}</dt>
+              <dd>
+                {observation.account.anlasBalance}
+                {t("generation.anlasSuffix")}
+              </dd>
             </div>
             {observation.account.v5Usage && (
               <div>
-                <dt>V5 额度</dt>
+                <dt>{t("generation.v5Quota")}</dt>
                 <dd>
                   {observation.account.v5Usage.isNegative ? "−" : ""}
                   {observation.account.v5Usage.percent}%
@@ -45,7 +51,7 @@ export function JobCostSummary({ job }: { job: JobSummary }) {
           </>
         )}
       </dl>
-      <p className="generation-muted">估算与账户采样不代表此次实际扣费。</p>
+      <p className="generation-muted">{t("generation.taskCostHelp")}</p>
     </details>
   );
 }

@@ -1,3 +1,4 @@
+import { MessageError } from "@/shared/i18n";
 import { describe, expect, it, vi } from "vitest";
 import type { ApplicationPreferences } from "@/bindings/settings";
 import { PreferencesWriter } from "./preferences-writer";
@@ -5,6 +6,7 @@ import { prepareSubmissionPreferences } from "./submission-preferences";
 
 const initial: ApplicationPreferences = {
   theme: "dark",
+  language: "system",
   recentImageLimit: 20,
   execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
 };
@@ -17,7 +19,7 @@ describe("submission preference barrier", () => {
     const writer = new PreferencesWriter(async (value) => value);
     writer.initialize({ ...initial, execution: { ...initial.execution, imageBaseUrl: from } });
     writer.edit({ ...initial, execution: { ...initial.execution, imageBaseUrl: to } });
-    await expect(prepareSubmissionPreferences(writer)).rejects.toThrow("等待费用重新估算");
+    await expect(prepareSubmissionPreferences(writer)).rejects.toThrow(MessageError);
     await expect(prepareSubmissionPreferences(writer)).resolves.toBeUndefined();
     expect(writer.getSavedSnapshot()?.execution.imageBaseUrl).toBe(to);
   });
@@ -40,7 +42,7 @@ describe("submission preference barrier", () => {
     });
     const submit = vi.fn();
     const ready = prepareSubmissionPreferences(writer).then(submit);
-    const expected = expect(ready).rejects.toThrow("等待费用重新估算");
+    const expected = expect(ready).rejects.toThrow(MessageError);
     await Promise.resolve();
     expect(submit).not.toHaveBeenCalled();
     release();

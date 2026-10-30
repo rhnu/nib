@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Link2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "@/bindings/workbench";
@@ -27,6 +28,8 @@ export function NodeEditor({
   expand: (node: PromptNode) => Promise<PromptNode>;
   model?: string;
 }) {
+  useTranslation();
+
   const latest = useRef({ node, onChange, active: true });
   useLayoutEffect(() => {
     latest.current.node = node;
@@ -48,26 +51,28 @@ export function NodeEditor({
       <header className="node-heading">
         <span className="node-label">
           {node.kind === "chunk" ? <Link2 size={14} /> : <Type size={14} />}
-          {node.kind === "chunk" ? (resource?.name ?? "资源缺失") : "文本"}
+          {node.kind === "chunk"
+            ? (resource?.name ?? t("prompt.resourceMissing"))
+            : t("prompt.text")}
         </span>
         <div className="button-group">
           {node.kind === "chunk" && node.overrideText !== null && (
-            <span className="tag">本次覆盖</span>
+            <span className="tag">{t("prompt.instanceOverride")}</span>
           )}
           <Toggle
             checked={node.enabled}
-            label="启用片段"
+            label={t("prompt.enableSegment")}
             onChange={(enabled) => onChange({ ...node, enabled })}
           />
           <ActionsMenu
-            label="片段操作"
+            label={t("prompt.segmentActions")}
             items={[
-              { label: "上移", action: up, disabled: !canUp },
-              { label: "下移", action: down, disabled: !canDown },
+              { label: t("prompt.moveUp"), action: up, disabled: !canUp },
+              { label: t("prompt.moveDown"), action: down, disabled: !canDown },
               ...(node.kind === "chunk"
                 ? [
                     {
-                      label: "展开为独立文本",
+                      label: t("prompt.expandToText"),
                       action: () => {
                         void expand(node).then((result) => {
                           if (
@@ -80,27 +85,31 @@ export function NodeEditor({
                       },
                     },
                     {
-                      label: "撤销本次覆盖",
+                      label: t("prompt.revertOverride"),
                       action: () => onChange({ ...node, overrideText: null }),
                       disabled: node.overrideText === null,
                     },
                   ]
                 : []),
-              { label: "移除片段", action: remove, danger: true },
+              { label: t("prompt.removeSegment"), action: remove, danger: true },
             ]}
           />
         </div>
       </header>
       <PromptTextEditor
-        label={node.kind === "text" ? "提示词文本" : `${resource?.name ?? "缺失 Chunk"} 的本次内容`}
+        label={
+          node.kind === "text"
+            ? t("prompt.promptText")
+            : t("prompt.instanceContent", { value0: resource?.name ?? t("prompt.missingChunk") })
+        }
         model={model}
         value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
         placeholder={
           node.kind === "text"
-            ? "输入提示词…"
+            ? t("prompt.promptPlaceholder")
             : resource
-              ? "此 Chunk 内容为空"
-              : "引用的资源不存在；可移除引用或恢复原资源。"
+              ? t("prompt.emptyChunk")
+              : t("prompt.missingResourceHelp")
         }
         onChange={(text) =>
           onChange(node.kind === "text" ? { ...node, text } : { ...node, overrideText: text })

@@ -5,6 +5,7 @@ use super::{
     RetainedOutput,
 };
 use crate::{
+    api::UserMessage,
     jobs::{OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission},
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
 };
@@ -43,7 +44,7 @@ impl AssetRow {
                 "vibeDocument" => AssetKind::VibeDocument,
                 _ => {
                     return Err(PersistenceError::InvalidData {
-                        message: "未知媒体类型。".to_owned(),
+                        message: UserMessage::UnknownMediaKind,
                     });
                 },
             },
@@ -170,7 +171,7 @@ impl SqliteDatabase {
     ) -> Result<(Vec<ListedOutput>, Option<String>), PersistenceError> {
         if !(1..=200).contains(&query.limit) {
             return Err(PersistenceError::InvalidData {
-                message: "结果分页数量必须在 1 到 200 之间。".to_owned(),
+                message: UserMessage::ResultPageLimit,
             });
         }
         let before = query
@@ -182,7 +183,7 @@ impl SqliteDatabase {
                     .ok()
                     .filter(|value| *value > 0)
                     .ok_or_else(|| PersistenceError::InvalidData {
-                        message: "结果分页位置无效。".to_owned(),
+                        message: UserMessage::InvalidResultCursor,
                     })
             })
             .transpose()?;

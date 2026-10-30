@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useRef, useState } from "react";
 import { SettingsEditor, type SettingsEditorProps } from "@/features/prompt/settings-editor";
 import { diagnosticSetting } from "@/features/prompt/settings";
@@ -5,6 +6,8 @@ import "./generation-parameter-panel.css";
 
 /** The dock owns disclosure state; sparse parameter edits remain with the draft. */
 export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "fields">) {
+  useTranslation();
+
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDetailsElement>(null);
   const { value, capabilities, resolved, diagnostics = [], errorFields = [] } = props;
@@ -12,8 +15,8 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
   const steps = value.steps ?? effective?.steps;
   const scale = value.scale ?? effective?.scale;
   const summary = [
-    steps === undefined ? null : `${steps} 步`,
-    scale === undefined ? null : `Guidance ${scale}`,
+    steps === undefined ? null : t("workbench.stepCount", { count: steps }),
+    scale === undefined ? null : t("workbench.guidanceSummary", { value: scale }),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -48,7 +51,7 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>
-        <span>生成参数</span>
+        <span>{t("workbench.generationParameters")}</span>
         {!open && summary && <small>{summary}</small>}
       </summary>
       <div className="generation-parameter-content">

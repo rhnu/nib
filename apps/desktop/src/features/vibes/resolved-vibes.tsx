@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import type { ResolvedDraft } from "@/bindings/workbench";
 import { AssetImage, useMediaAsset } from "@/features/media";
@@ -5,67 +6,85 @@ import { VibeAssetDetails } from "./vibe-asset-details";
 import "./vibes.css";
 
 function ImageMaterial({ id }: { id: string }) {
+  useTranslation();
+
   const media = useMediaAsset(id);
   return media.asset ? (
-    <AssetImage asset={media.asset} alt="氛围转移原图" className="vibe-thumbnail" />
+    <AssetImage asset={media.asset} alt={t("vibes.vibeOriginal")} className="vibe-thumbnail" />
   ) : (
-    <output>{media.error ?? "正在读取原图…"}</output>
+    <output>{media.error ?? t("vibes.loadingOriginal")}</output>
   );
 }
 
 function CollapsedImageMaterial({ id }: { id: string }) {
+  useTranslation();
+
   const [open, setOpen] = useState(false);
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>查看原图</summary>
+      <summary>{t("vibes.viewOriginal")}</summary>
       {open && <ImageMaterial id={id} />}
     </details>
   );
 }
 
 export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
+  useTranslation();
+
   const references = resolved.inputs.references;
   if (!references.vibes.length) return null;
   return (
     <section className="resolved-vibes">
-      <h3>氛围转移 · {references.vibes.length}</h3>
+      <h3>
+        {t("vibes.vibeHeading")}
+        {references.vibes.length}
+      </h3>
       <p className="vibe-status">
-        强度归一化：
+        {t("vibes.normalizationPrefix")}
         {references.normalizeVibeStrength === null
-          ? "默认"
+          ? t("vibes.default")
           : references.normalizeVibeStrength
-            ? "开启"
-            : "关闭"}
+            ? t("vibes.on")
+            : t("vibes.off")}
       </p>
       {references.vibes.map((reference, index) => {
         const source = resolved.inputSources.find((item) => item.id === reference.id);
         return (
           <article className="vibe-row" key={reference.id}>
             <header>
-              <h4>氛围转移 {index + 1}</h4>
-              <span className="tag">{reference.enabled ? "启用" : "停用"}</span>
+              <h4>
+                {t("vibes.vibePrefix")}
+                {index + 1}
+              </h4>
+              <span className="tag">
+                {reference.enabled ? t("vibes.enabled") : t("vibes.disabled")}
+              </span>
             </header>
             <dl className="vibe-identity">
               <div>
-                <dt>强度</dt>
+                <dt>{t("vibes.strength")}</dt>
                 <dd>{reference.strength}</dd>
               </div>
               <div>
-                <dt>材料</dt>
-                <dd>{reference.input.kind === "image" ? "原图" : "编码"}</dd>
+                <dt>{t("vibes.material")}</dt>
+                <dd>
+                  {reference.input.kind === "image"
+                    ? t("vibes.originalImage")
+                    : t("vibes.encodedMaterial")}
+                </dd>
               </div>
               {reference.input.kind === "image" && (
                 <div>
-                  <dt>信息提取量</dt>
+                  <dt>{t("vibes.informationExtracted")}</dt>
                   <dd>{reference.input.informationExtracted}</dd>
                 </div>
               )}
               <div>
-                <dt>来源</dt>
+                <dt>{t("vibes.source")}</dt>
                 <dd>
-                  {source?.presetInstanceId ? "配方输出" : "当前创作"}
-                  {source?.expanded && " · 已展开"}
-                  {source?.overridden && " · 实例覆盖"}
+                  {source?.presetInstanceId ? t("vibes.presetOutput") : t("vibes.currentCreation")}
+                  {source?.expanded && t("vibes.expandedTag")}
+                  {source?.overridden && t("vibes.instanceOverrideTag")}
                 </dd>
               </div>
             </dl>

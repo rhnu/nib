@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef, type PointerEvent } from "react";
 import type { ModelCapabilities, ResolvedCharacter } from "@/bindings/workbench";
 import { Button, HelpMarker, Notice } from "@/shared/ui";
@@ -32,6 +33,8 @@ export function CharacterPositionWorkspace({
   onModeChange: (value: boolean | null) => void;
   onClose: () => void;
 }) {
+  useTranslation();
+
   const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     pointerId: number;
@@ -84,15 +87,15 @@ export function CharacterPositionWorkspace({
   };
 
   const label = (character: ResolvedCharacter, index: number) =>
-    `${index + 1} · ${character.positive.trim().split(/[,\n]/)[0]?.slice(0, 24) || "角色"}${character.enabled ? "" : "（停用）"}`;
+    `${index + 1} · ${character.positive.trim().split(/[,\n]/)[0]?.slice(0, 24) || t("positioning.character")}${character.enabled ? "" : t("positioning.disabledSuffix")}`;
 
   return (
-    <section className="character-position-workspace" aria-label="角色定位画布">
+    <section className="character-position-workspace" aria-label={t("positioning.canvas")}>
       <header className="character-position-toolbar">
         <label className="field">
-          <span>角色</span>
+          <span>{t("positioning.character")}</span>
           <select
-            aria-label="定位角色"
+            aria-label={t("positioning.positionCharacters")}
             value={selected ? characterKey(selected) : ""}
             onChange={(event) => onSelect(event.target.value)}
           >
@@ -108,21 +111,22 @@ export function CharacterPositionWorkspace({
           inherited={effectiveUseCoords}
           onChange={onModeChange}
         />
-        <HelpMarker label="角色定位画布操作">
-          点击或拖动标记会启用自定义定位。方向键移动，Shift
-          加大步幅；坐标和定位方式随当前创作保留。网格位置与范围来自模型。
+        <HelpMarker label={t("positioning.canvasControls")}>
+          {t("positioning.canvasHelp")}
         </HelpMarker>
         <Button className="quiet" onClick={onClose}>
-          返回图像
+          {t("positioning.backToImage")}
         </Button>
       </header>
       {!supported && (
         <Notice>
-          {capabilities ? "当前模型不支持角色定位；已有坐标保留。" : "正在读取定位选项…"}
+          {capabilities ? t("positioning.positioningUnsupported") : t("positioning.loadingOptions")}
         </Notice>
       )}
       {media.error && (
-        <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+        <Notice actions={<Button onClick={media.retry}>{t("positioning.retryRead")}</Button>}>
+          {media.error}
+        </Notice>
       )}
       <div className="character-position-stage">
         {/* A two-dimensional canvas needs keyboard focus independently of its marker buttons. */}
@@ -131,7 +135,7 @@ export function CharacterPositionWorkspace({
           ref={surface}
           className="character-position-surface"
           role="application"
-          aria-label="角色位置，方向键移动所选角色"
+          aria-label={t("positioning.characterPositions")}
           tabIndex={0}
           style={{
             aspectRatio: `${size.width} / ${size.height}`,
@@ -199,7 +203,7 @@ export function CharacterPositionWorkspace({
           {media.asset && (
             <AssetImage
               asset={media.asset}
-              alt="角色定位底图"
+              alt={t("positioning.backgroundImage")}
               className="character-position-underlay"
             />
           )}
@@ -213,7 +217,7 @@ export function CharacterPositionWorkspace({
                   <button
                     type="button"
                     key={`${x}:${y}`}
-                    aria-label={`定位 ${x}, ${y}`}
+                    aria-label={t("positioning.positionCoordinates", { value0: x, value1: y })}
                     disabled={!selected?.enabled || !supported}
                     onClick={() => {
                       if (selected) commit(characterKey(selected), { x, y });
@@ -229,7 +233,7 @@ export function CharacterPositionWorkspace({
               key={characterKey(character)}
               className={`character-position-marker ${characterKey(character) === (selected && characterKey(selected)) ? "selected" : ""}`}
               data-position-marker={characterKey(character)}
-              aria-label={`选择${label(character, index)}`}
+              aria-label={t("positioning.selectCharacter", { value0: label(character, index) })}
               aria-pressed={characterKey(character) === (selected && characterKey(selected))}
               disabled={!character.enabled || !supported}
               style={{
@@ -247,8 +251,10 @@ export function CharacterPositionWorkspace({
       <footer className="character-position-footer">
         {selected && (
           <output>
-            {label(selected, characters.indexOf(selected))} · X {selected.position.x.toFixed(3)} · Y{" "}
-            {selected.position.y.toFixed(3)}
+            {label(selected, characters.indexOf(selected))}
+            {t("positioning.xCoordinate")}
+            {selected.position.x.toFixed(3)}
+            {t("positioning.yCoordinate")} {selected.position.y.toFixed(3)}
           </output>
         )}
         <span className="muted">

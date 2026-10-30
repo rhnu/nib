@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
 import { Field, Toggle } from "@/shared/ui";
@@ -10,6 +11,8 @@ export function ImageToImageAdvancedSettings({
   feedback,
   updateOperation,
 }: Pick<ImageToImageSettingsProps, "operation" | "feedback" | "updateOperation">) {
+  useTranslation();
+
   const { messages, controlProps } = feedback;
   return (
     <Popover.Portal>
@@ -21,8 +24,11 @@ export function ImageToImageAdvancedSettings({
       >
         <Popover.Popup className="image-input-popup" initialFocus={false}>
           <header>
-            <Popover.Title>图生图高级设置</Popover.Title>
-            <Popover.Close className="icon-button" aria-label="关闭图生图高级设置">
+            <Popover.Title>{t("inputs.advancedImageToImage")}</Popover.Title>
+            <Popover.Close
+              className="icon-button"
+              aria-label={t("inputs.closeAdvancedImageToImage")}
+            >
               <X size={14} />
             </Popover.Close>
           </header>
@@ -30,12 +36,12 @@ export function ImageToImageAdvancedSettings({
             <fieldset
               className="image-operation-toggle"
               data-setting-field="colorCorrect"
-              aria-label="Color Correct"
+              aria-label={t("inputs.colorCorrect")}
               {...controlProps("colorCorrect")}
             >
-              <span>Color Correct</span>
+              <span>{t("inputs.colorCorrect")}</span>
               <Toggle
-                label="Color Correct"
+                label={t("inputs.colorCorrect")}
                 checked={operation.colorCorrect}
                 onChange={(colorCorrect) =>
                   updateOperation((current) =>
@@ -46,12 +52,12 @@ export function ImageToImageAdvancedSettings({
               {messages("colorCorrect")}
             </fieldset>
             <div data-setting-field="extraNoiseSeed">
-              <Field label="额外噪声种子">
+              <Field label={t("inputs.extraNoiseSeed")}>
                 <input
                   {...controlProps("extraNoiseSeed")}
                   type="number"
                   step={1}
-                  placeholder="留空继承生成种子"
+                  placeholder={t("inputs.inheritSeedHint")}
                   value={operation.extraNoiseSeed ?? ""}
                   onChange={(event) => {
                     const raw = event.target.value;
@@ -68,12 +74,12 @@ export function ImageToImageAdvancedSettings({
             <fieldset
               className="image-operation-toggle"
               data-setting-field="addOriginalImage"
-              aria-label="Add Original Image"
+              aria-label={t("inputs.addOriginalImage")}
               {...controlProps("addOriginalImage")}
             >
-              <span>Add Original Image</span>
+              <span>{t("inputs.addOriginalImage")}</span>
               <Toggle
-                label="Add Original Image"
+                label={t("inputs.addOriginalImage")}
                 checked={operation.addOriginalImage}
                 onChange={(addOriginalImage) =>
                   updateOperation((current) =>

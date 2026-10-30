@@ -12,4 +12,4 @@ CREATE TABLE credentials (
 );
 CREATE UNIQUE INDEX one_active_credential ON credentials(active) WHERE active = 1;
 CREATE TABLE credential_versions (id TEXT PRIMARY KEY, credential_id TEXT NOT NULL REFERENCES credentials(id));
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

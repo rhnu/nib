@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import { Clapperboard, ImagePlus, Paintbrush, ScanLine, Sparkles, Maximize } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
@@ -25,35 +26,37 @@ export function ImageResultActions({
   canInpaint: boolean;
   showDirector?: boolean;
 }) {
+  useTranslation();
+
   const tools = useMediaTools();
   const [metadataOpen, setMetadataOpen] = useState(false);
   const media = useMediaAsset(metadataOpen ? assetId : null);
   return (
     <>
-      <div className="generation-image-actions" aria-label="基于图片继续创作">
+      <div className="generation-image-actions" aria-label={t("generation.continueFromImage")}>
         <IconButton
-          label="用作底图"
+          label={t("generation.useAsSource")}
           disabled={!available}
           onClick={() => onImageOperation(assetId, "imageToImage")}
         >
           <ImagePlus size={17} />
         </IconButton>
         <IconButton
-          label="局部重绘"
+          label={t("generation.inpainting")}
           disabled={!available || !canInpaint}
           onClick={() => onImageOperation(assetId, "inpainting")}
         >
           <Paintbrush size={17} />
         </IconButton>
         <IconButton
-          label="Max Enhance"
+          label={t("generation.maxEnhance")}
           disabled={!available || !canMaxEnhance}
           onClick={() => onImageOperation(assetId, "maxEnhance")}
         >
           <Sparkles size={17} />
         </IconButton>
         <IconButton
-          label="放大图片"
+          label={t("generation.upscaleImage")}
           disabled={!available}
           onClick={() => onImageOperation(assetId, "upscale")}
         >
@@ -61,7 +64,7 @@ export function ImageResultActions({
         </IconButton>
         {tools && showDirector && (
           <IconButton
-            label="发送到导演工具"
+            label={t("generation.sendToDirector")}
             disabled={!available}
             onClick={() => tools.onDirector(assetId)}
           >
@@ -69,7 +72,7 @@ export function ImageResultActions({
           </IconButton>
         )}
         <IconButton
-          label="图片信息与恢复"
+          label={t("generation.imageInfoRestore")}
           disabled={!available}
           onClick={() => setMetadataOpen(true)}
         >
@@ -77,11 +80,13 @@ export function ImageResultActions({
         </IconButton>
       </div>
       {metadataOpen && !media.asset && (
-        <Modal open title="图片信息" onClose={() => setMetadataOpen(false)}>
+        <Modal open title={t("generation.imageInfo")} onClose={() => setMetadataOpen(false)}>
           {media.error ? (
-            <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+            <Notice actions={<Button onClick={media.retry}>{t("generation.retryLoad")}</Button>}>
+              {media.error}
+            </Notice>
           ) : (
-            <output>正在读取图片信息…</output>
+            <output>{t("generation.loadingImageInfo")}</output>
           )}
         </Modal>
       )}

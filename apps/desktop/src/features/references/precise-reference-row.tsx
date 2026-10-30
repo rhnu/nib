@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useId, useState, type ReactNode } from "react";
 import { ImagePlus, Info, RotateCcw } from "lucide-react";
 import type {
@@ -24,11 +25,21 @@ import {
 } from "./model";
 
 const typeLabels: Record<string, string> = {
-  character: "角色",
-  style: "风格",
-  "character&style": "角色与风格",
-  costume: "服装",
-  delta: "差异",
+  get character() {
+    return t("references.character");
+  },
+  get style() {
+    return t("references.style");
+  },
+  get "character&style"() {
+    return t("references.characterStyle");
+  },
+  get costume() {
+    return t("references.clothing");
+  },
+  get delta() {
+    return t("references.difference");
+  },
 };
 
 /** Drafts, resources and linked overrides use the same retained reference controls. */
@@ -51,12 +62,14 @@ export function PreciseReferenceRow({
   onReset?: (field: PreciseReferenceField) => void;
   issues?: { field: string; message: string }[];
 }) {
+  useTranslation();
+
   const prefix = useId();
   const [picking, setPicking] = useState(false);
   const [details, setDetails] = useState(false);
   const media = useMediaAsset(value.assetId);
   const options = capabilities?.preciseReferenceOptions;
-  const label = `精确参考 ${index + 1}`;
+  const label = t("references.namedPreciseReference", { value0: index + 1 });
 
   const hasIssue = (field: string) => issues.some((issue) => issue.field === field);
 
@@ -73,7 +86,10 @@ export function PreciseReferenceRow({
 
   const reset = (field: PreciseReferenceField, name: string) =>
     override?.[field] != null && onReset ? (
-      <IconButton label={`撤销${name}覆盖`} onClick={() => onReset(field)}>
+      <IconButton
+        label={t("references.revertOverride", { value0: name })}
+        onClick={() => onReset(field)}
+      >
         <RotateCcw size={13} />
       </IconButton>
     ) : undefined;
@@ -87,7 +103,9 @@ export function PreciseReferenceRow({
       <FormField
         label={name}
         htmlFor={`${prefix}-${field}`}
-        help={<HelpMarker label={`${name}说明`}>{help}</HelpMarker>}
+        help={
+          <HelpMarker label={t("references.referenceHelp", { value0: name })}>{help}</HelpMarker>
+        }
         actions={reset(field, name)}
         feedback={messages(field)}
       >
@@ -117,31 +135,34 @@ export function PreciseReferenceRow({
     >
       <header>
         <strong>{label}</strong>
-        {override && <span className="tag">覆盖</span>}
+        {override && <span className="tag">{t("references.override")}</span>}
         <span className="spacer" />
         <Toggle
-          label={`启用${label}`}
+          label={t("references.enableReference", { value0: label })}
           checked={value.enabled}
           onChange={(enabled) => onChange({ enabled })}
         />
-        {reset("enabled", "启用状态")}
+        {reset("enabled", t("references.enabledState"))}
         {actions}
       </header>
       {messages("enabled")}
       <div className="media-input-layout">
         <div className="media-input-preview" data-reference-field="assetId">
           {media.asset && <AssetImage asset={media.asset} alt={label} />}
-          <fieldset className="media-input-tools" aria-label={`${label}图片操作`}>
+          <fieldset
+            className="media-input-tools"
+            aria-label={t("references.imageActions", { value0: label })}
+          >
             <IconButton
-              label={`替换${label}图片`}
+              label={t("references.replaceImage", { value0: label })}
               aria-invalid={hasIssue("assetId") || undefined}
               onClick={() => setPicking(true)}
             >
               <ImagePlus size={14} />
             </IconButton>
-            {reset("assetId", "图片")}
+            {reset("assetId", t("references.image"))}
             <IconButton
-              label={`查看${label}图片信息`}
+              label={t("references.viewImageInfo", { value0: label })}
               disabled={!media.asset}
               onClick={() => setDetails(true)}
             >
@@ -152,9 +173,9 @@ export function PreciseReferenceRow({
         <div className="media-input-settings">
           <div data-reference-field="referenceType">
             <FormField
-              label="用途"
+              label={t("references.purpose")}
               htmlFor={`${prefix}-type`}
-              actions={reset("referenceType", "用途")}
+              actions={reset("referenceType", t("references.purpose"))}
               feedback={messages("referenceType")}
             >
               <select
@@ -168,7 +189,8 @@ export function PreciseReferenceRow({
               >
                 {!options?.referenceTypes.includes(value.referenceType) && (
                   <option value={value.referenceType}>
-                    {typeLabels[value.referenceType] ?? value.referenceType} · 已保存
+                    {typeLabels[value.referenceType] ?? value.referenceType}
+                    {t("references.savedTag")}
                   </option>
                 )}
                 {options?.referenceTypes.map((type) => (
@@ -179,32 +201,30 @@ export function PreciseReferenceRow({
               </select>
             </FormField>
           </div>
-          {numeric(
-            "strength",
-            "Strength",
-            "控制参考图片对结果的影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
-          )}
-          {numeric(
-            "fidelity",
-            "Fidelity",
-            "控制参考约束的精确程度。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
-          )}
+          {numeric("strength", t("references.strengthLabel"), t("references.strengthHelp"))}
+          {numeric("fidelity", t("references.fidelityLabel"), t("references.fidelityHelp"))}
           {numeric(
             "informationExtracted",
-            "信息提取量",
-            "控制从参考图片中提取的信息量，范围为 0–1。",
+            t("references.informationExtracted"),
+            t("references.informationHelp"),
           )}
         </div>
       </div>
-      {media.loading && <output>正在读取图片…</output>}
+      {media.loading && <output>{t("references.loadingImage")}</output>}
       {media.error && (
-        <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+        <Notice actions={<Button onClick={media.retry}>{t("references.retryRead")}</Button>}>
+          {media.error}
+        </Notice>
       )}
       {messages("assetId")}
       {savedTypeUnsupported && (
-        <p className="precise-reference-message">当前模型不支持已保存的用途。</p>
+        <p className="precise-reference-message">{t("references.savedPurposeUnsupported")}</p>
       )}
-      <Modal open={details} onClose={() => setDetails(false)} title={`${label} · 图片信息`}>
+      <Modal
+        open={details}
+        onClose={() => setDetails(false)}
+        title={t("references.imageInfoTitle", { value0: label })}
+      >
         {media.asset && (
           <div className="precise-reference-details">
             <AssetImage asset={media.asset} alt={label} />
@@ -217,7 +237,7 @@ export function PreciseReferenceRow({
       </Modal>
       <ImagePickerDialog
         open={picking}
-        title="选择精确参考图片"
+        title={t("references.choosePreciseImage")}
         onClose={() => setPicking(false)}
         onSelect={(asset) => onChange({ assetId: asset.id })}
       />
@@ -230,7 +250,12 @@ export function PreciseReferenceAvailability({
 }: {
   capabilities: ModelCapabilities | null;
 }) {
-  if (!capabilities) return <output className="precise-reference-status">正在读取参考能力…</output>;
+  useTranslation();
+
+  if (!capabilities)
+    return (
+      <output className="precise-reference-status">{t("references.loadingCapabilities")}</output>
+    );
   const messages = preciseReferenceMessages(capabilities);
   return (
     <>

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { RouterProvider } from "@tanstack/react-router";
 import type { Draft } from "@/bindings/workbench";
@@ -21,15 +22,27 @@ type WorkspaceShellProps = Omit<WorkbenchControllerOptions, "page" | "navigate">
 };
 
 const navigationLabels = {
-  create: "创作",
-  director: "导演工具",
-  gallery: "画廊",
-  library: "资源库",
-  settings: "设置",
+  get create() {
+    return t("app.create");
+  },
+  get director() {
+    return t("app.directorTools");
+  },
+  get gallery() {
+    return t("app.gallery");
+  },
+  get library() {
+    return t("app.library");
+  },
+  get settings() {
+    return t("app.settings");
+  },
 } as const;
 
 /** Own editor lifetimes above routed pages and all recoverable render boundaries. */
 export function WorkspaceShell(props: WorkspaceShellProps) {
+  useTranslation();
+
   const [router] = useState(() =>
     createWorkspaceRouter(props.workspace.draft.activePage, props.startupSettings),
   );
@@ -67,7 +80,7 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
     return unsubscribe;
   }, [router, writer]);
   return (
-    <RecoveryBoundary label="工作台">
+    <RecoveryBoundary label={t("app.workspace")}>
       <WorkbenchContext value={controller}>
         <LibrarySessionProvider store={state.librarySession}>
           <MediaToolsContext
@@ -78,7 +91,7 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
           >
             <div className="workbench">
               {props.renderHeader(
-                <nav className="desktop-navigation" aria-label="主导航">
+                <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
                   {(Object.keys(navigationLabels) as Draft["activePage"][]).map((target) => (
                     <Button
                       key={target}
@@ -97,26 +110,33 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
               )}
               <div inert={props.readOnly} style={{ display: "contents" }}>
                 {error && (
-                  <Notice actions={<Button onClick={() => setError("")}>关闭提示</Button>}>
+                  <Notice
+                    actions={<Button onClick={() => setError("")}>{t("app.dismissNotice")}</Button>}
+                  >
                     {error}
                   </Notice>
                 )}
                 {resourceError && (
-                  <Notice actions={<Button onClick={retryResources}>重试读取资源</Button>}>
+                  <Notice
+                    actions={<Button onClick={retryResources}>{t("app.retryResources")}</Button>}
+                  >
                     {resourceError}
                   </Notice>
                 )}
                 {Boolean(written.error) && (
                   <Notice
                     actions={
-                      <Button onClick={() => void writer.flush().catch(() => {})}>重试保存</Button>
+                      <Button onClick={() => void writer.flush().catch(() => {})}>
+                        {t("app.retrySave")}
+                      </Button>
                     }
                   >
-                    当前创作尚未保存：{errorMessage(written.error)}
+                    {t("app.creationUnsaved")}
+                    {errorMessage(written.error)}
                   </Notice>
                 )}
                 <RouterProvider router={router} />
-                <RecoveryBoundary label="操作面板">
+                <RecoveryBoundary label={t("app.operationPanel")}>
                   <WorkspaceDialogs />
                 </RecoveryBoundary>
               </div>

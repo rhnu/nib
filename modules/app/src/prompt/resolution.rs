@@ -5,6 +5,7 @@ use super::{
     PresetInstance, PresetOutputOverrides, PromptNode, Resource, ResourceContent, ResourceReader,
 };
 use crate::{
+    api::UserMessage,
     persistence::PersistenceError,
     session::{CreationInputs, Draft, ReferenceInputs},
 };
@@ -33,7 +34,7 @@ fn issue(
     node_id: Option<&str>,
     context: Context<'_>,
     resource_id: Option<&str>,
-    message: String,
+    message: UserMessage,
 ) -> ResolutionIssue {
     ResolutionIssue {
         kind,
@@ -62,7 +63,7 @@ fn lookup(
             node_id,
             context,
             Some(id),
-            format!("Resource '{id}' was not found."),
+            UserMessage::MissingResource { id: id.to_owned() },
         ));
         return Ok(None);
     };
@@ -73,10 +74,14 @@ fn lookup(
             node_id,
             context,
             Some(id),
-            format!(
-                "Resource '{id}' is not a {}.",
-                if preset { "preset" } else { "chunk" }
-            ),
+            UserMessage::ResourceTypeMismatch {
+                id: id.to_owned(),
+                expected: if preset {
+                    crate::library::ResourceKind::Preset
+                } else {
+                    crate::library::ResourceKind::Chunk
+                },
+            },
         ));
         return Ok(None);
     }
@@ -132,10 +137,9 @@ fn stale_overrides(
                 Some(&edit.node_id),
                 context,
                 context.resource.map(|resource| resource.id.as_str()),
-                format!(
-                    "Override target '{}' no longer exists in this preset.",
-                    edit.node_id
-                ),
+                UserMessage::StaleNodeOverride {
+                    id: edit.node_id.clone(),
+                },
             ));
         }
     }

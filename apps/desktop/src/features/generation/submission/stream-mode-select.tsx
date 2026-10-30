@@ -1,7 +1,12 @@
+import { t, useTranslation } from "@/shared/i18n";
 import { Field } from "@/shared/ui";
 
 const modeLabel = (mode: string) =>
-  mode === "sse" ? "SSE 预览" : mode === "msgpack" ? "MessagePack 预览" : mode;
+  mode === "sse"
+    ? t("generation.ssePreview")
+    : mode === "msgpack"
+      ? t("generation.messagePackPreview")
+      : mode;
 
 import type { CreationInputs } from "@/bindings/workbench";
 
@@ -18,12 +23,14 @@ export function StreamModeSelect({
   supported: boolean | null;
   modes?: readonly StreamMode[] | null;
 }) {
+  useTranslation();
+
   const options = modes ?? [];
   const invalid =
     value !== null && (supported === false || (modes != null && !options.includes(value)));
   return (
     <div data-setting-field="stream">
-      <Field label="执行返回">
+      <Field label={t("generation.responseMode")}>
         <select
           value={value ?? ""}
           onChange={(event) => {
@@ -32,7 +39,7 @@ export function StreamModeSelect({
           }}
           aria-invalid={invalid}
         >
-          <option value="">普通返回</option>
+          <option value="">{t("generation.standardResponse")}</option>
           {options.map((mode) => (
             <option key={mode} value={mode} disabled={supported === false}>
               {modeLabel(mode)}
@@ -41,11 +48,7 @@ export function StreamModeSelect({
           {value && !options.includes(value) && <option value={value}>{modeLabel(value)}</option>}
         </select>
       </Field>
-      {invalid && (
-        <span className="generation-danger">
-          当前模型不支持所选流式方式，请更改模型或选择普通返回。
-        </span>
-      )}
+      {invalid && <span className="generation-danger">{t("generation.streamUnsupported")}</span>}
     </div>
   );
 }
