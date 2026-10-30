@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "file": "embeddings.sqlite3.gz",
+  "sha256": "2f58d322021f6753997a9ec4d5dd9c25b25c1df3967c685e2bcbb580e40d9fde",
+  "bytes": 30318577,
+  "sqliteSha256": "31ea022da5563a2cbf61480e8cfb9bd5e0392c0a40a8396726bfb6d032d7be31",
+  "sqliteBytes": 37867520,
+  "entries": 54293
+}

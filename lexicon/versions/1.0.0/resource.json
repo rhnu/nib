@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "lexicon",
+  "version": "1.0.0",
+  "components": [
+    {
+      "id": "core",
+      "name": "Core vocabulary",
+      "description": "Names, aliases, translations and vocabulary browsing.",
+      "requires": [],
+      "files": [
+        {
+          "path": "lexicon.json",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/lexicon.json",
+          "bytes": 15523,
+          "sha256": "bb17698d9681297c122b4ade8c93d22a2f666060eedec8a99be1b752bfea8121"
+        },
+        {
+          "path": "lexicon.sqlite3",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/lexicon.sqlite3",
+          "bytes": 68050944,
+          "sha256": "ca012ab8647042ba56ba2f7330ef9ab8d727166244de335376e82d8f20b1342a"
+        }
+      ]
+    },
+    {
+      "id": "semantic",
+      "name": "Semantic search",
+      "description": "Description search with a local query model.",
+      "requires": [
+        "core"
+      ],
+      "files": [
+        {
+          "path": "vectors.f16",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/vectors.f16",
+          "bytes": 27793408,
+          "sha256": "5221e25f554d8a50cc117fc7fea194b9c6835b2e885501cc47a84a70de102e7e"
+        },
+        {
+          "path": "keys.json",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/keys.json",
+          "bytes": 1699429,
+          "sha256": "c324fcc23d5d97836349b5decd79113d803b450e548cbedadafc1102ed4b6f8e"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "model_q4.onnx",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/model_q4.onnx",
+          "bytes": 490742,
+          "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9"
+        },
+        {
+          "path": "model_q4.onnx_data",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/model_q4.onnx_data",
+          "bytes": 174028800,
+          "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49"
+        },
+        {
+          "path": "tokenizer.json.gz",
+          "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/tokenizer.json.gz",
+          "bytes": 5393396,
+          "sha256": "4b5eb7171df7dd4542d68f3b11d4e4b339215666adae19dd917fb7aaf790b7b7"
+        }
+      ]
+    }
+  ]
+}

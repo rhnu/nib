@@ -1,0 +1,14 @@
+{
+  "minimumPostCount": 100,
+  "minimumPostCountByCategory": {},
+  "retain": [],
+  "exclude": [],
+  "semanticCategories": ["general", "copyright", "character"],
+  "model": {
+    "id": "embeddinggemma-2-256-int8-q4-v1",
+    "dimension": 256,
+    "maxTokens": 128,
+    "queryPrefix": "task: search result | query: ",
+    "documentTemplate": "title: {name_with_spaces} | text: {translations/aliases/description}"
+  }
+}

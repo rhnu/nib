@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*/cache/*.gz filter=lfs diff=lfs merge=lfs -text
+*/versions/** -text
+*/versions/**/*.sqlite3 filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.f16 filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+*/versions/**/*.onnx_data filter=lfs diff=lfs merge=lfs -text
+*/versions/**/tokenizer.json.gz filter=lfs diff=lfs merge=lfs -text

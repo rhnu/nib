@@ -1,0 +1,172 @@
+{
+  "resourceId": "lexicon",
+  "version": "1.0.0",
+  "tag": "resource-lexicon-v1.0.0",
+  "sourceCommit": "42916d1805d31291635dcf5c258e8668a587ac9a",
+  "sourceDirty": true,
+  "packerSources": {
+    "modules/lexicon/src/bin/nib-lexicon.rs": "d8c6d4c24f6ccdffd07eb9039a5cbeb278cc34ec70ca202ba41e4400eb99c197",
+    "modules/lexicon/src/encoder.rs": "1aec49e1a642619e2d9b8f67321d88e0106f6d676cdd6547e770b67ff3a90b68",
+    "modules/lexicon/src/format.rs": "70b2c26b37598163d303e3a419b218a308420ca07db90b345472095ac9588890",
+    "modules/lexicon/src/index/tests.rs": "b399d076a0e3ca52522075317bc6d814a0213219a81732b0c21abb04bd616a87",
+    "modules/lexicon/src/index.rs": "8c15b75c252bc309d2a7621336fca46d8aa8a2a7d83851b81fa365eaa58e1ef4",
+    "modules/lexicon/src/lib.rs": "6a02ed0e703ef0fd2f54fdcdb50288d8965bced0ba65ff667108a1d804890274",
+    "modules/lexicon/src/pack.rs": "f38c7566c8e8af3ec6c1e481b117a2a6064b8f9a188103990ebfe25931ac126c",
+    "modules/lexicon/src/resources.rs": "bd5db1fb5fd2c754781dc2c635b850d0dfc8952c381ff6bda1b3eb132132298d",
+    "modules/lexicon/src/schema.sql": "7da0717b6f6bd48f61abc3c125d7b9e64904ec9e05bded53f098536b91100a61",
+    "modules/lexicon/src/search.rs": "8f66eaea50269f8746a72eea86ba551e05af062a1623771484fce8a5f6a8d433",
+    "modules/resources/src/download.rs": "b0e8193cb5d312b2153142bd75b957cb5e08eb5a37085a9bc69ad28342c23381",
+    "modules/resources/src/format/tests.rs": "4efed5079619d8d36fa1d92c11a8bd6c939af4bf6f11c7bcbd17f1a2f623d41c",
+    "modules/resources/src/format.rs": "4dac23dc53a45e538889f312134109248df7579e36a29ef92563bc10d1262519",
+    "modules/resources/src/lib.rs": "f3c9327edce1f203d78f0a45b49b1e46d63f7ca01088e6facb34e6c49b390acb",
+    "tools/lexicon/lexicon.py": "02b7710b5253d99b200a076110c6fa911bc02d7b3d60ade773d6252704967d7c"
+  },
+  "normalizedSha256": "289ee0d98d6317b86f498b99180dfada8f33bfc658e09911f49fb7a32752f0d2",
+  "semanticInputs": {
+    "files": {
+      "vectors.f16": "5221e25f554d8a50cc117fc7fea194b9c6835b2e885501cc47a84a70de102e7e",
+      "keys.json": "c324fcc23d5d97836349b5decd79113d803b450e548cbedadafc1102ed4b6f8e",
+      "contract.json": "b27838bf77d8b23b3d8d48c0a4f6ae1301d65ea7ef82b3e5781cbde4ded8032e"
+    },
+    "encoder": {
+      "contract": {
+        "id": "embeddinggemma-2-256-int8-q4-v1",
+        "dimension": 256,
+        "maxTokens": 128,
+        "queryPrefix": "task: search result | query: ",
+        "documentTemplate": "title: {name_with_spaces} | text: {translations/aliases/description}",
+        "tokenizerSha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+        "queryModelSha256": "d1f9c1a06b4b376d252e02216cce7be33caea6d02080d0cc16799fdfe8620e07",
+        "documentModelSha256": "45d71efab89a0232706374d026392281019a96024a75704df7ad453a81011507"
+      },
+      "documentTemplateImplementation": 1,
+      "projection": "prefix-256-then-l2-f32-to-little-endian-f16",
+      "padding": "right-longest",
+      "specialTokens": "tokenizer-postprocessor",
+      "onnxruntime": "1.31.1",
+      "tokenizers": "0.23.3",
+      "numpy": "2.5.4",
+      "provider": "CPUExecutionProvider"
+    }
+  },
+  "sourcesLockSha256": "49016426f0bbfb3219c1e6e635b01f1fe1cbe29808b1fcd5da6112ad7231f17f",
+  "buildRecipe": {
+    "recipe": {
+      "minimumPostCount": 100,
+      "minimumPostCountByCategory": {},
+      "retain": [],
+      "exclude": [],
+      "semanticCategories": [
+        "general",
+        "copyright",
+        "character"
+      ],
+      "model": {
+        "id": "embeddinggemma-2-256-int8-q4-v1",
+        "dimension": 256,
+        "maxTokens": 128,
+        "queryPrefix": "task: search result | query: ",
+        "documentTemplate": "title: {name_with_spaces} | text: {translations/aliases/description}"
+      }
+    },
+    "models": {
+      "repository": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX",
+      "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "license": "Apache-2.0",
+      "files": {
+        "query": [
+          {
+            "path": "onnx/model_q4.onnx",
+            "name": "model_q4.onnx",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_q4.onnx",
+            "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9",
+            "bytes": 490742
+          },
+          {
+            "path": "onnx/model_q4.onnx_data",
+            "name": "model_q4.onnx_data",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_q4.onnx_data",
+            "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49",
+            "bytes": 174028800
+          },
+          {
+            "path": "tokenizer.json",
+            "name": "tokenizer.json",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+            "bytes": 32170510
+          },
+          {
+            "path": "LICENSE",
+            "name": "LICENSE",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+            "localFile": "embeddinggemma-2-LICENSE.txt",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+            "bytes": 11358
+          }
+        ],
+        "document": [
+          {
+            "path": "onnx/model_quantized.onnx",
+            "name": "model_quantized.onnx",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953",
+            "bytes": 495165
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "name": "model_quantized.onnx_data",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b",
+            "bytes": 313724928
+          },
+          {
+            "path": "tokenizer.json",
+            "name": "tokenizer.json",
+            "url": "https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/resolve/daa72c51243991dfcaf9f9137d2c573d8f7790c0/tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+            "bytes": 32170510
+          },
+          {
+            "path": "LICENSE",
+            "name": "LICENSE",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+            "localFile": "embeddinggemma-2-LICENSE.txt",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+            "bytes": 11358
+          }
+        ]
+      }
+    },
+    "novelai": {
+      "source": {
+        "name": "NovelAI renamed tags",
+        "url": "https://docs.novelai.net/en/image/tags/#renamed-tags",
+        "retrievedAt": "2026-10-30",
+        "license": "NOASSERTION",
+        "notice": "Small manually transcribed tag-name mapping from NovelAI's Renamed Tags documentation, retrieved 2026-10-30. No license for the documentation is asserted."
+      },
+      "overrides": {
+        "v": "peace sign",
+        "double_v": "double peace",
+        "|_|": "bar eyes",
+        "\\||/": "open \\m/",
+        ":|": "neutral face",
+        ";|": "neutral face",
+        "<|>_<|>": "neco-arc eyes",
+        "eyepatch_bikini": "square bikini",
+        "tachi-e": "character image"
+      }
+    },
+    "enhanced": false,
+    "normalizerVersion": 1,
+    "encoderVersion": 1
+  },
+  "sources": [
+    {
+      "id": "ffdkj",
+      "revision": "ed9ba606bebc7c4641a1128f30cd7e722b689b5a"
+    }
+  ],
+  "semantic": true
+}
