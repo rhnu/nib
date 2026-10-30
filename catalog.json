@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "resources": [
+    {
+      "id": "lexicon",
+      "name": "Prompt lexicon",
+      "description": "Offline prompt lexicon with optional local semantic search.",
+      "version": "1.0.0",
+      "manifest": {
+        "path": "resource.json",
+        "url": "https://github.com/rhnu/nib/releases/download/resource-lexicon-v1.0.0/resource.json",
+        "bytes": 2679,
+        "sha256": "4d8526cf1934b0ee0b7a7e13f5d6eb8a54ed21e5efd8a165947c3540ada6f91c"
+      }
+    }
+  ]
+}
