@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { MediaAsset } from "../../bindings/media";
-import type { CreationOperation, Draft } from "../../bindings/workbench";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
+import type { MediaAsset } from "@/bindings/media";
+import type { CreationOperation, Draft } from "@/bindings/workbench";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
 import {
   applyImageOperation,
   imageOperationNeedsConfirmation,

@@ -1,4 +1,4 @@
-import type { Resource } from "../../bindings/workbench";
+import type { Resource } from "@/bindings/workbench";
 
 /** A save acknowledges one edit version; later content must survive its response. */
 export function mergeResourceSave(

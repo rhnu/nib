@@ -5,9 +5,9 @@ import type {
   GenerationResult,
   ResultSummary,
   OperationSummary,
-} from "../../../bindings/generation";
-import { commandTool, directorToolLabels } from "../../director/model";
-import { operationSourceId } from "../../inputs/image-operation";
+} from "@/bindings/generation";
+import { commandTool, directorToolLabels } from "@/features/director/model";
+import { operationSourceId } from "@/features/inputs/image-operation";
 export function summarizeOperation(submission: FrozenSubmission): OperationSummary {
   if (submission.kind === "generation")
     return {

@@ -1,5 +1,5 @@
-import type { GenerationSettings, ModelCapabilities } from "../../bindings/workbench";
-import { invokeHost } from "../../shared/host/invoke";
+import type { GenerationSettings, ModelCapabilities } from "@/bindings/workbench";
+import { invokeHost } from "@/shared/host/invoke";
 
 export const modelApi = {
   capabilities: (model?: string, settings?: GenerationSettings | null) =>

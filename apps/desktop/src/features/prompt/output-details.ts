@@ -1,4 +1,4 @@
-import type { Draft, ResolutionIssue, Resource } from "../../bindings/workbench";
+import type { Draft, ResolutionIssue, Resource } from "@/bindings/workbench";
 
 export function tokenFieldLabel(field: string): string {
   if (field === "prompt") return "正面";

@@ -1,4 +1,4 @@
-import type { Composition, Draft, Resource } from "../../bindings/workbench";
+import type { Composition, Draft, Resource } from "@/bindings/workbench";
 
 function compositionIds(value: Composition): string[] {
   return [...value.positive, ...value.negative].flatMap((node) =>

@@ -4,9 +4,9 @@ import type {
   MetadataRestore,
   VibeAssetInspection,
   VibeDocumentInspection,
-} from "../../bindings/media";
-import type { VibeReferenceInput } from "../../bindings/workbench";
-import { invokeHost } from "../../shared/host/invoke";
+} from "@/bindings/media";
+import type { VibeReferenceInput } from "@/bindings/workbench";
+import { invokeHost } from "@/shared/host/invoke";
 
 export const mediaApi = {
   assets: () => invokeHost<MediaAsset[]>("list_media_assets"),

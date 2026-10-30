@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CreationOperation, Draft } from "../../../bindings/workbench";
-import { emptyReferences, emptySettings } from "../../prompt/model";
+import type { CreationOperation, Draft } from "@/bindings/workbench";
+import { emptyReferences, emptySettings } from "@/features/prompt/model";
 import {
   generationQuoteKey,
   hasResolvedPrompt,

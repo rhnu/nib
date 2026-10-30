@@ -1,4 +1,4 @@
-import type { JobFeedback } from "../../../bindings/generation";
+import type { JobFeedback } from "@/bindings/generation";
 
 type Connection = {
   subscribe: (receive: (event: JobFeedback) => void) => Promise<void>;

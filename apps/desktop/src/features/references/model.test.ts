@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PreciseReferenceInput } from "../../bindings/workbench";
+import type { PreciseReferenceInput } from "@/bindings/workbench";
 import {
   applyPreciseReferenceOverride,
   emptyPreciseReferenceOverride,

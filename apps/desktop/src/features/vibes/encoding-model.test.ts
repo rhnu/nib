@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
+import type { Draft, VibeEncodingInput } from "@/bindings/workbench";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
 import { encodingSubmission, isReusableEncoding, optionalEncodingSeed } from "./encoding-model";
-import type { ResultSummary } from "../../bindings/generation";
-import { generationQuoteKey } from "../generation/submission/quote-state";
+import type { ResultSummary } from "@/bindings/generation";
+import { generationQuoteKey } from "@/features/generation/submission/quote-state";
 
 const input: VibeEncodingInput = {
   assetId: "source",

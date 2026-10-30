@@ -3,8 +3,8 @@ import type {
   CharacterOutputOverride,
   Composition,
   InstanceOverride,
-} from "../../bindings/workbench";
-import { emptyComposition, textNode } from "../prompt/model";
+} from "@/bindings/workbench";
+import { emptyComposition, textNode } from "@/features/prompt/model";
 
 export type CharacterFieldIssue = { field: string; message: string };
 export type CharacterIssues = Record<string, CharacterFieldIssue[]>;

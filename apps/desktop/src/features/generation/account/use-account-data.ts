@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AccountStatus } from "../../../bindings/generation";
+import type { AccountStatus } from "@/bindings/generation";
 import { accountApi } from "./api";
-import { errorMessage } from "../../../shared/host/error";
-import { hasDesktopHost } from "../../../shared/host/invoke";
+import { errorMessage } from "@/shared/host/error";
+import { hasDesktopHost } from "@/shared/host/invoke";
 
 /** One provider observes host sampling; components share this query and its revision. */
 export function useAccountData(executionVersion = 0) {

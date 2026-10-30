@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Resource } from "../../bindings/workbench";
+import type { Resource } from "@/bindings/workbench";
 import { mergeResourceSave } from "./resource-edit";
 
 const resource = (text: string, revision = 0): Resource => ({

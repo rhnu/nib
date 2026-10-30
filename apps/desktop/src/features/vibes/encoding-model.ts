@@ -1,6 +1,6 @@
-import type { Draft, VibeEncodingInput } from "../../bindings/workbench";
-import type { ResultSummary } from "../../bindings/generation";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
+import type { Draft, VibeEncodingInput } from "@/bindings/workbench";
+import type { ResultSummary } from "@/bindings/generation";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
 
 /** Slot encoding has no editable generation prompt and always submits one encoding request. */
 export function slotEncodingDraft(input: VibeEncodingInput): Draft {

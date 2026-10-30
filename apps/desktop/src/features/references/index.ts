@@ -1,7 +1,10 @@
-export { PreciseReferenceEditor, type PreciseReferenceEditorProps } from "./PreciseReferenceEditor";
+export {
+  PreciseReferenceEditor,
+  type PreciseReferenceEditorProps,
+} from "./precise-reference-editor";
 export {
   PreciseReferenceOutputOverrides,
   type PreciseReferenceOutputOverridesProps,
-} from "./PreciseReferenceOutputOverrides";
+} from "./precise-reference-output-overrides";
 export type { PreciseReferenceIssues } from "./model";
 export { showPreciseReferences } from "./model";

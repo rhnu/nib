@@ -1,5 +1,5 @@
-export { AssetImage, useAssetImage } from "./AssetImage";
-export { ImageImporter } from "./ImageImporter";
-export { ImageMetadataDialog } from "./ImageMetadataDialog";
-export { ImagePickerDialog } from "./ImagePickerDialog";
-export { useMediaAsset } from "./useMediaAsset";
+export { AssetImage, useAssetImage } from "./asset-image";
+export { ImageImporter } from "./image-importer";
+export { ImageMetadataDialog } from "./image-metadata-dialog";
+export { ImagePickerDialog } from "./image-picker-dialog";
+export { useMediaAsset } from "./use-media-asset";

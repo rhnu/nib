@@ -1,1 +1,1 @@
-export { PngTextDialog, type PngTextController } from "./PngTextDialog";
+export { PngTextDialog, type PngTextController } from "./png-text-dialog";

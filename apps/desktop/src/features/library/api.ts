@@ -1,5 +1,5 @@
-import { invokeHost } from "../../shared/host/invoke";
-import type { Resource, ResourceQuery, ResourceSummary } from "../../bindings/workbench";
+import { invokeHost } from "@/shared/host/invoke";
+import type { Resource, ResourceQuery, ResourceSummary } from "@/bindings/workbench";
 export const libraryApi = {
   search: (query: ResourceQuery) => invokeHost<ResourceSummary[]>("search_resources", { query }),
   resource: (id: string) => invokeHost<Resource>("get_resource", { id }),

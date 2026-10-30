@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JobSummary } from "../../../bindings/generation";
+import type { JobSummary } from "@/bindings/generation";
 import { mergeSummaries, reconcileJobs } from "./summary";
 function job(id: string, status: JobSummary["status"]): JobSummary {
   return {

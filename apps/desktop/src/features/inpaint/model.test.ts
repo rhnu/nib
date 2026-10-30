@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MaskSession } from "../../bindings/workbench";
+import type { MaskSession } from "@/bindings/workbench";
 import {
   appendCommand,
   appendStrokePoints,

@@ -1,4 +1,4 @@
-import type { FrozenSubmission } from "../../../bindings/generation";
+import type { FrozenSubmission } from "@/bindings/generation";
 
 export function submissionLabel(submission: FrozenSubmission): string {
   if (submission.kind === "generation") return submission.resolved.settings.model;

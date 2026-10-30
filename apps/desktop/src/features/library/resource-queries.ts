@@ -1,5 +1,5 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import type { Resource } from "../../bindings/workbench";
+import type { Resource } from "@/bindings/workbench";
 import { libraryApi } from "./api";
 
 type PendingRead = {

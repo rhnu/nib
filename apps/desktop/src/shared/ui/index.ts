@@ -1,10 +1,10 @@
-export { Button, IconButton } from "./Button";
-export { Field, FormField, FormGrid } from "./Field";
-export { Modal } from "./Modal";
-export { ActionsMenu } from "./ActionsMenu";
-export { Toggle } from "./Toggle";
-export { Notice } from "./Notice";
-export { HelpMarker } from "./HelpMarker";
-export { FilePicker } from "./FilePicker";
+export { Button, IconButton } from "./button";
+export { Field, FormField, FormGrid } from "./field";
+export { Modal } from "./modal";
+export { ActionsMenu } from "./actions-menu";
+export { Toggle } from "./toggle";
+export { Notice } from "./notice";
+export { HelpMarker } from "./help-marker";
+export { FilePicker } from "./file-picker";
 
-export { NumberSlider } from "./NumberSlider";
+export { NumberSlider } from "./number-slider";

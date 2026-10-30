@@ -1,6 +1,6 @@
-import type { VibeEncodingInput, VibeEncodingOptions } from "../../bindings/workbench";
-import { invokeHost } from "../../shared/host/invoke";
-import type { VibeEncodingOutcome } from "../../bindings/generation";
+import type { VibeEncodingInput, VibeEncodingOptions } from "@/bindings/workbench";
+import { invokeHost } from "@/shared/host/invoke";
+import type { VibeEncodingOutcome } from "@/bindings/generation";
 
 export const encodingApi = {
   options: () => invokeHost<VibeEncodingOptions>("get_vibe_encoding_options"),

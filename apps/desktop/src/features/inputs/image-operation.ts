@@ -1,11 +1,11 @@
-import type { MediaAsset } from "../../bindings/media";
+import type { MediaAsset } from "@/bindings/media";
 import type {
   CreationOperation,
   Draft,
   ImageOperationKind,
   ImageOperationOptions,
-} from "../../bindings/workbench";
-import { invokeHost } from "../../shared/host/invoke";
+} from "@/bindings/workbench";
+import { invokeHost } from "@/shared/host/invoke";
 
 export type ImageOperationAction = ImageOperationKind | "inpainting";
 

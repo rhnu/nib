@@ -3,7 +3,7 @@ import type {
   CharacterComposition,
   CharacterOutputOverride,
   InstanceOverride,
-} from "../../bindings/workbench";
+} from "@/bindings/workbench";
 import { patchCharacter, setCharacterOverride, setTextOverride, staleTextOverrides } from "./model";
 
 function character(id: string): CharacterComposition {

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MediaAsset } from "../../bindings/media";
-import {
-  hasPendingWork,
-  trackPendingWork,
-  waitForPendingWork,
-} from "../../shared/host/pending-work";
+import type { MediaAsset } from "@/bindings/media";
+import { hasPendingWork, trackPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import { importAndCommitImage } from "./image-import";
 
 function deferred<T>() {

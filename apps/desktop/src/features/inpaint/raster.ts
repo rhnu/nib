@@ -1,6 +1,6 @@
-import type { MaskSession } from "../../bindings/workbench";
-import { mediaApi } from "../media/api";
-import { imageUnavailableReason } from "../media/model";
+import type { MaskSession } from "@/bindings/workbench";
+import { mediaApi } from "@/features/media/api";
+import { imageUnavailableReason } from "@/features/media/model";
 import { binaryMaskPixels, containMaskRect } from "./model";
 
 export async function loadMaskBitmap(id: string): Promise<ImageBitmap> {

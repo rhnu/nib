@@ -1,16 +1,16 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
-@import "../shared/styles/tokens.css";
-@import "../shared/styles/base.css";
-@import "../shared/ui/styles.css";
-@import "../shared/ui/media-input.css";
+@import "@/shared/styles/tokens.css";
+@import "@/shared/styles/base.css";
+@import "@/shared/ui/styles.css";
+@import "@/shared/ui/media-input.css";
 @import "./startup.css";
 @import "./titlebar.css";
 @import "./settings.css";
-@import "../features/workbench/styles.css";
-@import "../features/prompt/styles.css";
-@import "../features/library/styles.css";
+@import "@/features/workbench/styles.css";
+@import "@/features/prompt/styles.css";
+@import "@/features/library/styles.css";
 
 /* Preserve nib's pixel density while exposing existing theme tokens to utilities. */
 @theme inline {

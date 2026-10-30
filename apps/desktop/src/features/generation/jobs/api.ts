@@ -1,6 +1,6 @@
 import type { Channel } from "@tauri-apps/api/core";
-import type { JobFeedback, JobPage, JobQuery, JobRecord } from "../../../bindings/generation";
-import { invokeHost } from "../../../shared/host/invoke";
+import type { JobFeedback, JobPage, JobQuery, JobRecord } from "@/bindings/generation";
+import { invokeHost } from "@/shared/host/invoke";
 export const jobsApi = {
   jobs: (query: JobQuery) => invokeHost<JobPage>("list_jobs", { query }),
   get: (id: string) => invokeHost<JobRecord>("get_job", { id }),

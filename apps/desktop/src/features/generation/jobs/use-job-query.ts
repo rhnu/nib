@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import type { GenerationBatch, JobRecord, JobPage, ResultPage } from "../../../bindings/generation";
-import { errorMessage } from "../../../shared/host/error";
+import type { GenerationBatch, JobRecord, JobPage, ResultPage } from "@/bindings/generation";
+import { errorMessage } from "@/shared/host/error";
 import { jobsApi } from "./api";
 import { resultsApi } from "../results/api";
 import { mergeSummaries, summarizeJob } from "./summary";

@@ -1,9 +1,4 @@
-import type {
-  JobFeedback,
-  JobObservation,
-  JobSummary,
-  JobStatus,
-} from "../../../bindings/generation";
+import type { JobFeedback, JobObservation, JobSummary, JobStatus } from "@/bindings/generation";
 
 export type FeedbackSample = {
   sampleIndex: number;

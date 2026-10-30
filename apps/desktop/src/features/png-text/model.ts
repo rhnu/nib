@@ -1,4 +1,4 @@
-import type { PngTextEditorState, PngTextSession, PngTextValue } from "../../bindings/workbench";
+import type { PngTextEditorState, PngTextSession, PngTextValue } from "@/bindings/workbench";
 
 export function pngTextSession(state: PngTextEditorState, assetId: string): PngTextSession {
   return (

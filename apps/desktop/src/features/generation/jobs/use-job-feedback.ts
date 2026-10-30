@@ -1,8 +1,8 @@
 import { jobsApi } from "./api";
 import { Channel } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { JobFeedback, JobSummary } from "../../../bindings/generation";
-import { errorMessage } from "../../../shared/host/error";
+import type { JobFeedback, JobSummary } from "@/bindings/generation";
+import { errorMessage } from "@/shared/host/error";
 import {
   emptyFeedback,
   receiveFeedback,

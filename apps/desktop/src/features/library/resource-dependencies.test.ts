@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CharacterComposition, Draft, PromptNode, Resource } from "../../bindings/workbench";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
+import type { CharacterComposition, Draft, PromptNode, Resource } from "@/bindings/workbench";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
 import { draftResourceIds, resourceDependencies } from "./resource-dependencies";
 
 const reference = (resourceId: string): PromptNode => ({

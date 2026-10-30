@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JobSummary } from "../../../bindings/generation";
+import type { JobSummary } from "@/bindings/generation";
 import { refreshHistory } from "./paged-history";
 import { recoverMissingJobs } from "./recover-missing-jobs";
 import { reconcileJobs } from "./summary";

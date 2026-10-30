@@ -2,7 +2,7 @@ import type {
   ModelCapabilities,
   PreciseReferenceInput,
   PreciseReferenceOverride,
-} from "../../bindings/workbench";
+} from "@/bindings/workbench";
 
 const availabilityReasons: Record<string, string> = {
   unsupported: "当前模型不支持",

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { submissionApi } from "./api";
-import type { Draft } from "../../../bindings/workbench";
-import { errorMessage } from "../../../shared/host/error";
-import { useDebouncedValue } from "../../../shared/query/useDebouncedValue";
+import type { Draft } from "@/bindings/workbench";
+import { errorMessage } from "@/shared/host/error";
+import { useDebouncedValue } from "@/shared/query/use-debounced-value";
 import { generationQuoteKey } from "./quote-state";
 
 export function useGenerationQuote(draft: Draft, refreshKey?: unknown, enabled = true) {

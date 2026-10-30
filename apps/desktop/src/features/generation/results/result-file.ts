@@ -1,4 +1,4 @@
-import type { GenerationResult } from "../../../bindings/generation";
+import type { GenerationResult } from "@/bindings/generation";
 
 export function resultFilename(
   result: Pick<GenerationResult, "jobId" | "sampleIndex" | "mimeType">,

@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  CharacterComposition,
-  Draft,
-  ResolutionIssue,
-  Resource,
-} from "../../bindings/workbench";
+import type { CharacterComposition, Draft, ResolutionIssue, Resource } from "@/bindings/workbench";
 import { emptyComposition, emptyReferences, emptySettings } from "./model";
 import { resolutionIssueDetails, tokenFieldLabel } from "./output-details";
 

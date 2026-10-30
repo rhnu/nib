@@ -1,4 +1,4 @@
-import type { GenerationSettings, ResolvedSettings } from "../../bindings/workbench";
+import type { GenerationSettings, ResolvedSettings } from "@/bindings/workbench";
 
 export const settingLabels = {
   model: "模型",

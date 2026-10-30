@@ -1,4 +1,4 @@
-import { invokeHost } from "../../shared/host/invoke";
+import { invokeHost } from "@/shared/host/invoke";
 import type {
   Draft,
   FramingPolicy,
@@ -6,7 +6,7 @@ import type {
   PromptNode,
   DraftAnalysis,
   TokenInspection,
-} from "../../bindings/workbench";
+} from "@/bindings/workbench";
 export const promptApi = {
   resolve: (draft: Draft) => invokeHost<DraftAnalysis>("resolve_draft", { draft }),
   expandChunk: (node: PromptNode) => invokeHost<PromptNode>("expand_chunk", { node }),

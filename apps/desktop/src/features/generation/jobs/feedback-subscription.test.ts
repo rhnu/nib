@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { JobFeedback } from "../../../bindings/generation";
+import type { JobFeedback } from "@/bindings/generation";
 import { createFeedbackSubscriptions } from "./feedback-subscription";
 
 const event: JobFeedback = { kind: "finalReceived", jobId: "job", sampleIndex: 0 };

@@ -1,4 +1,4 @@
-import type { ExecutionPreferences } from "../bindings/settings";
+import type { ExecutionPreferences } from "@/bindings/settings";
 
 /** Every SDK option participates in account and quote invalidation. */
 export function sameExecutionPreferences(

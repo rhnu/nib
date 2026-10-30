@@ -1,6 +1,6 @@
-import type { Draft } from "../../../bindings/workbench";
-import type { GenerationQuote, GenerationBatch } from "../../../bindings/generation";
-import { invokeHost } from "../../../shared/host/invoke";
+import type { Draft } from "@/bindings/workbench";
+import type { GenerationQuote, GenerationBatch } from "@/bindings/generation";
+import { invokeHost } from "@/shared/host/invoke";
 
 export const submissionApi = {
   quote: (draft: Draft) => invokeHost<GenerationQuote>("quote_generation", { draft }),

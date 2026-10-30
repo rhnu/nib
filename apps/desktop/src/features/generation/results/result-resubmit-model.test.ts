@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Draft } from "../../../bindings/workbench";
-import { emptyReferences, emptySettings } from "../../prompt/model";
+import type { Draft } from "@/bindings/workbench";
+import { emptyReferences, emptySettings } from "@/features/prompt/model";
 import { prepareResubmission } from "./result-resubmit-model";
 
 function restoredDraft(): Draft {

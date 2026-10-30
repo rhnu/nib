@@ -2,8 +2,8 @@ import type {
   ApplicationPreferences,
   ApplicationSettingsSnapshot,
   StorageLocations,
-} from "../bindings/settings";
-import { invokeHost } from "../shared/host/invoke";
+} from "@/bindings/settings";
+import { invokeHost } from "@/shared/host/invoke";
 
 export const settingsApi = {
   read: () => invokeHost<ApplicationSettingsSnapshot>("get_application_settings"),

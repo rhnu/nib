@@ -1,4 +1,4 @@
-import type { MaskCommand, MaskPoint, MaskSession } from "../../bindings/workbench";
+import type { MaskCommand, MaskPoint, MaskSession } from "@/bindings/workbench";
 
 export type Viewport = { width: number; height: number };
 export type CanvasTransform = { scale: number; x: number; y: number };

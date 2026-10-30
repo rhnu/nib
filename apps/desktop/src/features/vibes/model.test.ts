@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyVibeOverride, patchVibeOverride, showVibeReferences } from "./model";
-import type { VibeReferenceInput } from "../../bindings/workbench";
+import type { VibeReferenceInput } from "@/bindings/workbench";
 
 describe("Vibe Transfer availability", () => {
   it("shows controls while loading and on supported models without requested materials", () => {

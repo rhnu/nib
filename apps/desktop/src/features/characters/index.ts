@@ -1,4 +1,4 @@
-export { CharacterListEditor } from "./CharacterListEditor";
-export { CharacterOutputOverrides } from "./CharacterOutputOverrides";
-export { CharacterPositionFields, CharacterPositionPolicy } from "./CharacterPositionFields";
+export { CharacterListEditor } from "./character-list-editor";
+export { CharacterOutputOverrides } from "./character-output-overrides";
+export { CharacterPositionFields, CharacterPositionPolicy } from "./character-position-fields";
 export type { CharacterFieldIssue, CharacterIssues } from "./model";

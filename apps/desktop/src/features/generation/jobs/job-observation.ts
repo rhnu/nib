@@ -1,4 +1,4 @@
-import type { FrozenSubmission, RequestSettlement } from "../../../bindings/generation";
+import type { FrozenSubmission, RequestSettlement } from "@/bindings/generation";
 
 const failureLabels: Record<string, string> = {
   stream: "流式响应中断或不完整",

@@ -1,5 +1,5 @@
-import type { AccountStatus, AccountSnapshot } from "../../../bindings/generation";
-import { invokeHost } from "../../../shared/host/invoke";
+import type { AccountStatus, AccountSnapshot } from "@/bindings/generation";
+import { invokeHost } from "@/shared/host/invoke";
 
 export const accountApi = {
   account: () => invokeHost<AccountStatus>("get_account_status"),

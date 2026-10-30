@@ -2,9 +2,9 @@ import type {
   ModelCapabilities,
   VibeReferenceInput,
   VibeReferenceOverride,
-} from "../../bindings/workbench";
-import type { MediaAsset } from "../../bindings/media";
-import { imageName } from "../media/model";
+} from "@/bindings/workbench";
+import type { MediaAsset } from "@/bindings/media";
+import { imageName } from "@/features/media/model";
 
 /** Hidden reference controls retain their draft values when the model or operation changes. */
 export function showVibeReferences(

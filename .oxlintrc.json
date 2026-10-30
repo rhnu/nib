@@ -1,7 +1,11 @@
 {
-  "plugins": ["typescript", "react", "jsx-a11y"],
+  "plugins": ["typescript", "react", "jsx-a11y", "unicorn"],
   "categories": {
     "correctness": "error"
+  },
+  "rules": {
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/no-new-array": "off"
   },
   "ignorePatterns": [
     "**/node_modules/**",

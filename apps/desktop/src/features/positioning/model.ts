@@ -3,8 +3,8 @@ import type {
   Draft,
   Resource,
   ResolvedCharacter,
-} from "../../bindings/workbench";
-import { outputIdentity } from "../prompt/output-identity";
+} from "@/bindings/workbench";
+import { outputIdentity } from "@/features/prompt/output-identity";
 
 export type Position = CharacterComposition["position"];
 

@@ -1,8 +1,8 @@
-import type { Draft, Resource, ResolvedDraft } from "../../bindings/workbench";
-import type { ParameterDiagnostic } from "../../bindings/generation";
-import { characterDefinition } from "../positioning/model";
-import { focusSetting } from "../prompt/settings";
-import { outputIdentity } from "../prompt/output-identity";
+import type { Draft, Resource, ResolvedDraft } from "@/bindings/workbench";
+import type { ParameterDiagnostic } from "@/bindings/generation";
+import { characterDefinition } from "@/features/positioning/model";
+import { focusSetting } from "@/features/prompt/settings";
+import { outputIdentity } from "@/features/prompt/output-identity";
 
 export type OutputFieldIssue = { field: string; message: string };
 export type OutputIssues = {

@@ -4,9 +4,9 @@ import type {
   DirectorToolState,
   DirectorWorkspace,
   Draft,
-} from "../../bindings/workbench";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
-import type { GenerationResult } from "../../bindings/generation";
+} from "@/bindings/workbench";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
+import type { GenerationResult } from "@/bindings/generation";
 
 type DirectorOperation = Extract<CreationOperation, { kind: "director" }>;
 

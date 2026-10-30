@@ -1,6 +1,6 @@
-import type { Draft } from "../../../bindings/workbench";
-import type { GenerationResult } from "../../../bindings/generation";
-import { directorSubmission } from "../../director/model";
+import type { Draft } from "@/bindings/workbench";
+import type { GenerationResult } from "@/bindings/generation";
+import { directorSubmission } from "@/features/director/model";
 
 /** Restored Director editing state must become an explicit paid operation before quoting. */
 export function prepareResubmission(

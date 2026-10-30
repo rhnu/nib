@@ -5,10 +5,10 @@ import type {
   Resource,
   ResolvedCharacter,
   ResolvedDraft,
-} from "../../bindings/workbench";
-import { emptyComposition, emptyReferences, emptySettings } from "../prompt/model";
-import { outputIdentity } from "../prompt/output-identity";
-import { collectOutputIssues, outputTarget } from "../workbench/output-issues";
+} from "@/bindings/workbench";
+import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
+import { outputIdentity } from "@/features/prompt/output-identity";
+import { collectOutputIssues, outputTarget } from "@/features/workbench/output-issues";
 import {
   applyCharacterPosition,
   characterDefinition,

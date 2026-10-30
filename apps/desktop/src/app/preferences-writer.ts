@@ -1,4 +1,4 @@
-import type { ApplicationPreferences } from "../bindings/settings";
+import type { ApplicationPreferences } from "@/bindings/settings";
 
 type PreferenceState = {
   value: ApplicationPreferences | null;

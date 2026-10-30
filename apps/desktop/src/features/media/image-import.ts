@@ -1,5 +1,5 @@
-import type { MediaAsset } from "../../bindings/media";
-import { trackPendingWork } from "../../shared/host/pending-work";
+import type { MediaAsset } from "@/bindings/media";
+import { trackPendingWork } from "@/shared/host/pending-work";
 import { imageUnavailableReason } from "./model";
 
 /** Imported content remains pending through the receiving editor's final commit. */

@@ -1,4 +1,4 @@
-import type { CreationOperation, Draft, ResolvedDraft } from "../../../bindings/workbench";
+import type { CreationOperation, Draft, ResolvedDraft } from "@/bindings/workbench";
 
 /** Normalization must not silently switch a requested image operation or drop its conditioning mode. */
 export function isOperationEffective(

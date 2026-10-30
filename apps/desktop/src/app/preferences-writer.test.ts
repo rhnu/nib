@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ApplicationPreferences } from "../bindings/settings";
+import type { ApplicationPreferences } from "@/bindings/settings";
 import { PreferencesWriter } from "./preferences-writer";
 
 function preferences(theme: ApplicationPreferences["theme"]): ApplicationPreferences {

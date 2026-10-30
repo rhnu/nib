@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { diagnosticSetting, settingsWithDefaults, settingValue } from "./settings";
 import { emptySettings } from "./model";
-import type { ResolvedSettings } from "../../bindings/workbench";
+import type { ResolvedSettings } from "@/bindings/workbench";
 
 describe("setting diagnostics", () => {
   it("maps SDK paths and guidance aliases to the visible controls", () => {

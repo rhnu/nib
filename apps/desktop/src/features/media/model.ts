@@ -1,4 +1,4 @@
-import type { MediaAsset } from "../../bindings/media";
+import type { MediaAsset } from "@/bindings/media";
 
 export function imageName(asset: MediaAsset): string {
   if (asset.source.kind === "import" && asset.source.name) return asset.source.name;

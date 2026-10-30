@@ -1,4 +1,4 @@
-import type { Composition, GenerationSettings, PromptNode } from "../../bindings/workbench";
+import type { Composition, GenerationSettings, PromptNode } from "@/bindings/workbench";
 
 export const emptySettings = (): GenerationSettings => ({
   model: null,
