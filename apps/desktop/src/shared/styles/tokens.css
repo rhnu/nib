@@ -10,7 +10,7 @@
   --control-height: 30px;
   --radius: 2px;
   --radius-overlay: 4px;
-  --font-mono: "Maple Mono", ui-monospace, monospace;
+  --font-mono: "Maple Mono CN", ui-monospace, monospace;
   --sidebar-width: clamp(340px, 27vw, 390px);
   --bg: #191b1e;
   --surface: #202226;

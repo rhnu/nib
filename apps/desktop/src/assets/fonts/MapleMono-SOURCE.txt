@@ -1,4 +1,5 @@
-Maple Mono v7.9, regular WOFF2, unmodified.
+Maple Mono CN v7.9, regular, unhinted.
 Upstream: https://github.com/subframe7536/maple-font/releases/tag/v7.9
-Archive: MapleMono-Woff2.zip
+Archive: MapleMono-CN-unhinted.zip (verified against upstream SHA-256).
+Source: MapleMono-CN-Regular.ttf, losslessly compressed to WOFF2 with FontTools; no subsetting or glyph changes.
 License: SIL Open Font License 1.1, see MapleMono-LICENSE.txt.
