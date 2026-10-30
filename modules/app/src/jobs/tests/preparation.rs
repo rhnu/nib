@@ -2,6 +2,56 @@
 use super::*;
 
 #[test]
+fn source_errors_block_submission_without_changing_saved_source() {
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.fragments[0].text = "cat /* unfinished".to_owned();
+    resolved.compile_sources();
+    let error = prepare_submission(resolved, &NoAssets).unwrap_err();
+    assert!(
+        matches!(error, JobError::PromptSource { diagnostics } if diagnostics[0].code == nib_prompt::SourceDiagnosticCode::UnclosedBlockComment)
+    );
+}
+
+#[test]
+fn frozen_native_text_is_not_interpreted_as_editable_source() {
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.positive = "cat /* native literal".to_owned();
+    let frozen = prepare_submission(resolved, &NoAssets).unwrap();
+    assert_eq!(request(&frozen).core.prompt, "cat /* native literal");
+    let reopened = sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+    assert_eq!(request(&reopened).core.prompt, "cat /* native literal");
+}
+
+#[test]
+fn director_compiles_comments_without_applying_an_image_model_profile() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let mut draft = Draft::default();
+    draft.inputs.operation = crate::session::CreationOperation::Director {
+        asset_id: "source".to_owned(),
+        command: novelai_bridge::DirectorCommand::Emotion {
+            prompt: "Text: happy // annotation".to_owned(),
+            defry: 2,
+        },
+    };
+    let frozen = queue.freeze(&draft).unwrap();
+    assert!(
+        matches!(frozen, FrozenSubmission::Director { command: novelai_bridge::DirectorCommand::Emotion { ref prompt, .. }, .. } if prompt == "Text: happy")
+    );
+    if let crate::session::CreationOperation::Director {
+        command: novelai_bridge::DirectorCommand::Emotion { prompt, .. },
+        ..
+    } = &mut draft.inputs.operation
+    {
+        *prompt = "happy /* unfinished".to_owned();
+    }
+    assert!(matches!(
+        queue.freeze(&draft),
+        Err(JobError::PromptSource { .. })
+    ));
+}
+
+#[test]
 fn director_ignores_unrelated_prompt_dependencies_and_keeps_sdk_adjustments() {
     let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
     Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);

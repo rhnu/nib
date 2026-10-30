@@ -3,6 +3,7 @@ export const messages = {
   missingCredentials: "Configure a NovelAI API key first.",
   unresolvedResources:
     "Resolve the missing resource references in the inspection panel before generating.",
+  invalidPromptSource: "Fix the prompt's comment errors before generating.",
   queueUnavailable:
     "The generation queue has stopped. Reopen the app. Unfinished jobs will not be sent again automatically.",
   workerInterrupted:

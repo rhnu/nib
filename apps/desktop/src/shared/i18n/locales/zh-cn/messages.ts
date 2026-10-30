@@ -4,6 +4,7 @@ export const messages = {
   contentEntry: "条目",
   missingCredentials: "请先配置 NovelAI API Key。",
   unresolvedResources: "当前创作有未解决的资源引用，请在解析面板中处理后再生成。",
+  invalidPromptSource: "请先修正提示词中的注释错误，再生成。",
   queueUnavailable: "生成队列已停止，请重新打开应用。未完成任务不会自动重新请求。",
   workerInterrupted: "后台生成操作中断，请确认任务状态后重试。",
   operationIncomplete: "操作未完成，请重试。",

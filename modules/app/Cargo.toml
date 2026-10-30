@@ -6,11 +6,12 @@ rust-version.workspace = true
 publish.workspace = true
 
 [features]
-typegen = ["dep:ts-rs"]
+typegen = ["dep:ts-rs", "nib-prompt/typegen"]
 
 [dependencies]
 async-trait.workspace = true
 novelai-bridge.workspace = true
+nib-prompt.workspace = true
 futures-util.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

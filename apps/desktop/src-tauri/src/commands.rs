@@ -100,6 +100,15 @@ pub(crate) async fn inspect_tokens(
 }
 
 #[tauri::command]
+pub(crate) fn get_prompt_syntax(
+    model: Option<novelai_bridge::Model>,
+) -> novelai_bridge::PromptSyntaxProfile {
+    model.map_or_else(novelai_bridge::PromptSyntaxProfile::default, |model| {
+        model.descriptor().prompt().syntax
+    })
+}
+
+#[tauri::command]
 pub(crate) fn get_model_defaults_capabilities(
     model: Option<novelai_bridge::Model>,
     settings: Option<prompt::GenerationSettings>,

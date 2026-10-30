@@ -98,7 +98,7 @@
   flex: 1;
   align-content: start;
 }
-.resource-text textarea {
+.resource-text .cm-content {
   min-height: 230px;
 }
 .resource-editor-footer {

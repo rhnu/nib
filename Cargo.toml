@@ -1,5 +1,5 @@
 [workspace]
-members = ["modules/app", "apps/desktop/src-tauri", "xtask"]
+members = ["modules/app", "modules/prompt", "apps/desktop/src-tauri", "xtask"]
 resolver = "3"
 
 [workspace.package]
@@ -10,10 +10,12 @@ publish = false
 
 [workspace.dependencies]
 nib-app = { path = "modules/app" }
+nib-prompt = { path = "modules/prompt" }
 anyhow = "1.0.104"
 async-trait = "0.1.92"
 clap = { version = "4.6.7", features = ["derive"] }
-novelai-bridge = { version = "0.7.2", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
+novelai-bridge = { version = "0.8.0", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
+novelai-bridge-prompt = "0.1.0"
 futures-util = "0.3.34"
 keyring-core = "1.0.1"
 windows-native-keyring-store = { version = "1.1.0", default-features = false }
@@ -27,9 +29,11 @@ tauri-plugin-dialog = "2.8.4"
 tauri-plugin-opener = "2.7.2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tokio = { version = "1.54.0", features = ["rt", "sync", "macros", "time"] }
+tokio = { version = "1.54.1", features = ["rt", "sync", "macros", "time"] }
 ts-rs = "12.0.1"
 thiserror = "2.0.21"
+wasm-bindgen = "0.2.130"
+serde-wasm-bindgen = "0.6.5"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

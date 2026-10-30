@@ -2,19 +2,10 @@
 
 use super::{
     CharacterComposition, Context, InputProvenance, InstanceOverride, PersistenceError,
-    PresetOutputOverrides, PromptScope, ReferenceInputs, ResolutionIssue, ResolutionIssueKind,
-    ResolvedCharacter, ResolvedFragment, ResourceReader, issue, resolve_composition,
+    PresetOutputOverrides, ReferenceInputs, ResolutionIssue, ResolutionIssueKind,
+    ResolvedCharacter, ResourceReader, issue, resolve_composition,
 };
 use crate::{api::UserMessage, prompt::scoped_output_id};
-
-fn join_fragments(fragments: &[ResolvedFragment], scope: PromptScope) -> String {
-    fragments
-        .iter()
-        .filter(|fragment| fragment.scope == scope)
-        .map(|fragment| fragment.text.as_str())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
 
 fn missing_output_override<'a>(
     id: &'a str,
@@ -132,8 +123,8 @@ pub(super) fn resolve_outputs(
         characters.push(ResolvedCharacter {
             id: scoped_output_id(context.instance_id, &definition.id),
             enabled: definition.enabled,
-            positive: join_fragments(&fragments, PromptScope::Positive),
-            negative: join_fragments(&fragments, PromptScope::Negative),
+            positive: String::new(),
+            negative: String::new(),
             position: definition.position,
             fragments,
             preset_instance_id: context.instance_id.map(str::to_owned),

@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b",
+    "dev": "pnpm -w prompt:wasm && vite",
+    "build": "pnpm -w prompt:wasm && tsc -b && vite build",
+    "typecheck": "pnpm -w prompt:wasm && tsc -b",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
     "@tanstack/react-query": "5.105.0",
     "@tanstack/react-router": "1.170.46",
     "@tauri-apps/api": "^2.12.4",

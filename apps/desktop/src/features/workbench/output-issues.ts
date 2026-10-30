@@ -206,10 +206,13 @@ export function focusOutputField(
         )
       : null;
     const fieldContainer = control ?? container;
-    const focus = fieldContainer.matches("textarea, input, select, button")
+    const focus = fieldContainer.matches(
+      '[role="textbox"], textarea, input:not([type="hidden"]), select, button',
+    )
       ? fieldContainer
-      : (fieldContainer.querySelector<HTMLElement>("textarea, input:not([type='range']), select") ??
-        fieldContainer.querySelector<HTMLElement>("button[aria-invalid='true'], button"));
+      : (fieldContainer.querySelector<HTMLElement>(
+          '[role="textbox"], textarea, input:not([type="range"]):not([type="hidden"]), select',
+        ) ?? fieldContainer.querySelector<HTMLElement>("button[aria-invalid='true'], button"));
     for (
       let parent: HTMLElement | null = focus ?? fieldContainer;
       parent;

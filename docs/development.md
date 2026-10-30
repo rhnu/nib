@@ -4,9 +4,9 @@
 
 ## 工程边界
 
-Cargo workspace 包含三个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
+Cargo workspace 包含四个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-prompt` 是原生与 WASM 共用的提示词源处理库；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
 
-依赖方向为桌面宿主 → 应用库 → bridge；xtask 仅依赖应用库的类型生成能力，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
+依赖方向为桌面宿主 → 应用库 → bridge；提示词源处理经 `nib-prompt` 依赖 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入 SDK 的网络、图像或 Tokenizer 依赖。xtask 使用应用库的类型生成能力，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
 
 应用库按以下职责组织。`prompt`、`library` 和 `session` 支撑资源与当前创作；`jobs`、`media` 和 `settings` 支撑 NAI 操作、媒体与宿主账户契约：
 
@@ -116,7 +116,13 @@ pnpm types:check
 
 任务与结果列表使用 Query 分页摘要，完整冻结输入仅在详情、恢复或重试时读取；活动任务独立查询，不受历史分页限制。最近图片区默认限制 20 张，使用全局 1–200 偏好；画廊独立分页浏览图片历史，任务在按批次组织的抽屉中操作。图片查询与氛围转移材料查询按类型区分，不建立第二套结果事实。账户、持久查询与高频流式反馈分别订阅，预览帧不驱动整个编辑工作台更新。二进制媒体继续由按身份与用途共享的 Blob URL 引用计数管理，避免 Query 缓存另存一份媒体字节。
 
-提示词编辑与只读展示共用组件，文本使用内置 Maple Mono CN 等宽字体；本地计数按文本和实际模型查询并去抖，计数状态通过图标浮层显示。Maple Mono CN 只决定显示字体，分词器由 SDK 根据实际模型选择，不能混为同一要求。质量、负面预设和 Furry 选项在提示词浮层中编辑；尺寸预设与动态样本范围直接投影 SDK 能力。图片工具采用紧凑纯图标单排覆层，并提供 tooltip 与可访问名称，内部身份不作为常驻标题。
+提示词编辑与只读展示共用 CodeMirror 组件，文本使用内置 Maple Mono CN 等宽字体。编辑视图、配置重配、分析调度、语义装饰和诊断分别维护；模型切换及外部值同步保留选择与撤销历史，IME 合成期间延迟外部替换。`get_prompt_syntax` 只投影 SDK 模型描述符，无模型时返回纯文本能力，不按模型 ID 推断版本。共享 Worker 惰性加载 WASM，每个编辑器只保留最新待分析输入，过期响应不更新当前结果；滚动仅重建可见区域的装饰，不重新解析。
+
+`nib-prompt` 的 `editable` 语境处理 nib 注释并映射原文位置，`native` 语境只分析已有 NAI 文本。后端逐来源处理注释，原生词法状态跨片段持续，再对完整作用域计算权重及诊断。原始片段保留在资源和当前创作中，解析输出、估费及提交使用有效文本；扩展错误允许保存但阻止执行。结果恢复将原生文本安全转回编辑源文，冻结请求和重试不重新编译。UTF-16 范围、类型化原生诊断和 nib 源诊断由 Rust 生成，前端只做显示适配，不维护第二份语法实现。复杂随机分支不能确定文字渲染状态时保留不确定分析，不虚构唯一权重。
+
+本地 Token 计数消费同一份扩展处理结果并按实际模型查询，源错误未修正时不显示成功计数；SDK 保留其原生文本计数语义。Maple Mono CN 只决定显示字体，分词器由 SDK 选择。质量、负面预设和 Furry 选项在提示词浮层中编辑；尺寸预设与动态样本范围直接投影 SDK 能力。图片工具采用紧凑纯图标单排覆层，并提供 tooltip 与可访问名称，内部身份不作为常驻标题。
+
+`pnpm prompt:wasm` 通过 xtask 编译 `nib-prompt` 并运行 wasm-bindgen；生成 JS、声明和 WASM 位于已忽略的 `src/bindings/prompt-wasm/`，不手改或提交。开发启动及生产构建会先重新生成；修改共享 Rust 解析源码后须重新启动开发服务，使原生宿主与 Worker 同时加载新构建。`pnpm types` 继续生成并提交结构化通信类型，包括 `bindings/prompt.ts`。WASM 与 Worker 只从应用自身加载，桌面 CSP 为此开放 `wasm-unsafe-eval` 和同源 Worker，不开放通用脚本求值。
 
 氛围转移原图参考行拥有显式编码、费用及任务状态。`ensure_vibe_encoding` 按真实材料和有效参数查找已有可用编码或未完成任务，必要时才提交新请求；完成后只有原行仍保持相同输入时才应用结果。更换或移除行不删除已完成材料，也不接受迟到结果覆盖。氛围转移结果归材料查询，不进入图片预览、最近图片或画廊。
 
@@ -157,6 +163,7 @@ Windows 可通过 `winget install --id rvben.rumdl --exact` 安装 rumdl，再�
 | `pnpm build:desktop` | 构建 Windows 可执行程序，不生成安装包。            |
 | `pnpm types`         | 更新 TypeScript 通信类型。                         |
 | `pnpm types:check`   | 只读检查生成类型是否一致。                         |
+| `pnpm prompt:wasm`   | 构建原生与前端共用的提示词处理 WASM。              |
 | `pnpm fmt`           | 写入 Rust、前端与 Markdown 格式修复。              |
 | `pnpm fmt:check`     | 只读检查格式与 Markdown 规则。                     |
 | `pnpm lint`          | Rusteward / Clippy 与 Oxlint 检查。                |

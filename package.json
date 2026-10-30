@@ -10,6 +10,7 @@
     "build:desktop": "pnpm --filter @nib/desktop exec tauri build --no-bundle -- --locked",
     "types": "cargo xtask types",
     "types:check": "cargo xtask types --check",
+    "prompt:wasm": "cargo xtask prompt-wasm",
     "rust:check": "cargo check --workspace --all-targets --locked",
     "rust:lint": "cargo dev lint --locked",
     "rust:test": "cargo test --workspace --lib --bins --locked",

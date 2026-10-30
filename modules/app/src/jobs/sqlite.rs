@@ -158,7 +158,7 @@ pub(crate) fn decode_submission(content: &str) -> Result<FrozenSubmission, Persi
                 PersistenceError::failure("resolve retained generation prompts", error)
             })?;
             let characters = restore_character_sources(&request, &prompts, characters)?;
-            let resolved = crate::prompt::ResolvedDraft {
+            let mut resolved = crate::prompt::ResolvedDraft {
                 positive: prompts.prompt,
                 negative: prompts.negative_prompt,
                 fragments,
@@ -168,7 +168,10 @@ pub(crate) fn decode_submission(content: &str) -> Result<FrozenSubmission, Persi
                 characters,
                 inputs: *inputs,
                 input_sources,
+                prompt_analysis: Vec::new(),
             };
+            // Analysis uses retained editable sources, never recompiles the frozen SDK request.
+            resolved.analyze_sources();
             FrozenSubmission::Generation {
                 seed: request.core.seed,
                 resolved: Box::new(resolved),

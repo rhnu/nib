@@ -36,9 +36,10 @@ impl JobQueue {
     ) -> Result<(FrozenSubmission, QuoteBasis), JobError> {
         match &draft.inputs.operation {
             CreationOperation::Director { asset_id, command } => {
+                let command = compile_director(command)?;
                 let prepared = RunDirectorToolRequest {
                     image: image(self.assets.as_ref(), asset_id)?,
-                    command: command.clone(),
+                    command,
                     policy: draft.inputs.policy,
                 }
                 .prepare()?;
@@ -274,9 +275,7 @@ fn prepare_generation(
     mut resolved: ResolvedDraft,
     assets: &dyn AssetReader,
 ) -> Result<(FrozenSubmission, novelai_bridge::PreparedGeneration), JobError> {
-    if !resolved.issues.is_empty() {
-        return Err(JobError::Unresolved);
-    }
+    validate_resolved_prompts(&resolved)?;
     let request = hydrate(resolved.generation_request(), &resolved.inputs, assets)?;
     let prepared = request.normalize()?.prepare()?;
     if !prepared
@@ -344,6 +343,9 @@ fn prepare_generation(
     resolved.settings = ResolvedSettings::from_request(&request);
     if request.characters.is_none() {
         resolved.characters.clear();
+        resolved
+            .prompt_analysis
+            .retain(|analysis| analysis.character_id.is_none());
     }
     for (source, effective) in resolved
         .characters
@@ -371,6 +373,44 @@ fn prepare_generation(
         diagnostics,
     };
     Ok((submission, prepared))
+}
+
+/// Rejects editable source failures before preparing media or SDK parameters.
+fn validate_resolved_prompts(resolved: &ResolvedDraft) -> Result<(), JobError> {
+    if !resolved.issues.is_empty() {
+        return Err(JobError::Unresolved);
+    }
+    let diagnostics = resolved
+        .prompt_analysis
+        .iter()
+        .flat_map(|analysis| analysis.document.source_diagnostics.iter().cloned())
+        .collect::<Vec<_>>();
+    if !diagnostics.is_empty() {
+        return Err(JobError::PromptSource { diagnostics });
+    }
+    Ok(())
+}
+
+/// Director prompts are editable nib source, but have no image-model syntax profile.
+fn compile_director(
+    command: &novelai_bridge::DirectorCommand,
+) -> Result<novelai_bridge::DirectorCommand, JobError> {
+    let mut command = command.clone();
+    let prompt = match &mut command {
+        novelai_bridge::DirectorCommand::Emotion { prompt, .. } => Some(prompt),
+        novelai_bridge::DirectorCommand::Colorize { prompt, .. } => prompt.as_mut(),
+        _ => None,
+    };
+    if let Some(prompt) = prompt {
+        let compiled = nib_prompt::compile(prompt, nib_prompt::PromptSyntaxProfile::default());
+        if !compiled.diagnostics.is_empty() {
+            return Err(JobError::PromptSource {
+                diagnostics: compiled.diagnostics,
+            });
+        }
+        *prompt = compiled.text;
+    }
+    Ok(command)
 }
 
 fn adjustments(values: &[novelai_bridge::ValidationAdjustment]) -> Vec<ParameterDiagnostic> {

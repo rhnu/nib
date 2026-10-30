@@ -74,6 +74,7 @@ function ResolvedCharacterDetails({
         label={t("prompt.characterPositivePrompt")}
         value={character.positive}
         model={model}
+        context="native"
         readOnly
         placeholder={t("prompt.empty")}
       />
@@ -82,6 +83,7 @@ function ResolvedCharacterDetails({
         label={t("prompt.characterNegativePrompt")}
         value={character.negative}
         model={model}
+        context="native"
         readOnly
         placeholder={t("prompt.empty")}
       />

@@ -231,6 +231,7 @@ describe("SDK output field ownership", () => {
   const preview = (): ResolvedDraft => ({
     positive: "base",
     negative: "",
+    promptAnalysis: [],
     fragments: [],
     settings: {} as ResolvedDraft["settings"],
     provenance: {} as ResolvedDraft["provenance"],

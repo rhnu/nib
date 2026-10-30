@@ -46,6 +46,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
                           <PromptTextEditor
                             value={options.prompt ?? ""}
                             label={t("generation.directorPrompt")}
+                            context="native"
                             readOnly
                             tokenUnavailableLabel={t("generation.directorTokenRulesUnavailable")}
                           />
@@ -144,6 +145,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           value={resolved.positive}
           label={t("generation.submittedPositivePrompt")}
           model={resolved.settings.model}
+          context="native"
           readOnly
         />
         <h4>{t("generation.negativePrompt")}</h4>
@@ -151,6 +153,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           value={resolved.negative}
           label={t("generation.submittedNegativePrompt")}
           model={resolved.settings.model}
+          context="native"
           readOnly
         />
       </details>

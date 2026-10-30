@@ -86,6 +86,7 @@ pub enum UserMessage {
     AppStoppedBeforeCompletion,
     MissingCredentials,
     UnresolvedResources,
+    InvalidPromptSource,
     QueueUnavailable,
     WorkerInterrupted,
     OperationIncomplete,

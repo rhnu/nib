@@ -1,6 +1,22 @@
 import type { prompt as source } from "../en/prompt";
 
 export const prompt = {
+  combinedSource: "组合源文",
+  combinedSourceScope: "组合源文 · {{value0}}",
+  combinedCharacterSource: "角色 {{value0}} · {{value1}}组合源文",
+  mixingWeight: "混合权重：{{value0}}",
+  analysisFailed: "提示词分析失败：{{value0}}",
+  unclosedBlockComment: "请使用 */ 结束此块注释。",
+  ambiguousCommentContext: "请转义此注释标记以保留字面文本，或将注释放到文本渲染模式明确的位置。",
+  fixSourceBeforeCounting: "请先修正源文本错误，再计算 Token。",
+  editorHelp: "Tab 移到下一个控件。聚焦状态按钮可查看权重和语法消息。",
+  diagnosticCount_one: "{{count}} 条语法消息",
+  diagnosticCount_other: "{{count}} 条语法消息",
+  syntaxDiagnostics: "提示词语法消息",
+  unknownWeight: "无法确定权重",
+  weightRange: "权重 {{value0}}–{{value1}}",
+  exactWeight: "权重 {{value0}}",
+  sourceComment: "注释 · 提交时省略",
   tokenCount_one: "{{formattedCount}} Token",
   tokenCount_other: "{{formattedCount}} Token",
   addChunk: "添加 Chunk",

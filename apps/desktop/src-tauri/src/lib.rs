@@ -48,6 +48,7 @@ pub fn run() -> anyhow::Result<()> {
             commands::save_draft,
             commands::resolve_draft,
             commands::get_model_defaults_capabilities,
+            commands::get_prompt_syntax,
             commands::expand_chunk,
             commands::expand_preset,
             commands::inspect_tokens,

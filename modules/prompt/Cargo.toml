@@ -1,0 +1,23 @@
+[package]
+name = "nib-prompt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+typegen = ["dep:ts-rs", "novelai-bridge-prompt/typegen"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
+
+[dependencies]
+novelai-bridge-prompt.workspace = true
+serde.workspace = true
+ts-rs = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true

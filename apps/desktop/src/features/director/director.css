@@ -91,9 +91,8 @@
   display: grid;
   gap: 12px;
 }
-.director-parameters textarea {
+.director-parameters .cm-content {
   min-height: 100px;
-  resize: vertical;
 }
 .director-advanced > summary {
   cursor: pointer;

@@ -116,6 +116,7 @@ pub struct ResolvedDraft {
     pub characters: Vec<ResolvedCharacter>,
     pub inputs: CreationInputs,
     pub input_sources: Vec<InputProvenance>,
+    pub prompt_analysis: Vec<super::super::ResolvedPromptAnalysis>,
 }
 
 /// Character composition resolved independently from the base prompt targets.

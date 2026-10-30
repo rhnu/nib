@@ -7,18 +7,23 @@ use crate::prompt::{
     CharacterComposition, Composition, GenerationSettings, PromptNode, ResolvedSettings,
 };
 
-fn text(id: &str, text: String) -> PromptNode {
+fn text(id: &str, text: &str, profile: nib_prompt::PromptSyntaxProfile) -> PromptNode {
     PromptNode::Text {
         id: id.into(),
         enabled: true,
-        text,
+        text: nib_prompt::native_to_source(text, profile),
     }
 }
 
-fn composition(id: &str, positive: String, negative: String) -> Composition {
+fn composition(
+    id: &str,
+    positive: &str,
+    negative: &str,
+    profile: nib_prompt::PromptSyntaxProfile,
+) -> Composition {
     Composition {
-        positive: vec![text(&format!("{id}-positive"), positive)],
-        negative: vec![text(&format!("{id}-negative"), negative)],
+        positive: vec![text(&format!("{id}-positive"), positive, profile)],
+        negative: vec![text(&format!("{id}-negative"), negative, profile)],
     }
 }
 
@@ -29,8 +34,9 @@ pub fn restore_generation(request: &GenerateImageRequest, inputs: CreationInputs
     Draft {
         composition: composition(
             "restored",
-            request.core.prompt.clone(),
-            request.core.negative_prompt.clone().unwrap_or_default(),
+            &request.core.prompt,
+            request.core.negative_prompt.as_deref().unwrap_or_default(),
+            request.core.model.descriptor().prompt().syntax,
         ),
         settings: ResolvedSettings::from_request(request).explicit(),
         characters: request
@@ -45,8 +51,9 @@ pub fn restore_generation(request: &GenerateImageRequest, inputs: CreationInputs
                         CharacterComposition {
                             composition: composition(
                                 &id,
-                                character.prompt.clone(),
-                                character.negative_prompt.clone().unwrap_or_default(),
+                                &character.prompt,
+                                character.negative_prompt.as_deref().unwrap_or_default(),
+                                request.core.model.descriptor().prompt().syntax,
                             ),
                             id,
                             enabled: character.enabled,
@@ -72,8 +79,13 @@ pub fn draft_from_metadata(metadata: &ImageMetadata) -> Draft {
     Draft {
         composition: composition(
             "metadata",
-            metadata.prompt.clone().unwrap_or_default(),
-            metadata.negative_prompt.clone().unwrap_or_default(),
+            metadata.prompt.as_deref().unwrap_or_default(),
+            metadata.negative_prompt.as_deref().unwrap_or_default(),
+            known_identifier::<novelai_bridge::Model>(metadata.model.as_ref())
+                .unwrap_or_default()
+                .descriptor()
+                .prompt()
+                .syntax,
         ),
         settings: GenerationSettings {
             model: known_identifier(metadata.model.as_ref()),

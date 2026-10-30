@@ -18,6 +18,7 @@
     "allow-save-draft",
     "allow-resolve-draft",
     "allow-get-model-defaults-capabilities",
+    "allow-get-prompt-syntax",
     "allow-expand-chunk",
     "allow-expand-preset",
     "allow-inspect-tokens",

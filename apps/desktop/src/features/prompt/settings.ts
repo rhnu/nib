@@ -140,7 +140,7 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
         `.prompt-workspace [data-prompt-scope="${scope}"]`,
       );
       const control =
-        panel?.querySelector<HTMLElement>("textarea") ??
+        panel?.querySelector<HTMLElement>('[role="textbox"], textarea') ??
         panel?.querySelector<HTMLElement>("button");
       (control ?? tab).scrollIntoView({ block: "nearest" });
       (control ?? tab).focus();

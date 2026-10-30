@@ -607,6 +607,7 @@ fn backend_failures_remain_errors_in_resolution_and_expansion() {
 }
 
 mod outputs;
+mod source;
 
 #[test]
 fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {

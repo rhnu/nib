@@ -403,6 +403,17 @@ fn restore_director(
         })?;
     state.asset_id = Some(asset_id.to_owned());
     state.command = command.clone();
+    match &mut state.command {
+        novelai_bridge::DirectorCommand::Emotion { prompt, .. }
+        | novelai_bridge::DirectorCommand::Colorize {
+            prompt: Some(prompt),
+            ..
+        } => {
+            *prompt =
+                nib_prompt::native_to_source(prompt, nib_prompt::PromptSyntaxProfile::default());
+        },
+        _ => {},
+    }
     state.policy = policy;
     state.selected_result_id = Some(result_id.to_owned());
     current.director.selected_tool = tool;

@@ -4,6 +4,33 @@ use super::*;
 use crate::{prompt::PromptNode, session::MaskEditorState};
 
 #[test]
+fn director_restore_encodes_native_comment_markers_as_editable_literal_text() {
+    let submission = FrozenSubmission::Director {
+        policy: novelai_bridge::ValidationPolicy::Normalize,
+        asset_id: "source".to_owned(),
+        diagnostics: Vec::new(),
+        command: DirectorCommand::Emotion {
+            prompt: "happy // literal /* open".to_owned(),
+            defry: 2,
+        },
+    };
+    let draft = restore_submission(&submission, None, Draft::default(), "result").unwrap();
+    let command = &draft
+        .director
+        .tools
+        .iter()
+        .find(|state| state.tool == crate::session::DirectorToolKind::Emotion)
+        .unwrap()
+        .command;
+    let DirectorCommand::Emotion { prompt, .. } = command else {
+        panic!("expected emotion tool");
+    };
+    let compiled = nib_prompt::compile(prompt, nib_prompt::PromptSyntaxProfile::default());
+    assert_eq!(compiled.text, "happy // literal /* open");
+    assert_eq!(compiled.diagnostics, []);
+}
+
+#[test]
 fn director_result_restore_leaves_generation_and_other_tool_edits_intact() {
     let mut draft = Draft::default();
     draft.composition.positive.push(PromptNode::Text {

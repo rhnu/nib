@@ -273,6 +273,10 @@ pub enum JobError {
     MissingCredentials,
     #[error("当前创作有未解决的资源引用。")]
     Unresolved,
+    #[error("提示词注释存在错误。")]
+    PromptSource {
+        diagnostics: Vec<nib_prompt::SourceDiagnostic>,
+    },
     #[error("{0}")]
     Invalid(UserMessage),
     #[error("生成队列已停止，请重新打开应用。")]
@@ -403,6 +407,7 @@ pub trait JobStore: Send + Sync {
 }
 
 pub trait SubmissionResolver: Send + Sync {
+    /// Resolves resources, compiles editable nib source and supplies its source analysis.
     /// # Errors
     /// Returns an underlying resource read failure.
     fn resolve(&self, draft: &Draft) -> Result<ResolvedDraft, PersistenceError>;
@@ -651,6 +656,7 @@ fn public_failure(error: &JobError) -> UserMessage {
         JobError::Credential(_) => UserMessage::CredentialUnavailable,
         JobError::MissingCredentials => UserMessage::MissingCredentials,
         JobError::Unresolved => UserMessage::UnresolvedResources,
+        JobError::PromptSource { .. } => UserMessage::InvalidPromptSource,
         JobError::Invalid(message) => message.clone(),
         JobError::Unavailable => UserMessage::QueueUnavailable,
         JobError::Worker(_) => UserMessage::WorkerInterrupted,

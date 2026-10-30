@@ -2,7 +2,10 @@
 //!
 //! `NovelAI` parameter semantics remain owned by novelai-bridge.
 
+mod analysis;
 mod overrides;
+pub use analysis::{PromptSourceLocation, ResolvedPromptAnalysis};
+pub use nib_prompt;
 mod resolution;
 mod settings;
 mod tokens;

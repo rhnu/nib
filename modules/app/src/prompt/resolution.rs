@@ -240,8 +240,7 @@ fn node_fragment(
             )
         },
     };
-    let text = text.trim().to_owned();
-    if text.is_empty() {
+    if text.trim().is_empty() {
         return Ok(None);
     }
     Ok(Some(ResolvedFragment {
@@ -330,6 +329,7 @@ pub fn resolve_draft(
         ..draft.inputs.clone()
     };
     resolved.input_sources = state.input_sources;
+    resolved.compile_sources();
     Ok(resolved)
 }
 
@@ -340,17 +340,9 @@ fn finish_resolution(
     issues: Vec<ResolutionIssue>,
 ) -> ResolvedDraft {
     let settings = settings.resolve();
-    let join = |scope| {
-        fragments
-            .iter()
-            .filter(|fragment| fragment.scope == scope)
-            .map(|fragment| fragment.text.as_str())
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
     ResolvedDraft {
-        positive: join(PromptScope::Positive),
-        negative: join(PromptScope::Negative),
+        positive: String::new(),
+        negative: String::new(),
         fragments,
         settings,
         provenance,
@@ -358,6 +350,7 @@ fn finish_resolution(
         characters: Vec::new(),
         inputs: CreationInputs::default(),
         input_sources: Vec::new(),
+        prompt_analysis: Vec::new(),
     }
 }
 

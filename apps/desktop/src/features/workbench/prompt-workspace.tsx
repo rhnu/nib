@@ -47,7 +47,13 @@ export function PromptWorkspace({
   useTranslation();
 
   const [inspector, setInspector] = useState(false);
-  const issueCount = resolved?.issues.length ?? 0;
+  const issueCount = resolved
+    ? resolved.issues.length +
+      resolved.promptAnalysis.reduce(
+        (count, { document }) => count + document.sourceDiagnostics.length,
+        0,
+      )
+    : 0;
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
   const optionIssue = [...errorFields, ...diagnostics.map((item) => item.field)].find((field) =>

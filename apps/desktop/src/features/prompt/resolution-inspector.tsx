@@ -8,6 +8,7 @@ import { diagnosticSetting, settingLabels } from "./settings";
 import { ResolvedOutputs } from "./resolved-outputs";
 import { resolutionIssueDetails } from "./output-details";
 import { PromptTextEditor } from "./prompt-text-editor";
+import { ResolvedPromptAnalysis } from "./resolved-prompt-analysis";
 
 export function ResolutionInspector({
   resolved,
@@ -46,6 +47,7 @@ export function ResolutionInspector({
               label={t("prompt.basePrompt")}
               value={resolved.positive}
               model={tokenModel ?? resolved.settings.model}
+              context="native"
               readOnly
               placeholder={t("prompt.noBasePrompt")}
             />
@@ -56,11 +58,16 @@ export function ResolutionInspector({
               label={t("prompt.negativePrompt")}
               value={resolved.negative}
               model={tokenModel ?? resolved.settings.model}
+              context="native"
               readOnly
               placeholder={t("prompt.noNegativePrompt")}
             />
           </section>
           <ResolvedOutputs resolved={resolved} tokenModel={tokenModel} />
+          <ResolvedPromptAnalysis
+            resolved={resolved}
+            model={tokenModel ?? resolved.settings.model}
+          />
           <section>
             <h3>{t("prompt.contentSources")}</h3>
             <ContentSources

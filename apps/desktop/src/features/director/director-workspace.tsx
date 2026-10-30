@@ -161,7 +161,11 @@ export function DirectorWorkspace({
     requestAnimationFrame(() => {
       const target = root.current?.querySelector<HTMLElement>(`[data-director-field="${name}"]`);
       target?.scrollIntoView({ block: "nearest" });
-      (target?.querySelector<HTMLElement>("textarea, input, select, button") ?? target)?.focus();
+      (
+        target?.querySelector<HTMLElement>(
+          '[role="textbox"], textarea, input:not([type="hidden"]), select, button',
+        ) ?? target
+      )?.focus();
     });
   };
 

@@ -88,6 +88,7 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
           label={t("media.recordedPositivePrompt")}
           placeholder={t("media.notRecorded")}
           model={metadata.model ?? undefined}
+          context="native"
           readOnly
           tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
@@ -97,6 +98,7 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
           label={t("media.recordedNegativePrompt")}
           placeholder={t("media.notRecorded")}
           model={metadata.model ?? undefined}
+          context="native"
           readOnly
           tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
@@ -116,6 +118,7 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
                 value={character.prompt ?? ""}
                 label={t("media.characterPositivePrompt", { value0: character.sourceIndex + 1 })}
                 model={metadata.model ?? undefined}
+                context="native"
                 readOnly
                 tokenUnavailableLabel={t("media.modelNotRecorded")}
               />
@@ -124,6 +127,7 @@ function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
                 value={character.negativePrompt ?? ""}
                 label={t("media.characterNegativePrompt", { value0: character.sourceIndex + 1 })}
                 model={metadata.model ?? undefined}
+                context="native"
                 readOnly
                 tokenUnavailableLabel={t("media.modelNotRecorded")}
               />

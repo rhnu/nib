@@ -84,6 +84,7 @@ fn stored_input_roundtrip_keeps_seed_text_settings_and_sources() {
             overridden: true,
         },
     ];
+    resolved.analyze_sources();
     let submitted = prepare_submission(resolved, &NoAssets).unwrap();
     let content = sqlite::encode_submission(&submitted).unwrap();
     let reopened = sqlite::decode_submission(&content).unwrap();

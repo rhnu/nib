@@ -1,4 +1,22 @@
 export const prompt = {
+  combinedSource: "Combined source",
+  combinedSourceScope: "Combined source · {{value0}}",
+  combinedCharacterSource: "Character {{value0}} · Combined {{value1}} source",
+  mixingWeight: "Mixing weight: {{value0}}",
+  analysisFailed: "Prompt analysis failed: {{value0}}",
+  unclosedBlockComment: "Close this block comment with */.",
+  ambiguousCommentContext:
+    "Escape this comment marker to keep literal text, or move the comment to a place with an explicit text rendering mode.",
+  fixSourceBeforeCounting: "Fix the source errors to count tokens.",
+  editorHelp:
+    "Tab moves to the next control. Focus the status button for weights and syntax messages.",
+  diagnosticCount_one: "{{count}} syntax message",
+  diagnosticCount_other: "{{count}} syntax messages",
+  syntaxDiagnostics: "Prompt syntax messages",
+  unknownWeight: "Weight cannot be determined",
+  weightRange: "Weight {{value0}}–{{value1}}",
+  exactWeight: "Weight {{value0}}",
+  sourceComment: "Comment · omitted from the submitted prompt",
   tokenCount_one: "{{formattedCount}} token",
   tokenCount_other: "{{formattedCount}} tokens",
   addChunk: "Add Chunk",

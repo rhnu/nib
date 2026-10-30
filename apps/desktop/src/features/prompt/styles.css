@@ -181,21 +181,16 @@
 .node-label > svg {
   color: var(--muted);
 }
-.prompt-node textarea {
+.prompt-node .prompt-editor-host {
   border: 0;
   border-top: 1px solid var(--line-subtle);
   border-radius: 0;
-  padding: 8px;
-  min-height: 132px;
-  font-size: 13px;
-  display: block;
-  background: var(--input);
 }
-.prompt-node textarea:focus-visible {
-  outline-offset: -2px;
+.prompt-node .cm-content {
+  min-height: 132px;
 }
 .node-disabled .node-label,
-.node-disabled textarea {
+.node-disabled .prompt-editor-host {
   opacity: 0.55;
 }
 .inspector {
@@ -313,7 +308,7 @@
   color: var(--muted);
   font-size: 11px;
 }
-.instance-override textarea {
+.instance-override .cm-content {
   font-size: 12px;
   min-height: 82px;
 }
@@ -321,7 +316,7 @@
   padding: 8px 10px;
   margin: 0;
 }
-.compact-composition .prompt-node textarea {
+.compact-composition .prompt-node .cm-content {
   min-height: 100px;
   font-size: 12px;
 }
@@ -411,7 +406,4 @@
   border: 1px solid var(--danger);
   border-radius: var(--radius);
   color: var(--danger);
-}
-.prompt-text-editor > textarea {
-  font-size: 13px;
 }

@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "save_draft",
             "resolve_draft",
             "get_model_defaults_capabilities",
+            "get_prompt_syntax",
             "expand_chunk",
             "expand_preset",
             "inspect_tokens",

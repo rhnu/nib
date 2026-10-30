@@ -1,14 +1,19 @@
 import { t, useTranslation, formatNumber } from "@/shared/i18n";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Popover } from "@base-ui/react/popover";
-import { Circle, LoaderCircle } from "lucide-react";
+import { Circle, LoaderCircle, TriangleAlert } from "lucide-react";
 import { errorMessage } from "@/shared/host/error";
-import { useDebouncedValue } from "@/shared/query/use-debounced-value";
+import type { PromptDocument } from "@/bindings/prompt";
 import { promptApi } from "./api";
+import type { PromptContext } from "./analysis-protocol";
+import { usePromptAnalysis } from "./use-prompt-analysis";
+import { usePromptEditor } from "./use-prompt-editor";
+import { promptDiagnostics, sourceDiagnosticMessage } from "./editor-diagnostics";
+import { semanticDescription } from "./editor-semantics";
 import "./text-assist.css";
 
-/** Literal prompt text uses the actual model and shares local counts across editors and readers. */
+/** Source editors and native result readers share a persistent CodeMirror view and Rust analysis. */
 export function PromptTextEditor({
   value,
   onChange,
@@ -17,6 +22,8 @@ export function PromptTextEditor({
   model,
   disabled = false,
   readOnly = false,
+  context = "editable",
+  analysisDocument,
   tokenUnavailableLabel = t("prompt.waitingForModel"),
 }: {
   value: string;
@@ -26,54 +33,100 @@ export function PromptTextEditor({
   model?: string;
   disabled?: boolean;
   readOnly?: boolean;
+  context?: PromptContext;
+  /** Rust's complete composition analysis retains source fragment boundaries. */
+  analysisDocument?: PromptDocument;
   tokenUnavailableLabel?: string;
 }) {
-  useTranslation();
-
+  const { i18n } = useTranslation();
+  const descriptionId = useId();
   const [open, setOpen] = useState(false);
-  const key = JSON.stringify([model, value]);
-  const settledKey = useDebouncedValue(key, 160);
-  const ready = settledKey === key;
+  const [position, setPosition] = useState(0);
+  const liveAnalysis = usePromptAnalysis(value, model, context, {
+    enabled: analysisDocument === undefined,
+  });
+  const analysis =
+    analysisDocument === undefined
+      ? liveAnalysis
+      : {
+          document: analysisDocument,
+          pending: false,
+          error: "",
+          retry: liveAnalysis.retry,
+        };
+  const diagnostics = promptDiagnostics(analysis.document);
+  const sourceInvalid = Boolean(analysis.document?.sourceDiagnostics.length);
+  const tokenText = analysis.document?.text;
+  const tokenReady = tokenText !== undefined && !sourceInvalid;
   const query = useQuery({
-    queryKey: ["prompt-tokens", model, value, "content_only"],
-    queryFn: () => promptApi.inspectTokens(model!, value, "content_only"),
-    enabled: Boolean(model) && ready,
+    queryKey: ["prompt-tokens", model, tokenText, "content_only"],
+    // Rust already removed source comments. The SDK receives native prompt text exactly once.
+    queryFn: () => promptApi.inspectTokens(model!, tokenText!, "content_only"),
+    enabled: Boolean(model) && tokenReady,
     staleTime: Infinity,
     gcTime: 60_000,
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const count = ready ? query.data?.count.used : undefined;
-  const error = ready && query.error ? errorMessage(query.error) : "";
-  const pending = Boolean(model) && (!ready || query.isPending);
-  const status = !model
-    ? tokenUnavailableLabel
-    : error
-      ? t("prompt.tokenCountFailed", { value0: error })
-      : count === undefined
-        ? t("prompt.countingTokens")
-        : t("prompt.tokenCount", { count, formattedCount: formatNumber(count) });
+  const count = tokenReady ? query.data?.count.used : undefined;
+  const tokenError = tokenReady && query.error ? errorMessage(query.error) : "";
+  const pending = analysis.pending || (Boolean(model) && tokenReady && query.isPending);
+  const status = analysis.error
+    ? t("prompt.analysisFailed", { value0: analysis.error })
+    : sourceInvalid
+      ? t("prompt.fixSourceBeforeCounting")
+      : !model
+        ? tokenUnavailableLabel
+        : tokenError
+          ? t("prompt.tokenCountFailed", { value0: tokenError })
+          : count === undefined
+            ? t("prompt.countingTokens")
+            : t("prompt.tokenCount", { count, formattedCount: formatNumber(count) });
+  const { hostRef, viewRef, disabledProbe } = usePromptEditor(
+    {
+      value,
+      label,
+      descriptionId,
+      placeholder,
+      disabled,
+      readOnly: readOnly || !onChange,
+      language: i18n.resolvedLanguage ?? i18n.language,
+    },
+    analysis.document,
+    onChange,
+    setPosition,
+  );
+  const details = semanticDescription(analysis.document, position);
+  const hasIssue = Boolean(analysis.error || tokenError || diagnostics.length);
+
+  const locate = (from: number, to: number) => {
+    const view = viewRef.current;
+    if (!view) return;
+    setOpen(false);
+    view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
+    view.focus();
+  };
+
   return (
     <div className={`prompt-text-editor${readOnly ? " prompt-text-readonly" : ""}`}>
-      <textarea
-        aria-label={label}
-        spellCheck={false}
-        value={value}
-        placeholder={placeholder}
-        disabled={disabled}
-        readOnly={readOnly}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-      />
+      <input ref={disabledProbe} type="hidden" disabled={disabled} />
+      <div className="prompt-editor-host" ref={hostRef} />
+      <span id={descriptionId} className="prompt-editor-description">
+        {t("prompt.editorHelp")} {status}
+      </span>
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
-          className={`prompt-token-indicator icon-button${error ? " danger" : ""}`}
-          aria-label={`${label} · ${status}`}
+          className={`prompt-token-indicator icon-button${hasIssue ? " danger" : ""}`}
+          disabled={disabled}
+          aria-label={`${label} · ${status}${diagnostics.length ? ` · ${t("prompt.diagnosticCount", { count: diagnostics.length })}` : ""}`}
           openOnHover
           onFocus={(event) => {
             if (event.currentTarget.matches(":focus-visible")) setOpen(true);
           }}
         >
-          {pending ? (
+          {hasIssue ? (
+            <TriangleAlert size={13} aria-hidden />
+          ) : pending ? (
             <LoaderCircle size={13} className="spin" aria-hidden />
           ) : (
             <Circle size={13} aria-hidden />
@@ -83,8 +136,26 @@ export function PromptTextEditor({
           <Popover.Positioner side="top" align="end" sideOffset={5} className="help-positioner">
             <Popover.Popup className="prompt-token-popup" initialFocus={false}>
               <Popover.Description>{status}</Popover.Description>
-              {error && (
-                <button type="button" onClick={() => void query.refetch()}>
+              {details.length > 0 && (
+                <p className="prompt-selection-detail">{details.join(" · ")}</p>
+              )}
+              {diagnostics.length > 0 && (
+                <ul className="prompt-diagnostic-list" aria-label={t("prompt.syntaxDiagnostics")}>
+                  {diagnostics.map((item, index) => (
+                    <li key={index}>
+                      <button type="button" onClick={() => locate(item.from, item.to)}>
+                        <TriangleAlert size={12} aria-hidden />
+                        {item.message}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(analysis.error || tokenError) && (
+                <button
+                  type="button"
+                  onClick={analysis.error ? analysis.retry : () => void query.refetch()}
+                >
                   {t("prompt.retry")}
                 </button>
               )}
@@ -92,6 +163,29 @@ export function PromptTextEditor({
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
+      {analysis.document?.sourceDiagnostics.map((diagnostic, index) => (
+        <div key={index} className="prompt-analysis-error" role="alert">
+          <TriangleAlert size={12} aria-hidden />
+          <span>{sourceDiagnosticMessage(diagnostic)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              locate(diagnostic.from, diagnostic.to);
+            }}
+          >
+            {t("prompt.locateContent")}
+          </button>
+        </div>
+      ))}
+      {analysis.error && (
+        <div className="prompt-analysis-error" role="alert">
+          <TriangleAlert size={12} aria-hidden />
+          <span>{t("prompt.analysisFailed", { value0: analysis.error })}</span>
+          <button type="button" onClick={analysis.retry}>
+            {t("prompt.retry")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

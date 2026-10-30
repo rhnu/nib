@@ -29,6 +29,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2.9.2
 
@@ -43,6 +44,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install WebAssembly bindings tool
+        run: cargo install wasm-bindgen-cli --version 0.2.130 --locked
 
       - name: Run checks
         run: pnpm check
