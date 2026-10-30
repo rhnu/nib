@@ -1,0 +1,130 @@
+name: Lexicon candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/lexicon/**"
+      - "resources/lexicon/**"
+      - "modules/lexicon/**"
+      - ".github/workflows/lexicon-build.yml"
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: Immutable resource version (blank generates lexicon-YYYY.MM.DD.N)
+        type: string
+        default: ""
+      enhanced:
+        description: Include the optional GPL enhancement source
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lexicon-candidate
+  cancel-in-progress: false
+
+jobs:
+  source:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ github.event_name == 'workflow_dispatch' || steps.source.outputs.changed == 'true' }}
+      release_id: ${{ steps.version.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Choose resource version
+        id: version
+        env:
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          release_id="${INPUT_RELEASE_ID:-lexicon-$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}}"
+          [[ "$release_id" =~ ^lexicon-[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]] || { echo 'Invalid resource version'; exit 1; }
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+      - name: Check source content and recipe
+        id: source
+        env:
+          ENHANCED: ${{ inputs.enhanced || false }}
+        run: |
+          args=()
+          if [[ "$ENHANCED" == true ]]; then args+=(--enhanced); fi
+          python tools/lexicon/lexicon.py check-source \
+            --work-dir .dev/lexicon-build \
+            --output .dev/lexicon-build/sources.lock.json \
+            --baseline-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/lexicon-current/sources.lock.json" \
+            --github-output "$GITHUB_OUTPUT" "${args[@]}"
+      - name: Upload pinned candidate sources
+        if: github.event_name == 'workflow_dispatch' || steps.source.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: lexicon-sources
+          path: .dev/lexicon-build/sources.lock.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  build:
+    needs: source
+    if: needs.source.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: lexicon-sources
+          path: .dev/lexicon-build
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          cache-dependency-glob: tools/lexicon/uv.lock
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: lexicon-host-debug
+      - name: Restore pinned embedding models
+        uses: actions/cache@v6.1.0
+        with:
+          path: .dev/lexicon-build/models
+          key: lexicon-models-${{ runner.os }}-${{ hashFiles('resources/lexicon/models.lock.json') }}
+      - name: Restore incremental document embeddings
+        uses: actions/cache@v6.1.0
+        with:
+          path: .dev/lexicon-build/embeddings.sqlite3
+          key: lexicon-embeddings-${{ runner.os }}-${{ hashFiles('resources/lexicon/models.lock.json', 'resources/lexicon/recipe.json') }}-${{ hashFiles('.dev/lexicon-build/sources.lock.json') }}
+          restore-keys: lexicon-embeddings-${{ runner.os }}-${{ hashFiles('resources/lexicon/models.lock.json', 'resources/lexicon/recipe.json') }}-
+      - name: Install locked resource tools
+        run: uv sync --project tools/lexicon --locked
+      - name: Build resource candidate
+        env:
+          RELEASE_ID: ${{ needs.source.outputs.release_id }}
+          ENHANCED: ${{ inputs.enhanced || false }}
+        run: |
+          args=()
+          if [[ "$ENHANCED" == true ]]; then args+=(--enhanced); fi
+          uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py build \
+            --work-dir .dev/lexicon-build \
+            --sources-lock .dev/lexicon-build/sources.lock.json \
+            --bootstrap-cache-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/lexicon-current/embeddings.sqlite3.gz" \
+            --id "$RELEASE_ID" \
+            --asset-base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_ID}" "${args[@]}"
+          python - <<'PY'
+          import json, os, pathlib
+          metadata = {"id": os.environ["RELEASE_ID"], "sha": os.environ["GITHUB_SHA"]}
+          pathlib.Path(".dev/lexicon-build/candidate.json").write_text(json.dumps(metadata), encoding="utf-8")
+          PY
+      - name: Upload immutable candidate package
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: lexicon-candidate-${{ needs.source.outputs.release_id }}
+          path: |
+            .dev/lexicon-build/package/**
+            .dev/lexicon-build/candidate.json
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 14

@@ -1,0 +1,27 @@
+name: Set up wasm-bindgen
+description: Restore the matching wasm-bindgen CLI, compiling it only on a cache miss.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache/restore@v6.1.0
+      id: wasm-bindgen
+      with:
+        path: ${{ runner.tool_cache }}/wasm-bindgen/0.2.130
+        key: wasm-bindgen-${{ runner.os }}-${{ runner.arch }}-0.2.130-${{ hashFiles('rust-toolchain.toml') }}
+    - name: Install WebAssembly bindings tool
+      if: steps.wasm-bindgen.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        WASM_BINDGEN_ROOT: ${{ runner.tool_cache }}/wasm-bindgen/0.2.130
+        CARGO_TARGET_DIR: ${{ runner.temp }}/wasm-bindgen-build
+      run: cargo install wasm-bindgen-cli --version 0.2.130 --locked --root "$WASM_BINDGEN_ROOT"
+    - uses: actions/cache/save@v6.1.0
+      if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.wasm-bindgen.outputs.cache-hit != 'true'
+      with:
+        path: ${{ runner.tool_cache }}/wasm-bindgen/0.2.130
+        key: ${{ steps.wasm-bindgen.outputs.cache-primary-key }}
+    - name: Add WebAssembly bindings tool to PATH
+      shell: bash
+      env:
+        WASM_BINDGEN_ROOT: ${{ runner.tool_cache }}/wasm-bindgen/0.2.130
+      run: echo "$WASM_BINDGEN_ROOT/bin" >> "$GITHUB_PATH"

@@ -1,0 +1,30 @@
+name: Set up Node and pnpm
+description: Install the pinned Node and pnpm versions, restore the store, and install locked dependencies.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7.1.0
+      with:
+        node-version-file: .node-version
+        package-manager-cache: false
+    - uses: pnpm/action-setup@v6.1.0
+      with:
+        cache: false
+    - name: Locate pnpm store
+      id: store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache/restore@v6.1.0
+      id: cache
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
+        restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
+    - name: Install frontend dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - uses: actions/cache/save@v6.1.0
+      if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: ${{ steps.cache.outputs.cache-primary-key }}

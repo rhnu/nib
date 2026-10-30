@@ -4,9 +4,9 @@
 
 ## 工程边界
 
-Cargo workspace 包含四个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-prompt` 是原生与 WASM 共用的提示词源处理库；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
+Cargo workspace 包含五个包：`nib-app` 是不依赖 Tauri 的应用库；`nib-prompt` 是原生与 WASM 共用的提示词源处理库；`nib-lexicon` 实现原生词库资源安装、检索、语义查询与资源打包；`nib-desktop` 是桌面宿主；`xtask` 负责开发工具。React 前端与宿主位于同一桌面应用目录，pnpm workspace 管理前端依赖。
 
-依赖方向为桌面宿主 → 应用库 → bridge；提示词源处理经 `nib-prompt` 依赖 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入 SDK 的网络、图像或 Tokenizer 依赖。xtask 使用应用库的类型生成能力，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
+依赖方向为桌面宿主 → 应用库 → bridge；提示词源处理经 `nib-prompt` 依赖 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入 SDK 的网络、图像或 Tokenizer 依赖。应用库的 `lexicon` 只拥有查询与资源状态契约，宿主装配 `nib-lexicon`；ONNX、语义 Tokenizer、向量索引与下载依赖限定在原生资源 crate，不进入 `nib-prompt` 或 WASM。xtask 使用应用库和提示词库的类型生成能力，不依赖桌面宿主。`api` 定义工作台初始响应和 IPC 错误；资源、组合及当前创作的通信类型由所属领域拥有，业务内部不逐层重建等价 DTO。
 
 应用库按以下职责组织。`prompt`、`library` 和 `session` 支撑资源与当前创作；`jobs`、`media` 和 `settings` 支撑 NAI 操作、媒体与宿主账户契约：
 
@@ -18,6 +18,7 @@ Cargo workspace 包含四个包：`nib-app` 是不依赖 Tauri 的应用库；`n
 | `jobs`     | 付费图像操作的提交、调度、批次和任务状态，直接使用 bridge 执行。 |
 | `media`    | 媒体读写、最终结果、来源关系和结果复用。                         |
 | `settings` | 账户选择、应用偏好及配置语义。                                   |
+| `lexicon`  | 词条分类、检索结果、查询契约及资源安装状态。                     |
 
 查询契约由相应领域拥有。资源搜索、结果查询、词库补全和远程作品发现不统一成“关键字输入、任意 JSON 输出”。同类多来源查询在所属模块中组合，保留来源标识及专有信息；可查询不意味着可写入。
 
@@ -61,7 +62,7 @@ SQLite 使用 rusqlite 的 bundled 后端。全局配置与创作数据使用独
 
 应用偏好与账户元数据归 `settings`，不依赖创作数据库。宿主持有配置和数据目录独占文件锁；即时迁移由前端先等待材料提交并保存草稿与偏好，未保存资源阻止迁移。宿主停止接收数据写入和领取新任务，等待已发请求连同结果落盘，再取得数据访问独占保护，执行 SQLite checkpoint、同步复制、逐字节比对和只读数据库完整性检查，成功后原子发布新路径。当前进程继续显示旧目录中的数据并保持只读，重启后打开新目录；失败恢复原目录写入及队列调度。复制标记支持同源重试，源数据保留。目标不能是任意已有库，也不能与配置目录重叠或和源目录相互包含。所有数据库、媒体与缩略图写入都经过访问保护；保护必须移入阻塞任务，不能因等待 IPC 的 future 被取消而提前释放。
 
-开发环境由 Tauri 的开发模式标识判断，默认路径从编译期宿主位置定位到仓库根目录的 `.dev/`，不依赖启动工作目录；正式构建使用系统应用数据目录。开发模式可通过 `NIB_DEVELOPMENT_HOME` 指定绝对目录，宿主在该目录下使用独立的 `config/` 和 `data/`；相对路径会被拒绝，正式构建忽略此变量。隔离人工检查时指向新的空目录，不删除或覆盖已有 `.dev`。配置数据库为空时没有活动账户，不会读取其他配置保存的密钥。开发和正式凭据使用不同服务名，具体条目按不可变版本身份区分。应用偏好与存储选择属全局设置，生成参数、角色和参考属可恢复创作。
+开发环境由 Tauri 的开发模式标识判断，默认路径从编译期宿主位置定位到仓库根目录的 `.dev/`，不依赖启动工作目录；正式构建使用系统应用数据目录。开发模式可通过 `NIB_DEVELOPMENT_HOME` 指定绝对目录，宿主在该目录下使用独立的 `config/`、`data/` 和 `resources/`；相对路径会被拒绝，正式构建忽略此变量。下载词库与可选模型固定在应用根目录的 `resources/`，不跟随创作数据库的位置或迁移。隔离人工检查时指向新的空目录，不删除或覆盖已有 `.dev`。配置数据库为空时没有活动账户，不会读取其他配置保存的密钥。开发和正式凭据使用不同服务名，具体条目按不可变版本身份区分。应用偏好与存储选择属全局设置，生成参数、角色和参考属可恢复创作。
 
 资源和当前创作的保存以修订号防止旧内容覆盖新内容：零表示尚未保存，成功写入后返回新修订号。当前创作仅保留一份状态，不具有资源身份和名称；资源的身份、名称与修订号分别只有一个存储来源，组合内容采用必要的 JSON 表示。资源搜索当前按名称和类型筛选，名称不承担引用身份。
 
@@ -118,6 +119,8 @@ pnpm types:check
 
 提示词编辑与只读展示共用 CodeMirror 组件，文本使用内置 Maple Mono CN 等宽字体。编辑视图、配置重配、分析调度、语义装饰和诊断分别维护；模型切换及外部值同步保留选择与撤销历史，IME 合成期间延迟外部替换。`get_prompt_syntax` 只投影 SDK 模型描述符，无模型时返回纯文本能力，不按模型 ID 推断版本。共享 Worker 惰性加载 WASM，每个编辑器只保留最新待分析输入，过期响应不更新当前结果；滚动仅重建可见区域的装饰，不重新解析。
 
+词库联想复用 CodeMirror 的异步补全来源与键盘行为。Rust 从 SDK 语法 token 和 source map 生成可替换标签范围，前端不解析 NAI 语法；名称、别名与译名查询先发出，停顿后再查询可选语义后端。编辑与光标移动增加修订，即使随后恢复相同文本或光标，也不接受旧结果；模型 profile、资源 generation、只读状态与 IME 状态在插入前再次核对。自动补全和多词条选择都调用 `nib-prompt` 的 WASM formatter：结构字符依据 SDK token 分类转义，权重依据 profile 生成，最后经 `native_to_source` 保护 nib 注释标记。一次插入使用单一历史事务，异步格式化失败保留原文并显示错误。
+
 `nib-prompt` 的 `editable` 语境处理 nib 注释并映射原文位置，`native` 语境只分析已有 NAI 文本。后端逐来源处理注释，原生词法状态跨片段持续，再对完整作用域计算权重及诊断。原始片段保留在资源和当前创作中，解析输出、估费及提交使用有效文本；扩展错误允许保存但阻止执行。结果恢复将原生文本安全转回编辑源文，冻结请求和重试不重新编译。UTF-16 范围、类型化原生诊断和 nib 源诊断由 Rust 生成，前端只做显示适配，不维护第二份语法实现。复杂随机分支不能确定文字渲染状态时保留不确定分析，不虚构唯一权重。
 
 本地 Token 计数消费同一份扩展处理结果并按实际模型查询，源错误未修正时不显示成功计数；SDK 保留其原生文本计数语义。Maple Mono CN 只决定显示字体，分词器由 SDK 选择。质量、负面预设和 Furry 选项在提示词浮层中编辑；尺寸预设与动态样本范围直接投影 SDK 能力。图片工具采用紧凑纯图标单排覆层，并提供 tooltip 与可访问名称，内部身份不作为常驻标题。
@@ -144,7 +147,7 @@ Tauri 关闭系统窗口装饰，由前端应用层提供标题栏和窗口控�
 
 ## 工具与检查
 
-Rust、Node 与 pnpm 版本由仓库配置固定，Cargo 与 pnpm 锁文件纳入版本管理。安装依赖使用 `pnpm install --frozen-lockfile`，Cargo 检查使用 `--locked`；不要通过删除锁文件绕过依赖问题。
+Rust、Node 与 pnpm 版本由仓库配置固定，Cargo 与 pnpm 锁文件纳入版本管理。安装依赖使用 `pnpm install --frozen-lockfile`，Cargo 检查使用 `--locked`；不要通过删除锁文件绕过依赖问题。统一检查还使用 Python 3.12–3.14 执行仅依赖标准库的资源工具单元测试；构建完整词库时通过 `uv sync --project tools/lexicon --locked` 安装 [pyproject.toml](../tools/lexicon/pyproject.toml) 与 `uv.lock` 记录的依赖。桌面运行不需要 Python。
 
 检查工具需安装 Rusteward 和 rumdl。项目不覆盖 Cargo 的 `dev` 子命令：
 
@@ -167,14 +170,42 @@ Windows 可通过 `winget install --id rvben.rumdl --exact` 安装 rumdl，再�
 | `pnpm fmt`           | 写入 Rust、前端与 Markdown 格式修复。              |
 | `pnpm fmt:check`     | 只读检查格式与 Markdown 规则。                     |
 | `pnpm lint`          | Rusteward / Clippy 与 Oxlint 检查。                |
-| `pnpm test`          | Rust 单元测试目标和 Vitest 的 Node 测试入口。      |
+| `pnpm test`          | Rust、Vitest 与 Python 资源工具的单元测试入口。    |
+| `pnpm test:lexicon`  | 不加载模型依赖的 Python 资源工具单元测试。         |
 | `pnpm check`         | 编译、格式、lint、单元测试、类型一致性与前端构建。 |
 
 Rusteward 负责 Rust 格式与 Clippy，Oxfmt 负责前端和工程配置格式，Oxlint 加载 Stylistic 规则维护声明间空行，rumdl 独立负责 Markdown。`oxlint.config.ts` 与 `oxfmt.config.ts` 使用类型化配置，并纳入工具 TypeScript 检查。`pnpm fmt:web` 执行前端自动修复与格式化；import 段后、函数声明前后及类成员之间留一行，普通变量可连续分组，函数重载与实现保持紧邻。箭头函数、函数表达式与 `useCallback` 声明同样按函数处理。修改文档后在收尾时运行 `pnpm docs:fix <本次修改的文件...>`；例如 `pnpm docs:fix README.md docs/roadmap.md`。
 
 Rust 检查顺序为编译 → 格式 → lint → 单元测试。默认只添加纯逻辑单元测试，不为占位模块、常量或源码布局编写测试，不默认引入集成、UI、E2E、性能或快照测试。内存后端用于验证调度与恢复逻辑，单元测试不代表完成了真实服务、交互或数据库恢复验收。
 
-Windows CI 使用同一检查入口及锁文件，再构建不带安装包的桌面程序。CI 不发布产物、不签名、不配置自动更新。工作流文件的存在不代表远程 runner 已运行；本地构建、人工启动观察和远程 CI 的结果在交付中分别报告。
+## 词库资源与构建
+
+资源定义位于 `resources/lexicon/`。`sources.lock.json` 固定来源提交、实际资源文件身份、SHA-256 与许可说明；`models.lock.json` 固定文档编码及客户端查询模型；`recipe.json` 决定频次筛选、保留 / 排除词条、语义收录类别、文档模板和向量契约。默认数据来自 ffdkj，`--enhanced` 显式加入 DanbooruSearchOnline 的别名、分组与共现数据，资源元数据保留各自来源和许可。规范词条使用稳定的 Danbooru 名称身份；原名、译名和别名分开保存，画师保留未翻译的英文或假名名称。插入使用资源提供的 NAI 适配文本 `promptText`，前端不从原名推导或维护重命名映射。分类不与风格分组混用，共现查询仅表达关联作品或题材。
+
+客户端基础词库使用 SQLite 查询名称、别名与译名；语义包另含 fp16 索引、稳定键列表和本地 CPU 查询模型。原生后端读取 fp16 数据后一次展开为 fp32 并归一化，查询使用安全可移植 SIMD 做精确点积，ONNX 编码器惰性初始化。基础安装不加载模型。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约；tokenizer 以压缩资源分发。资源文件经大小与 SHA-256 校验，下载按文件内容身份复用；有效的强 ETag 与 Range 响应允许续传。新代次完整打开后原子切换活动指针，失败或取消保留旧活动资源；资源更新分发完整包。
+
+离线工具入口是 `python tools/lexicon/lexicon.py`。`check-source` 比较实际来源文件及构建配方，`fetch` 下载固定来源，`normalize` 生成规范词条，`models` 准备固定模型，`encode` 编码语义文档，`merge` 合并分片，`pack` 调用 `nib-lexicon` 生成可安装资源，`build` 顺序完成这些步骤。先准备 Python 与 uv，再在仓库根目录执行：
+
+```sh
+uv sync --project tools/lexicon --locked
+uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py build --id lexicon-YYYY.MM.DD.N --asset-base-url https://github.com/RhNu/nib/releases/download/lexicon-YYYY.MM.DD.N
+```
+
+使用实际资源版本替换示例中的 `YYYY.MM.DD.N`。默认工作目录是 `.dev/lexicon-build`，可通过 `--work-dir` 更改；添加 `--lexical-only` 只构建基础词库。`--reuse-models` 复用并校验已有模型文件，`--bootstrap-cache-url` 可恢复已发布的文档向量缓存。编码默认使用 CPU、有界批次和按文本长度分桶，`--batch-size`、`--bucket-size`、`--threads` 调整本机资源使用；`encode` 的 `--shard-index` 与 `--shard-count` 可拆分工作，再通过 `merge` 校验覆盖与契约并合并。
+
+文档编码缓存以规范文档内容和模型、模板、归一化及编码环境身份为键。未变化词条直接复用已提交批次，新词和内容变化的词条才重新编码；删除词条不进入新索引。候选包同时输出一致的压缩 SQLite 缓存快照及元数据，供后续机器恢复。客户端不下载该构建缓存，也不在本机重新编码整个词库。
+
+## 持续检查与资源发布
+
+[CI](../.github/workflows/ci.yml) 按职责拆分：Linux quality 检查前端与配置格式、Markdown、前端 lint 和不含模型依赖的 Python 单元；Linux web 运行前端单元、准备 WASM 与 Web 产物；Windows native 完成 Rust 编译、格式、lint、单元与类型一致性；Windows desktop 复用已检查的 Web 产物构建桌面程序，并检查 ONNX Runtime 动态库。Changes 作业按事件基线识别仅文档修改，这类修改仍运行 quality，web、native 与 desktop 按预期跳过；最终 CI 作业同时核对需要运行的成功项与允许跳过的分项。构建上传短期产物，不生成安装包、签名或自动更新。
+
+Web 产物缓存使用实际构建输入的内容指纹，包含前端、提示词 WASM、工具及相关配置。指纹未变化时复用可信 main 保存的已检查产物，仍运行前端单元测试；未命中时才安装 WASM 工具并完成 WASM、类型检查与 Web 构建。仅原生实现变化可复用相同指纹的 Web 产物，桌面 CI 不重复构建前端。
+
+Node、Rust 与 wasm-bindgen 安装逻辑集中在 `.github/actions/`。pnpm store、Rust 的平台 / profile / target、ONNX 下载与 wasm-bindgen CLI 使用各自缓存键；只有可信 main 运行写入共享缓存，PR 可以读取。GitHub Actions 使用发布 tag，Rusteward 按项目约定调用 `rhnu/rusteward@main`，不再每次从 Git 源码安装。
+
+[词库候选工作流](../.github/workflows/lexicon-build.yml) 在 main 的相关文件变化、每周检查或手动运行时比较实际来源文件与配方；无变化时跳过构建，手动运行可明确重建或启用增强来源。源锁、固定模型和增量文档向量缓存分开恢复；候选版本与源码提交随资源包保存，只上传候选产物。
+
+[发布工作流](../.github/workflows/lexicon-release.yml) 从 main 手动选择成功的可信候选运行与资源版本，核对运行来源、提交、版本、文件大小和哈希，直接发布同一候选包。不可变版本资产不覆盖，已有同身份资产核对后复用，失败可继续补传缺失文件；所有资产就绪后才更新独立 `lexicon-current` 清单指针，资源 release 不占用应用的 latest 位置。远程构建、资源生成与发布的未验收范围统一记录在[路线图](roadmap.md)。
 
 ## 后续实施
 

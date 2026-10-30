@@ -2,57 +2,181 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  check:
-    name: Check and build Windows desktop
-    runs-on: windows-latest
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      software: ${{ steps.changes.outputs.software }}
+      web: ${{ steps.changes.outputs.web }}
+      native: ${{ steps.changes.outputs.native }}
     steps:
       - uses: actions/checkout@v7.0.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7.1.0
         with:
-          node-version-file: .node-version
-          package-manager-cache: false
+          fetch-depth: 0
+      - name: Classify changes against the event base
+        id: changes
+        run: python .github/scripts/ci-inputs.py changes
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6.1.0
-        with:
-          cache: true
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@1.99.0
-        with:
-          components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@v2.9.2
-
-      - name: Install Rusteward
-        uses: rhnu/rusteward@main
-
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-node
       - name: Install rumdl
         uses: rvben/rumdl@v0
         with:
           version: "0.2.79"
           install-only: true
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install WebAssembly bindings tool
-        run: cargo install wasm-bindgen-cli --version 0.2.130 --locked
-
-      - name: Run checks
-        run: pnpm check
-
-      - name: Build desktop executable
-        run: pnpm build:desktop
-
-      - name: Verify checks preserved tracked files
+      - name: Check frontend and configuration format
+        run: pnpm exec oxfmt --check .
+      - name: Check Markdown
+        run: pnpm docs:check
+      - name: Lint frontend
+        run: pnpm lint:web
+      - name: Run resource tool unit tests without model dependencies
+        run: pnpm test:lexicon
+      - name: Verify tracked files
         run: git diff --exit-code
+
+  web:
+    name: Web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Fingerprint Web and WASM build inputs
+        id: inputs
+        run: python .github/scripts/ci-inputs.py web-fingerprint
+      - name: Restore previously checked Web assets
+        id: dist
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: apps/desktop/dist
+          key: web-dist-${{ runner.os }}-${{ runner.arch }}-v1-${{ steps.inputs.outputs.fingerprint }}
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-rust
+        if: steps.dist.outputs.cache-hit != 'true'
+        with:
+          cache-key: host-debug-wasm32-release
+          targets: wasm32-unknown-unknown
+          workspaces: |
+            . -> target
+            . -> target/prompt-wasm
+      - uses: ./.github/actions/setup-wasm
+        if: steps.dist.outputs.cache-hit != 'true'
+      - name: Run frontend unit tests
+        run: pnpm test:web
+      - name: Prepare WASM, check TypeScript, and build Web
+        if: steps.dist.outputs.cache-hit != 'true'
+        run: pnpm build:web
+      - name: Verify tracked files
+        run: git diff --exit-code
+      - name: Cache checked Web assets on main
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.dist.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: apps/desktop/dist
+          key: ${{ steps.dist.outputs.cache-primary-key }}
+      - name: Upload Web assets
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: web-dist
+          path: apps/desktop/dist
+          if-no-files-found: error
+          retention-days: 3
+
+  native:
+    name: Windows native
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: x86_64-pc-windows-msvc-debug
+          rusteward: "true"
+      - name: Compile Rust targets
+        run: cargo check --workspace --all-targets --locked
+      - name: Check Rust format
+        run: cargo dev format --check --diff --locked
+      - name: Lint Rust
+        run: cargo dev lint --locked
+      - name: Run Rust unit tests
+        run: cargo test --workspace --lib --bins --locked
+      - name: Check generated communication types
+        run: cargo xtask types --check
+      - name: Verify tracked files
+        run: git diff --exit-code
+
+  desktop:
+    name: Windows desktop
+    needs: [changes, web]
+    if: needs.changes.outputs.software == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: x86_64-pc-windows-msvc-release
+      - name: Download checked Web assets
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: web-dist
+          path: apps/desktop/dist
+      - name: Build desktop executable with checked Web assets
+        run: pnpm --filter @nib/desktop exec tauri build --no-bundle --config src-tauri/tauri.ci.conf.json -- --locked
+      - name: Verify the ONNX runtime accompanies the executable
+        run: |
+          if (-not (Test-Path -LiteralPath target/release/onnxruntime.dll)) {
+            throw 'Desktop build is missing onnxruntime.dll'
+          }
+      - name: Verify tracked files
+        run: git diff --exit-code
+      - name: Upload Windows executable and ONNX runtime
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-x64-desktop
+          path: |
+            target/release/nib-desktop.exe
+            target/release/onnxruntime*.dll
+          if-no-files-found: error
+          retention-days: 7
+
+  ci:
+    name: CI
+    if: always()
+    needs: [changes, quality, web, native, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every check to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+          SOFTWARE: ${{ needs.changes.outputs.software }}
+        run: |
+          node <<'JS'
+          const jobs = JSON.parse(process.env.JOB_RESULTS);
+          if (!["true", "false"].includes(process.env.SOFTWARE)) process.exit(1);
+          let failed = false;
+          for (const [name, job] of Object.entries(jobs)) {
+            const expected = ["changes", "quality"].includes(name) || process.env.SOFTWARE === "true" ? "success" : "skipped";
+            console.log(`${name}: ${job.result} (expected ${expected})`);
+            if (job.result !== expected) failed = true;
+          }
+          if (failed) process.exit(1);
+          JS
