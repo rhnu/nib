@@ -1,6 +1,7 @@
 import type { ApplicationPreferences } from "@/bindings/settings";
+import { createStore } from "zustand/vanilla";
 
-type PreferenceState = {
+export type PreferenceState = {
   value: ApplicationPreferences | null;
   dirty: boolean;
   saving: boolean;
@@ -9,12 +10,21 @@ type PreferenceState = {
 
 /** Preserve newer edits while writing preferences in the order they were made. */
 export class PreferencesWriter {
-  private state: PreferenceState = { value: null, dirty: false, saving: false, error: null };
+  readonly store = createStore<PreferenceState>(() => ({
+    value: null,
+    dirty: false,
+    saving: false,
+    error: null,
+  }));
+
   private version = 0;
+
   private pending: Promise<void> | null = null;
-  private listeners = new Set<() => void>();
+
   private write: (value: ApplicationPreferences) => Promise<ApplicationPreferences>;
+
   private saved: ApplicationPreferences | null = null;
+
   private onSaved?: (
     value: ApplicationPreferences,
     previous: ApplicationPreferences | null,
@@ -28,50 +38,52 @@ export class PreferencesWriter {
     this.onSaved = onSaved;
   }
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-  getSnapshot = () => this.state;
+  subscribe = this.store.subscribe;
+
+  getSnapshot = this.store.getState;
+
   getSavedSnapshot = () => this.saved;
+
   private publish(state: PreferenceState) {
-    this.state = state;
-    this.listeners.forEach((listener) => listener());
+    this.store.setState(state, true);
   }
+
   initialize(value: ApplicationPreferences) {
-    if (this.state.value) throw new Error("应用设置已经加载。");
+    if (this.getSnapshot().value) throw new Error("应用设置已经加载。");
     this.saved = value;
     this.publish({ value, dirty: false, saving: false, error: null });
   }
+
   edit(value: ApplicationPreferences) {
-    if (!this.state.value) throw new Error("应用设置尚未加载。");
+    const state = this.getSnapshot();
+    if (!state.value) throw new Error("应用设置尚未加载。");
     this.version++;
-    this.publish({ ...this.state, value, dirty: true, error: null });
+    this.publish({ ...state, value, dirty: true, error: null });
     void this.flush().catch(() => {});
   }
+
   flush = (): Promise<void> => {
     if (this.pending) return this.pending;
-    if (!this.state.dirty) return Promise.resolve();
+    if (!this.getSnapshot().dirty) return Promise.resolve();
     this.pending = Promise.resolve().then(async () => {
-      this.publish({ ...this.state, saving: true, error: null });
+      this.publish({ ...this.getSnapshot(), saving: true, error: null });
       try {
-        while (this.state.dirty && this.state.value) {
+        while (this.getSnapshot().dirty && this.getSnapshot().value) {
           const version = this.version;
-          const saved = await this.write(this.state.value);
+          const saved = await this.write(this.getSnapshot().value!);
           const previous = this.saved;
           this.saved = saved;
           this.onSaved?.(saved, previous);
+          const state = this.getSnapshot();
           this.publish({
-            ...this.state,
-            value: version === this.version ? saved : this.state.value,
+            ...state,
+            value: version === this.version ? saved : state.value,
             dirty: version !== this.version,
           });
         }
-        this.publish({ ...this.state, saving: false });
+        this.publish({ ...this.getSnapshot(), saving: false });
       } catch (error) {
-        this.publish({ ...this.state, saving: false, error });
+        this.publish({ ...this.getSnapshot(), saving: false, error });
         throw error;
       } finally {
         this.pending = null;

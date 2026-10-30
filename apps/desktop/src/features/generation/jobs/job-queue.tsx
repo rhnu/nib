@@ -27,6 +27,7 @@ export function JobQueue({
   const pendingRef = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
   const [retryJob, setRetryJob] = useState<JobSummary | null>(null);
+
   async function cancel(id: string) {
     if (pendingRef.current.has(id)) return;
     pendingRef.current.add(id);
@@ -41,6 +42,7 @@ export function JobQueue({
       setPending([...pendingRef.current]);
     }
   }
+
   const batches = new Map<string, JobSummary[]>();
   for (const job of jobs ?? []) {
     const list = batches.get(job.batchId) ?? [];

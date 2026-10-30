@@ -14,17 +14,19 @@
     "rust:lint": "cargo dev lint --locked",
     "rust:test": "cargo test --workspace --lib --bins --locked",
     "typecheck": "pnpm --filter @nib/desktop typecheck",
-    "lint:web": "oxlint apps/desktop --deny-warnings",
+    "lint:web": "oxlint apps/desktop oxlint.config.ts oxfmt.config.ts --deny-warnings",
     "lint": "pnpm rust:lint && pnpm lint:web",
     "test:web": "pnpm --filter @nib/desktop test",
     "test": "pnpm rust:test && pnpm test:web",
     "docs:fix": "rumdl check --fix",
     "docs:check": "rumdl check",
-    "fmt": "cargo dev format --locked && oxfmt . && pnpm docs:fix",
+    "fmt": "cargo dev format --locked && pnpm fmt:web && pnpm docs:fix",
     "fmt:check": "cargo dev format --check --diff --locked && oxfmt --check . && pnpm docs:check",
-    "check": "pnpm rust:check && pnpm fmt:check && pnpm lint && pnpm test && pnpm types:check && pnpm typecheck && pnpm build:web"
+    "check": "pnpm rust:check && pnpm fmt:check && pnpm lint && pnpm test && pnpm types:check && pnpm typecheck && pnpm build:web",
+    "fmt:web": "oxlint apps/desktop --fix && oxfmt ."
   },
   "devDependencies": {
+    "@stylistic/eslint-plugin": "5.10.0",
     "@tauri-apps/cli": "^2.12.3",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.4.0",

@@ -43,16 +43,21 @@ export function InpaintSettings({
 }) {
   const prefix = useId();
   const [confirmPure, setConfirmPure] = useState(false);
+
   const normalize = (field: string) => field.replaceAll("_", "").toLowerCase().split(".").at(-1);
+
   const diagnostic = (field: string) =>
     diagnostics.filter((item) => normalize(item.field) === field.toLowerCase());
+
   const rejected = (field: string) =>
     errorFields.some((item) => normalize(item) === field.toLowerCase());
+
   const props = (field: string) => ({
     "aria-invalid": rejected(field) || undefined,
     "aria-describedby":
       diagnostic(field).length || rejected(field) ? `${prefix}-${field}` : undefined,
   });
+
   const messages = (field: string) =>
     diagnostic(field).length || rejected(field) ? (
       <output className="image-operation-diagnostic" id={`${prefix}-${field}`}>
@@ -62,6 +67,7 @@ export function InpaintSettings({
         {rejected(field) && <span>SDK 拒绝该字段，请查看生成区错误并调整。</span>}
       </output>
     ) : null;
+
   const numeric = (field: "strength" | "noise", raw: string) => {
     const value = Number(raw);
     if (raw.trim() === "" || !Number.isFinite(value)) return;
@@ -69,6 +75,7 @@ export function InpaintSettings({
       current.img2img ? { ...current, img2img: { ...current.img2img, [field]: value } } : current,
     );
   };
+
   const conditioning = operation.img2img;
   return (
     <div className="image-operation-fields">

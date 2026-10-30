@@ -1,6 +1,7 @@
 import { Button } from "@/shared/ui";
 import { FileText, Link2, Plus } from "lucide-react";
 import type { ResourceSummary } from "@/bindings/workbench";
+
 export function ResourceList({
   loading,
   queryError,

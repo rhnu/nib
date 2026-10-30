@@ -125,11 +125,13 @@ export function PresetEditor({
     effectiveCapabilities && defaults
       ? settingsWithDefaults(effectiveCapabilities.defaults, defaults)
       : undefined;
+
   const emit = (next: PresetInstance) => {
     if (!latest.current.active) return;
     latest.current.instance = next;
     latest.current.onChange(next);
   };
+
   const updateLinked = (
     update: (
       value: Extract<PresetInstance["binding"], { kind: "linked" }>,
@@ -138,6 +140,7 @@ export function PresetEditor({
     const current = latest.current.instance;
     if (current.binding.kind === "linked") emit({ ...current, binding: update(current.binding) });
   };
+
   const updateExpanded = (
     patch: Partial<Omit<Extract<PresetInstance["binding"], { kind: "expanded" }>, "kind">>,
   ) => {
@@ -145,6 +148,7 @@ export function PresetEditor({
     if (current.binding.kind === "expanded")
       emit({ ...current, binding: { ...current.binding, ...patch } });
   };
+
   const changeSettings = (next: GenerationSettings) => {
     const current = latest.current.instance;
     emit({
@@ -155,11 +159,13 @@ export function PresetEditor({
           : { ...current.binding, defaults: next },
     });
   };
+
   const override = (value: InstanceOverride) =>
     updateLinked((current) => ({
       ...current,
       overrides: setTextOverride(current.overrides, value),
     }));
+
   const staleText =
     binding.kind === "linked" && composition
       ? staleTextOverrides(composition, characters, binding.overrides)

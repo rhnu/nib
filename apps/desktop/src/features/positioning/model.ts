@@ -130,5 +130,6 @@ export function normalizePosition(
         )
       : Math.round(clamped * 1000) / 1000;
   };
+
   return { x: coordinate(point.x), y: coordinate(point.y) };
 }

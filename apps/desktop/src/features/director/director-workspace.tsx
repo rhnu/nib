@@ -101,14 +101,17 @@ export function DirectorWorkspace({
       handoff,
     });
   });
+
   const update = (tool: DirectorToolKind, patch: Partial<DirectorToolState>) => {
     const current = latest.current;
     current.onChange(updateDirectorTool(current.readCurrentDraft().director, tool, patch));
   };
+
   const completeHandoff = (id?: number) => {
     const current = latest.current;
     if (id !== undefined && current.handoff?.id === id) current.onHandoffComplete?.();
   };
+
   const accept = (next: SourceCandidate) => {
     const current = latest.current;
     const workspace = updateDirectorTool(current.readCurrentDraft().director, next.tool, {
@@ -118,6 +121,7 @@ export function DirectorWorkspace({
     setCandidate(null);
     completeHandoff(next.handoffId);
   };
+
   const requestSource = (next: SourceCandidate) => {
     const saved = latest.current
       .readCurrentDraft()
@@ -125,6 +129,7 @@ export function DirectorWorkspace({
     if (saved?.assetId && saved.assetId !== next.assetId) setCandidate(next);
     else accept(next);
   };
+
   useEffect(() => {
     const current = latest.current;
     if (!current.handoff) return;
@@ -139,6 +144,7 @@ export function DirectorWorkspace({
       current.onHandoffComplete?.();
     }
   }, [handoff?.id]);
+
   const locate = (field: string) => {
     setMobileView("input");
     const name = field.includes("prompt")
@@ -155,6 +161,7 @@ export function DirectorWorkspace({
       (target?.querySelector<HTMLElement>("textarea, input, select, button") ?? target)?.focus();
     });
   };
+
   if (!state) return <Notice>导演工具工作态不可用，请重新打开应用。</Notice>;
   return (
     <div className={`director-workspace director-mobile-${mobileView}`} ref={root}>

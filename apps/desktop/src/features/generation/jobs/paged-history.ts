@@ -1,5 +1,7 @@
 import { mergeSummaries } from "./summary";
+
 export type HistoryPage<T> = { items: T[]; nextCursor: string | null };
+
 /** Catch up to the previous head without changing the cursor for unread older history. */
 export async function refreshHistory<T extends { id: string }>(
   head: HistoryPage<T>,

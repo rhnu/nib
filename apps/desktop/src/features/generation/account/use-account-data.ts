@@ -24,6 +24,7 @@ export function useAccountData(executionVersion = 0) {
   useEffect(() => {
     void client.invalidateQueries({ queryKey: ["account-snapshot"] });
   }, [client, executionVersion]);
+
   const accountChanged = useCallback(
     (value: AccountStatus) => {
       client.setQueryData(["account-status"], value);
@@ -38,12 +39,14 @@ export function useAccountData(executionVersion = 0) {
     },
     [client, snapshot.data?.revision],
   );
+
   const retry = useMutation({
     mutationFn: accountApi.refreshAccountSummary,
     onSuccess: (value) => {
       client.setQueryData(["account-snapshot"], value);
     },
   });
+
   const refreshAccountSummary = async () => {
     try {
       await retry.mutateAsync();
@@ -51,6 +54,7 @@ export function useAccountData(executionVersion = 0) {
       /* The mutation error is rendered below. */
     }
   };
+
   return {
     account: account.data ?? null,
     accountError: account.error ? errorMessage(account.error) : null,

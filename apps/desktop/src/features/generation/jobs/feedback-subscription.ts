@@ -11,11 +11,13 @@ type Connection = {
 /** Own the window command order, including cleanup during an unresolved subscription. */
 export function createFeedbackSubscriptions() {
   let lifecycle = Promise.resolve();
+
   const schedule = (action: () => Promise<void>) => {
     const next = lifecycle.then(action);
     lifecycle = next.catch(() => {});
     return next;
   };
+
   return {
     connect(connection: Connection) {
       let active = true;

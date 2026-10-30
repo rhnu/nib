@@ -1,5 +1,7 @@
-{
-  "ignorePatterns": [
+import { defineConfig } from "oxfmt";
+
+export default defineConfig({
+  ignorePatterns: [
     "**/node_modules/**",
     "**/dist/**",
     "**/src/bindings/**",
@@ -8,6 +10,6 @@
     "target/**",
     "**/*.md",
     "**/*.toml",
-    "pnpm-lock.yaml"
-  ]
-}
+    "pnpm-lock.yaml",
+  ],
+});

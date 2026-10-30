@@ -19,6 +19,7 @@ const source: MediaAsset = {
   source: { kind: "import", name: "source.png" },
   available: true,
 };
+
 const imageOperation = (
   assetId = source.id,
 ): Extract<CreationOperation, { kind: "imageToImage" }> => ({
@@ -31,6 +32,7 @@ const imageOperation = (
   addOriginalImage: false,
   maxEnhance: false,
 });
+
 const creation = (operation: CreationOperation): Draft => ({
   vibeEncoder: null,
   director: { selectedTool: "lineart", tools: [] },

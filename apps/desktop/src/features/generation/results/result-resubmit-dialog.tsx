@@ -51,6 +51,7 @@ export function ResultResubmitDialog({
       active.current = false;
     };
   }, []);
+
   async function submit() {
     if (
       lock.current ||
@@ -75,6 +76,7 @@ export function ResultResubmitDialog({
       if (active.current) setPending(false);
     }
   }
+
   return (
     <Modal
       open

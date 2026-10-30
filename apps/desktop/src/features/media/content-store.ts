@@ -3,7 +3,9 @@ export type ContentSnapshot = { url: string | null; error: unknown; loading: boo
 /** Each immutable content variant is shared only while it has mounted consumers. */
 export class MediaContentStore {
   private resources = new Map<string, ContentResource>();
+
   private revoke: (url: string) => void;
+
   constructor(revoke: (url: string) => void) {
     this.revoke = revoke;
   }
@@ -22,11 +24,17 @@ export class MediaContentStore {
 
 class ContentResource {
   private state: ContentSnapshot = { url: null, error: null, loading: true };
+
   private listeners = new Set<() => void>();
+
   private started = false;
+
   private generation = 0;
+
   private load: () => Promise<string>;
+
   private revoke: (url: string) => void;
+
   private remove: () => void;
 
   constructor(load: () => Promise<string>, revoke: (url: string) => void, remove: () => void) {
@@ -36,6 +44,7 @@ class ContentResource {
   }
 
   getSnapshot = () => this.state;
+
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     if (!this.started) this.retry();
@@ -52,10 +61,12 @@ class ContentResource {
       });
     };
   };
+
   private publish(state: ContentSnapshot) {
     this.state = state;
     for (const listener of this.listeners) listener();
   }
+
   retry = () => {
     const generation = ++this.generation;
     this.started = true;
@@ -73,6 +84,7 @@ class ContentResource {
         },
       );
   };
+
   failed = () => {
     this.generation++;
     if (this.state.url) this.revoke(this.state.url);

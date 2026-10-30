@@ -1,22 +1,24 @@
 import { useEffect, useState } from "react";
 import { AccountProvider } from "@/features/generation/account/account-provider";
-import { Workbench } from "@/features/workbench/workbench";
-import { GenerationActions, GenerationProvider, GenerationResults } from "@/features/generation";
+import { WorkspaceShell } from "./workspace-shell";
+import { GenerationProvider } from "@/features/generation";
 import { StartupScreen } from "./startup-screen";
 import { TitleBar } from "./title-bar";
 import { useTheme } from "./use-theme";
 import { useWorkspaceStartup } from "./use-workspace-startup";
-import { SettingsPage } from "./settings-page";
+import { SettingsPage, type SettingsSection } from "./settings-page";
 import { useApplicationSettings } from "./use-application-settings";
 import { useCloseGuard } from "@/shared/host/use-close-guard";
 import { Button, Notice } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
+
 /** Composition root: application startup and theme, then domain-owned surfaces. */
 export default function App() {
   const settings = useApplicationSettings();
   useTheme(settings.preferences.value?.theme);
   const { workspace, loading, error, retry } = useWorkspaceStartup(settings.ready);
   const [startupPage, setStartupPage] = useState<"create" | "settings">("create");
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("account");
   const [closeError, setCloseError] = useState("");
   useCloseGuard({
     writer: settings.closeWriter,
@@ -83,7 +85,11 @@ export default function App() {
             {settings.ready ? (
               startupPage === "settings" ? (
                 <div inert={readOnly} style={{ display: "contents" }}>
-                  <SettingsPage settings={settings} />
+                  <SettingsPage
+                    settings={settings}
+                    section={settingsSection}
+                    onSectionChange={setSettingsSection}
+                  />
                 </div>
               ) : (
                 <>
@@ -113,10 +119,11 @@ export default function App() {
             beforeSubmit={settings.prepareSubmission}
             submissionBlocked={settings.submissionBlocked}
           >
-            <Workbench
+            <WorkspaceShell
               workspace={workspace.snapshot}
               initialResources={workspace.resources}
-              initialPage={startupPage}
+              startupSettings={startupPage === "settings"}
+              recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
               settingsWriter={settings.closeWriter}
               renderHeader={(navigation) => (
                 <>
@@ -128,58 +135,10 @@ export default function App() {
               renderSettings={({ beforeMigrate, onOpenTasks }) => (
                 <SettingsPage
                   settings={settings}
+                  section={settingsSection}
+                  onSectionChange={setSettingsSection}
                   beforeMigrate={beforeMigrate}
                   onOpenTasks={onOpenTasks}
-                />
-              )}
-              renderActions={({
-                draft,
-                readCurrentDraft,
-                quoteRefreshKey,
-                resolved,
-                estimate,
-                operationPending,
-                onFocusField,
-              }) => (
-                <GenerationActions
-                  draft={draft}
-                  readCurrentDraft={readCurrentDraft}
-                  refreshKey={quoteRefreshKey}
-                  resolved={resolved}
-                  estimate={estimate}
-                  operationPending={operationPending}
-                  onFocusField={onFocusField}
-                />
-              )}
-              renderResults={(
-                {
-                  draft,
-                  onRestore,
-                  readCurrentDraft,
-                  onImageOperation,
-                  canMaxEnhance,
-                  canInpaint,
-                  onViewedAssetChange,
-                },
-                gallery,
-              ) => (
-                <GenerationResults
-                  onRestore={onRestore}
-                  operation={draft.inputs.operation}
-                  onImageOperation={onImageOperation}
-                  canMaxEnhance={canMaxEnhance}
-                  canInpaint={canInpaint}
-                  onViewedAssetChange={
-                    draft.activePage === (gallery ? "gallery" : "create")
-                      ? onViewedAssetChange
-                      : undefined
-                  }
-                  gallery={gallery}
-                  recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
-                  onUseSeed={(seed) => {
-                    const current = readCurrentDraft();
-                    onRestore({ ...current, settings: { ...current.settings, seed } });
-                  }}
                 />
               )}
             />

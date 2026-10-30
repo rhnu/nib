@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AccountContext } from "./account-context";
 import { useAccountData } from "./use-account-data";
+
 export function AccountProvider({
   executionVersion,
   children,

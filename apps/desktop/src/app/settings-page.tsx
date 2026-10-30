@@ -79,6 +79,7 @@ function StorageSettings({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   if (!storage) return null;
+
   const choose = async () => {
     setError("");
     try {
@@ -92,6 +93,7 @@ function StorageSettings({
       setSaving(false);
     }
   };
+
   const showDirectory = async (path: string) => {
     try {
       await revealItemInDir(path);
@@ -99,6 +101,7 @@ function StorageSettings({
       setError(errorMessage(cause));
     }
   };
+
   return (
     <section className="preference-section storage-settings">
       <div className="section-heading">
@@ -150,21 +153,24 @@ const sections = [
   { id: "appearance", name: "外观" },
   { id: "storage", name: "存储" },
 ] as const;
-type SettingsSection = (typeof sections)[number]["id"];
+export type SettingsSection = (typeof sections)[number]["id"];
 
 export function SettingsPage({
   settings,
   showAccount = true,
   beforeMigrate,
   onOpenTasks,
+  section,
+  onSectionChange,
 }: {
   settings: ApplicationSettingsState;
   showAccount?: boolean;
   beforeMigrate?: () => Promise<void>;
   onOpenTasks?: () => void;
+  section: SettingsSection;
+  onSectionChange: (section: SettingsSection) => void;
 }) {
   const { preferences, writer } = settings;
-  const [section, setSection] = useState<SettingsSection>("account");
   const theme = preferences.value?.theme;
   return (
     <main className="settings-page" aria-label="设置">
@@ -178,7 +184,7 @@ export function SettingsPage({
               key={item.id}
               type="button"
               aria-current={section === item.id ? "page" : undefined}
-              onClick={() => setSection(item.id)}
+              onClick={() => onSectionChange(item.id)}
             >
               {item.name}
             </button>

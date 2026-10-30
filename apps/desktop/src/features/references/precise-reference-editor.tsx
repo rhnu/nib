@@ -45,6 +45,7 @@ function EditorContent({
       current.active = false;
     };
   }, []);
+
   const update = (apply: (value: PreciseReferenceInput[]) => PreciseReferenceInput[]) => {
     const current = latest.current;
     if (!current.active) return;

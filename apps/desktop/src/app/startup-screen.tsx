@@ -1,5 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/shared/ui";
+
 export function StartupScreen({
   loading,
   error,

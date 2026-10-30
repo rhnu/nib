@@ -3,6 +3,7 @@ import type { JobSummary } from "@/bindings/generation";
 import { refreshHistory } from "./paged-history";
 import { recoverMissingJobs } from "./recover-missing-jobs";
 import { reconcileJobs } from "./summary";
+
 function job(id: string, status: JobSummary["status"], submittedAt = 1): JobSummary {
   return {
     id,
@@ -21,6 +22,7 @@ function job(id: string, status: JobSummary["status"], submittedAt = 1): JobSumm
     observation: null,
   };
 }
+
 describe("recovering tasks after missed terminal feedback", () => {
   it("retains an old active task when a known newer history head hides its completion", async () => {
     const previousActive = job("old-running", "running");

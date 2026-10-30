@@ -102,13 +102,17 @@ pnpm types:check
 
 加载页区分正在打开、失败和缺少桌面宿主。调用失败可重试，独立浏览器模式不模拟 Rust 响应。
 
-前端以 `app` 负责启动、主题和窗口生命周期，`features` 按工作台、Prompt、资源库、生成划分能力，`shared` 提供宿主调用边界、Query 客户端和产品 UI。只读宿主查询统一使用 TanStack Query，按领域定义查询键与失效范围；查询缓存不拥有可编辑草稿。当前创作与偏好保存协调器仍独占编辑、修订和持久化，启动查询只用于首次初始化，重新读取不得覆盖已加载的偏好或未保存编辑。付费提交与重试不自动重放。Base UI 处理弹窗、菜单、开关和浮层，Tailwind 与设计变量承担样式，共享组件只做必要薄封装。
+前端以 `app` 负责启动、主题、路由装配和窗口生命周期，`pages` 组合创作、导演工具、画廊、资源库与设置页面，`features` 按工作台、Prompt、资源库、生成划分能力，`shared` 提供宿主调用边界、Query 客户端和产品 UI。工作台控制器集中协调跨领域动作，图像输入内部按操作状态、源图展示、不同操作参数与 SDK 字段反馈组织。只读宿主查询统一使用 TanStack Query，按领域定义查询键与失效范围；查询缓存不拥有可编辑草稿。当前创作与偏好由 Zustand store 独占编辑状态，保存协调器串行写入并合并修订；复杂的当前创作更新使用 Immer，启动查询只用于首次初始化，重新读取不得覆盖已加载的偏好或未保存编辑。付费提交与重试不自动重放。Base UI 处理弹窗、菜单、开关和浮层，Tailwind 与设计变量承担样式，共享组件只做必要薄封装。
+
+导航使用 TanStack Router 的 Hash history，运行时位置由路由拥有；`Draft.activePage` 只作为重启恢复快照，在导航完成后写入，不反向驱动路由。普通导航和历史前进、后退等待材料提交并处理未应用遮罩；已通过同一保护的领域动作直接完成跳转。当前创作、资源编辑会话、结果选择及保存保护位于页面之外，路由卸载页面不会清除它们。资源编辑与筛选通过会话 store 保留，资源关闭与迁移保护直接读取该 store 的 dirty / busy 状态。
+
+页面、画布及操作面板使用 ErrorBoundary 显示渲染失败并允许重试；长寿命编辑与保存协调器位于可恢复边界之外。业务查询、操作及保存错误分别展示，重试显示不重放付费操作。应用根边界提供最终错误信息；事件处理和异步请求仍由其所属操作报告失败。
 
 手写前端源码文件名统一使用 kebab-case，包括组件、Hook、测试和 CSS；组件、类型与函数声明沿用各自的命名约定。`pnpm lint:web` 通过 Oxlint 的 `unicorn/filename-case` 检查 TS/TSX 文件名，CSS 文件名按本约定维护。生成绑定由类型生成器管理，上游字体资产保留原文件名。
 
-`@/` 指向 `apps/desktop/src/`，在 TypeScript 与 Vite 中共同配置，Vitest 复用 Vite 配置。跨模块的导入、重导出及样式引用使用 `@/`；`app`、各 `features/<领域>` 和各 `shared/<能力>` 视为模块，同模块可以使用 `./` 或 `../` 相对路径，`features/generation` 的各子目录属于同一模块。
+`@/` 指向 `apps/desktop/src/`，在 TypeScript 与 Vite 中共同配置，Vitest 复用 Vite 配置。跨模块的导入、重导出及样式引用使用 `@/`；`app`、`pages`、各 `features/<领域>` 和各 `shared/<能力>` 视为模块，同模块可以使用 `./` 或 `../` 相对路径，`features/generation` 的各子目录属于同一模块。
 
-`pnpm lint:web` 在仓库根目录运行，通过 `eslint-plugin-boundaries` 的 `boundaries/dependencies` 与 TypeScript resolver 解析导入目标，再按 `.oxlintrc.json` 中声明的模块根目录判断归属。`app`、各 `features/*`、各 `shared/*`、`bindings`、`assets` 分别划定模块，`src` 根目录文件归入口模块。同模块允许相对路径和 alias，跨模块使用 `@/`；新增领域模块和任意深度的子目录自动遵循这些边界，不按目录层级增加规则。检查覆盖可解析的静态导入、类型导入、重导出、字符串形式的动态导入及 TS/TSX 中的样式导入。CSS 文件内的 `@import` 和 `url()` 按开发约定维护。
+`pnpm lint:web` 在仓库根目录运行，通过 `eslint-plugin-boundaries` 的 `boundaries/dependencies` 与 TypeScript resolver 解析导入目标，再按 `oxlint.config.ts` 中声明的模块根目录判断归属。`app`、`pages`、各 `features/*`、各 `shared/*`、`bindings`、`assets` 分别划定模块，`src` 根目录文件归入口模块。同模块允许相对路径和 alias，跨模块使用 `@/`；新增领域模块和任意深度的子目录自动遵循这些边界，不按目录层级增加规则。检查覆盖可解析的静态导入、类型导入、重导出、字符串形式的动态导入及 TS/TSX 中的样式导入。CSS 文件内的 `@import` 和 `url()` 按开发约定维护。
 
 任务与结果列表使用 Query 分页摘要，完整冻结输入仅在详情、恢复或重试时读取；活动任务独立查询，不受历史分页限制。最近图片区默认限制 20 张，使用全局 1–200 偏好；画廊独立分页浏览图片历史，任务在按批次组织的抽屉中操作。图片查询与氛围转移材料查询按类型区分，不建立第二套结果事实。账户、持久查询与高频流式反馈分别订阅，预览帧不驱动整个编辑工作台更新。二进制媒体继续由按身份与用途共享的 Blob URL 引用计数管理，避免 Query 缓存另存一份媒体字节。
 
@@ -149,7 +153,7 @@ Windows 可通过 `winget install --id rvben.rumdl --exact` 安装 rumdl，再�
 | `pnpm test`          | Rust 单元测试目标和 Vitest 的 Node 测试入口。      |
 | `pnpm check`         | 编译、格式、lint、单元测试、类型一致性与前端构建。 |
 
-Rusteward 负责 Rust 格式与 Clippy，Oxfmt 负责前端和工程配置格式，rumdl 独立负责 Markdown。修改文档后在收尾时运行 `pnpm docs:fix <本次修改的文件...>`；例如 `pnpm docs:fix README.md docs/roadmap.md`。
+Rusteward 负责 Rust 格式与 Clippy，Oxfmt 负责前端和工程配置格式，Oxlint 加载 Stylistic 规则维护声明间空行，rumdl 独立负责 Markdown。`oxlint.config.ts` 与 `oxfmt.config.ts` 使用类型化配置，并纳入工具 TypeScript 检查。`pnpm fmt:web` 执行前端自动修复与格式化；import 段后、函数声明前后及类成员之间留一行，普通变量可连续分组，函数重载与实现保持紧邻。箭头函数、函数表达式与 `useCallback` 声明同样按函数处理。修改文档后在收尾时运行 `pnpm docs:fix <本次修改的文件...>`；例如 `pnpm docs:fix README.md docs/roadmap.md`。
 
 Rust 检查顺序为编译 → 格式 → lint → 单元测试。默认只添加纯逻辑单元测试，不为占位模块、常量或源码布局编写测试，不默认引入集成、UI、E2E、性能或快照测试。内存后端用于验证调度与恢复逻辑，单元测试不代表完成了真实服务、交互或数据库恢复验收。
 

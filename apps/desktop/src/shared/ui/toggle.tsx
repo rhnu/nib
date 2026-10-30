@@ -1,4 +1,5 @@
 import { Switch } from "@base-ui/react/switch";
+
 export function Toggle({
   checked,
   onChange,

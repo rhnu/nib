@@ -65,10 +65,13 @@ export function SettingsEditor({
 
   const change = <K extends SettingKey>(key: K, next: GenerationSettings[K]) =>
     onChange({ ...value, [key]: next });
+
   const inherited = (key: SettingKey) =>
     `${effective ? settingValue(key, effective[key]) : "默认"} · 继承`;
+
   const diagnosticsFor = (key: SettingKey) =>
     diagnostics.filter((item) => diagnosticSetting(item.field) === key);
+
   const wrapper = (key: SettingKey, control: ReactNode, help?: string, unsupported = false) => {
     const messages = diagnosticsFor(key);
     const rejected = errorFields.some((field) => diagnosticSetting(field) === key);
@@ -106,11 +109,13 @@ export function SettingsEditor({
       </div>
     );
   };
+
   const controlProps = (key: SettingKey) => ({
     id: `${prefix}-${key}`,
     "aria-describedby": diagnosticsFor(key).length ? `${prefix}-${key}-diagnostic` : undefined,
     "aria-invalid": errorFields.some((field) => diagnosticSetting(field) === key) || undefined,
   });
+
   const number = (key: "steps" | "scale" | "seed" | "nSamples" | "cfgRescale", help?: string) => {
     const range = key === "seed" ? undefined : capabilities?.ranges[key];
     const numericInput = (
@@ -157,6 +162,7 @@ export function SettingsEditor({
         : help,
     );
   };
+
   const options = <
     K extends
       | "model"
@@ -194,6 +200,7 @@ export function SettingsEditor({
       current !== null && choices !== undefined && !hasCurrent,
     );
   };
+
   const boolean = (
     key:
       | "furryMode"

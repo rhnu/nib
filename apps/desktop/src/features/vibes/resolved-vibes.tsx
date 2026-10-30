@@ -12,6 +12,7 @@ function ImageMaterial({ id }: { id: string }) {
     <output>{media.error ?? "正在读取原图…"}</output>
   );
 }
+
 function CollapsedImageMaterial({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -21,6 +22,7 @@ function CollapsedImageMaterial({ id }: { id: string }) {
     </details>
   );
 }
+
 export function ResolvedVibes({ resolved }: { resolved: ResolvedDraft }) {
   const references = resolved.inputs.references;
   if (!references.vibes.length) return null;

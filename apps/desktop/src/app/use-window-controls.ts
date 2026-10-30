@@ -14,9 +14,11 @@ export function useWindowControls() {
     const appWindow = getCurrentWindow();
     let stopped = false;
     let unlisten: (() => void) | undefined;
+
     const reportError = (cause: unknown) => {
       if (!stopped) setError(`无法读取窗口状态：${errorMessage(cause)}`);
     };
+
     const refresh = async () => {
       try {
         const value = await appWindow.isMaximized();
@@ -25,6 +27,7 @@ export function useWindowControls() {
         reportError(cause);
       }
     };
+
     void appWindow
       .onResized(() => void refresh())
       .then((off) => {

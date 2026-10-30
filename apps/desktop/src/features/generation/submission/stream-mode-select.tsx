@@ -2,6 +2,7 @@ import { Field } from "@/shared/ui";
 
 const modeLabel = (mode: string) =>
   mode === "sse" ? "SSE 预览" : mode === "msgpack" ? "MessagePack 预览" : mode;
+
 import type { CreationInputs } from "@/bindings/workbench";
 
 type StreamMode = NonNullable<CreationInputs["stream"]>;

@@ -21,6 +21,7 @@ function JobRetryDialogContent({ job, onClose }: { job: JobRecord; onClose: () =
       active.current = false;
     };
   }, []);
+
   async function retry() {
     if (lock.current || !account?.configured) return;
     lock.current = true;
@@ -36,6 +37,7 @@ function JobRetryDialogContent({ job, onClose }: { job: JobRecord; onClose: () =
       if (active.current) setPending(false);
     }
   }
+
   return (
     <Modal open onClose={onClose} title="再次提交这个任务">
       <div className="generation-dialog-body">

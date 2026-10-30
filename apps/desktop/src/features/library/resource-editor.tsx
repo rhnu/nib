@@ -11,6 +11,7 @@ import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { CharacterListEditor, CharacterPositionPolicy } from "@/features/characters";
 import { PreciseReferenceEditor } from "@/features/references";
 import { VibeReferenceEditor } from "@/features/vibes";
+
 export function ResourceEditor({
   editor,
   dirty,
@@ -51,6 +52,7 @@ export function ResourceEditor({
       current.active = false;
     };
   }, []);
+
   const update = (apply: (resource: Resource) => Resource) => {
     const current = latest.current;
     if (!current.active || current.editor.id !== editor.id) return;
@@ -58,6 +60,7 @@ export function ResourceEditor({
     current.editor = next;
     current.change(next);
   };
+
   const updatePreset = (
     patch: Partial<Omit<Extract<Resource["content"], { kind: "preset" }>, "kind">>,
   ) =>
@@ -66,6 +69,7 @@ export function ResourceEditor({
         ? { ...current, content: { ...current.content, ...patch } }
         : current,
     );
+
   return (
     <section className="resource-editor">
       <header className="resource-editor-heading">

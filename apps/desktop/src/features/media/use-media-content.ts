@@ -5,7 +5,9 @@ import { MediaContentStore, type ContentSnapshot } from "./content-store";
 
 const contents = new MediaContentStore((url) => URL.revokeObjectURL(url));
 const absent: ContentSnapshot = { url: null, error: null, loading: false };
+
 const noSubscription = () => () => {};
+
 const noSnapshot = () => absent;
 
 export function useMediaContent(

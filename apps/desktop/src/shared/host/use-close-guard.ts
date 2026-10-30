@@ -2,7 +2,9 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hasDesktopHost } from "./invoke";
 import { errorMessage } from "./error";
+
 export type CloseWriter = { getSnapshot: () => { dirty: boolean }; flush: () => Promise<void> };
+
 /** Resource editing blocks close; live draft writes must finish before native destruction. */
 export function useCloseGuard({
   writer,
@@ -33,11 +35,14 @@ export function useCloseGuard({
   });
   useEffect(() => {
     if (!enabled) return;
+
     const isResourceDirty = () =>
       latest.current.getResourceDirty?.() ?? latest.current.resourceDirty;
+
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (writer.getSnapshot().dirty || isResourceDirty()) event.preventDefault();
     };
+
     window.addEventListener("beforeunload", beforeUnload);
     if (!hasDesktopHost()) return () => window.removeEventListener("beforeunload", beforeUnload);
     let stopped = false;

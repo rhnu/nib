@@ -49,6 +49,7 @@ function OutputOverridesContent({
       current.active = false;
     };
   }, []);
+
   const update = (apply: (overrides: PreciseReferenceOverride[]) => PreciseReferenceOverride[]) => {
     const current = latest.current;
     if (!current.active) return;
@@ -56,6 +57,7 @@ function OutputOverridesContent({
     current.overrides = next;
     current.onChange(next);
   };
+
   if (!value.length && !overrides.length) return null;
   const stale = overrides.filter(
     (override) => !value.some((reference) => reference.id === override.id),

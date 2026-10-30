@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useStore } from "zustand";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "@/bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "@/shared/host/use-close-guard";
 import { errorMessage } from "@/shared/host/error";
@@ -10,20 +11,20 @@ import { emptySettings } from "@/features/prompt/model";
 import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
 import { useGenerationDraft } from "@/features/inputs/use-generation-draft";
+import { createLibrarySessionStore } from "@/features/library/model/library-session";
+
 export function useWorkbench(
   workspace: WorkspaceSnapshot,
   initialResources: Map<string, Resource>,
   settingsWriter: CloseWriter,
-  initialPage: "create" | "settings" = "create",
+  navigate: (page: Draft["activePage"]) => void,
 ) {
   const [writer] = useState(() => {
     const value = new DraftWriter<Draft>(workbenchApi.saveDraft);
-    value.replace(
-      initialPage === "settings" ? { ...workspace.draft, activePage: "settings" } : workspace.draft,
-    );
+    value.replace(workspace.draft);
     return value;
   });
-  const written = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
+  const written = useStore(writer.store);
   // The writer is initialized before subscription and never clears the live draft.
   const draft = written.value!;
   const {
@@ -37,23 +38,23 @@ export function useWorkbench(
   const generationDraft = useGenerationDraft(draft);
   const resolution = useResolution(generationDraft, resourceVersion);
   const [error, setError] = useState("");
-  const library = draft.activePage === "library";
+  const [librarySession] = useState(createLibrarySessionStore);
+  const resourceDirty = useStore(librarySession, (value) => value.dirty || value.busy);
+
+  const getResourceDirty = () => librarySession.getState().dirty || librarySession.getState().busy;
+
   const setLibrary = (open: boolean) => {
-    const current = writer.getSnapshot().value!;
-    writer.edit({ ...current, activePage: open ? "library" : "create" });
+    navigate(open ? "library" : "create");
   };
+
   const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
-  const [resourceDirty, updateResourceDirty] = useState(false);
-  const resourceDirtyRef = useRef(false);
-  const setResourceDirty = useCallback((dirty: boolean) => {
-    resourceDirtyRef.current = dirty;
-    updateResourceDirty(dirty);
-  }, []);
   const [restoreVersion, setRestoreVersion] = useState(0);
   const beforeClose = useRef<() => Promise<boolean>>(async () => true);
+
   const setBeforeClose = (callback: () => Promise<boolean>) => {
     beforeClose.current = callback;
   };
+
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({
@@ -76,7 +77,7 @@ export function useWorkbench(
   useCloseGuard({
     writer: closeWriter,
     resourceDirty,
-    getResourceDirty: () => resourceDirtyRef.current,
+    getResourceDirty,
     onResourceBlocked: () => {
       setError("资源中有未保存的修改。请先保存资源，再关闭窗口。");
       setLibrary(true);
@@ -84,8 +85,11 @@ export function useWorkbench(
     onError: setError,
     beforeClose: () => beforeClose.current(),
   });
+
   const edit = (value: Draft) => writer.edit(value);
+
   const readCurrentDraft = () => writer.getSnapshot().value!;
+
   const restore = (value: Draft) => {
     setRestoreVersion((version) => version + 1);
     const current = readCurrentDraft();
@@ -96,62 +100,50 @@ export function useWorkbench(
       vibeEncoder: current.vibeEncoder,
       director: current.director,
       pngTextEditor: current.pngTextEditor,
-      activePage: value.activePage,
+      activePage: current.activePage,
     });
   };
+
   const openLibrary = (target: InsertTarget) => {
     setInsertTarget(target);
-    setLibrary(true);
   };
+
   const insert = (resource: ResourceSummary) => {
-    const current = readCurrentDraft();
-    if (resource.kind === "preset")
-      edit({
-        ...current,
-        presets: [
-          ...current.presets,
-          {
-            id: crypto.randomUUID(),
-            enabled: true,
-            binding: {
-              kind: "linked",
-              resourceId: resource.id,
-              overrides: [],
-              settingsOverrides: emptySettings(),
-              outputOverrides: {
-                characters: [],
-                precise: [],
-                vibes: [],
-                normalizeVibeStrength: null,
-              },
+    writer.update((current) => {
+      if (resource.kind === "preset") {
+        current.presets.push({
+          id: crypto.randomUUID(),
+          enabled: true,
+          binding: {
+            kind: "linked",
+            resourceId: resource.id,
+            overrides: [],
+            settingsOverrides: emptySettings(),
+            outputOverrides: {
+              characters: [],
+              precise: [],
+              vibes: [],
+              normalizeVibeStrength: null,
             },
           },
-        ],
-      });
-    else {
-      const scope = insertTarget === "negative" ? "negative" : "positive";
-      edit({
-        ...current,
-        composition: {
-          ...current.composition,
-          [scope]: [
-            ...current.composition[scope],
-            {
-              kind: "chunk",
-              id: crypto.randomUUID(),
-              resourceId: resource.id,
-              enabled: true,
-              overrideText: null,
-            },
-          ],
-        },
-      });
-    }
+        });
+      } else {
+        const scope = insertTarget === "negative" ? "negative" : "positive";
+        current.composition[scope].push({
+          kind: "chunk",
+          id: crypto.randomUUID(),
+          resourceId: resource.id,
+          enabled: true,
+          overrideText: null,
+        });
+      }
+    });
     if (!resources.has(resource.id))
       void ensureResources([resource.id]).catch((cause) => setError(errorMessage(cause)));
   };
+
   const prepareMigration = async () => {
-    if (resourceDirtyRef.current) {
+    if (getResourceDirty()) {
       setLibrary(true);
       const message = "资源中有未保存的修改。请先保存资源，再更改存储位置。";
       setError(message);
@@ -161,8 +153,9 @@ export function useWorkbench(
       await waitForPendingWork();
       await writer.flush();
     } while (hasPendingWork() || writer.getSnapshot().dirty);
-    if (resourceDirtyRef.current) throw new Error("资源中有未保存的修改，请先保存后重试。");
+    if (getResourceDirty()) throw new Error("资源中有未保存的修改，请先保存后重试。");
   };
+
   return {
     writer,
     prepareMigration,
@@ -177,12 +170,11 @@ export function useWorkbench(
     retryResources,
     resourceVersion,
     ...resolution,
-    error: error || resourceError,
+    error,
     setError,
-    library,
+    librarySession,
     setLibrary,
     insertTarget,
-    setResourceDirty,
     edit,
     restore,
     restoreVersion,

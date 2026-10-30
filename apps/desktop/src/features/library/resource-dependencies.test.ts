@@ -10,6 +10,7 @@ const reference = (resourceId: string): PromptNode => ({
   resourceId,
   overrideText: null,
 });
+
 const character = (resourceId: string): CharacterComposition => ({
   id: `character-${resourceId}`,
   enabled: false,

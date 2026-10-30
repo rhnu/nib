@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+
 export function Button({
   className = "",
   type = "button",
@@ -12,6 +13,7 @@ export function Button({
     />
   );
 }
+
 export function IconButton({
   label,
   children,

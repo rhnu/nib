@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JobSummary } from "@/bindings/generation";
 import { mergeSummaries, reconcileJobs } from "./summary";
+
 function job(id: string, status: JobSummary["status"]): JobSummary {
   return {
     id,
@@ -19,6 +20,7 @@ function job(id: string, status: JobSummary["status"]): JobSummary {
     observation: null,
   };
 }
+
 describe("paged generation history", () => {
   it("replaces overlapping head records while retaining already loaded older pages", () => {
     const old = { id: "old", available: true };

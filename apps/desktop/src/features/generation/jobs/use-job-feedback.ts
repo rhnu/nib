@@ -32,6 +32,7 @@ export function useJobFeedback(
     let stopped = false;
     const subscriptionId = crypto.randomUUID();
     const channel = new Channel<JobFeedback>();
+
     const onMessage = (event: JobFeedback) => {
       if (stopped) return;
       setFeedback((state) => receiveFeedback(state, event, jobsRef.current ?? []));
@@ -52,6 +53,7 @@ export function useJobFeedback(
         });
       }
     };
+
     const connection = subscriptions.connect({
       subscribe: (receive) => {
         channel.onmessage = receive;
@@ -68,13 +70,16 @@ export function useJobFeedback(
       void connection.disconnect().catch(() => {});
     };
   }, [attempt, refresh, refreshJob]);
+
   const reconnectFeedback = useCallback(() => {
     setFeedbackError(null);
     setAttempt((value) => value + 1);
   }, []);
+
   const releasePreview = useCallback((jobId: string, sampleIndex: number) => {
     setFeedback((state) => releaseFeedbackFrame(state, jobId, sampleIndex));
   }, []);
+
   return {
     feedback: feedback.samples,
     jobObservations: feedback.observations,

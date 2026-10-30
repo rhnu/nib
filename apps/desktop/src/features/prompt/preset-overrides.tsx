@@ -4,6 +4,7 @@ import type { Composition, InstanceOverride, Resource } from "@/bindings/workben
 import { IconButton, Toggle } from "@/shared/ui";
 import { PromptTextEditor } from "./prompt-text-editor";
 import { setTextOverride } from "@/features/characters/model";
+
 /** Linked instances keep only explicit text and enabled-state overrides. */
 export function PresetOverrides({
   composition,
@@ -26,6 +27,7 @@ export function PresetOverrides({
   useLayoutEffect(() => {
     latest.current = { overrides, override };
   }, [overrides, override]);
+
   const update = (nodeId: string, patch: Partial<Omit<InstanceOverride, "nodeId">>) => {
     const current = latest.current;
     const previous = current.overrides.find((item) => item.nodeId === nodeId) ?? {
@@ -37,6 +39,7 @@ export function PresetOverrides({
     current.overrides = setTextOverride(current.overrides, next);
     current.override(next);
   };
+
   return (
     <>
       {(["positive", "negative"] as const).map((scope) => (

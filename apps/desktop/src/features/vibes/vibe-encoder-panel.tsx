@@ -137,11 +137,13 @@ export function VibeEncoderPanel({
       current.sequence++;
     };
   }, []);
+
   const update = (patch: Partial<VibeEncodingInput>) => {
     const current = latest.current;
     const input = current.readCurrentDraft().vibeEncoder;
     if (input) current.onChange({ ...input, ...patch });
   };
+
   const prepare = async (assetId: string) => {
     const current = latest.current;
     const previous = current.readCurrentDraft().vibeEncoder;
@@ -165,6 +167,7 @@ export function VibeEncoderPanel({
       if (current.active && current.sequence === sequence) setBusy(false);
     }
   };
+
   const locate = (field: string) => {
     const key =
       (
@@ -188,6 +191,7 @@ export function VibeEncoderPanel({
       target?.querySelector<HTMLElement>("input, select, button")?.focus();
     });
   };
+
   const encoded = input && results?.some((result) => isReusableEncoding(result, input));
   return (
     <div className="vibe-encoder" ref={root}>

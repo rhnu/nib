@@ -23,6 +23,7 @@ const character = (id: string): CharacterComposition => ({
   composition: emptyComposition(),
   position: { x: 0.5, y: 0.5 },
 });
+
 const resource: Resource = {
   id: "resource",
   revision: 1,
@@ -49,6 +50,7 @@ const resource: Resource = {
   },
 };
 const resources = new Map([[resource.id, resource]]);
+
 const creation = (): Draft => ({
   vibeEncoder: null,
   director: { selectedTool: "lineart", tools: [] },
@@ -78,6 +80,7 @@ const creation = (): Draft => ({
     },
   })),
 });
+
 const resolvedCharacter = (
   localId = "role:with:colons",
   presetInstanceId: string | null = "first:instance",
@@ -272,6 +275,7 @@ describe("SDK output field ownership", () => {
       },
     ],
   });
+
   it("maps character indices before disabled filtering and precise indices after it", () => {
     expect(
       outputTarget("characters.characters[1].position.x", preview(), creation(), resources),

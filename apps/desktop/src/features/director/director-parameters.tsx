@@ -19,11 +19,13 @@ export function DirectorParameters({
         ? command.emotion
         : command.colorize
       : null;
+
   const updateText = (patch: { prompt?: string; defry?: number }) => {
     if (typeof command !== "object") return;
     if ("emotion" in command) onChange({ command: { emotion: { ...command.emotion, ...patch } } });
     else onChange({ command: { colorize: { ...command.colorize, ...patch } } });
   };
+
   return (
     <div className="director-parameters">
       {text && (

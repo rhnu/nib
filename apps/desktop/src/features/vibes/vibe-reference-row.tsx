@@ -56,6 +56,7 @@ export function VibeReferenceRow({
   const [details, setDetails] = useState(false);
   const id = useId();
   const label = `氛围转移 ${index + 1}`;
+
   const reset = (field: keyof VibePatch) =>
     override?.[field] != null && onReset ? (
       <IconButton
@@ -65,6 +66,7 @@ export function VibeReferenceRow({
         <RotateCcw size={13} />
       </IconButton>
     ) : undefined;
+
   const renderMaterial = (encodingAction?: ReactNode, encodingFeedback?: ReactNode) => (
     <>
       <div className="media-input-layout">
@@ -153,6 +155,7 @@ export function VibeReferenceRow({
       {encodingFeedback}
     </>
   );
+
   return (
     <article
       className="vibe-row media-input-container"

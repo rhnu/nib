@@ -50,9 +50,11 @@ export interface VibeReferenceEditorProps {
   onNormalizeChange?: (value: boolean | null) => void;
   issues?: VibeIssues;
 }
+
 export function VibeReferenceEditor({ contextKey, ...props }: VibeReferenceEditorProps) {
   return showVibeReferences(props.capabilities) ? <Editor key={contextKey} {...props} /> : null;
 }
+
 function Editor({
   value,
   onChange,
@@ -66,10 +68,12 @@ function Editor({
   useLayoutEffect(() => {
     Object.assign(latest.current, { value, onChange });
   }, [value, onChange]);
+
   const update = (next: VibeReferenceInput[]) => {
     latest.current.value = next;
     latest.current.onChange(next);
   };
+
   const move = (index: number, delta: number) => {
     const next = [...latest.current.value];
     const item = next[index];
@@ -78,6 +82,7 @@ function Editor({
     next.splice(index + delta, 0, item);
     update(next);
   };
+
   const message = capabilities ? preciseReferenceMessages(capabilities).vibe : null;
   return (
     <section className="vibe-editor" aria-label="氛围转移参考">

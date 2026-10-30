@@ -23,6 +23,7 @@ export function AccountDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [blockedByTasks, setBlockedByTasks] = useState(false);
+
   async function save() {
     if (!name.trim() || (!id && !key.trim()) || pending) return;
     setPending(true);
@@ -37,6 +38,7 @@ export function AccountDialog({
       setPending(false);
     }
   }
+
   async function remove() {
     if (!id || pending) return;
     setPending(true);
@@ -55,6 +57,7 @@ export function AccountDialog({
       setPending(false);
     }
   }
+
   return (
     <Modal
       open

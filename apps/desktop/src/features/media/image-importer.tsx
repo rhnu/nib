@@ -54,6 +54,7 @@ export function ImageImporter({
       if (latest.current.active) setBusy(false);
     }
   };
+
   const choose = (files: ArrayLike<File>) => {
     if (latest.current.locked) return;
     const selection = singleImageFile(files);
@@ -62,6 +63,7 @@ export function ImageImporter({
       setError(selection.error);
     } else if (selection.file) void importFile(selection.file);
   };
+
   return (
     <section className="image-importer" aria-label="导入图片" aria-busy={busy}>
       <div

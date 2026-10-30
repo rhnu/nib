@@ -8,8 +8,11 @@ describe("window feedback subscription ownership", () => {
   it("orders disconnect before replacement and discards delivery after cleanup", async () => {
     const subscriptions = createFeedbackSubscriptions();
     const calls: string[] = [];
+
     let deliver: (event: JobFeedback) => void = () => {};
+
     let resolvePending = () => {};
+
     const pending = new Promise<void>((resolve) => {
       resolvePending = resolve;
     });

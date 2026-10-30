@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStore } from "zustand";
 import type { ApplicationSettingsSnapshot, StorageLocations } from "@/bindings/settings";
 import { errorMessage } from "@/shared/host/error";
 import { hasDesktopHost } from "@/shared/host/invoke";
@@ -28,7 +29,7 @@ export function useApplicationSettings() {
           setExecutionVersion((version) => version + 1);
       }),
   );
-  const preferences = useSyncExternalStore(writer.subscribe, writer.getSnapshot);
+  const preferences = useStore(writer.store);
   const storage = query.data?.storage ?? null;
   const [migrationPending, setMigrationPending] = useState(false);
   const directorySave = useRef<Promise<StorageLocations> | null>(null);
@@ -38,9 +39,11 @@ export function useApplicationSettings() {
       writer.initialize(query.data.preferences);
   }, [query.data, writer]);
   const refetchSettings = query.refetch;
+
   const refreshStorage = useCallback(async () => {
     await refetchSettings();
   }, [refetchSettings]);
+
   const setDataDirectory = useCallback(
     async (directory: string | null, beforeMigrate?: () => Promise<void>) => {
       if (directorySave.current) return directorySave.current;
@@ -65,6 +68,7 @@ export function useApplicationSettings() {
     },
     [writer, client],
   );
+
   const closeWriter = useMemo(
     () => ({
       getSnapshot: () => ({ dirty: writer.getSnapshot().dirty || directorySave.current !== null }),
@@ -78,7 +82,9 @@ export function useApplicationSettings() {
     }),
     [writer],
   );
+
   const prepareSubmission = useCallback(() => prepareSubmissionPreferences(writer), [writer]);
+
   return {
     prepareSubmission,
     migrationPending,

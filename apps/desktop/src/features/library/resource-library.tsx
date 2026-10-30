@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { resourceDependencies } from "./resource-dependencies";
 import { Plus, Search } from "lucide-react";
 import type { Resource, ResourceKind, ResourceSummary } from "@/bindings/workbench";
-import { ActionsMenu, Button, HelpMarker, Modal } from "@/shared/ui";
+import { ActionsMenu, Button, HelpMarker, Modal, Notice } from "@/shared/ui";
 import { ResourceEditor } from "./resource-editor";
 import { ResourceList } from "./resource-list";
 import { useResourceSearch } from "./use-resource-search";
 import { useResourceEditor } from "./use-resource-editor";
+
 export type InsertTarget = "positive" | "negative" | "preset";
+
 export function ResourceLibrary({
   open,
   resources,
@@ -15,7 +17,6 @@ export function ResourceLibrary({
   onChanged,
   onInsert,
   target,
-  onDirtyChange,
   ensureResources,
   resourceVersion,
 }: {
@@ -27,7 +28,6 @@ export function ResourceLibrary({
   resourceVersion: number;
   onInsert: (resource: ResourceSummary) => void;
   target: InsertTarget;
-  onDirtyChange: (dirty: boolean) => void;
 }) {
   const { query, setQuery, kind, setKind, items, loading, queryError, refreshSearch } =
     useResourceSearch(open);
@@ -46,7 +46,7 @@ export function ResourceLibrary({
     save,
     remove,
     dismiss,
-  } = useResourceEditor(onChanged, refreshSearch, onDirtyChange);
+  } = useResourceEditor(onChanged, refreshSearch);
   const dependencyKey = JSON.stringify(editor ? resourceDependencies(editor) : []);
   useEffect(() => {
     void ensureResources(JSON.parse(dependencyKey) as string[]).catch((cause: unknown) =>
@@ -90,12 +90,11 @@ export function ResourceLibrary({
             添加到配方列表。编辑资源原件后需保存；在创作中修改链接只影响本次实例。
           </HelpMarker>
         </div>
-        {(error || queryError) && (
-          <div className="error-banner" role="alert">
-            {error || queryError}
-            {queryError && <Button onClick={() => refreshSearch()}>重试查询</Button>}
-            {error && <Button onClick={() => setError("")}>关闭提示</Button>}
-          </div>
+        {error && (
+          <Notice actions={<Button onClick={() => setError("")}>关闭提示</Button>}>{error}</Notice>
+        )}
+        {queryError && (
+          <Notice actions={<Button onClick={refreshSearch}>重试查询</Button>}>{queryError}</Notice>
         )}
         <div className={`library-body ${editor ? "has-editor" : ""}`}>
           <ResourceList

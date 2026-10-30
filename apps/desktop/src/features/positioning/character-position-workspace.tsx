@@ -55,6 +55,7 @@ export function CharacterPositionWorkspace({
   useLayoutEffect(() => {
     latest.current = { characters, options, grid, supported, onChange };
   });
+
   const pointFromEvent = (event: { clientX: number; clientY: number }): Position | null => {
     const bounds = surface.current?.getBoundingClientRect();
     if (!bounds?.width || !bounds.height || !latest.current.options) return null;
@@ -68,19 +69,23 @@ export function CharacterPositionWorkspace({
       latest.current.grid,
     );
   };
+
   const commit = (key: string, position: Position | null) => {
     const current = latest.current;
     const character = current.characters.find((item) => characterKey(item) === key);
     if (character?.enabled && position && current.supported) current.onChange(character, position);
   };
+
   const stop = (event: PointerEvent<HTMLDivElement>) => {
     if (drag.current?.pointerId !== event.pointerId) return;
     drag.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
   };
+
   const label = (character: ResolvedCharacter, index: number) =>
     `${index + 1} · ${character.positive.trim().split(/[,\n]/)[0]?.slice(0, 24) || "角色"}${character.enabled ? "" : "（停用）"}`;
+
   return (
     <section className="character-position-workspace" aria-label="角色定位画布">
       <header className="character-position-toolbar">

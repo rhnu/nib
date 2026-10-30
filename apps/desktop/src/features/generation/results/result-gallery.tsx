@@ -77,6 +77,7 @@ export function ResultCanvas({
   const [decodedUrl, setDecodedUrl] = useState<string | null>(null);
   const decoded = Boolean(image.url && !image.error && decodedUrl === image.url);
   const canZoom = Boolean(image.url && !image.error);
+
   const copySeed = async () => {
     if (result.seed === null) return;
     try {
@@ -86,6 +87,7 @@ export function ResultCanvas({
       setCopyState("无法复制种子");
     }
   };
+
   return (
     <section className="image-viewer" aria-label="图片查看器">
       <div className="image-overlay image-overlay-top" role="toolbar" aria-label="图片操作">

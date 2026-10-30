@@ -76,11 +76,13 @@ export function InpaintCanvasWorkspace({
     if (previous && viewport.current?.hasPointerCapture(previous.pointerId))
       viewport.current.releasePointerCapture(previous.pointerId);
   }, [pending, preview]);
+
   const change = (next: MaskSession) => {
     if (latest.current.pending) return;
     latest.current.value = next;
     latest.current.onChange(next);
   };
+
   useLayoutEffect(() => {
     const element = viewport.current;
     if (!element) return;
@@ -93,6 +95,7 @@ export function InpaintCanvasWorkspace({
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
+
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
       if (latest.current.pending || gesture.current) return;
@@ -107,6 +110,7 @@ export function InpaintCanvasWorkspace({
       current.value = next;
       current.onChange(next);
     };
+
     element.addEventListener("wheel", wheel, { passive: false });
     return () => element.removeEventListener("wheel", wheel);
   }, []);
@@ -163,10 +167,12 @@ export function InpaintCanvasWorkspace({
     !images.error &&
     !renderError &&
     !pending;
+
   const eventPoint = (event: { clientX: number; clientY: number }) => {
     const bounds = viewport.current!.getBoundingClientRect();
     return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
   };
+
   const stop = (element: HTMLDivElement, pointerId?: number) => {
     const current = gesture.current;
     if (pointerId !== undefined && current?.pointerId !== pointerId) return;
@@ -174,6 +180,7 @@ export function InpaintCanvasWorkspace({
     if (current && element.hasPointerCapture(current.pointerId))
       element.releasePointerCapture(current.pointerId);
   };
+
   const start = (event: PointerEvent<HTMLDivElement>) => {
     if (!ready || gesture.current || (event.button !== 0 && event.button !== 1)) return;
     const screen = eventPoint(event);
@@ -214,6 +221,7 @@ export function InpaintCanvasWorkspace({
       change(next);
     }
   };
+
   const move = (event: PointerEvent<HTMLDivElement>) => {
     const screen = eventPoint(event);
     setPointer(screen);
@@ -237,6 +245,7 @@ export function InpaintCanvasWorkspace({
       if (next !== latest.current.value) change(next);
     }
   };
+
   const zoom = (factor: number) => {
     if (viewport.current) stop(viewport.current);
     change(
@@ -248,15 +257,18 @@ export function InpaintCanvasWorkspace({
       ),
     );
   };
+
   const chooseTool = (next: Tool) => {
     if (viewport.current) stop(viewport.current);
     if (next !== "pan" && preview === "original") setPreview("overlay");
     setTool(next);
   };
+
   const runHistory = (action: (session: MaskSession) => MaskSession) => {
     if (viewport.current) stop(viewport.current);
     change(action(latest.current.value));
   };
+
   return (
     <section className="inpaint-workspace" aria-label="局部重绘遮罩编辑器" aria-busy={pending}>
       <header className="inpaint-toolbar">

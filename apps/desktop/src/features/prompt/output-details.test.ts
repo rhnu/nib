@@ -20,6 +20,7 @@ const character: CharacterComposition = {
     negative: [],
   },
 };
+
 const draft = (): Draft => ({
   vibeEncoder: null,
   director: { selectedTool: "lineart", tools: [] },
@@ -39,6 +40,7 @@ const draft = (): Draft => ({
   },
   maskEditor: { activeSourceId: null, sessions: [] },
 });
+
 const issue: ResolutionIssue = {
   kind: "missingResource",
   characterId: character.id,

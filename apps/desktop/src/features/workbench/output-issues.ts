@@ -11,7 +11,9 @@ export type OutputIssues = {
   vibes: Record<string, OutputFieldIssue[]>;
 };
 export type ScopedOutputIssues = { draft: OutputIssues; presets: Record<string, OutputIssues> };
+
 const empty = (): OutputIssues => ({ characters: {}, precise: {}, vibes: {} });
+
 type Target = {
   kind: "character" | "reference" | "vibe";
   id: string;

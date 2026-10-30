@@ -152,10 +152,12 @@ export function CharacterListEditor({
   useLayoutEffect(() => {
     latest.current = { value, onChange };
   }, [value, onChange]);
+
   const emit = (next: CharacterComposition[]) => {
     latest.current.value = next;
     latest.current.onChange(next);
   };
+
   const enabled = value.filter((character) => character.enabled).length;
   const max = capabilities?.maxCharacters ?? 0;
   return (

@@ -22,10 +22,12 @@ export function useMaskEditor({
 }) {
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
+
   const setBusy = (value: boolean) => {
     busy.current = value;
     setPending(value);
   };
+
   const [transition, setTransition] = useState<Transition | null>(null);
   const [discarding, setDiscarding] = useState(false);
   const [applyConfirmation, setApplyConfirmation] = useState<ApplyConfirmation | null>(null);
@@ -43,12 +45,14 @@ export function useMaskEditor({
     draft.maskEditor.sessions.find(
       (session) => session.sourceAssetId === draft.maskEditor.activeSourceId,
     ) ?? null;
+
   const currentSession = () => {
     const editor = readCurrentDraft().maskEditor;
     return (
       editor.sessions.find((session) => session.sourceAssetId === editor.activeSourceId) ?? null
     );
   };
+
   const change = (session: MaskSession) => {
     const current = readCurrentDraft();
     edit({
@@ -61,11 +65,13 @@ export function useMaskEditor({
       },
     });
   };
+
   const closeEditor = () => {
     const current = readCurrentDraft();
     if (current.maskEditor.activeSourceId !== null)
       edit({ ...current, maskEditor: { ...current.maskEditor, activeSourceId: null } });
   };
+
   const discard = () => {
     const current = readCurrentDraft();
     const session = currentSession();
@@ -85,11 +91,13 @@ export function useMaskEditor({
       appliedMaskAssetId: maskId,
     });
   };
+
   const finish = (target: Transition) => {
     if (target.closeEditor) closeEditor();
     setTransition(null);
     target.run();
   };
+
   const guard = (run: () => void, options?: { cancel?: () => void; closeEditor?: boolean }) => {
     if (busy.current || transition) {
       options?.cancel?.();
@@ -100,6 +108,7 @@ export function useMaskEditor({
     if (session && session.revision !== session.appliedRevision) setTransition(target);
     else finish(target);
   };
+
   async function open(id: string) {
     const sequence = ++lifetime.current.sequence;
     setBusy(true);
@@ -154,6 +163,7 @@ export function useMaskEditor({
       if (lifetime.current.active && sequence === lifetime.current.sequence) setBusy(false);
     }
   }
+
   const apply = (): Promise<boolean> => {
     if (applying.current) return applying.current;
     const session = currentSession();
@@ -225,6 +235,7 @@ export function useMaskEditor({
     })();
     return applying.current;
   };
+
   return {
     active,
     pending,
@@ -238,9 +249,13 @@ export function useMaskEditor({
     change,
     guard,
     apply,
-    open: (id: string) => {
-      if (currentSession()?.sourceAssetId === id) return;
+    open: (id: string, onOpen?: () => void) => {
+      if (currentSession()?.sourceAssetId === id) {
+        onOpen?.();
+        return;
+      }
       guard(() => {
+        onOpen?.();
         void open(id);
       });
     },

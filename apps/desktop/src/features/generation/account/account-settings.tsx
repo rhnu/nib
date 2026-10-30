@@ -21,6 +21,7 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
   const [editing, setEditing] = useState<string | null | undefined>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
   async function activate(id: string) {
     setPending(true);
     setError("");
@@ -32,6 +33,7 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
       setPending(false);
     }
   }
+
   return (
     <section className="generation-account-settings" aria-label="NovelAI 账户">
       <div className="generation-account-row">

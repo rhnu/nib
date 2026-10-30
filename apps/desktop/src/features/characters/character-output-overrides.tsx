@@ -43,6 +43,7 @@ export function CharacterOutputOverrides({
   useLayoutEffect(() => {
     latest.current = { overrides, onChange };
   }, [overrides, onChange]);
+
   const update = (
     characterId: string,
     patch: Partial<Omit<CharacterOutputOverride, "characterId">>,
@@ -56,6 +57,7 @@ export function CharacterOutputOverrides({
     latest.current.overrides = next;
     latest.current.onChange(next);
   };
+
   const stale = overrides.filter(
     (item) => !value.some((character) => character.id === item.characterId),
   );

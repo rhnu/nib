@@ -57,7 +57,9 @@ export function PreciseReferenceRow({
   const media = useMediaAsset(value.assetId);
   const options = capabilities?.preciseReferenceOptions;
   const label = `精确参考 ${index + 1}`;
+
   const hasIssue = (field: string) => issues.some((issue) => issue.field === field);
+
   const messages = (field: string) =>
     hasIssue(field) ? (
       <output id={`${prefix}-${field}-issues`} className="precise-reference-message">
@@ -68,12 +70,14 @@ export function PreciseReferenceRow({
           ))}
       </output>
     ) : null;
+
   const reset = (field: PreciseReferenceField, name: string) =>
     override?.[field] != null && onReset ? (
       <IconButton label={`撤销${name}覆盖`} onClick={() => onReset(field)}>
         <RotateCcw size={13} />
       </IconButton>
     ) : undefined;
+
   const numeric = (
     field: "strength" | "fidelity" | "informationExtracted",
     name: string,
@@ -103,6 +107,7 @@ export function PreciseReferenceRow({
       </FormField>
     </div>
   );
+
   const savedTypeUnsupported = !!options && !options.referenceTypes.includes(value.referenceType);
   return (
     <article

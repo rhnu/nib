@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { refreshHistory, type HistoryPage } from "./paged-history";
+
 type Item = { id: string };
+
 function items(from: number, to: number): Item[] {
   return Array.from({ length: from - to + 1 }, (_, index) => ({ id: String(from - index) }));
 }
+
 describe("catching up paged history", () => {
   it("recovers more than one page of new records after older history was exhausted", async () => {
     const previous = { items: items(100, 1), nextCursor: null };

@@ -22,9 +22,11 @@ export interface VibeOutputOverridesProps {
   onNormalizeChange?: (value: boolean | null) => void;
   issues?: VibeIssues;
 }
+
 export function VibeOutputOverrides({ contextKey, ...props }: VibeOutputOverridesProps) {
   return showVibeReferences(props.capabilities) ? <Overrides key={contextKey} {...props} /> : null;
 }
+
 function Overrides({
   value,
   overrides,
@@ -39,11 +41,13 @@ function Overrides({
   useLayoutEffect(() => {
     Object.assign(latest.current, { overrides, onChange });
   }, [overrides, onChange]);
+
   const patch = (id: string, change: Partial<Omit<VibeReferenceOverride, "id">>) => {
     const next = patchVibeOverride(latest.current.overrides, id, change);
     latest.current.overrides = next;
     latest.current.onChange(next);
   };
+
   const stale = overrides.filter((item) => !value.some((source) => source.id === item.id));
   return (
     <section className="vibe-editor" aria-label="配方氛围转移覆盖">

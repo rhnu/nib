@@ -99,6 +99,7 @@ const referenceTypes: Record<string, string> = {
   costume: "服装",
   delta: "差异",
 };
+
 function ResolvedReferenceDetails({
   reference,
   index,

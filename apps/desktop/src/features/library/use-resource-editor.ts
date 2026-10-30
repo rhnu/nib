@@ -1,95 +1,90 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import type { Resource, ResourceKind } from "@/bindings/workbench";
 import { errorMessage } from "@/shared/host/error";
 import { emptyComposition, emptyReferences, emptySettings } from "@/features/prompt/model";
 import { libraryApi } from "./api";
-import { mergeResourceSave } from "./resource-edit";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import { resourceQuery } from "./resource-queries";
+import { useLibrarySessionStore } from "./model/library-session-context";
+import {
+  acceptLibrarySave,
+  editLibraryResource,
+  type LibrarySessionState,
+} from "./model/library-session";
+
 export function useResourceEditor(
   onChanged: (id: string) => Promise<void>,
   refreshSearch: () => void,
-  onDirtyChange: (dirty: boolean) => void,
 ) {
   const client = useQueryClient();
-  const [error, setError] = useState("");
-  const [editor, setEditor] = useState<Resource | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<{ title: string; action: () => void } | null>(null);
-  const latest = useRef({
-    active: true,
-    editor: null as Resource | null,
-    dirty: false,
-    busy: false,
-    version: 0,
-    operation: 0,
-    onChanged,
-    refreshSearch,
-    onDirtyChange,
-  });
+  const store = useLibrarySessionStore();
+  const state = useStore(
+    store,
+    useShallow(({ editor, dirty, busy, confirm, error }) => ({
+      editor,
+      dirty,
+      busy,
+      confirm,
+      error,
+    })),
+  );
+  // Only callbacks are component-owned; edits and operation identities live in the session.
+  const callbacks = useRef({ onChanged, refreshSearch });
   useLayoutEffect(() => {
-    Object.assign(latest.current, { onChanged, refreshSearch, onDirtyChange });
-  }, [onChanged, refreshSearch, onDirtyChange]);
-  useEffect(() => {
-    const current = latest.current;
-    current.active = true;
-    return () => {
-      current.active = false;
-      current.operation++;
-    };
-  }, []);
-  useLayoutEffect(() => {
-    onDirtyChange(dirty || busy);
-  }, [dirty, busy, onDirtyChange]);
+    callbacks.current = { onChanged, refreshSearch };
+  }, [onChanged, refreshSearch]);
+
+  const setError = useCallback((error: string) => store.setState({ error }), [store]);
+
+  const setConfirm = useCallback(
+    (confirm: LibrarySessionState["confirm"]) => store.setState({ confirm }),
+    [store],
+  );
+
+  const isCurrent = (operation: number) => store.getState().operation === operation;
+
+  const publish = (editor: Resource | null, dirty: boolean) => store.setState({ editor, dirty });
+
+  const setWorking = (busy: boolean) => store.setState({ busy });
+
   const leave = (action: () => void) => {
-    if (latest.current.busy) return;
-    const operation = latest.current.operation;
+    if (store.getState().busy) return;
+    const operation = store.getState().operation;
+
     const proceed = () => {
-      if (!isCurrent(operation) || latest.current.busy) return;
-      if (latest.current.dirty) setConfirm({ title: "放弃资源中未保存的修改？", action });
+      const current = store.getState();
+      if (!isCurrent(operation) || current.busy) return;
+      if (current.dirty) setConfirm({ title: "放弃资源中未保存的修改？", action });
       else action();
     };
+
     if (!hasPendingWork()) proceed();
     else
       void waitForPendingWork().then(proceed, (cause: unknown) => {
         if (isCurrent(operation)) setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
       });
   };
-  const publish = (next: Resource | null, nextDirty: boolean) => {
-    latest.current.editor = next;
-    latest.current.dirty = nextDirty;
-    latest.current.onDirtyChange(nextDirty || latest.current.busy);
-    setEditor(next);
-    setDirty(nextDirty);
-  };
-  const setWorking = (working: boolean) => {
-    latest.current.busy = working;
-    latest.current.onDirtyChange(latest.current.dirty || working);
-    setBusy(working);
-  };
-  const isCurrent = (operation: number) =>
-    latest.current.active && latest.current.operation === operation;
-  const change = (resource: Resource) => {
-    const current = latest.current;
-    if (!current.active || !current.editor || resource.id !== current.editor.id) return;
-    current.version++;
-    publish({ ...resource, revision: current.editor.revision }, true);
-  };
+
+  const change = (resource: Resource) => editLibraryResource(store, resource);
+
   const refresh = async (id: string) => {
     try {
-      await latest.current.onChanged(id);
+      await callbacks.current.onChanged(id);
     } finally {
-      if (latest.current.active) latest.current.refreshSearch();
+      callbacks.current.refreshSearch();
     }
   };
+
   const create = (nextKind: ResourceKind) =>
     leave(() => {
-      latest.current.operation++;
-      latest.current.version++;
-      publish(
-        {
+      const current = store.getState();
+      store.setState({
+        operation: current.operation + 1,
+        version: current.version + 1,
+        editor: {
           id: crypto.randomUUID(),
           revision: 0,
           name: "",
@@ -104,14 +99,15 @@ export function useResourceEditor(
                   references: emptyReferences(),
                 },
         },
-        false,
-      );
-      setError("");
+        dirty: false,
+        error: "",
+      });
     });
+
   const select = (id: string) =>
     leave(() => {
-      const operation = ++latest.current.operation;
-      setWorking(true);
+      const operation = store.getState().operation + 1;
+      store.setState({ operation, busy: true });
       void client
         .fetchQuery(resourceQuery(client, id))
         .then(
@@ -121,9 +117,12 @@ export function useResourceEditor(
               setError("资源不存在，请刷新列表后重试。");
               return;
             }
-            latest.current.version++;
-            publish(resource, false);
-            setError("");
+            store.setState({
+              version: store.getState().version + 1,
+              editor: resource,
+              dirty: false,
+              error: "",
+            });
           },
           (cause: unknown) => {
             if (isCurrent(operation)) setError(errorMessage(cause));
@@ -133,10 +132,10 @@ export function useResourceEditor(
           if (isCurrent(operation)) setWorking(false);
         });
     });
+
   const save = async () => {
-    const current = latest.current;
-    if (current.busy || !current.active) return;
-    const waitingOperation = current.operation;
+    if (store.getState().busy) return;
+    const waitingOperation = store.getState().operation;
     try {
       await waitForPendingWork();
     } catch (cause) {
@@ -144,23 +143,21 @@ export function useResourceEditor(
         setError(`操作未完成，当前编辑已保留：${errorMessage(cause)}`);
       return;
     }
-    if (!isCurrent(waitingOperation) || current.busy) return;
+    const current = store.getState();
+    if (!isCurrent(waitingOperation) || current.busy || !current.editor) return;
     const snapshot = current.editor;
-    if (!snapshot || current.busy || !current.active) return;
     if (!snapshot.name.trim()) {
       setError("请填写资源名称。");
       return;
     }
     const request = { id: snapshot.id, version: current.version };
-    const operation = ++current.operation;
-    setWorking(true);
-    setError("");
+    const operation = current.operation + 1;
+    store.setState({ operation, busy: true, error: "" });
     try {
       const saved = await libraryApi.saveResource({ ...snapshot, name: snapshot.name.trim() });
       if (!isCurrent(operation)) return;
       client.setQueryData(["resource", saved.id], saved);
-      const merged = mergeResourceSave(current.editor, current.version, request, saved);
-      if (merged) publish(merged.editor, merged.dirty);
+      acceptLibrarySave(store, request, saved);
       try {
         await refresh(saved.id);
       } catch (cause) {
@@ -173,15 +170,17 @@ export function useResourceEditor(
       if (isCurrent(operation)) setWorking(false);
     }
   };
+
   const remove = () => {
-    const editor = latest.current.editor;
-    if (!editor || latest.current.busy) return;
+    const { editor, busy } = store.getState();
+    if (!editor || busy) return;
     setConfirm({
       title: `删除“${editor.name}”？已有引用会保留并显示资源缺失。`,
       action: () => {
-        if (latest.current.editor?.id !== editor.id || latest.current.busy) return;
-        const operation = ++latest.current.operation;
-        setWorking(true);
+        const current = store.getState();
+        if (current.editor?.id !== editor.id || current.busy) return;
+        const operation = current.operation + 1;
+        store.setState({ operation, busy: true });
         void libraryApi
           .deleteResource(editor.id, editor.revision)
           .then(async () => {
@@ -199,26 +198,17 @@ export function useResourceEditor(
       },
     });
   };
+
   const dismiss = () => {
-    latest.current.operation++;
-    latest.current.version++;
-    publish(null, false);
-    setWorking(false);
+    const current = store.getState();
+    store.setState({
+      operation: current.operation + 1,
+      version: current.version + 1,
+      editor: null,
+      dirty: false,
+      busy: false,
+    });
   };
-  return {
-    editor,
-    dirty,
-    busy,
-    confirm,
-    setConfirm,
-    error,
-    setError,
-    change,
-    leave,
-    create,
-    select,
-    save,
-    remove,
-    dismiss,
-  };
+
+  return { ...state, setConfirm, setError, change, leave, create, select, save, remove, dismiss };
 }

@@ -15,12 +15,14 @@ export function useMaskBitmaps(sourceId: string, baseMaskId: string | null) {
     let active = true;
     let source: ImageBitmap | null = null;
     let mask: ImageBitmap | null = null;
+
     const close = () => {
       source?.close();
       mask?.close();
       source = null;
       mask = null;
     };
+
     void (async () => {
       try {
         source = await loadMaskBitmap(sourceId);

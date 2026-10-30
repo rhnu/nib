@@ -210,6 +210,7 @@ function MetadataDialogContent({
       state.active = false;
     };
   }, []);
+
   const prepareRestore = async () => {
     if (current.current.locked) return;
     current.current.locked = true;
@@ -225,6 +226,7 @@ function MetadataDialogContent({
       if (current.current.active) setRestoring(false);
     }
   };
+
   return (
     <Modal open onClose={onClose} title="图片元信息" wide>
       <div className="media-metadata-dialog">

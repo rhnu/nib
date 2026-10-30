@@ -7,6 +7,7 @@ import type {
   DraftAnalysis,
   TokenInspection,
 } from "@/bindings/workbench";
+
 export const promptApi = {
   resolve: (draft: Draft) => invokeHost<DraftAnalysis>("resolve_draft", { draft }),
   expandChunk: (node: PromptNode) => invokeHost<PromptNode>("expand_chunk", { node }),

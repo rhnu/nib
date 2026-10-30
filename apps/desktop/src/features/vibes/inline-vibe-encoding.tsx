@@ -72,11 +72,13 @@ export function InlineVibeEncoding({
     staleTime: Infinity,
     gcTime: 30_000,
   });
+
   const commit = (assetId: string, snapshot: EncodingSnapshot) => {
     const current = latest.current;
     if (!current.active || current.key !== snapshot.key) return;
     current.onChange({ input: { kind: "encoded", assetId } });
   };
+
   const encode = useMutation({
     mutationFn: (snapshot: EncodingSnapshot) =>
       trackPendingWork(

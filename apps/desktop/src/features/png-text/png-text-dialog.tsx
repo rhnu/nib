@@ -102,8 +102,10 @@ function PngTextDialogContent({
   }, []);
 
   const readSession = () => pngTextSession(callbacks.current.readState(), asset.id);
+
   const persist = (value: PngTextSession) =>
     callbacks.current.onChange(storePngTextSession(callbacks.current.readState(), value));
+
   const edit = (entries: PngTextValue[]) => {
     setError(null);
     const next = { ...readSession(), entries };
@@ -115,6 +117,7 @@ function PngTextDialogContent({
       setError(errorMessage(cause));
     }
   };
+
   const editOriginal = (entry: PngTextValue) => {
     const next = editPngTextEntry(readSession().entries, entry);
     edit(next.entries);
@@ -122,6 +125,7 @@ function PngTextDialogContent({
       if (current.current.active) editor.current?.querySelectorAll("textarea")[next.index]?.focus();
     });
   };
+
   const run = async (action: () => Promise<void>) => {
     if (current.current.locked) return;
     current.current.locked = true;
@@ -136,6 +140,7 @@ function PngTextDialogContent({
       if (current.current.active) setBusy(false);
     }
   };
+
   const write = () =>
     run(async () => {
       const input = readSession();

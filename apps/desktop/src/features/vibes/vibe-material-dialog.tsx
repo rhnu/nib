@@ -21,6 +21,7 @@ export interface VibeMaterialDialogProps {
   initialAssetId?: string | null;
   single?: boolean;
 }
+
 export function VibeMaterialDialog({ open, ...props }: VibeMaterialDialogProps) {
   return open ? <Materials {...props} /> : null;
 }
@@ -55,14 +56,17 @@ function Materials({
     selected?.kind === "vibe" ? selected.id : null,
     mediaApi.inspectVibeAsset,
   );
+
   const selectAsset = (id: string) => {
     setSelectedId(id);
     setSelection([]);
   };
+
   const retain = (asset: MediaAsset) => {
     selectAsset(asset.id);
     assets.retry();
   };
+
   const saveDocument = async (id: string, name: string, active: () => boolean) => {
     const inspection = await mediaApi.inspectVibeDocument(id);
     if (!active()) return;
@@ -70,6 +74,7 @@ function Materials({
     if (active())
       downloadBytes(bytes, `${name}.${inspection.isBundle ? "naiv4vibeBundle" : "naiv4vibe"}`);
   };
+
   const choose = (mode: "append" | "replace") =>
     void action.run(async (active) => {
       if (!selected) return;
@@ -97,6 +102,7 @@ function Materials({
         latest.current.onClose();
       }
     });
+
   const file = async (file: File, kind: "document" | "encoded" = "document") =>
     action.run(async (active) => {
       const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
@@ -107,6 +113,7 @@ function Materials({
           : await mediaApi.importVibeDocument(bytes, file.name);
       if (active()) retain(asset);
     });
+
   const applyImage = (asset: MediaAsset) => {
     const operation = imageAction;
     setImageAction(null);
@@ -134,6 +141,7 @@ function Materials({
       }
     });
   };
+
   const exportEntry = (entryIndex: number) =>
     void action.run(async (active) => {
       if (!document.value || !selected) return;
@@ -156,6 +164,7 @@ function Materials({
       await saveDocument(exported.id, "nib-vibe", active);
       if (active()) assets.retry();
     });
+
   const canChoose =
     !!selected?.available && (selected.kind !== "vibeDocument" || selection.length > 0);
   return (
@@ -402,6 +411,7 @@ function DocumentEntries({
   onExportEntry: (entryIndex: number) => void;
 }) {
   const key = (value: DocumentSelection) => JSON.stringify(value);
+
   const option = (value: DocumentSelection, label: string) => (
     <label className="vibe-cache-option">
       <input
@@ -422,6 +432,7 @@ function DocumentEntries({
       <span>{label}</span>
     </label>
   );
+
   return (
     <div className="vibe-document-entries">
       {view.entries.map((entry) => (

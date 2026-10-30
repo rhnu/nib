@@ -34,8 +34,11 @@ export function useImageOperationRequest({
   );
   const candidate = candidateState?.contextVersion === contextVersion ? candidateState.value : null;
   const busy = busyState?.contextVersion === contextVersion && busyState.value;
+
   const setCandidate = (value: Candidate | null) => setCandidateState({ contextVersion, value });
+
   const setBusy = (value: boolean) => setBusyState({ contextVersion, value });
+
   const lifetime = useRef({ active: true, sequence: 0 });
   useLayoutEffect(() => {
     lifetime.current.sequence += 1;
@@ -48,16 +51,19 @@ export function useImageOperationRequest({
       current.sequence += 1;
     };
   }, []);
+
   const nextDraft = (current: Draft, value: Candidate) =>
     value.asset
       ? applyImageOperation(current, value.asset, value.operation)
       : { ...current, inputs: { ...current.inputs, operation: value.operation } };
+
   const offer = (value: Candidate) => {
     const current = readCurrentDraft();
     const next = nextDraft(current, value);
     if (imageOperationNeedsConfirmation(current, next)) setCandidate(value);
     else edit(next);
   };
+
   async function request(id: string, kind: ImageOperationAction) {
     if (kind === "inpainting") return;
     const sequence = ++lifetime.current.sequence;
@@ -82,6 +88,7 @@ export function useImageOperationRequest({
       if (lifetime.current.active && sequence === lifetime.current.sequence) setBusy(false);
     }
   }
+
   return {
     busy,
     candidate,

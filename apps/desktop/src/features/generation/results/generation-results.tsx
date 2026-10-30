@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { useResultViewStore, type ResultSelection as Selection } from "./result-view-state";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Grid2X2, Image, ListOrdered, LoaderCircle, Scan } from "lucide-react";
 import type { CreationOperation, Draft } from "@/bindings/workbench";
@@ -17,11 +19,6 @@ import { RequestCanvas } from "./request-canvas";
 import { SourceImageView } from "./source-image-view";
 import { ImageResultActions } from "./image-result-actions";
 import { useMediaAsset } from "@/features/media/use-media-asset";
-
-type Selection =
-  | { kind: "job"; id: string }
-  | { kind: "result"; result: ResultSummary; backJob?: string }
-  | { kind: "source" };
 
 export function GenerationResults({
   onRestore,
@@ -56,17 +53,27 @@ export function GenerationResults({
     loadMoreResults,
   } = useJobData();
   const { feedbackError, reconnectFeedback } = useFeedback();
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const sourceReturn = useRef<Selection | null>(null);
-  const [seenBatch, setSeenBatch] = useState<string | null>(null);
+  const view = useResultViewStore(gallery);
+  const selection = useStore(view, (state) => state.selection);
+  const seenBatch = useStore(view, (state) => state.seenBatch);
+
+  const setSelection = useCallback(
+    (selection: Selection | null) => view.setState({ selection }),
+    [view],
+  );
+
   const [queueOpen, setQueueOpen] = useState(false);
   const [detail, setDetail] = useState<ResultSummary | null>(null);
-  if (!gallery && lastSubmission && lastSubmission.batchId !== seenBatch) {
-    setSeenBatch(lastSubmission.batchId);
+  useEffect(() => {
+    if (gallery || !lastSubmission || lastSubmission.batchId === seenBatch) return;
     const first = lastSubmission.jobs[0];
-    if (first && first.submission.kind !== "encodeVibe")
-      setSelection({ kind: "job", id: first.id });
-  }
+    view.setState({
+      seenBatch: lastSubmission.batchId,
+      ...(first && first.submission.kind !== "encodeVibe"
+        ? { selection: { kind: "job", id: first.id } as const }
+        : {}),
+    });
+  }, [gallery, lastSubmission, seenBatch, view]);
   const activeJobs =
     jobs?.filter(
       (job) =>
@@ -79,7 +86,16 @@ export function GenerationResults({
       a.submittedAt - b.submittedAt ||
       a.id.localeCompare(b.id, undefined, { numeric: true }),
   )[0];
-  if (!gallery && selection === null && active) setSelection({ kind: "job", id: active.id });
+  const activeId = active?.id;
+  useEffect(() => {
+    if (
+      !gallery &&
+      selection === null &&
+      activeId &&
+      (!lastSubmission || lastSubmission.batchId === seenBatch)
+    )
+      setSelection({ kind: "job", id: activeId });
+  }, [gallery, selection, activeId, setSelection, lastSubmission, seenBatch]);
   const currentSelection =
     selection?.kind === "result"
       ? {
@@ -116,10 +132,12 @@ export function GenerationResults({
     onViewedAssetChange?.(viewedId);
   }, [viewedId, onViewedAssetChange]);
   const canvas = { onRestore, onUseSeed, onImageOperation, canMaxEnhance, canInpaint };
+
   const selectJob = (id: string) => {
     setSelection({ kind: "job", id });
     setQueueOpen(false);
   };
+
   return (
     <section
       className={"generation-results" + (gallery ? " gallery-page" : "")}
@@ -137,9 +155,9 @@ export function GenerationResults({
             label={selected?.kind === "source" ? "返回结果" : "查看输入图片"}
             aria-pressed={selected?.kind === "source"}
             onClick={() => {
-              if (selected?.kind === "source") setSelection(sourceReturn.current);
+              if (selected?.kind === "source") setSelection(view.getState().sourceReturn);
               else {
-                sourceReturn.current = selected;
+                view.setState({ sourceReturn: selected });
                 setSelection({ kind: "source" });
               }
             }}

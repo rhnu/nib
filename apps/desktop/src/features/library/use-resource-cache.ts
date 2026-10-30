@@ -56,6 +56,7 @@ export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
   });
   const store = useMemo(() => resourceStore(client), [client]);
   const { resources, resourceError } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+
   const ensureResources = useCallback(
     async (ids: string[], force = false) => {
       const unique = [...new Set(ids)];
@@ -79,6 +80,7 @@ export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
     },
     [client],
   );
+
   const refreshResources = useCallback(
     async (id: string) => {
       await client.cancelQueries({ queryKey: ["resource"] });
@@ -91,6 +93,7 @@ export function useResourceCache(initial: Map<string, Resource>, draft: Draft) {
     },
     [client, ensureResources],
   );
+
   const dependencyKey = JSON.stringify(draftResourceIds(draft));
   useEffect(() => {
     void ensureResources(JSON.parse(dependencyKey) as string[]).catch(() => {

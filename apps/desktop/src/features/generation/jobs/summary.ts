@@ -8,6 +8,7 @@ import type {
 } from "@/bindings/generation";
 import { commandTool, directorToolLabels } from "@/features/director/model";
 import { operationSourceId } from "@/features/inputs/image-operation";
+
 export function summarizeOperation(submission: FrozenSubmission): OperationSummary {
   if (submission.kind === "generation")
     return {
@@ -40,20 +41,24 @@ export function summarizeOperation(submission: FrozenSubmission): OperationSumma
     },
   };
 }
+
 export function summarizeJob(record: JobRecord): JobSummary {
   const { submission, ...summary } = record;
   return { ...summary, operation: summarizeOperation(submission) };
 }
+
 export function summarizeResult(record: GenerationResult): ResultSummary {
   const { submission, ...summary } = record;
   return { ...summary, operation: summarizeOperation(submission) };
 }
+
 export function operationSummaryLabel(operation: OperationSummary): string {
   if (operation.kind === "generation") return "图像生成";
   if (operation.kind === "director") return directorToolLabels[operation.tool];
   if (operation.kind === "encodeVibe") return `氛围转移编码 · ${operation.input.model}`;
   return "独立放大";
 }
+
 /** New head data replaces matching identities, while already loaded older pages remain reachable. */
 export function mergeSummaries<T extends { id: string }>(
   newer: readonly T[],
@@ -62,6 +67,7 @@ export function mergeSummaries<T extends { id: string }>(
   const ids = new Set(newer.map((item) => item.id));
   return [...newer, ...older.filter((item) => !ids.has(item.id))];
 }
+
 export function reconcileJobs(
   active: readonly JobSummary[],
   head: readonly JobSummary[],

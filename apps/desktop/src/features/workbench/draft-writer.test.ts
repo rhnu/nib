@@ -3,6 +3,7 @@ import { DraftWriter } from "./draft-writer";
 
 type Document = { revision: number; text: string };
 const initial: Document = { revision: 1, text: "original" };
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -89,6 +90,47 @@ describe("DraftWriter", () => {
       dirty: false,
       saving: false,
     });
+  });
+
+  it("applies nested domain updates without mutating the previous draft or persisting no-ops", async () => {
+    type Nested = Document & {
+      composition: { entries: { text: string }[] };
+      model: { id: string };
+    };
+    const write = vi.fn(async (value: Nested) => ({ revision: value.revision + 1 }));
+    const writer = new DraftWriter(write);
+    const original: Nested = {
+      ...initial,
+      composition: { entries: [{ text: "old" }] },
+      model: { id: "model" },
+    };
+    writer.replace(original);
+    writer.update(() => {});
+    await writer.flush();
+    expect(write).not.toHaveBeenCalled();
+    writer.update((draft) => {
+      draft.composition.entries[0].text = "new";
+      draft.composition.entries.push({ text: "added" });
+    });
+    expect(original.composition.entries).toEqual([{ text: "old" }]);
+    expect(writer.getSnapshot().value?.composition.entries).toEqual([
+      { text: "new" },
+      { text: "added" },
+    ]);
+    expect(writer.getSnapshot().value?.model).toBe(original.model);
+    await writer.flush();
+    expect(writer.getSnapshot()).toMatchObject({ dirty: false, value: { revision: 2 } });
+  });
+
+  it("keeps the acknowledged revision when an older edit snapshot is submitted", async () => {
+    const write = vi.fn(async (value: Document) => ({ revision: value.revision + 1 }));
+    const writer = new DraftWriter(write);
+    writer.replace(initial);
+    writer.edit({ ...initial, text: "first" });
+    await writer.flush();
+    writer.edit({ ...initial, text: "later" });
+    await writer.flush();
+    expect(write.mock.calls[1][0]).toEqual({ revision: 2, text: "later" });
   });
 
   it("preserves unsaved edits after failure and retries without changing their revision", async () => {

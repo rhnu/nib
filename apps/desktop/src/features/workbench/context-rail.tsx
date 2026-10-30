@@ -10,6 +10,7 @@ import type { ImageOperationAction } from "@/features/inputs/image-operation";
 import { PreciseReferenceEditor, showPreciseReferences } from "@/features/references";
 import { VibeReferenceEditor, showVibeReferences } from "@/features/vibes";
 import type { ScopedOutputIssues } from "./output-issues";
+
 export function ContextRail({
   draft,
   resources,

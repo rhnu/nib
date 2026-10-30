@@ -83,12 +83,14 @@ export function useJobQuery() {
       ) ?? null,
     [resultsQuery.data],
   );
+
   const refresh = useCallback(async () => {
     await Promise.all([
       client.invalidateQueries({ queryKey: jobQueryKey }),
       client.invalidateQueries({ queryKey: resultQueryKey }),
     ]);
   }, [client]);
+
   const acceptJob = useCallback(
     (record: JobRecord) => {
       const summary = summarizeJob(record);
@@ -119,6 +121,7 @@ export function useJobQuery() {
     },
     [client],
   );
+
   const acceptBatch = useCallback(
     (batch: GenerationBatch, select = false) => {
       batch.jobs.forEach(acceptJob);
@@ -126,6 +129,7 @@ export function useJobQuery() {
     },
     [acceptJob],
   );
+
   const refreshJob = useCallback(
     async (id: string) => {
       try {
@@ -139,6 +143,7 @@ export function useJobQuery() {
     },
     [client, acceptJob],
   );
+
   return {
     jobs,
     results,
@@ -148,9 +153,7 @@ export function useJobQuery() {
     refresh,
     refreshJob,
     queryError:
-      jobsQuery.error || resultsQuery.error
-        ? errorMessage(jobsQuery.error ?? resultsQuery.error)
-        : null,
+      [jobsQuery.error, resultsQuery.error].filter(Boolean).map(errorMessage).join("；") || null,
     refreshing: jobsQuery.isFetching || resultsQuery.isFetching,
     hasMoreJobs: jobsQuery.hasNextPage,
     hasMoreResults: resultsQuery.hasNextPage,

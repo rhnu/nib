@@ -1,5 +1,6 @@
 import type { JobSummary } from "@/bindings/generation";
 import { mergeSummaries } from "./summary";
+
 /** A dropped finished event must not hide a previously observed task outside the history head. */
 export async function recoverMissingJobs(
   previous: readonly JobSummary[],

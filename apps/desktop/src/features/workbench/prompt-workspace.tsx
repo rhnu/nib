@@ -12,6 +12,7 @@ import { promptApi } from "@/features/prompt/api";
 import { errorMessage } from "@/shared/host/error";
 import { TokenUsageSummary } from "@/features/generation/submission/token-usage-summary";
 import type { InsertTarget } from "@/features/library/resource-library";
+
 export function PromptWorkspace({
   draft,
   resources,

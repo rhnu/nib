@@ -14,6 +14,7 @@ export function useVibeAction() {
       current.active = false;
     };
   }, []);
+
   async function run(action: (active: () => boolean) => Promise<void>) {
     if (state.current.locked) return;
     state.current.locked = true;
@@ -28,5 +29,6 @@ export function useVibeAction() {
       if (state.current.active) setBusy(false);
     }
   }
+
   return { busy, error, run };
 }

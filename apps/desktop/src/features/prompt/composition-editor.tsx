@@ -30,8 +30,10 @@ export function CompositionEditor({
 }) {
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
   const [activeScope, setActiveScope] = useState<"positive" | "negative">("positive");
+
   const update = (scope: "positive" | "negative", nodes: PromptNode[]) =>
     onChange({ ...value, [scope]: nodes });
+
   return (
     <Tabs.Root
       value={activeScope}

@@ -26,6 +26,7 @@ export function storePngTextSession(
 /** Opening an existing keyword must not overwrite an already edited replacement. */
 export function editPngTextEntry(entries: PngTextValue[], entry: PngTextValue) {
   const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+
   const index = entries.findIndex((value) => fold(value.keyword) === fold(entry.keyword));
   return index === -1
     ? { entries: [...entries, { ...entry }], index: entries.length }
