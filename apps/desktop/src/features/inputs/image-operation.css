@@ -11,16 +11,10 @@
   flex: 1 1 auto;
 }
 .image-source-operation {
-  flex: 1 1 110px;
   min-width: 0;
 }
-.image-source-actions.has-source .image-importer {
-  flex: 0 1 auto;
-}
-.image-source-actions.has-source .image-drop-target {
-  padding: 0;
-  border: 0;
-  background: transparent;
+.media-input-layout > .image-source {
+  flex-direction: column;
 }
 .image-source {
   display: flex;
@@ -122,17 +116,6 @@
   background: none;
   border-radius: var(--radius);
   cursor: pointer;
-}
-.image-source-tools {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-.image-source-tools .icon-button {
-  width: 30px;
-  height: 30px;
-  padding: 0;
 }
 .image-input-positioner {
   z-index: 60;

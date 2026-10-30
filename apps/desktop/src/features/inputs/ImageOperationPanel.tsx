@@ -193,7 +193,7 @@ export function ImageOperationPanel({
         if (!open) setDismissedAdvanced(advancedSignature);
       }}
     >
-      <section className="image-operation-panel">
+      <section className="image-operation-panel media-input-container">
         <header className="section-heading">
           <h2>
             图像输入
@@ -202,6 +202,17 @@ export function ImageOperationPanel({
               的输出与计价尺寸来自估费。
             </HelpMarker>
           </h2>
+          {sourceId && (
+            <IconButton
+              label="移除图像输入"
+              onClick={() => {
+                setImportAction(null);
+                onReturnToText();
+              }}
+            >
+              <X size={14} />
+            </IconButton>
+          )}
         </header>
         {draft.maskEditor.sessions.some(
           (session) => session.revision !== session.appliedRevision,
@@ -219,42 +230,8 @@ export function ImageOperationPanel({
               ))}
           </div>
         )}
-        <div className={`image-source-actions${sourceId ? " has-source" : ""}`}>
-          {sourceId && (
-            <div className="image-source-operation" data-setting-field="maxEnhance">
-              <select
-                {...controlProps("maxEnhance")}
-                aria-label="图像操作"
-                value={action ?? operation.kind}
-                onChange={(event) => selectAction(event.target.value)}
-              >
-                <option value="imageToImage">图生图</option>
-                <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
-                  Max Enhance
-                </option>
-                <option value="upscale">独立放大</option>
-                <option value="inpainting" disabled={capabilities?.inpainting === false}>
-                  局部重绘
-                </option>
-                {currentAction === null && (
-                  <option value={operation.kind}>{operationLabel(operation)}</option>
-                )}
-              </select>
-              {messages("maxEnhance")}
-            </div>
-          )}
-          {sourceId && (
-            <IconButton
-              label="移除图像输入"
-              onClick={() => {
-                setImportAction(null);
-                onReturnToText();
-              }}
-            >
-              <X size={14} />
-            </IconButton>
-          )}
-          {!sourceId && (
+        {!sourceId && (
+          <div className="image-source-actions">
             <ImageImporter
               key={JSON.stringify([
                 operation.kind,
@@ -264,379 +241,405 @@ export function ImageOperationPanel({
                 inputVersion,
               ])}
               onImported={prepareImportedSource}
-              label={sourceId ? "换图" : "选择文件"}
+              label="选择文件"
               onChooseExisting={() => setPickerOpen(true)}
             />
-          )}
-        </div>
-        {sourceId && (
-          <div className="image-source" data-setting-field="sourceImage">
-            {media.loading && <output className="muted">正在读取底图…</output>}
-            {media.error && (
-              <div className="inline-warning" role="alert">
-                {media.error}
-                <Button className="quiet" onClick={media.retry}>
-                  重试
-                </Button>
-              </div>
-            )}
-            {media.asset && (
-              <>
-                <Popover.Root>
-                  <Popover.Trigger
-                    className="image-source-preview"
-                    aria-label="查看输入图片名称与尺寸"
-                  >
-                    <AssetImage
-                      asset={media.asset}
-                      alt="当前操作的底图"
-                      className="image-source-thumbnail"
-                    />
-                  </Popover.Trigger>
-                  <Popover.Portal>
-                    <Popover.Positioner
-                      side="right"
-                      sideOffset={8}
-                      className="image-input-positioner"
-                    >
-                      <Popover.Popup className="image-input-popup">
-                        <header>
-                          <Popover.Title>
-                            {media.asset.source.kind === "import"
-                              ? (media.asset.source.name ?? "已保存图像")
-                              : "已保存图像"}
-                          </Popover.Title>
-                          <Popover.Close className="icon-button" aria-label="关闭输入图片详情">
-                            <X size={14} />
-                          </Popover.Close>
-                        </header>
-                        <AssetImage
-                          asset={media.asset}
-                          alt="输入图片预览"
-                          className="image-source-detail"
-                        />
-                        <p>
-                          {media.asset.width ?? "?"} × {media.asset.height ?? "?"} ·{" "}
-                          {media.asset.mimeType}
-                        </p>
-                      </Popover.Popup>
-                    </Popover.Positioner>
-                  </Popover.Portal>
-                </Popover.Root>
-                <div className="image-source-tools" aria-label="输入图片操作">
-                  <IconButton label="图像信息与恢复" onClick={() => setMetadataAsset(media.asset)}>
-                    <Info size={14} />
-                  </IconButton>
-                  {capabilities?.inpainting !== false && (
-                    <IconButton
-                      label={operation.kind === "inpainting" ? "编辑遮罩" : "绘制遮罩"}
-                      disabled={!media.asset.available}
-                      onClick={() => onEditMask(sourceId!)}
-                    >
-                      <Paintbrush size={14} />
-                    </IconButton>
-                  )}
-                  <IconButton label="替换输入图片" onClick={() => setPickerOpen(true)}>
-                    <Replace size={14} />
-                  </IconButton>
-                  {(operation.kind === "imageToImage" || operation.kind === "inpainting") && (
-                    <Popover.Trigger
-                      className="icon-button"
-                      title="图像输入高级设置"
-                      aria-label="图像输入高级设置"
-                    >
-                      <Settings2 size={14} />
-                    </Popover.Trigger>
-                  )}
-                </div>
-                {!media.asset.available && (
-                  <p className="inline-warning">底图不可用，请换图后再提交。</p>
-                )}
-              </>
-            )}
           </div>
         )}
-        {operation.kind === "inpainting" && (
-          <>
-            <div className="image-source" data-setting-field="maskAssetId">
-              {mask.loading && <output className="muted">正在读取已应用遮罩…</output>}
-              {mask.error && (
+        {sourceId && (
+          <div className="media-input-layout">
+            <div className="image-source" data-setting-field="sourceImage">
+              {media.loading && <output className="muted">正在读取底图…</output>}
+              {media.error && (
                 <div className="inline-warning" role="alert">
-                  {mask.error}
-                  <Button className="quiet" onClick={mask.retry}>
+                  {media.error}
+                  <Button className="quiet" onClick={media.retry}>
                     重试
                   </Button>
                 </div>
               )}
-              {mask.asset && (
+              {media.asset && (
                 <>
-                  <AssetImage
-                    asset={mask.asset}
-                    alt="已应用的局部重绘遮罩"
-                    className="image-source-thumbnail"
-                  />
-                  <div className="image-source-info">
-                    <strong>已应用遮罩</strong>
-                    <small>
-                      {mask.asset.width ?? "?"} × {mask.asset.height ?? "?"}
-                    </small>
-                    {!mask.asset.available && (
-                      <p className="inline-warning">遮罩不可用，请重新编辑并应用。</p>
-                    )}
+                  <div className="media-input-preview">
+                    <Popover.Root>
+                      <Popover.Trigger
+                        className="image-source-preview"
+                        aria-label="查看输入图片名称与尺寸"
+                      >
+                        <AssetImage
+                          asset={media.asset}
+                          alt="当前操作的底图"
+                          className="image-source-thumbnail"
+                        />
+                      </Popover.Trigger>
+                      <Popover.Portal>
+                        <Popover.Positioner
+                          side="right"
+                          sideOffset={8}
+                          className="image-input-positioner"
+                        >
+                          <Popover.Popup className="image-input-popup">
+                            <header>
+                              <Popover.Title>
+                                {media.asset.source.kind === "import"
+                                  ? (media.asset.source.name ?? "已保存图像")
+                                  : "已保存图像"}
+                              </Popover.Title>
+                              <Popover.Close className="icon-button" aria-label="关闭输入图片详情">
+                                <X size={14} />
+                              </Popover.Close>
+                            </header>
+                            <AssetImage
+                              asset={media.asset}
+                              alt="输入图片预览"
+                              className="image-source-detail"
+                            />
+                            <p>
+                              {media.asset.width ?? "?"} × {media.asset.height ?? "?"} ·{" "}
+                              {media.asset.mimeType}
+                            </p>
+                          </Popover.Popup>
+                        </Popover.Positioner>
+                      </Popover.Portal>
+                    </Popover.Root>
+                    <fieldset className="media-input-tools" aria-label="输入图片操作">
+                      <IconButton
+                        label="图像信息与恢复"
+                        onClick={() => setMetadataAsset(media.asset)}
+                      >
+                        <Info size={14} />
+                      </IconButton>
+                      {capabilities?.inpainting !== false && (
+                        <IconButton
+                          label={operation.kind === "inpainting" ? "编辑遮罩" : "绘制遮罩"}
+                          disabled={!media.asset.available}
+                          onClick={() => onEditMask(sourceId!)}
+                        >
+                          <Paintbrush size={14} />
+                        </IconButton>
+                      )}
+                      <IconButton label="替换输入图片" onClick={() => setPickerOpen(true)}>
+                        <Replace size={14} />
+                      </IconButton>
+                      {(operation.kind === "imageToImage" || operation.kind === "inpainting") && (
+                        <Popover.Trigger
+                          className="icon-button"
+                          title="图像输入高级设置"
+                          aria-label="图像输入高级设置"
+                        >
+                          <Settings2 size={14} />
+                        </Popover.Trigger>
+                      )}
+                    </fieldset>
                   </div>
+                  {!media.asset.available && (
+                    <p className="inline-warning">底图不可用，请换图后再提交。</p>
+                  )}
                 </>
               )}
-              <Button
-                className="quiet"
-                disabled={!media.asset?.available}
-                onClick={() => onEditMask(operation.assetId)}
-              >
-                <Paintbrush size={13} />
-                编辑遮罩
-              </Button>
-              {messages("maskAssetId")}
-              {messages("mask")}
             </div>
-            <InpaintSettings
-              key={`${sourceId}:${operation.maskAssetId}:${inputVersion}`}
-              operation={operation}
-              capabilities={capabilities}
-              defaults={options?.inpaintConditioning ?? null}
-              optionsError={optionsError}
-              retryOptions={() => {
-                void optionsQuery.refetch();
-              }}
-              diagnostics={diagnostics}
-              errorFields={errorFields}
-              update={(change) =>
-                updateOperation((current) =>
-                  current.kind === "inpainting" ? change(current) : current,
-                )
-              }
-            />
-          </>
-        )}
-        {operation.kind === "imageToImage" && (
-          <div className="image-operation-fields">
-            {operation.maxEnhance && (
-              <>
-                {capabilities?.maxEnhance === false && (
-                  <p className="inline-warning" role="alert">
-                    当前模型不支持 Max Enhance；已编辑值保留，请更换模型或操作。
-                  </p>
-                )}
-                {geometry ? (
-                  <dl className="image-operation-geometry">
-                    <div>
-                      <dt>输入</dt>
-                      <dd>
-                        {geometry.input_size.width} × {geometry.input_size.height}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>输出</dt>
-                      <dd>
-                        {geometry.output_size.width} × {geometry.output_size.height}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>计价</dt>
-                      <dd>
-                        {geometry.pricing_size.width} × {geometry.pricing_size.height}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <p className="image-operation-note">
-                    {estimate &&
-                    effectiveOperation?.kind === "imageToImage" &&
-                    !effectiveOperation.maxEnhance
-                      ? "SDK 有效操作为普通图生图；Max Enhance 未生效，不能以该操作提交。"
-                      : "等待估费确认输出与计价尺寸。"}
-                  </p>
-                )}
-              </>
-            )}
-            <FormGrid>
-              {(["strength", "noise"] as const).map((field) => {
-                const range =
-                  capabilities?.ranges[field === "strength" ? "img2imgStrength" : "img2imgNoise"];
-                const label = field === "strength" ? "Strength" : "Noise";
-                return (
-                  <div key={field} data-setting-field={field}>
-                    <FormField
-                      label={label}
-                      htmlFor={`${prefix}-${field}`}
-                      feedback={messages(field)}
-                    >
-                      <NumberSlider
-                        id={`${prefix}-${field}`}
-                        label={label}
-                        value={operation[field]}
-                        range={range}
-                        sliderRange={range}
-                        invalid={rejected(field)}
-                        describedBy={controlProps(field)["aria-describedby"]}
-                        onChange={(value) => numeric(field, String(value))}
-                      />
-                    </FormField>
-                  </div>
-                );
-              })}
-            </FormGrid>
-            <Popover.Portal>
-              <Popover.Positioner
-                side="right"
-                align="start"
-                sideOffset={8}
-                className="image-input-positioner"
-              >
-                <Popover.Popup className="image-input-popup" initialFocus={false}>
-                  <header>
-                    <Popover.Title>图生图高级设置</Popover.Title>
-                    <Popover.Close className="icon-button" aria-label="关闭图生图高级设置">
-                      <X size={14} />
-                    </Popover.Close>
-                  </header>
-                  <div className="image-operation-fields">
-                    <fieldset
-                      className="image-operation-toggle"
-                      data-setting-field="colorCorrect"
-                      aria-label="Color Correct"
-                      {...controlProps("colorCorrect")}
-                    >
-                      <span>Color Correct</span>
-                      <Toggle
-                        label="Color Correct"
-                        checked={operation.colorCorrect}
-                        onChange={(colorCorrect) =>
-                          updateOperation((current) =>
-                            current.kind === "imageToImage"
-                              ? { ...current, colorCorrect }
-                              : current,
-                          )
-                        }
-                      />
-                      {messages("colorCorrect")}
-                    </fieldset>
-                    <div data-setting-field="extraNoiseSeed">
-                      <Field label="额外噪声种子">
-                        <input
-                          {...controlProps("extraNoiseSeed")}
-                          type="number"
-                          step={1}
-                          placeholder="留空继承生成种子"
-                          value={operation.extraNoiseSeed ?? ""}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            updateOperation((current) =>
-                              current.kind === "imageToImage"
-                                ? { ...current, extraNoiseSeed: optionalImageSeed(raw) }
-                                : current,
-                            );
-                          }}
-                        />
-                      </Field>
-                      {messages("extraNoiseSeed")}
-                    </div>
-                    <fieldset
-                      className="image-operation-toggle"
-                      data-setting-field="addOriginalImage"
-                      aria-label="Add Original Image"
-                      {...controlProps("addOriginalImage")}
-                    >
-                      <span>Add Original Image</span>
-                      <Toggle
-                        label="Add Original Image"
-                        checked={operation.addOriginalImage}
-                        onChange={(addOriginalImage) =>
-                          updateOperation((current) =>
-                            current.kind === "imageToImage"
-                              ? { ...current, addOriginalImage }
-                              : current,
-                          )
-                        }
-                      />
-                      {messages("addOriginalImage")}
-                    </fieldset>
-                  </div>
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </div>
-        )}
-        {operation.kind === "upscale" && (
-          <div className="image-operation-fields">
-            <div data-setting-field="upscaleModel">
-              <Field label="放大模型">
+            <div className="media-input-settings">
+              <div className="image-source-operation" data-setting-field="maxEnhance">
                 <select
-                  {...controlProps("model")}
-                  value={operation.model}
-                  onChange={(event) => {
-                    const model = event.target.value;
-                    updateOperation((current) =>
-                      current.kind === "upscale" ? { ...current, model } : current,
-                    );
-                  }}
+                  {...controlProps("maxEnhance")}
+                  aria-label="图像操作"
+                  value={action ?? operation.kind}
+                  onChange={(event) => selectAction(event.target.value)}
                 >
-                  {!models.includes(operation.model) && (
-                    <option value={operation.model}>{operation.model} · 已保存</option>
+                  <option value="imageToImage">图生图</option>
+                  <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
+                    Max Enhance
+                  </option>
+                  <option value="upscale">独立放大</option>
+                  <option value="inpainting" disabled={capabilities?.inpainting === false}>
+                    局部重绘
+                  </option>
+                  {currentAction === null && (
+                    <option value={operation.kind}>{operationLabel(operation)}</option>
                   )}
-                  {models.map((model) => (
-                    <option value={model} key={model}>
-                      {model}
-                    </option>
-                  ))}
                 </select>
-              </Field>
-              {messages("model")}
-            </div>
-            <div data-setting-field="declaredBlurSigma">
-              <Field label="Blur Sigma">
-                <select
-                  {...controlProps("declaredBlurSigma")}
-                  value={operation.declaredBlurSigma}
-                  disabled={!options}
-                  onChange={(event) => {
-                    const sigma = options?.upscaleBlurSigmas.find(
-                      (value) => String(value) === event.target.value,
-                    );
-                    if (sigma !== undefined)
-                      updateOperation((current) =>
-                        current.kind === "upscale"
-                          ? { ...current, declaredBlurSigma: sigma }
-                          : current,
-                      );
-                  }}
-                >
-                  {!options?.upscaleBlurSigmas.includes(operation.declaredBlurSigma) && (
-                    <option value={operation.declaredBlurSigma}>
-                      {operation.declaredBlurSigma} · 已保存
-                    </option>
-                  )}
-                  {options?.upscaleBlurSigmas.map((sigma) => (
-                    <option key={sigma} value={sigma}>
-                      {sigma}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {messages("declaredBlurSigma")}
-            </div>
-            {optionsError && (
-              <div className="inline-warning" role="alert">
-                {optionsError}
-                <Button
-                  className="quiet"
-                  onClick={() => {
+                {messages("maxEnhance")}
+              </div>
+              {operation.kind === "inpainting" && (
+                <InpaintSettings
+                  key={`${sourceId}:${operation.maskAssetId}:${inputVersion}`}
+                  operation={operation}
+                  capabilities={capabilities}
+                  defaults={options?.inpaintConditioning ?? null}
+                  optionsError={optionsError}
+                  retryOptions={() => {
                     void optionsQuery.refetch();
                   }}
-                >
+                  diagnostics={diagnostics}
+                  errorFields={errorFields}
+                  update={(change) =>
+                    updateOperation((current) =>
+                      current.kind === "inpainting" ? change(current) : current,
+                    )
+                  }
+                />
+              )}
+              {operation.kind === "imageToImage" && (
+                <div className="image-operation-fields">
+                  {operation.maxEnhance && (
+                    <>
+                      {capabilities?.maxEnhance === false && (
+                        <p className="inline-warning" role="alert">
+                          当前模型不支持 Max Enhance；已编辑值保留，请更换模型或操作。
+                        </p>
+                      )}
+                      {geometry ? (
+                        <dl className="image-operation-geometry">
+                          <div>
+                            <dt>输入</dt>
+                            <dd>
+                              {geometry.input_size.width} × {geometry.input_size.height}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>输出</dt>
+                            <dd>
+                              {geometry.output_size.width} × {geometry.output_size.height}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>计价</dt>
+                            <dd>
+                              {geometry.pricing_size.width} × {geometry.pricing_size.height}
+                            </dd>
+                          </div>
+                        </dl>
+                      ) : (
+                        <p className="image-operation-note">
+                          {estimate &&
+                          effectiveOperation?.kind === "imageToImage" &&
+                          !effectiveOperation.maxEnhance
+                            ? "SDK 有效操作为普通图生图；Max Enhance 未生效，不能以该操作提交。"
+                            : "等待估费确认输出与计价尺寸。"}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  <FormGrid>
+                    {(["strength", "noise"] as const).map((field) => {
+                      const range =
+                        capabilities?.ranges[
+                          field === "strength" ? "img2imgStrength" : "img2imgNoise"
+                        ];
+                      const label = field === "strength" ? "Strength" : "Noise";
+                      return (
+                        <div key={field} data-setting-field={field}>
+                          <FormField
+                            label={label}
+                            htmlFor={`${prefix}-${field}`}
+                            feedback={messages(field)}
+                          >
+                            <NumberSlider
+                              id={`${prefix}-${field}`}
+                              label={label}
+                              value={operation[field]}
+                              range={range}
+                              sliderRange={range}
+                              invalid={rejected(field)}
+                              describedBy={controlProps(field)["aria-describedby"]}
+                              onChange={(value) => numeric(field, String(value))}
+                            />
+                          </FormField>
+                        </div>
+                      );
+                    })}
+                  </FormGrid>
+                  <Popover.Portal>
+                    <Popover.Positioner
+                      side="right"
+                      align="start"
+                      sideOffset={8}
+                      className="image-input-positioner"
+                    >
+                      <Popover.Popup className="image-input-popup" initialFocus={false}>
+                        <header>
+                          <Popover.Title>图生图高级设置</Popover.Title>
+                          <Popover.Close className="icon-button" aria-label="关闭图生图高级设置">
+                            <X size={14} />
+                          </Popover.Close>
+                        </header>
+                        <div className="image-operation-fields">
+                          <fieldset
+                            className="image-operation-toggle"
+                            data-setting-field="colorCorrect"
+                            aria-label="Color Correct"
+                            {...controlProps("colorCorrect")}
+                          >
+                            <span>Color Correct</span>
+                            <Toggle
+                              label="Color Correct"
+                              checked={operation.colorCorrect}
+                              onChange={(colorCorrect) =>
+                                updateOperation((current) =>
+                                  current.kind === "imageToImage"
+                                    ? { ...current, colorCorrect }
+                                    : current,
+                                )
+                              }
+                            />
+                            {messages("colorCorrect")}
+                          </fieldset>
+                          <div data-setting-field="extraNoiseSeed">
+                            <Field label="额外噪声种子">
+                              <input
+                                {...controlProps("extraNoiseSeed")}
+                                type="number"
+                                step={1}
+                                placeholder="留空继承生成种子"
+                                value={operation.extraNoiseSeed ?? ""}
+                                onChange={(event) => {
+                                  const raw = event.target.value;
+                                  updateOperation((current) =>
+                                    current.kind === "imageToImage"
+                                      ? { ...current, extraNoiseSeed: optionalImageSeed(raw) }
+                                      : current,
+                                  );
+                                }}
+                              />
+                            </Field>
+                            {messages("extraNoiseSeed")}
+                          </div>
+                          <fieldset
+                            className="image-operation-toggle"
+                            data-setting-field="addOriginalImage"
+                            aria-label="Add Original Image"
+                            {...controlProps("addOriginalImage")}
+                          >
+                            <span>Add Original Image</span>
+                            <Toggle
+                              label="Add Original Image"
+                              checked={operation.addOriginalImage}
+                              onChange={(addOriginalImage) =>
+                                updateOperation((current) =>
+                                  current.kind === "imageToImage"
+                                    ? { ...current, addOriginalImage }
+                                    : current,
+                                )
+                              }
+                            />
+                            {messages("addOriginalImage")}
+                          </fieldset>
+                        </div>
+                      </Popover.Popup>
+                    </Popover.Positioner>
+                  </Popover.Portal>
+                </div>
+              )}
+              {operation.kind === "upscale" && (
+                <div className="image-operation-fields">
+                  <div data-setting-field="upscaleModel">
+                    <Field label="放大模型">
+                      <select
+                        {...controlProps("model")}
+                        value={operation.model}
+                        onChange={(event) => {
+                          const model = event.target.value;
+                          updateOperation((current) =>
+                            current.kind === "upscale" ? { ...current, model } : current,
+                          );
+                        }}
+                      >
+                        {!models.includes(operation.model) && (
+                          <option value={operation.model}>{operation.model} · 已保存</option>
+                        )}
+                        {models.map((model) => (
+                          <option value={model} key={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {messages("model")}
+                  </div>
+                  <div data-setting-field="declaredBlurSigma">
+                    <Field label="Blur Sigma">
+                      <select
+                        {...controlProps("declaredBlurSigma")}
+                        value={operation.declaredBlurSigma}
+                        disabled={!options}
+                        onChange={(event) => {
+                          const sigma = options?.upscaleBlurSigmas.find(
+                            (value) => String(value) === event.target.value,
+                          );
+                          if (sigma !== undefined)
+                            updateOperation((current) =>
+                              current.kind === "upscale"
+                                ? { ...current, declaredBlurSigma: sigma }
+                                : current,
+                            );
+                        }}
+                      >
+                        {!options?.upscaleBlurSigmas.includes(operation.declaredBlurSigma) && (
+                          <option value={operation.declaredBlurSigma}>
+                            {operation.declaredBlurSigma} · 已保存
+                          </option>
+                        )}
+                        {options?.upscaleBlurSigmas.map((sigma) => (
+                          <option key={sigma} value={sigma}>
+                            {sigma}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {messages("declaredBlurSigma")}
+                  </div>
+                  {optionsError && (
+                    <div className="inline-warning" role="alert">
+                      {optionsError}
+                      <Button
+                        className="quiet"
+                        onClick={() => {
+                          void optionsQuery.refetch();
+                        }}
+                      >
+                        重试
+                      </Button>
+                    </div>
+                  )}
+                  {!options && !optionsError && (
+                    <output className="muted">正在读取放大选项…</output>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {operation.kind === "inpainting" && (
+          <div className="image-source" data-setting-field="maskAssetId">
+            {mask.loading && <output className="muted">正在读取已应用遮罩…</output>}
+            {mask.error && (
+              <div className="inline-warning" role="alert">
+                {mask.error}
+                <Button className="quiet" onClick={mask.retry}>
                   重试
                 </Button>
               </div>
             )}
-            {!options && !optionsError && <output className="muted">正在读取放大选项…</output>}
+            {mask.asset && (
+              <>
+                <AssetImage
+                  asset={mask.asset}
+                  alt="已应用的局部重绘遮罩"
+                  className="image-source-thumbnail"
+                />
+                <div className="image-source-info">
+                  <strong>已应用遮罩</strong>
+                  <small>
+                    {mask.asset.width ?? "?"} × {mask.asset.height ?? "?"}
+                  </small>
+                  {!mask.asset.available && (
+                    <p className="inline-warning">遮罩不可用，请重新编辑并应用。</p>
+                  )}
+                </div>
+              </>
+            )}
+            {messages("maskAssetId")}
+            {messages("mask")}
           </div>
         )}
         <ImagePickerDialog

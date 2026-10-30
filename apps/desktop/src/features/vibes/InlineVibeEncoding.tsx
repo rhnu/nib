@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Binary, LoaderCircle } from "lucide-react";
 import type {
@@ -28,10 +28,12 @@ export function InlineVibeEncoding({
   value,
   capabilities,
   onChange,
+  children,
 }: {
   value: VibeReferenceInput;
   capabilities: ModelCapabilities | null;
   onChange: (patch: VibePatch) => void;
+  children: (action: ReactNode, feedback: ReactNode) => ReactNode;
 }) {
   const { accountVersion, accountSummaryLoading } = useAccount();
   const { submissionBlocked } = useSubmission();
@@ -141,37 +143,36 @@ export function InlineVibeEncoding({
                 : null;
   const completedWithoutAsset =
     queued && job.data?.status === "completed" && result.isSuccess && !encodedAsset;
-  return (
-    <div className="vibe-inline-encoding">
-      <div className="button-group">
-        <IconButton
-          label={working ? "正在编码" : `编码 · 预计 ${costLabel}；已有匹配编码时直接复用`}
-          disabled={
-            working ||
-            !ready ||
-            !input ||
-            !quote.data ||
-            quote.isError ||
-            quote.isPending ||
-            quote.isFetching ||
-            accountSummaryLoading ||
-            submissionBlocked ||
-            capabilities?.encodeVibe !== true ||
-            Boolean(quote.data?.tooExpensive)
-          }
-          onClick={() => {
-            if (input && latest.current.key === key && !hasPendingWork())
-              encode.mutate({ key, input });
-          }}
-        >
-          {working ? <LoaderCircle size={14} className="spin" /> : <Binary size={14} />}
-        </IconButton>
-        {working && (
-          <output className="vibe-status" aria-live="polite">
-            {job.data?.status === "running" ? "编码中…" : "排队中…"}
-          </output>
-        )}
-      </div>
+  return children(
+    <IconButton
+      label={working ? "正在编码" : `编码 · 预计 ${costLabel}；已有匹配编码时直接复用`}
+      disabled={
+        working ||
+        !ready ||
+        !input ||
+        !quote.data ||
+        quote.isError ||
+        quote.isPending ||
+        quote.isFetching ||
+        accountSummaryLoading ||
+        submissionBlocked ||
+        capabilities?.encodeVibe !== true ||
+        Boolean(quote.data?.tooExpensive)
+      }
+      onClick={() => {
+        if (input && latest.current.key === key && !hasPendingWork()) encode.mutate({ key, input });
+      }}
+    >
+      {working ? <LoaderCircle size={14} className="spin" /> : <Binary size={14} />}
+    </IconButton>,
+    <>
+      <output className="vibe-status" aria-live="polite">
+        {working
+          ? job.data?.status === "running"
+            ? "编码中…"
+            : "排队中…"
+          : `编码 · 预计 ${costLabel}`}
+      </output>
       {failure && (
         <Notice
           actions={
@@ -197,6 +198,6 @@ export function InlineVibeEncoding({
           未读取到可用编码，原图片已保留。
         </Notice>
       )}
-    </div>
+    </>,
   );
 }

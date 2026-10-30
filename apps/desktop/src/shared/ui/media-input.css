@@ -1,0 +1,79 @@
+.media-input-container {
+  container-type: inline-size;
+}
+.media-input-layout {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.media-input-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 144px;
+  min-height: 144px;
+  flex-shrink: 0;
+  color: var(--muted);
+  background: var(--input);
+  border-radius: var(--radius);
+}
+.media-input-preview img {
+  display: block;
+  width: 144px;
+  height: 144px;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+.media-input-tools {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  align-items: center;
+  flex-wrap: nowrap;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 2px 12px #0003;
+}
+.media-input-preview:hover .media-input-tools,
+.media-input-preview:focus-within .media-input-tools {
+  background: var(--surface);
+}
+.media-input-tools .icon-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+.media-input-settings {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.media-input-settings .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.media-input-settings .form-field {
+  grid-template-rows: 18px auto auto;
+  gap: 2px;
+}
+.media-input-settings .form-field:has(.help-marker) {
+  grid-template-rows: 24px auto auto;
+}
+.media-input-settings .form-label {
+  line-height: 18px;
+}
+.media-input-settings .number-slider input[type="number"] {
+  height: 26px;
+}
+@container (max-width: 280px) {
+  .media-input-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -106,7 +106,7 @@ export function PreciseReferenceRow({
   const savedTypeUnsupported = !!options && !options.referenceTypes.includes(value.referenceType);
   return (
     <article
-      className="precise-reference-row"
+      className="precise-reference-row media-input-container"
       data-reference-id={value.id}
       data-disabled={!value.enabled || undefined}
     >
@@ -123,12 +123,10 @@ export function PreciseReferenceRow({
         {actions}
       </header>
       {messages("enabled")}
-      <div className="precise-reference-content">
-        <div className="precise-reference-image" data-reference-field="assetId">
-          {media.asset && (
-            <AssetImage asset={media.asset} alt={label} className="precise-reference-thumbnail" />
-          )}
-          <div className="precise-reference-image-actions">
+      <div className="media-input-layout">
+        <div className="media-input-preview" data-reference-field="assetId">
+          {media.asset && <AssetImage asset={media.asset} alt={label} />}
+          <fieldset className="media-input-tools" aria-label={`${label}图片操作`}>
             <IconButton
               label={`替换${label}图片`}
               aria-invalid={hasIssue("assetId") || undefined}
@@ -144,9 +142,9 @@ export function PreciseReferenceRow({
             >
               <Info size={14} />
             </IconButton>
-          </div>
+          </fieldset>
         </div>
-        <div className="precise-reference-image-info">
+        <div className="media-input-settings">
           <div data-reference-field="referenceType">
             <FormField
               label="用途"
@@ -176,33 +174,31 @@ export function PreciseReferenceRow({
               </select>
             </FormField>
           </div>
-          {media.loading && <output>正在读取图片…</output>}
-          {media.error && (
-            <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+          {numeric(
+            "strength",
+            "Strength",
+            "控制参考图片对结果的影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
+          )}
+          {numeric(
+            "fidelity",
+            "Fidelity",
+            "控制参考约束的精确程度。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
+          )}
+          {numeric(
+            "informationExtracted",
+            "信息提取量",
+            "控制从参考图片中提取的信息量，范围为 0–1。",
           )}
         </div>
       </div>
+      {media.loading && <output>正在读取图片…</output>}
+      {media.error && (
+        <Notice actions={<Button onClick={media.retry}>重试读取</Button>}>{media.error}</Notice>
+      )}
       {messages("assetId")}
       {savedTypeUnsupported && (
         <p className="precise-reference-message">当前模型不支持已保存的用途。</p>
       )}
-      <div className="precise-reference-fields">
-        {numeric(
-          "strength",
-          "Strength",
-          "控制参考图片对结果的影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
-        )}
-        {numeric(
-          "fidelity",
-          "Fidelity",
-          "控制参考约束的精确程度。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。",
-        )}
-        {numeric(
-          "informationExtracted",
-          "信息提取量",
-          "控制从参考图片中提取的信息量，范围为 0–1。",
-        )}
-      </div>
       <Modal open={details} onClose={() => setDetails(false)} title={`${label} · 图片信息`}>
         {media.asset && (
           <div className="precise-reference-details">

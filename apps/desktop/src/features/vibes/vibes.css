@@ -46,48 +46,11 @@
 .vibe-row[data-disabled] > header > strong {
   color: var(--muted);
 }
-.vibe-material {
-  display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.vibe-material-controls {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
 .vibe-thumbnail {
   display: block;
   width: 108px;
   height: 92px;
   object-fit: contain;
-}
-.vibe-preview {
-  display: grid;
-  place-items: center;
-  min-height: 92px;
-  color: var(--muted);
-  background: var(--input);
-  border-radius: var(--radius);
-}
-.vibe-image-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 3px;
-  min-width: 0;
-}
-.vibe-image-actions .icon-button {
-  width: 28px;
-  min-height: 28px;
-}
-.vibe-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 5px;
 }
 .vibe-normalize {
   display: grid;
@@ -98,15 +61,6 @@
 }
 .vibe-normalize .form-label {
   min-width: 0;
-}
-.vibe-fields .form-field {
-  grid-template-columns: 102px minmax(0, 1fr);
-  grid-template-rows: auto;
-  align-items: center;
-  column-gap: 6px;
-}
-.vibe-fields .form-feedback {
-  grid-column: 1 / -1;
 }
 .vibe-message {
   margin: 0;
@@ -222,18 +176,6 @@
   }
 }
 
-.vibe-inline-encoding {
-  display: contents;
-}
-.vibe-inline-encoding > .error-banner {
-  flex-basis: 100%;
-}
-.vibe-inline-encoding > .button-group {
-  flex-wrap: nowrap;
-}
-.vibe-inline-encoding .vibe-status {
-  white-space: nowrap;
-}
 .vibe-material-details {
   min-width: 0;
   overflow-wrap: anywhere;

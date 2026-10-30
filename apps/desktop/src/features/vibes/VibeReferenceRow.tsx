@@ -65,9 +65,97 @@ export function VibeReferenceRow({
         <RotateCcw size={13} />
       </IconButton>
     ) : undefined;
+  const renderMaterial = (encodingAction?: ReactNode, encodingFeedback?: ReactNode) => (
+    <>
+      <div className="media-input-layout">
+        <div className="media-input-preview" data-vibe-field="input">
+          {preview?.kind === "image" ? (
+            <AssetImage asset={preview} alt={label} className="vibe-thumbnail" />
+          ) : (
+            <Binary size={28} aria-label="编码材料" />
+          )}
+          <fieldset className="media-input-tools" aria-label={`${label}材料操作`}>
+            <IconButton label={`替换${label}材料`} onClick={() => setPicking(true)}>
+              <ImagePlus size={14} />
+            </IconButton>
+            {reset("input")}
+            {encodingAction}
+            <IconButton
+              label={`查看${label}材料信息`}
+              disabled={!media.asset}
+              onClick={() => setDetails(true)}
+            >
+              <Info size={14} />
+            </IconButton>
+          </fieldset>
+        </div>
+        <div className="media-input-settings">
+          <div data-vibe-field="strength">
+            <FormField
+              label="Strength"
+              htmlFor={`${id}-strength`}
+              help={
+                <HelpMarker label="强度说明">
+                  控制参考影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。
+                </HelpMarker>
+              }
+              actions={reset("strength")}
+            >
+              <NumberSlider
+                id={`${id}-strength`}
+                label={`${label}强度`}
+                value={value.strength}
+                invalid={issues.some((issue) => issue.field === "strength")}
+                describedBy={issues.length ? id : undefined}
+                onChange={(strength) => onChange({ strength })}
+              />
+            </FormField>
+          </div>
+          {value.input.kind === "image" && (
+            <div data-vibe-field="informationExtracted">
+              <FormField
+                label="信息提取量"
+                htmlFor={`${id}-information`}
+                help={
+                  <HelpMarker label="信息提取量说明">
+                    控制编码时提取的信息量，范围为 0–1。改变提取量后需重新编码。
+                  </HelpMarker>
+                }
+              >
+                <NumberSlider
+                  id={`${id}-information`}
+                  label={`${label}信息提取量`}
+                  value={value.input.informationExtracted}
+                  range={
+                    capabilities?.vibeReferenceOptions.informationExtracted ?? { min: 0, max: 1 }
+                  }
+                  invalid={issues.some((issue) => issue.field === "informationExtracted")}
+                  describedBy={issues.length ? id : undefined}
+                  onChange={(informationExtracted) => {
+                    if (value.input.kind === "image")
+                      onChange({ input: { ...value.input, informationExtracted } });
+                  }}
+                />
+              </FormField>
+            </div>
+          )}
+        </div>
+      </div>
+      {media.loading && <output className="vibe-status">正在读取材料…</output>}
+      {media.asset && !media.asset.available && (
+        <p className="vibe-message" role="alert">
+          材料文件不可用
+        </p>
+      )}
+      {media.error && (
+        <Notice actions={<Button onClick={media.retry}>重试</Button>}>{media.error}</Notice>
+      )}
+      {encodingFeedback}
+    </>
+  );
   return (
     <article
-      className="vibe-row"
+      className="vibe-row media-input-container"
       data-vibe-id={value.id}
       data-disabled={!value.enabled || undefined}
     >
@@ -83,94 +171,13 @@ export function VibeReferenceRow({
         {reset("enabled")}
         {actions}
       </header>
-      <div className="vibe-material" data-vibe-field="input">
-        <div className="vibe-preview">
-          {preview?.kind === "image" ? (
-            <AssetImage asset={preview} alt={label} className="vibe-thumbnail" />
-          ) : (
-            <Binary size={28} aria-label="编码材料" />
-          )}
-        </div>
-        <div className="vibe-material-controls">
-          {media.loading && <output className="vibe-status">正在读取材料…</output>}
-          {media.asset && !media.asset.available && (
-            <p className="vibe-message" role="alert">
-              材料文件不可用
-            </p>
-          )}
-          {media.error && (
-            <Notice actions={<Button onClick={media.retry}>重试</Button>}>{media.error}</Notice>
-          )}
-          <div className="vibe-image-actions">
-            <IconButton label={`替换${label}材料`} onClick={() => setPicking(true)}>
-              <ImagePlus size={14} />
-            </IconButton>
-            {reset("input")}
-            {value.input.kind === "image" && capabilities?.encodeVibe && (
-              <InlineVibeEncoding value={value} capabilities={capabilities} onChange={onChange} />
-            )}
-            <IconButton
-              label={`查看${label}材料信息`}
-              disabled={!media.asset}
-              onClick={() => setDetails(true)}
-            >
-              <Info size={14} />
-            </IconButton>
-          </div>
-        </div>
-      </div>
-      <div className="vibe-fields">
-        <div data-vibe-field="strength">
-          <FormField
-            label="Strength"
-            htmlFor={`${id}-strength`}
-            help={
-              <HelpMarker label="强度说明">
-                控制参考影响。滑块提供 0–1 常用区间，也可直接输入区间外的有符号数值。
-              </HelpMarker>
-            }
-            actions={reset("strength")}
-          >
-            <NumberSlider
-              id={`${id}-strength`}
-              label={`${label}强度`}
-              value={value.strength}
-              invalid={issues.some((issue) => issue.field === "strength")}
-              describedBy={issues.length ? id : undefined}
-              onChange={(strength) => onChange({ strength })}
-            />
-          </FormField>
-        </div>
-        {value.input.kind === "image" && (
-          <div data-vibe-field="informationExtracted">
-            <FormField
-              label="信息提取量"
-              htmlFor={`${id}-information`}
-              actions={reset("input")}
-              help={
-                <HelpMarker label="信息提取量说明">
-                  控制编码时提取的信息量，范围为 0–1。改变提取量后需重新编码。
-                </HelpMarker>
-              }
-            >
-              <NumberSlider
-                id={`${id}-information`}
-                label={`${label}信息提取量`}
-                value={value.input.informationExtracted}
-                range={
-                  capabilities?.vibeReferenceOptions.informationExtracted ?? { min: 0, max: 1 }
-                }
-                invalid={issues.some((issue) => issue.field === "informationExtracted")}
-                describedBy={issues.length ? id : undefined}
-                onChange={(informationExtracted) => {
-                  if (value.input.kind === "image")
-                    onChange({ input: { ...value.input, informationExtracted } });
-                }}
-              />
-            </FormField>
-          </div>
-        )}
-      </div>
+      {value.input.kind === "image" && capabilities?.encodeVibe ? (
+        <InlineVibeEncoding value={value} capabilities={capabilities} onChange={onChange}>
+          {renderMaterial}
+        </InlineVibeEncoding>
+      ) : (
+        renderMaterial()
+      )}
       {capabilities?.vibeInputPath &&
         ((value.input.kind === "image" && capabilities.vibeInputPath !== "image") ||
           (value.input.kind === "encoded" && capabilities.vibeInputPath === "image")) && (

@@ -4,6 +4,7 @@
 @import "../shared/styles/tokens.css";
 @import "../shared/styles/base.css";
 @import "../shared/ui/styles.css";
+@import "../shared/ui/media-input.css";
 @import "./startup.css";
 @import "./titlebar.css";
 @import "./settings.css";
