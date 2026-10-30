@@ -5,7 +5,7 @@ import "./GenerationParameterPanel.css";
 
 /** The dock owns disclosure state; sparse parameter edits remain with the draft. */
 export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "fields">) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDetailsElement>(null);
   const { value, capabilities, resolved, diagnostics = [], errorFields = [] } = props;
   const effective = resolved ?? capabilities?.defaults;
