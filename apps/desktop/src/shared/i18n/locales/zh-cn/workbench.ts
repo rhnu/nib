@@ -22,9 +22,6 @@ export const workbench = {
   resolutionFailedDetails: "解析失败，查看详情",
   viewResolutionIssues: "查看 {{value0}} 项解析问题",
   viewResolutionSources: "查看解析与来源",
-  promptHelp: "提示词帮助",
-  promptDescription:
-    "添加文本或链接 Chunk，用片段菜单调整顺序、撤销覆盖或展开为独立文本。编辑链接只影响当前实例。",
   customNegativeUnsupported: "此模型不接受自定义负面提示，已保留编辑内容。",
   resolutionSources: "解析与来源",
   sourceUnavailable: "源图不可用。",

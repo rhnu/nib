@@ -1,8 +1,13 @@
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
+import type { GenerationQuote } from "@/bindings/generation";
+import { t, useTranslation } from "@/shared/i18n";
 import { CharacterListEditor, CharacterPositionPolicy } from "@/features/characters";
 import { PresetEditor } from "@/features/prompt/preset-editor";
 import { moveItem } from "@/features/prompt/model";
 import type { ScopedOutputIssues } from "./output-issues";
+import { TokenUsageIndicator } from "@/features/prompt/token-usage-indicator";
+import { characterTokenUsage } from "@/features/prompt/token-usage";
+import { outputIdentity } from "@/features/prompt/output-identity";
 
 /** Character edits stay beside the prompt while linked recipe edits remain instance overrides. */
 export function CharacterContext({
@@ -17,6 +22,9 @@ export function CharacterContext({
   onPosition,
   outputIssues,
   inheritedUseCoords,
+  quote,
+  tokenStatus,
+  tokensPending,
 }: {
   draft: Draft;
   resources: Map<string, Resource>;
@@ -29,7 +37,31 @@ export function CharacterContext({
   onPosition: (characterId?: string, presetInstanceId?: string) => void;
   outputIssues: ScopedOutputIssues;
   inheritedUseCoords?: boolean | null;
+  quote: GenerationQuote | null;
+  tokenStatus?: string;
+  tokensPending?: boolean;
 }) {
+  useTranslation();
+
+  const usages = characterTokenUsage(quote?.tokens ?? [], quote?.resolved?.characters ?? []);
+
+  const tokenIndicator = (characterId: string, presetInstanceId: string | null, index: number) => {
+    const usage = usages.get(outputIdentity(presetInstanceId, characterId)) ?? {};
+    return (
+      <TokenUsageIndicator
+        usage={usage}
+        label={t("prompt.characterScope", {
+          value0: index + 1,
+          value1: t("generation.effectivePromptTokens"),
+        })}
+        status={
+          tokenStatus ?? (!usage.positive && !usage.negative ? t("prompt.notInRequest") : undefined)
+        }
+        pending={tokensPending}
+      />
+    );
+  };
+
   const count =
     draft.characters.length +
     draft.presets.reduce((total, instance) => {
@@ -62,6 +94,7 @@ export function CharacterContext({
           capabilities={capabilities}
           onPosition={(id) => onPosition(id, instance.id)}
           characterIssues={outputIssues.presets[instance.id]?.characters}
+          characterTokenIndicator={(id, index) => tokenIndicator(id, instance.id, index)}
           onChange={(value) => {
             const current = readCurrentDraft();
             edit({
@@ -98,6 +131,7 @@ export function CharacterContext({
         onError={setError}
         onPosition={(id) => onPosition(id)}
         issues={outputIssues.draft.characters}
+        tokenIndicator={(id, index) => tokenIndicator(id, null, index)}
       />
     </section>
   );

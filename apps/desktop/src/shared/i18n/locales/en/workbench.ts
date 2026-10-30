@@ -21,9 +21,6 @@ export const workbench = {
   resolutionFailedDetails: "Resolution failed; view details",
   viewResolutionIssues: "View {{value0}} resolution issues",
   viewResolutionSources: "View resolution and sources",
-  promptHelp: "About prompts",
-  promptDescription:
-    "Add text or link Chunks. Use the segment menu to reorder segments, revert overrides, or expand them into independent text. Editing linked content affects only the current instance.",
   customNegativeUnsupported:
     "This model does not accept custom negative prompts. Your edits have been kept.",
   resolutionSources: "Resolution and sources",

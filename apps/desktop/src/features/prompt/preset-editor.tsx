@@ -1,5 +1,5 @@
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { FileText, Link2 } from "lucide-react";
 import type {
   InstanceOverride,
@@ -39,6 +39,7 @@ export function PresetEditor({
   onError,
   onPosition,
   characterIssues,
+  characterTokenIndicator,
   preciseIssues,
   vibeIssues,
   part = "all",
@@ -57,6 +58,7 @@ export function PresetEditor({
   onError: (message: unknown) => void;
   onPosition?: (characterId: string) => void;
   characterIssues?: CharacterIssues;
+  characterTokenIndicator?: (characterId: string, index: number) => ReactNode;
   preciseIssues?: Record<string, { field: string; message: string }[]>;
   vibeIssues?: Record<string, { field: string; message: string }[]>;
 }) {
@@ -192,6 +194,7 @@ export function PresetEditor({
           onPosition={onPosition}
           name={name}
           issues={characterIssues}
+          tokenIndicator={characterTokenIndicator}
         />
       )
     ) : (
@@ -205,6 +208,7 @@ export function PresetEditor({
         allowChunk={false}
         title={t("prompt.characterOutput")}
         issues={characterIssues}
+        tokenIndicator={characterTokenIndicator}
       />
     );
   if (part === "characters")

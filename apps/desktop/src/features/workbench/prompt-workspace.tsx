@@ -4,13 +4,14 @@ import { Popover } from "@base-ui/react/popover";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { ParameterDiagnostic, TokenFieldUsage } from "@/bindings/generation";
 import { ScanText, Settings2, X } from "lucide-react";
-import { HelpMarker, IconButton, Modal } from "@/shared/ui";
+import { IconButton, Modal } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { SettingsEditor, focusSetting } from "@/features/prompt/settings-editor";
 import { diagnosticSetting } from "@/features/prompt/settings";
 import { ResolutionInspector } from "@/features/prompt/resolution-inspector";
 import { promptApi } from "@/features/prompt/api";
-import { TokenUsageSummary } from "@/features/generation/submission/token-usage-summary";
+import { TokenUsageIndicator } from "@/features/prompt/token-usage-indicator";
+import { promptTokenUsage } from "@/features/prompt/token-usage";
 import type { InsertTarget } from "@/features/library/resource-library";
 
 export function PromptWorkspace({
@@ -23,6 +24,8 @@ export function PromptWorkspace({
   capabilities,
   diagnostics,
   tokens,
+  tokenStatus,
+  tokensPending,
   errorFields,
   openLibrary,
   edit,
@@ -38,6 +41,8 @@ export function PromptWorkspace({
   capabilities: ModelCapabilities | null;
   diagnostics: ParameterDiagnostic[];
   tokens: TokenFieldUsage[];
+  tokenStatus?: string;
+  tokensPending?: boolean;
   errorFields: string[];
   openLibrary: (target: InsertTarget) => void;
   edit: (draft: Draft) => void;
@@ -152,9 +157,12 @@ export function PromptWorkspace({
                 <span className="resolution-count">{resolveError ? "!" : issueCount}</span>
               )}
             </IconButton>
-            <HelpMarker label={t("workbench.promptHelp")}>
-              {t("workbench.promptDescription")}
-            </HelpMarker>
+            <TokenUsageIndicator
+              usage={promptTokenUsage(tokens)}
+              label={t("generation.effectivePromptTokens")}
+              status={tokenStatus}
+              pending={tokensPending}
+            />
           </>
         }
         expandChunk={async (node) => {
@@ -166,7 +174,6 @@ export function PromptWorkspace({
           }
         }}
       />
-      <TokenUsageSummary tokens={tokens} />
       {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
         <output className="inline-warning">{t("workbench.customNegativeUnsupported")}</output>
       )}

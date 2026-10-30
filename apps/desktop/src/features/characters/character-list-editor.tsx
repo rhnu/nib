@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "@/bindings/workbench";
 import { IconButton, Toggle } from "@/shared/ui";
@@ -25,6 +25,7 @@ type EditorProps = {
   allowChunk?: boolean;
   title?: string;
   issues?: CharacterIssues;
+  tokenIndicator?: (characterId: string, index: number) => ReactNode;
 };
 
 function CharacterRow({
@@ -38,6 +39,7 @@ function CharacterRow({
   update,
   actions,
   fieldIssues,
+  tokenIndicator,
 }: Omit<EditorProps, "value" | "onChange" | "title" | "issues"> & {
   character: CharacterComposition;
   index: number;
@@ -76,6 +78,7 @@ function CharacterRow({
           {t("characters.characterNumber")}
           {index + 1}
         </strong>
+        {tokenIndicator?.(character.id, index)}
         <span className="spacer" />
         <IconButton
           label={t("characters.moveUp", { value0: index + 1 })}
@@ -159,6 +162,7 @@ export function CharacterListEditor({
   allowChunk = true,
   title = t("characters.characters"),
   issues = {},
+  tokenIndicator,
 }: EditorProps) {
   useTranslation();
 
@@ -220,6 +224,7 @@ export function CharacterListEditor({
           onPosition={onPosition}
           allowChunk={allowChunk}
           fieldIssues={issues[character.id] ?? []}
+          tokenIndicator={tokenIndicator}
           update={(patch) => emit(patchCharacter(latest.current.value, character.id, patch))}
           actions={{
             canUp: index > 0,

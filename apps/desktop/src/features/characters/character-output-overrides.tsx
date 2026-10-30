@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import type {
   CharacterComposition,
@@ -26,6 +26,7 @@ export function CharacterOutputOverrides({
   onPosition,
   name = t("characters.recipe"),
   issues = {},
+  tokenIndicator,
 }: {
   value: CharacterComposition[];
   overrides: CharacterOutputOverride[];
@@ -37,6 +38,7 @@ export function CharacterOutputOverrides({
   onPosition?: (characterId: string) => void;
   name?: string;
   issues?: CharacterIssues;
+  tokenIndicator?: (characterId: string, index: number) => ReactNode;
 }) {
   useTranslation();
 
@@ -87,6 +89,7 @@ export function CharacterOutputOverrides({
                 {t("characters.characterNumber")}
                 {index + 1}
               </strong>
+              {tokenIndicator?.(character.id, index)}
               <span className="spacer" />
               {local && <span className="tag">{t("characters.currentOverride")}</span>}
               <Toggle
