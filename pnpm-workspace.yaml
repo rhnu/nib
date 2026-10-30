@@ -1,6 +1,9 @@
 packages:
   - apps/*
 
+allowBuilds:
+  unrs-resolver: false
+
 minimumReleaseAgeExclude:
   - vite@8.3.5
   - lucide-react@1.61.0

@@ -1,70 +1,69 @@
 {
   "plugins": ["typescript", "react", "jsx-a11y", "unicorn"],
+  "jsPlugins": ["eslint-plugin-boundaries"],
+  "settings": {
+    "boundaries/include": ["apps/desktop/src/**/*"],
+    "boundaries/elements": [
+      {
+        "type": "app",
+        "pattern": "apps/desktop/src/app",
+        "partialMatch": false
+      },
+      {
+        "type": "feature",
+        "pattern": "apps/desktop/src/features/*",
+        "partialMatch": false
+      },
+      {
+        "type": "shared",
+        "pattern": "apps/desktop/src/shared/*",
+        "partialMatch": false
+      },
+      {
+        "type": "bindings",
+        "pattern": "apps/desktop/src/bindings",
+        "partialMatch": false
+      },
+      {
+        "type": "assets",
+        "pattern": "apps/desktop/src/assets",
+        "partialMatch": false
+      },
+      {
+        "type": "entry",
+        "pattern": "apps/desktop/src",
+        "partialMatch": false
+      }
+    ],
+    "import/resolver": {
+      "typescript": {
+        "project": "apps/desktop/tsconfig.app.json"
+      }
+    }
+  },
   "categories": {
     "correctness": "error"
   },
   "rules": {
     "unicorn/filename-case": ["error", { "case": "kebabCase" }],
-    "unicorn/no-new-array": "off"
+    "unicorn/no-new-array": "off",
+    "boundaries/dependencies": [
+      "error",
+      {
+        "default": "disallow",
+        "message": "Cross-module imports must use the @/ alias.",
+        "policies": [
+          {
+            "allow": {
+              "dependency": {
+                "source": "@/**"
+              }
+            }
+          }
+        ]
+      }
+    ]
   },
-  "overrides": [
-    {
-      "files": ["apps/desktop/src/*.{ts,tsx}"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "regex": "^\\.{1,2}(?:/|$)",
-                "message": "Cross-module imports must use the @/ alias."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/desktop/src/app/*.{ts,tsx}",
-        "apps/desktop/src/features/*/*.{ts,tsx}",
-        "apps/desktop/src/shared/*/*.{ts,tsx}"
-      ],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "regex": "^(?:\\./)*\\.\\.(?:/|$)",
-                "message": "Cross-module imports must use the @/ alias."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/desktop/src/app/*/*.{ts,tsx}",
-        "apps/desktop/src/features/*/*/*.{ts,tsx}",
-        "apps/desktop/src/shared/*/*/*.{ts,tsx}"
-      ],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "regex": "^(?:\\./)*\\.\\./(?:\\./)*\\.\\.(?:/|$)",
-                "message": "Cross-module imports must use the @/ alias."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ],
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",

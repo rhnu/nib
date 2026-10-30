@@ -108,7 +108,7 @@ pnpm types:check
 
 `@/` 指向 `apps/desktop/src/`，在 TypeScript 与 Vite 中共同配置，Vitest 复用 Vite 配置。跨模块的导入、重导出及样式引用使用 `@/`；`app`、各 `features/<领域>` 和各 `shared/<能力>` 视为模块，同模块可以使用 `./` 或 `../` 相对路径，`features/generation` 的各子目录属于同一模块。
 
-`pnpm lint:web` 使用 `no-restricted-imports` 与按文件位置配置的 `overrides` 检查跨模块相对导入，覆盖静态导入、类型导入、重导出与字符串形式的动态导入。规则按路径文本和目录深度匹配：`src` 根入口使用 alias，模块根目录禁止向父目录导入，模块下一层目录允许同模块的 `../`，禁止 `../../`。目前配置覆盖模块根目录及其下一层；新增更深目录时须同步扩展 `overrides`。CSS 的 `@import` 和 `url()` 按开发约定维护。
+`pnpm lint:web` 在仓库根目录运行，通过 `eslint-plugin-boundaries` 的 `boundaries/dependencies` 与 TypeScript resolver 解析导入目标，再按 `.oxlintrc.json` 中声明的模块根目录判断归属。`app`、各 `features/*`、各 `shared/*`、`bindings`、`assets` 分别划定模块，`src` 根目录文件归入口模块。同模块允许相对路径和 alias，跨模块使用 `@/`；新增领域模块和任意深度的子目录自动遵循这些边界，不按目录层级增加规则。检查覆盖可解析的静态导入、类型导入、重导出、字符串形式的动态导入及 TS/TSX 中的样式导入。CSS 文件内的 `@import` 和 `url()` 按开发约定维护。
 
 任务与结果列表使用 Query 分页摘要，完整冻结输入仅在详情、恢复或重试时读取；活动任务独立查询，不受历史分页限制。最近图片区默认限制 20 张，使用全局 1–200 偏好；画廊独立分页浏览图片历史，任务在按批次组织的抽屉中操作。图片查询与氛围转移材料查询按类型区分，不建立第二套结果事实。账户、持久查询与高频流式反馈分别订阅，预览帧不驱动整个编辑工作台更新。二进制媒体继续由按身份与用途共享的 Blob URL 引用计数管理，避免 Query 缓存另存一份媒体字节。
 

@@ -26,6 +26,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.0",
     "oxfmt": "^0.74.0",
     "oxlint": "^1.89.0"
   },
