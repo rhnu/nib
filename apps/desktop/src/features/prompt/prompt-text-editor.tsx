@@ -202,6 +202,7 @@ export function PromptTextEditor({
             setLexiconOpen(false);
           }}
           onInsert={insertTerms}
+          returnFocus={() => viewRef.current?.contentDOM ?? null}
           numericWeights={Boolean(liveAnalysis.profile?.numericWeights)}
           negativeWeights={Boolean(liveAnalysis.profile?.negativeWeights)}
           bracketWeights={Boolean(liveAnalysis.profile?.bracketWeights)}

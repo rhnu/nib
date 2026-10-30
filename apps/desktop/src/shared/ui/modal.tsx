@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 
@@ -11,6 +11,7 @@ export function Modal({
   wide = false,
   showClose = true,
   className = "",
+  finalFocus,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,6 +20,7 @@ export function Modal({
   wide?: boolean;
   showClose?: boolean;
   className?: string;
+  finalFocus?: ComponentProps<typeof Dialog.Popup>["finalFocus"];
 }) {
   useTranslation();
 
@@ -31,7 +33,10 @@ export function Modal({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="modal-backdrop" />
-        <Dialog.Popup className={`modal ${wide ? "modal-wide" : ""} ${className}`}>
+        <Dialog.Popup
+          className={`modal ${wide ? "modal-wide" : ""} ${className}`}
+          finalFocus={finalFocus}
+        >
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>
             {showClose && (

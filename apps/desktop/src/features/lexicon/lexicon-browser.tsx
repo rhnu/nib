@@ -22,6 +22,7 @@ export function LexiconBrowser({
   negativeWeights,
   bracketWeights,
   readOnly,
+  returnFocus,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,6 +34,7 @@ export function LexiconBrowser({
   negativeWeights: boolean;
   bracketWeights: boolean;
   readOnly: boolean;
+  returnFocus?: () => HTMLElement | null;
 }) {
   useTranslation();
   const status = useLexiconStatus(open);
@@ -125,7 +127,7 @@ export function LexiconBrowser({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={t("lexicon.title")} wide>
+      <Modal open={open} onClose={onClose} title={t("lexicon.title")} wide finalFocus={returnFocus}>
         <fieldset className="lexicon-browser" disabled={inserting}>
           <div className="lexicon-toolbar">
             <Field label={t("lexicon.search")}>
