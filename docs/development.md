@@ -184,6 +184,8 @@ Rust 检查顺序为编译 → 格式 → lint → 单元测试。默认只添�
 
 客户端基础词库使用 SQLite 查询名称、别名与译名；语义包另含 fp16 索引、稳定键列表和本地 CPU 查询模型。原生后端读取 fp16 数据后一次展开为 fp32 并归一化，查询使用安全可移植 SIMD 做精确点积，ONNX 编码器惰性初始化。基础安装不加载模型。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约；tokenizer 以压缩资源分发。资源文件经大小与 SHA-256 校验，下载按文件内容身份复用；有效的强 ETag 与 Range 响应允许续传。新代次完整打开后原子切换活动指针，失败或取消保留旧活动资源；资源更新分发完整包。
 
+原生绑定使用 `ort 2.0.0-rc.15`；该代 API 当前仅有预发布版本，因此固定这个 RC 并由锁文件记录完整依赖。CPU 预编译运行库通过原生后端链接，模型文件与 gzip 分词器按资源契约独立下载。
+
 离线工具入口是 `python tools/lexicon/lexicon.py`。`check-source` 比较实际来源文件及构建配方，`fetch` 下载固定来源，`normalize` 生成规范词条，`models` 准备固定模型，`encode` 编码语义文档，`merge` 合并分片，`pack` 调用 `nib-lexicon` 生成可安装资源，`build` 顺序完成这些步骤。先准备 Python 与 uv，再在仓库根目录执行：
 
 ```sh
@@ -197,7 +199,7 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py build --
 
 ## 持续检查与资源发布
 
-[CI](../.github/workflows/ci.yml) 按职责拆分：Linux quality 检查前端与配置格式、Markdown、前端 lint 和不含模型依赖的 Python 单元；Linux web 运行前端单元、准备 WASM 与 Web 产物；Windows native 完成 Rust 编译、格式、lint、单元与类型一致性；Windows desktop 复用已检查的 Web 产物构建桌面程序，并检查 ONNX Runtime 动态库。Changes 作业按事件基线识别仅文档修改，这类修改仍运行 quality，web、native 与 desktop 按预期跳过；最终 CI 作业同时核对需要运行的成功项与允许跳过的分项。构建上传短期产物，不生成安装包、签名或自动更新。
+[CI](../.github/workflows/ci.yml) 按职责拆分：Linux quality 检查前端与配置格式、Markdown、前端 lint 和不含模型依赖的 Python 单元；Linux web 运行前端单元、准备 WASM 与 Web 产物；Windows native 完成 Rust 编译、格式、lint、单元与类型一致性；Windows desktop 复用已检查的 Web 产物构建桌面程序，并收集可执行产物。当前 Windows CPU 版 ONNX Runtime 静态链接到程序。Changes 作业按事件基线识别仅文档修改，这类修改仍运行 quality，web、native 与 desktop 按预期跳过；最终 CI 作业同时核对需要运行的成功项与允许跳过的分项。构建上传短期产物，不生成安装包、签名或自动更新。
 
 Web 产物缓存使用实际构建输入的内容指纹，包含前端、提示词 WASM、工具及相关配置。指纹未变化时复用可信 main 保存的已检查产物，仍运行前端单元测试；未命中时才安装 WASM 工具并完成 WASM、类型检查与 Web 构建。仅原生实现变化可复用相同指纹的 Web 产物，桌面 CI 不重复构建前端。
 

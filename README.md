@@ -145,7 +145,7 @@ pnpm build:web
 pnpm build:desktop
 ```
 
-桌面构建生成 Windows 可执行程序及其 ONNX Runtime 动态库，不生成安装包或更新包。完整检查使用 `pnpm check`，还需本机具备 Rusteward 的 `cargo-dev`、rumdl 和上述 Python 环境；安装、类型生成、词库构建及 CI 命令职责见[开发说明](docs/development.md)。
+桌面构建生成 Windows 可执行程序，当前 CPU 版 ONNX Runtime 静态链接到程序，不生成安装包或更新包。完整检查使用 `pnpm check`，还需本机具备 Rusteward 的 `cargo-dev`、rumdl 和上述 Python 环境；安装、类型生成、词库构建及 CI 命令职责见[开发说明](docs/development.md)。
 
 ## 文档
 

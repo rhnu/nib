@@ -141,14 +141,9 @@ jobs:
           path: apps/desktop/dist
       - name: Build desktop executable with checked Web assets
         run: pnpm --filter @nib/desktop exec tauri build --no-bundle --config src-tauri/tauri.ci.conf.json -- --locked
-      - name: Verify the ONNX runtime accompanies the executable
-        run: |
-          if (-not (Test-Path -LiteralPath target/release/onnxruntime.dll)) {
-            throw 'Desktop build is missing onnxruntime.dll'
-          }
       - name: Verify tracked files
         run: git diff --exit-code
-      - name: Upload Windows executable and ONNX runtime
+      - name: Upload Windows desktop build
         uses: actions/upload-artifact@v7.0.2
         with:
           name: windows-x64-desktop
