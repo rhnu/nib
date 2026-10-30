@@ -26,11 +26,11 @@ export const emptySettings = (): GenerationSettings => ({
 });
 export const emptyReferences = () => ({ precise: [], vibes: [], normalizeVibeStrength: null });
 export const emptyComposition = (): Composition => ({ positive: [], negative: [] });
-export const textNode = (): PromptNode => ({
+export const textNode = (text = ""): PromptNode => ({
   kind: "text",
   id: crypto.randomUUID(),
   enabled: true,
-  text: "",
+  text,
 });
 
 export function moveItem<T>(items: T[], index: number, offset: number): T[] {

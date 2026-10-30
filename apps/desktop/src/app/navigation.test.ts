@@ -8,6 +8,8 @@ describe("startup navigation", () => {
   });
   it("uses a supported URL ahead of the persisted navigation snapshot", () => {
     expect(startupPage("/gallery", "create", false)).toBe("gallery");
+    expect(startupPage("/lexicon", "create", false)).toBe("lexicon");
+    expect(startupPage("/", "lexicon", false)).toBe("lexicon");
   });
   it("honors a settings choice made while workspace startup was blocked", () => {
     expect(startupPage("/gallery", "create", true)).toBe("settings");

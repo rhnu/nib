@@ -81,6 +81,7 @@ export const app = {
   directorTools: "导演工具",
   gallery: "画廊",
   library: "资源库",
+  lexicon: "词库",
   workspace: "工作台",
   retryResources: "重试读取资源",
   retrySave: "重试保存",

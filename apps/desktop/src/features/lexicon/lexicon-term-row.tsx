@@ -1,9 +1,10 @@
+import { Check, Plus } from "lucide-react";
 import type { LexiconMatch, LexiconTerm } from "@/bindings/lexicon";
-import { Button } from "@/shared/ui";
-import { formatNumber, t, useTranslation } from "@/shared/i18n";
+import { Button, IconButton } from "@/shared/ui";
+import { t, useTranslation } from "@/shared/i18n";
 import { kindLabel, reasonLabel } from "./labels";
 
-/** Category, provenance and associations stay distinct from editable prompt text. */
+/** Browsing stays compact; descriptions and provenance are available per term. */
 export function LexiconTermRow({
   match: { term, reason },
   selected,
@@ -17,24 +18,22 @@ export function LexiconTermRow({
 }) {
   useTranslation();
   return (
-    <li>
-      <label className="lexicon-term-heading">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onSelect(term)}
-          aria-label={t("lexicon.select", { name: term.name })}
-        />
-        <strong>{term.name}</strong>
-        {term.translation && <span>{term.translation}</span>}
-        <span className="tag">{kindLabel(term.kind)}</span>
-        <span className="generation-muted">{reasonLabel(reason)}</span>
-      </label>
-      {term.description && <p>{term.description}</p>}
-      <details>
+    <li className={selected ? "selected" : ""}>
+      <IconButton
+        label={t(selected ? "lexicon.remove" : "lexicon.select", { name: term.name })}
+        aria-pressed={selected}
+        onClick={() => onSelect(term)}
+      >
+        {selected ? <Check size={15} /> : <Plus size={15} />}
+      </IconButton>
+      <details className="lexicon-term-details">
         <summary>
-          {t("lexicon.source")} · {formatNumber(term.postCount)} · {term.source}
+          <strong>{term.name}</strong>
+          {term.translation && <span className="lexicon-translation">{term.translation}</span>}
+          <span className="tag">{kindLabel(term.kind)}</span>
+          <span className="lexicon-match-reason">{reasonLabel(reason)}</span>
         </summary>
+        {term.description && <p>{term.description}</p>}
         {term.aliases.length > 0 && (
           <p>
             {t("lexicon.aliases")}: {term.aliases.join(", ")}
@@ -45,9 +44,11 @@ export function LexiconTermRow({
             {t("lexicon.groups")}: {term.groups.join(" · ")}
           </p>
         )}
-        <p>{t("lexicon.posts", { count: term.postCount })}</p>
+        <p className="muted">
+          {t("lexicon.posts", { count: term.postCount })} · {t("lexicon.source")}: {term.source}
+        </p>
+        <Button onClick={() => onRelated(term)}>{t("lexicon.viewRelated")}</Button>
       </details>
-      <Button onClick={() => onRelated(term)}>{t("lexicon.viewRelated")}</Button>
     </li>
   );
 }

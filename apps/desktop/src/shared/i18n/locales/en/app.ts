@@ -84,6 +84,7 @@ export const app = {
   directorTools: "Director Tools",
   gallery: "Gallery",
   library: "Library",
+  lexicon: "Lexicon",
   workspace: "Workspace",
   retryResources: "Retry loading resources",
   retrySave: "Retry saving",

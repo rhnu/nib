@@ -12,6 +12,7 @@ import { CreatePage } from "@/pages/create-page";
 import { DirectorPage } from "@/pages/director-page";
 import { GalleryPage } from "@/pages/result-panel";
 import { LibraryPage } from "@/pages/library-page";
+import { LexiconPage } from "@/pages/lexicon-page";
 import { PreferencesPage } from "@/pages/preferences-page";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { RecoveryBoundary, RenderFailure } from "@/shared/ui/recovery-boundary";
@@ -50,6 +51,7 @@ export function createWorkspaceRouter(savedPage: Draft["activePage"], startupSet
     createRoute({ getParentRoute: () => root, path: "/director", component: DirectorPage }),
     createRoute({ getParentRoute: () => root, path: "/gallery", component: GalleryPage }),
     createRoute({ getParentRoute: () => root, path: "/library", component: LibraryPage }),
+    createRoute({ getParentRoute: () => root, path: "/lexicon", component: LexiconPage }),
     createRoute({ getParentRoute: () => root, path: "/settings", component: PreferencesPage }),
   ]);
   return createRouter({

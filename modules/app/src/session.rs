@@ -49,6 +49,7 @@ pub enum ActivePage {
     Director,
     Gallery,
     Library,
+    Lexicon,
     Settings,
 }
 

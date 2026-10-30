@@ -9,7 +9,7 @@ import { LexiconBrowser } from "@/features/lexicon/lexicon-browser";
 import { isCurrentLexicon, lexiconRevision } from "@/features/lexicon/api";
 import { useLexiconStatus } from "@/features/lexicon/use-lexicon-status";
 import { errorMessage } from "@/shared/host/error";
-import type { PromptDocument } from "@/bindings/prompt";
+import type { LexiconFormatTerm, PromptDocument } from "@/bindings/prompt";
 import { promptApi } from "./api";
 import type { PromptContext } from "./analysis-protocol";
 import { usePromptAnalysis } from "./use-prompt-analysis";
@@ -121,10 +121,7 @@ export function PromptTextEditor({
     view.focus();
   };
 
-  const insertTerms = async (
-    terms: { name: string; weight: number }[],
-    generation: string | null,
-  ) => {
+  const insertTerms = async (terms: LexiconFormatTerm[], generation: string | null) => {
     const view = viewRef.current;
     const snapshot = insertionState.current;
     const session = insertionSession.current;
@@ -203,9 +200,7 @@ export function PromptTextEditor({
           }}
           onInsert={insertTerms}
           returnFocus={() => viewRef.current?.contentDOM ?? null}
-          numericWeights={Boolean(liveAnalysis.profile?.numericWeights)}
-          negativeWeights={Boolean(liveAnalysis.profile?.negativeWeights)}
-          bracketWeights={Boolean(liveAnalysis.profile?.bracketWeights)}
+          profile={liveAnalysis.profile}
           readOnly={readOnly || !onChange}
         />
       )}

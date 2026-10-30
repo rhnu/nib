@@ -12,6 +12,7 @@ import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
 import { useGenerationDraft } from "@/features/inputs/use-generation-draft";
 import { createLibrarySessionStore } from "@/features/library/model/library-session";
+import { createLexiconSessionStore } from "@/features/lexicon/lexicon-session";
 
 export function useWorkbench(
   workspace: WorkspaceSnapshot,
@@ -39,6 +40,7 @@ export function useWorkbench(
   const resolution = useResolution(generationDraft, resourceVersion);
   const [error, setError] = useMessageState();
   const [librarySession] = useState(createLibrarySessionStore);
+  const [lexiconSession] = useState(createLexiconSessionStore);
   const resourceDirty = useStore(librarySession, (value) => value.dirty || value.busy);
 
   const getResourceDirty = () => librarySession.getState().dirty || librarySession.getState().busy;
@@ -176,6 +178,7 @@ export function useWorkbench(
     error,
     setError,
     librarySession,
+    lexiconSession,
     setLibrary,
     insertTarget,
     edit,

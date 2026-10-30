@@ -34,6 +34,9 @@ const navigationLabels = {
   get library() {
     return t("app.library");
   },
+  get lexicon() {
+    return t("app.lexicon");
+  },
   get settings() {
     return t("app.settings");
   },
