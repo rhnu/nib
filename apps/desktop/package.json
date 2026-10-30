@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm -w prompt:wasm && vite",
-    "build": "pnpm -w prompt:wasm && tsc -b && vite build",
-    "typecheck": "pnpm -w prompt:wasm && tsc -b",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
+    "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/commands": "6.11.1",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.15",

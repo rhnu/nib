@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "@/features/generation";
+import { LexiconSettings } from "@/features/lexicon/lexicon-settings";
 import { Button, Field, HelpMarker, Notice, Toggle } from "@/shared/ui";
 import type { ApplicationSettingsState } from "./use-application-settings";
 
@@ -293,6 +294,7 @@ export function SettingsPage({
           </section>
           <div hidden={section !== "storage"}>
             <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />
+            <LexiconSettings />
           </div>
         </div>
       </div>

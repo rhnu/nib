@@ -16,6 +16,7 @@ import { common } from "./zh-cn/common";
 import { messages } from "./zh-cn/messages";
 import { language } from "./zh-cn/language";
 import { presets } from "./zh-cn/presets";
+import { lexicon } from "./zh-cn/lexicon";
 
 export const zhCN = {
   app: app,
@@ -36,4 +37,5 @@ export const zhCN = {
   messages: messages,
   language: language,
   presets: presets,
+  lexicon,
 };

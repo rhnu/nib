@@ -1,5 +1,6 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { LexiconBrowser } from "@/features/lexicon/lexicon-browser";
 import { errorMessage } from "@/shared/host/error";
 import { resourceDependencies } from "./resource-dependencies";
 import { Plus, Search } from "lucide-react";
@@ -32,6 +33,7 @@ export function ResourceLibrary({
   target: InsertTarget;
 }) {
   useTranslation();
+  const [lexiconOpen, setLexiconOpen] = useState(false);
 
   const { query, setQuery, kind, setKind, items, loading, queryError, refreshSearch } =
     useResourceSearch(open);
@@ -90,6 +92,7 @@ export function ResourceLibrary({
             {t("library.create")}
           </ActionsMenu>
           <HelpMarker label={t("library.usageHelp")}>{t("library.usageDescription")}</HelpMarker>
+          <Button onClick={() => setLexiconOpen(true)}>{t("lexicon.title")}</Button>
         </div>
         {error && (
           <Notice
@@ -131,6 +134,16 @@ export function ResourceLibrary({
           )}
         </div>
       </section>
+      {lexiconOpen && (
+        <LexiconBrowser
+          open
+          onClose={() => setLexiconOpen(false)}
+          numericWeights={false}
+          negativeWeights={false}
+          bracketWeights={false}
+          readOnly
+        />
+      )}
       <Modal
         open={confirm !== null}
         onClose={() => setConfirm(null)}

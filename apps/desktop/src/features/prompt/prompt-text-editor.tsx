@@ -1,8 +1,13 @@
-import { t, useTranslation, formatNumber } from "@/shared/i18n";
-import { useId, useState } from "react";
+import { t, useTranslation, formatNumber, useMessageState } from "@/shared/i18n";
+import { useId, useRef, useState } from "react";
+import { isolateHistory } from "@codemirror/commands";
+import { EditorState, Transaction } from "@codemirror/state";
 import { useQuery } from "@tanstack/react-query";
 import { Popover } from "@base-ui/react/popover";
-import { Circle, LoaderCircle, TriangleAlert } from "lucide-react";
+import { BookOpen, Circle, LoaderCircle, TriangleAlert } from "lucide-react";
+import { LexiconBrowser } from "@/features/lexicon/lexicon-browser";
+import { isCurrentLexicon, lexiconRevision } from "@/features/lexicon/api";
+import { useLexiconStatus } from "@/features/lexicon/use-lexicon-status";
 import { errorMessage } from "@/shared/host/error";
 import type { PromptDocument } from "@/bindings/prompt";
 import { promptApi } from "./api";
@@ -11,6 +16,8 @@ import { usePromptAnalysis } from "./use-prompt-analysis";
 import { usePromptEditor } from "./use-prompt-editor";
 import { promptDiagnostics, sourceDiagnosticMessage } from "./editor-diagnostics";
 import { semanticDescription } from "./editor-semantics";
+import { promptAnalysis, promptRevision, promptProfile } from "./editor-analysis";
+import { formatLexiconTerms } from "./format-runtime";
 import "./text-assist.css";
 
 /** Source editors and native result readers share a persistent CodeMirror view and Rust analysis. */
@@ -42,6 +49,11 @@ export function PromptTextEditor({
   const descriptionId = useId();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState(0);
+  const [lexiconOpen, setLexiconOpen] = useState(false);
+  const insertionState = useRef<EditorState | null>(null);
+  const insertionSession = useRef(0);
+  const [insertionError, setInsertionError] = useMessageState();
+  useLexiconStatus();
   const liveAnalysis = usePromptAnalysis(value, model, context, {
     enabled: analysisDocument === undefined,
   });
@@ -91,10 +103,12 @@ export function PromptTextEditor({
       disabled,
       readOnly: readOnly || !onChange,
       language: i18n.resolvedLanguage ?? i18n.language,
+      profile: liveAnalysis.profile,
     },
     analysis.document,
     onChange,
     setPosition,
+    setInsertionError,
   );
   const details = semanticDescription(analysis.document, position);
   const hasIssue = Boolean(analysis.error || tokenError || diagnostics.length);
@@ -107,10 +121,93 @@ export function PromptTextEditor({
     view.focus();
   };
 
+  const insertTerms = async (
+    terms: { name: string; weight: number }[],
+    generation: string | null,
+  ) => {
+    const view = viewRef.current;
+    const snapshot = insertionState.current;
+    const session = insertionSession.current;
+    if (
+      !view ||
+      !snapshot ||
+      view.state.field(promptRevision) !== snapshot.field(promptRevision) ||
+      view.compositionStarted ||
+      view.state.readOnly ||
+      !isCurrentLexicon(generation, lexiconRevision())
+    )
+      return false;
+    const selection = view.state.selection.main;
+    const profile = view.state.field(promptProfile);
+    if (!profile) return false;
+    const document = view.state.field(promptAnalysis);
+    const range = document?.completionRanges.find(
+      (item) => item.from <= selection.from && selection.to <= item.to,
+    );
+    // An empty source is a valid initial insertion; all other grammar positions come from Rust.
+    if (!range && view.state.doc.length !== 0) return false;
+    const from = selection.empty ? (range?.to ?? 0) : selection.from;
+    const to = selection.empty ? from : selection.to;
+    const startedRevision = lexiconRevision();
+    const termsText = await formatLexiconTerms(terms, profile);
+    if (
+      insertionSession.current !== session ||
+      viewRef.current !== view ||
+      view.state.field(promptRevision) !== snapshot.field(promptRevision) ||
+      view.state.field(promptProfile) !== profile ||
+      view.compositionStarted ||
+      view.state.readOnly ||
+      !isCurrentLexicon(generation, startedRevision)
+    )
+      return false;
+    const insert = `${selection.empty && range && range.from < range.to ? ", " : ""}${termsText}`;
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from + insert.length },
+      annotations: [Transaction.userEvent.of("input.complete"), isolateHistory.of("full")],
+    });
+    requestAnimationFrame(() => view.focus());
+    return true;
+  };
+
   return (
     <div className={`prompt-text-editor${readOnly ? " prompt-text-readonly" : ""}`}>
       <input ref={disabledProbe} type="hidden" disabled={disabled} />
       <div className="prompt-editor-host" ref={hostRef} />
+      {insertionError && (
+        <div className="prompt-analysis-error" role="alert">
+          <TriangleAlert size={12} aria-hidden />
+          <span>{t("lexicon.insertionFailed", { detail: insertionError })}</span>
+        </div>
+      )}
+      <button
+        type="button"
+        className="prompt-lexicon-trigger icon-button"
+        disabled={disabled}
+        title={t("lexicon.title")}
+        aria-label={`${label} · ${t("lexicon.title")}`}
+        onClick={() => {
+          insertionState.current = viewRef.current?.state ?? null;
+          insertionSession.current++;
+          setLexiconOpen(true);
+        }}
+      >
+        <BookOpen size={13} aria-hidden />
+      </button>
+      {lexiconOpen && (
+        <LexiconBrowser
+          open
+          onClose={() => {
+            insertionSession.current++;
+            setLexiconOpen(false);
+          }}
+          onInsert={insertTerms}
+          numericWeights={Boolean(liveAnalysis.profile?.numericWeights)}
+          negativeWeights={Boolean(liveAnalysis.profile?.negativeWeights)}
+          bracketWeights={Boolean(liveAnalysis.profile?.bracketWeights)}
+          readOnly={readOnly || !onChange}
+        />
+      )}
       <span id={descriptionId} className="prompt-editor-description">
         {t("prompt.editorHelp")} {status}
       </span>

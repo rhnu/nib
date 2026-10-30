@@ -1,0 +1,80 @@
+.lexicon-browser {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.lexicon-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lexicon-toolbar > .field:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+.lexicon-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow: auto;
+}
+.lexicon-results > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.lexicon-results p {
+  margin: 5px 0;
+  font-size: 12px;
+}
+.lexicon-results details {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.lexicon-term-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.lexicon-term-heading strong {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+.lexicon-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.lexicon-selected > div {
+  display: flex;
+  align-items: end;
+  gap: 5px;
+}
+.lexicon-selected input {
+  width: 75px;
+}
+.lexicon-settings form,
+.lexicon-install-progress {
+  display: grid;
+  gap: 10px;
+}
+.lexicon-install-progress {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.lexicon-install-progress progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.lexicon-settings .settings-path {
+  margin-bottom: 12px;
+}
+.lexicon-settings .settings-path code {
+  overflow-wrap: anywhere;
+}

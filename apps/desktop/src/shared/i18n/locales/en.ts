@@ -16,6 +16,7 @@ import { common } from "./en/common";
 import { messages } from "./en/messages";
 import { language } from "./en/language";
 import { presets } from "./en/presets";
+import { lexicon } from "./en/lexicon";
 
 export const en = {
   app: app,
@@ -36,4 +37,5 @@ export const en = {
   messages: messages,
   language: language,
   presets: presets,
+  lexicon,
 };

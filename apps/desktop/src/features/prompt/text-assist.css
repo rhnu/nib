@@ -83,6 +83,33 @@
 .prompt-token-indicator.danger {
   color: var(--danger);
 }
+.prompt-lexicon-trigger {
+  position: absolute;
+  top: 31px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--input);
+}
+.prompt-completion-popup ul {
+  max-width: min(620px, calc(100vw - 30px));
+}
+.prompt-completion-popup .cm-completionLabel {
+  font-family: var(--font-mono);
+}
+.prompt-completion-popup .cm-completionDetail {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  margin-left: 10px;
+}
+.prompt-completion-popup li[aria-selected="true"] {
+  color: var(--text) !important;
+  background: var(--accent-soft) !important;
+}
 .prompt-token-popup {
   max-width: min(360px, calc(100vw - 24px));
   padding: 7px 10px;

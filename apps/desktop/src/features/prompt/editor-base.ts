@@ -1,9 +1,16 @@
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { drawSelection, EditorView, keymap, placeholder } from "@codemirror/view";
-import { promptAnalysis } from "./editor-analysis";
+import type { PromptSyntaxProfile } from "@/bindings/prompt";
+import {
+  promptAnalysis,
+  promptRevision,
+  promptProfile,
+  promptInsertionError,
+} from "./editor-analysis";
 import { promptSemantics, promptSemanticTooltip } from "./editor-semantics";
 import { promptEditorTheme } from "./editor-theme";
+import { promptCompletion } from "./editor-completion";
 
 export const externalPromptUpdate = Annotation.define<boolean>();
 
@@ -19,6 +26,7 @@ export type EditorConfiguration = {
   disabled: boolean;
   readOnly: boolean;
   language: string;
+  profile?: PromptSyntaxProfile;
 };
 
 export function editorConfiguration(configuration: EditorConfiguration) {
@@ -48,6 +56,7 @@ export function createPromptEditor(
   onChange: (value: string) => void,
   onSelection: (position: number) => void,
   onCompositionEnd: () => void,
+  onInsertionError: (cause: unknown) => void,
 ) {
   return new EditorView({
     parent,
@@ -60,8 +69,11 @@ export function createPromptEditor(
         keymap.of([...defaultKeymap, ...historyKeymap]),
         promptEditorTheme,
         promptAnalysis,
+        promptRevision,
+        promptProfile,
         promptSemantics,
         promptSemanticTooltip,
+        promptCompletion,
         compartments.configuration.of(editorConfiguration(configuration)),
         compartments.language.of(EditorView.contentAttributes.of({ lang: configuration.language })),
         EditorView.updateListener.of((update) => {
@@ -73,6 +85,12 @@ export function createPromptEditor(
           }
           if (update.selectionSet || update.docChanged)
             onSelection(update.state.selection.main.head);
+          if (update.docChanged) onInsertionError("");
+          for (const transaction of update.transactions) {
+            for (const effect of transaction.effects) {
+              if (effect.is(promptInsertionError)) onInsertionError(effect.value);
+            }
+          }
         }),
         EditorView.domEventHandlers({ compositionend: onCompositionEnd }),
       ],

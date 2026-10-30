@@ -8,7 +8,7 @@ import {
   synchronizePromptValue,
   type EditorConfiguration,
 } from "./editor-base";
-import { setPromptAnalysis } from "./editor-analysis";
+import { setPromptAnalysis, setPromptProfile } from "./editor-analysis";
 
 /** A view lives for one mount. Configuration and controlled updates retain history and selection. */
 export function usePromptEditor(
@@ -16,13 +16,14 @@ export function usePromptEditor(
   document: PromptDocument | null,
   onChange: ((value: string) => void) | undefined,
   onSelection: (position: number) => void,
+  onInsertionError: (cause: unknown) => void,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const disabledProbe = useRef<HTMLInputElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const current = useRef({ configuration, document, onChange, onSelection });
+  const current = useRef({ configuration, document, onChange, onSelection, onInsertionError });
   useLayoutEffect(() => {
-    current.current = { configuration, document, onChange, onSelection };
+    current.current = { configuration, document, onChange, onSelection, onInsertionError };
   });
   const [compartments] = useState(editorCompartments);
 
@@ -49,10 +50,16 @@ export function usePromptEditor(
           if (!view.compositionStarted) {
             synchronizePromptValue(view, current.current.configuration.value);
             // The matching result may have arrived while the external value was deferred by IME.
-            view.dispatch({ effects: setPromptAnalysis.of(current.current.document) });
+            view.dispatch({
+              effects: [
+                setPromptAnalysis.of(current.current.document),
+                setPromptProfile.of(current.current.configuration.profile ?? null),
+              ],
+            });
           }
         }, 0);
       },
+      (cause) => current.current.onInsertionError(cause),
     );
     viewRef.current = view;
     const observer = new MutationObserver(() => {
@@ -113,9 +120,14 @@ export function usePromptEditor(
   useEffect(() => {
     const view = viewRef.current;
     if (view && view.state.doc.toString() === configuration.value) {
-      view.dispatch({ effects: setPromptAnalysis.of(document) });
+      view.dispatch({
+        effects: [
+          setPromptAnalysis.of(document),
+          setPromptProfile.of(configuration.profile ?? null),
+        ],
+      });
     }
-  }, [configuration.value, document]);
+  }, [configuration.value, configuration.profile, document]);
 
   return { hostRef, viewRef, disabledProbe };
 }

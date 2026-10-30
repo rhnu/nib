@@ -48,7 +48,7 @@ export function usePromptAnalysis(
           setResult(value instanceof Error ? { key, error: value } : { key, document: value });
         }
       });
-    }, 100);
+    }, 0);
     return () => {
       current = false;
       clearTimeout(timer);
@@ -58,6 +58,7 @@ export function usePromptAnalysis(
   const current = enabled && result?.key === key ? result : null;
   const error = enabled ? (profile.error ?? current?.error) : null;
   return {
+    profile: profile.data,
     document: current?.document ?? null,
     pending: enabled && !error && !current?.document,
     error: error ? errorMessage(error) : "",
