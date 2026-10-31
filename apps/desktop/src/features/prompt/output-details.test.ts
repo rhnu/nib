@@ -96,7 +96,6 @@ describe("resolved output details", () => {
       createdAt: 0,
       updatedAt: 0,
       name: "Source preset",
-      revision: 1,
       content: {
         kind: "preset",
         composition: emptyComposition(),

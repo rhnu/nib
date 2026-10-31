@@ -15,7 +15,7 @@ export const library = {
   presetDefaultsDescription: "仅填写预设负责的设置，留空则继续继承。",
   retryModelQuery: "重试模型查询",
   unsaved: "尚未保存",
-  revision: "版本 {{value0}}",
+  saved: "已保存",
   newResource: "新资源",
   saving: "保存中…",
   saveResource: "保存资源",

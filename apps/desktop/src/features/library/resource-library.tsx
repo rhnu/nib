@@ -39,7 +39,8 @@ import { useResourceSearch } from "./use-resource-search";
 import { useResourceEditor } from "./use-resource-editor";
 import { useLibrarySessionStore } from "./model/library-session-context";
 import { splitLabels } from "./resource-edit";
-import { completeLibraryPaste } from "./model/library-session";
+import { resourceFolderEdit } from "./resource-folder-edit";
+import { completeLibraryPaste, runLibraryOperation } from "./model/library-session";
 import { libraryApi } from "./api";
 
 type OrganizeDialog =
@@ -50,7 +51,7 @@ type OrganizeDialog =
       tags: string;
       models: string[];
     }
-  | { kind: "folder"; folder: ResourceFolder }
+  | { kind: "folder"; folder: ResourceFolder; original: ResourceFolder | null }
   | { kind: "rename"; resource: ResourceSummary; name: string }
   | { kind: "tag"; oldName: string; name: string };
 
@@ -104,6 +105,7 @@ export function ResourceLibrary({
   const editorState = useResourceEditor(onChanged, refreshSearch);
   const {
     editor,
+    saveMode,
     dirty,
     busy,
     confirm,
@@ -143,15 +145,13 @@ export function ResourceLibrary({
   const selected = items.filter((item) => selectedIds.includes(item.id));
 
   const selectionFor = (item?: ResourceSummary): ResourceSelection => ({
-    resources: (item && !selectedIds.includes(item.id) ? [item] : selected).map(
-      ({ id, revision }) => ({ id, revision }),
-    ),
+    resources: (item && !selectedIds.includes(item.id) ? [item] : selected).map(({ id }) => id),
     folders: [],
   });
 
   const folderSelection = (folder: ResourceFolder): ResourceSelection => ({
     resources: [],
-    folders: [{ id: folder.id, revision: folder.revision }],
+    folders: [folder.id],
   });
 
   const contextSelect = (id: string) => {
@@ -164,17 +164,8 @@ export function ResourceLibrary({
     await Promise.all(ids.map(onChanged));
   };
 
-  const run = async (action: () => Promise<void>) => {
-    if (store.getState().busy) return;
-    store.setState({ busy: true, error: "" });
-    try {
-      await trackPendingWork(action());
-    } catch (cause) {
-      setError(cause);
-    } finally {
-      store.setState({ busy: false });
-    }
-  };
+  const run = (action: () => Promise<void>) =>
+    runLibraryOperation(store, () => trackPendingWork(action()));
 
   const manage = (action: () => void) =>
     leave(() => {
@@ -198,10 +189,7 @@ export function ResourceLibrary({
           store.setState({ selectedIds: [] });
         }
         await refresh([
-          ...new Set([
-            ...selection.resources.map((item) => item.id),
-            ...result.resources.map((item) => item.id),
-          ]),
+          ...new Set([...selection.resources, ...result.resources.map((item) => item.id)]),
         ]);
         if (action.kind === "copy")
           store.setState({ selectedIds: result.resources.map((item) => item.id) });
@@ -239,11 +227,11 @@ export function ResourceLibrary({
   const newFolder = (parentId: string | null) =>
     setDialog({
       kind: "folder",
+      original: null,
       folder: {
         id: crypto.randomUUID(),
         name: "",
         parentId,
-        revision: 0,
         createdAt: 0,
         updatedAt: 0,
       },
@@ -334,7 +322,7 @@ export function ResourceLibrary({
           { separator: true } as ActionMenuItem,
           {
             label: t("library.renameFolder"),
-            action: () => setDialog({ kind: "folder", folder }),
+            action: () => setDialog({ kind: "folder", folder, original: folder }),
             disabled: busy,
           },
           {
@@ -583,7 +571,7 @@ export function ResourceLibrary({
             }
             actions={folderActions}
             onRename={(folder) => {
-              if (!busy) setDialog({ kind: "folder", folder });
+              if (!busy) setDialog({ kind: "folder", folder, original: folder });
             }}
             onDropSelection={(selection, folderId, copy) =>
               batch(selection, { kind: copy ? "copy" : "move", folderId })
@@ -593,6 +581,7 @@ export function ResourceLibrary({
             <ResourceEditor
               key={editor.id}
               editor={editor}
+              persisted={saveMode === "update"}
               dirty={dirty}
               busy={busy}
               models={models}
@@ -605,7 +594,7 @@ export function ResourceLibrary({
               dismiss={dismiss}
               remove={() =>
                 requestDelete({
-                  resources: [{ id: editor.id, revision: editor.revision }],
+                  resources: [editor.id],
                   folders: [],
                 })
               }
@@ -733,7 +722,7 @@ export function ResourceLibrary({
         }}
         title={
           dialog?.kind === "folder"
-            ? dialog.folder.revision
+            ? dialog.original
               ? t("library.renameFolder")
               : t("library.createFolder")
             : dialog?.kind === "tags"
@@ -864,21 +853,19 @@ export function ResourceLibrary({
                 onClick={() => {
                   if (dialog.kind === "folder")
                     void run(async () => {
-                      await libraryApi.saveFolder({
-                        ...dialog.folder,
-                        name: dialog.folder.name.trim(),
-                      });
+                      await libraryApi.saveFolder(
+                        resourceFolderEdit(dialog.original, dialog.folder),
+                      );
                       await client.invalidateQueries({ queryKey: ["resource-folders"] });
                       setDialog(null);
                     });
                   else if (dialog.kind === "rename")
                     void run(async () => {
                       const resource = await libraryApi.resource(dialog.resource.id);
-                      await libraryApi.saveResource({
-                        ...resource,
-                        revision: dialog.resource.revision,
-                        name: dialog.name.trim(),
-                      });
+                      await libraryApi.saveResource(
+                        { ...resource, name: dialog.name.trim() },
+                        "update",
+                      );
                       await refresh([resource.id]);
                       setDialog(null);
                     });

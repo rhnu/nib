@@ -3,7 +3,10 @@ use std::{cell::RefCell, collections::HashMap};
 use rusqlite::{Connection, OptionalExtension as _, params};
 
 use super::{Resource, ResourceReader, ResourceWriter, validate_resource};
-use crate::persistence::{PersistenceError, SqliteDatabase, encode, next_revision, write_miss};
+use crate::{
+    library::ResourceSaveMode,
+    persistence::{PersistenceError, SqliteDatabase, encode},
+};
 
 type ResourceCache = RefCell<HashMap<String, Option<Resource>>>;
 
@@ -42,12 +45,12 @@ pub(crate) fn get_resource(
 ) -> Result<Option<Resource>, PersistenceError> {
     crate::library::validate_id(id)?;
     let row = connection.query_row(
-        "SELECT id, revision, name, content, description, folder_id, cover_asset_id, created_at, updated_at FROM resources WHERE id = ?1",
+        "SELECT id, name, content, description, folder_id, cover_asset_id, created_at, updated_at FROM resources WHERE id = ?1",
         [id], |row| Ok(Resource {
-            id: row.get(0)?, revision: row.get(1)?, name: row.get(2)?,
-            content: serde_json::from_str(&row.get::<_, String>(3)?).map_err(|error| rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(error)))?,
-            description: row.get(4)?, folder_id: row.get(5)?, cover_asset_id: row.get(6)?,
-            created_at: row.get(7)?, updated_at: row.get(8)?,
+            id: row.get(0)?, name: row.get(1)?,
+            content: serde_json::from_str(&row.get::<_, String>(2)?).map_err(|error| rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(error)))?,
+            description: row.get(3)?, folder_id: row.get(4)?, cover_asset_id: row.get(5)?,
+            created_at: row.get(6)?, updated_at: row.get(7)?,
             aliases: Vec::new(), tags: Vec::new(), models: Vec::new(),
         }),
     ).optional().map_err(|error| PersistenceError::failure("read a resource", error))?;
@@ -80,6 +83,7 @@ fn relation_values(
 pub(crate) fn save_resource_on(
     connection: &Connection,
     resource: &Resource,
+    mode: ResourceSaveMode,
 ) -> Result<Resource, PersistenceError> {
     validate_resource(resource).map_err(|error| PersistenceError::InvalidData {
         message: crate::api::UserMessage::Validation {
@@ -88,8 +92,23 @@ pub(crate) fn save_resource_on(
         },
     })?;
     crate::library::operations::require_folder(connection, resource.folder_id.as_deref())?;
-    let previous_cover =
-        get_resource(connection, &resource.id)?.and_then(|previous| previous.cover_asset_id);
+    let previous = get_resource(connection, &resource.id)?;
+    match (mode, previous.is_some()) {
+        (ResourceSaveMode::Create, true) => {
+            return Err(PersistenceError::Conflict {
+                kind: "resource",
+                id: resource.id.clone(),
+            });
+        },
+        (ResourceSaveMode::Update, false) => {
+            return Err(PersistenceError::NotFound {
+                kind: "resource",
+                id: resource.id.clone(),
+            });
+        },
+        _ => {},
+    }
+    let previous_cover = previous.and_then(|previous| previous.cover_asset_id);
     if let Some(id) = &resource.cover_asset_id {
         let owner: Option<Option<String>> = connection
             .query_row(
@@ -105,24 +124,16 @@ pub(crate) fn save_resource_on(
             ));
         }
     }
-    let revision = next_revision(resource.revision)?;
     let now = crate::jobs::timestamp()?;
     let content = encode(&resource.content)?;
-    let count = if resource.revision == 0 {
-        connection.execute("INSERT INTO resources(id,revision,name,content,description,folder_id,cover_asset_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?8) ON CONFLICT(id) DO NOTHING",
-            params![resource.id,revision,resource.name.trim(),content,resource.description,resource.folder_id,resource.cover_asset_id,now])
-    } else {
-        connection.execute("UPDATE resources SET revision=?2,name=?3,content=?4,description=?5,folder_id=?6,cover_asset_id=?7,updated_at=?8 WHERE id=?1 AND revision=?9",
-            params![resource.id,revision,resource.name.trim(),content,resource.description,resource.folder_id,resource.cover_asset_id,now,resource.revision])
+    match mode {
+        ResourceSaveMode::Create => connection.execute(
+            "INSERT INTO resources(id,name,content,description,folder_id,cover_asset_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)",
+            params![resource.id,resource.name.trim(),content,resource.description,resource.folder_id,resource.cover_asset_id,now]),
+        ResourceSaveMode::Update => connection.execute(
+            "UPDATE resources SET name=?2,content=?3,description=?4,folder_id=?5,cover_asset_id=?6,updated_at=?7 WHERE id=?1",
+            params![resource.id,resource.name.trim(),content,resource.description,resource.folder_id,resource.cover_asset_id,now]),
     }.map_err(|error| PersistenceError::failure("save a resource", error))?;
-    if count == 0 {
-        return Err(write_miss(
-            connection,
-            "resources",
-            "resource",
-            &resource.id,
-        ));
-    }
     for (table, values) in [
         ("resource_aliases", &resource.aliases),
         ("resource_tags", &resource.tags),
@@ -169,19 +180,23 @@ impl ResourceReader for ResourceSnapshot<'_> {
 }
 
 impl ResourceWriter for SqliteDatabase {
-    fn save_resource(&self, resource: &Resource) -> Result<Resource, PersistenceError> {
+    fn save_resource(
+        &self,
+        resource: &Resource,
+        mode: ResourceSaveMode,
+    ) -> Result<Resource, PersistenceError> {
         let mut connection = self.connection()?;
         let transaction = connection
             .transaction()
             .map_err(|error| PersistenceError::failure("begin saving a resource", error))?;
-        let saved = save_resource_on(&transaction, resource)?;
+        let saved = save_resource_on(&transaction, resource, mode)?;
         transaction
             .commit()
             .map_err(|error| PersistenceError::failure("commit a resource", error))?;
         Ok(saved)
     }
 
-    fn delete_resource(&self, id: &str, revision: u32) -> Result<(), PersistenceError> {
+    fn delete_resource(&self, id: &str) -> Result<(), PersistenceError> {
         crate::library::validate_id(id)?;
         let mut connection = self.connection()?;
         let transaction = connection
@@ -189,13 +204,13 @@ impl ResourceWriter for SqliteDatabase {
             .map_err(|error| PersistenceError::failure("begin deleting a resource", error))?;
         let previous = get_resource(&transaction, id)?;
         let count = transaction
-            .execute(
-                "DELETE FROM resources WHERE id=?1 AND revision=?2",
-                params![id, revision],
-            )
+            .execute("DELETE FROM resources WHERE id=?1", [id])
             .map_err(|error| PersistenceError::failure("delete a resource", error))?;
         if count == 0 {
-            return Err(write_miss(&transaction, "resources", "resource", id));
+            return Err(PersistenceError::NotFound {
+                kind: "resource",
+                id: id.to_owned(),
+            });
         }
         crate::media::references::remove_owner_on(&transaction, "resource", id)?;
         if let Some(cover) = previous.and_then(|resource| resource.cover_asset_id) {

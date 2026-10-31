@@ -5,6 +5,8 @@ import type {
   ResourceQuery,
   ResourcePage,
   ResourceFolder,
+  ResourceFolderEdit,
+  ResourceSaveMode,
   ResourceSelection,
   ResourceBatchAction,
   ResourceImpact,
@@ -41,13 +43,14 @@ export const libraryApi = {
     invokeHost<ResourceSummary[]>("rename_resource_tag", { oldName, newName }),
   deleteTag: (name: string) => invokeHost<ResourceSummary[]>("delete_resource_tag", { name }),
   tags: () => invokeHost<string[]>("list_resource_tags"),
-  saveFolder: (folder: ResourceFolder) =>
-    invokeHost<ResourceFolder>("save_resource_folder", { folder }),
+  saveFolder: (edit: ResourceFolderEdit) =>
+    invokeHost<ResourceFolder>("save_resource_folder", { edit }),
   impact: (selection: ResourceSelection) =>
     invokeHost<ResourceImpact>("resource_selection_impact", { selection }),
   batch: (selection: ResourceSelection, action: ResourceBatchAction) =>
     invokeHost<ResourceImpact>("batch_resources", { selection, action }),
   resource: (id: string) => invokeHost<Resource>("get_resource", { id }),
   definitions: (ids: string[]) => invokeHost<Resource[]>("get_resource_definitions", { ids }),
-  saveResource: (resource: Resource) => invokeHost<Resource>("save_resource", { resource }),
+  saveResource: (resource: Resource, mode: ResourceSaveMode) =>
+    invokeHost<Resource>("save_resource", { resource, mode }),
 };

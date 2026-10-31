@@ -17,6 +17,7 @@ import { VibeReferenceEditor } from "@/features/vibes";
 
 export function ResourceEditor({
   editor,
+  persisted,
   dirty,
   busy,
   models,
@@ -32,6 +33,7 @@ export function ResourceEditor({
   setError,
 }: {
   editor: Resource;
+  persisted: boolean;
   dirty: boolean;
   busy: boolean;
   models: string[];
@@ -101,7 +103,7 @@ export function ResourceEditor({
             {editor.content.kind === "chunk" ? t("library.chunk") : t("library.preset")}
           </span>
           <span className="spacer" />
-          {editor.revision > 0 && (
+          {persisted && (
             <ActionsMenu
               label={t("library.manageResource")}
               items={[
@@ -246,13 +248,13 @@ export function ResourceEditor({
           <span className="muted">
             {dirty
               ? t("library.unsaved")
-              : editor.revision
-                ? t("library.revision", { value0: editor.revision })
+              : persisted
+                ? t("library.saved")
                 : t("library.newResource")}
           </span>
           <Button
             className="primary"
-            disabled={busy || (!dirty && editor.revision > 0)}
+            disabled={busy || (!dirty && persisted)}
             onClick={() => void save()}
           >
             {busy ? t("library.saving") : t("library.saveResource")}

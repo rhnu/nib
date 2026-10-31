@@ -137,7 +137,6 @@ fn streaming_queue(
                 created_at: 0,
                 updated_at: 0,
                 id: CHUNK_ID.to_owned(),
-                revision: 1,
                 name: "chunk".to_owned(),
                 content: ResourceContent::Chunk {
                     text: "a cat".to_owned(),

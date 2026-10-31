@@ -57,7 +57,6 @@ fn resource(id: &str, content: ResourceContent) -> Resource {
         created_at: 0,
         updated_at: 0,
         id: id.into(),
-        revision: 1,
         name: id.into(),
         content,
     }

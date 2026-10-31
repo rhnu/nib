@@ -38,7 +38,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version != 0 && version != 17 {
+        if version != 0 && version != 18 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -140,38 +140,4 @@ pub(crate) fn encode<T: Serialize>(value: &T) -> Result<String, PersistenceError
 pub(crate) fn decode<T: DeserializeOwned>(value: &str) -> Result<T, PersistenceError> {
     serde_json::from_str(value)
         .map_err(|error| PersistenceError::failure("read retained content", error))
-}
-
-pub(crate) fn next_revision(revision: u32) -> Result<u32, PersistenceError> {
-    revision
-        .checked_add(1)
-        .ok_or_else(|| PersistenceError::InvalidData {
-            message: UserMessage::RevisionOverflow,
-        })
-}
-
-/// Distinguishes a removed record from an edit based on an older revision.
-pub(crate) fn write_miss(
-    connection: &Connection,
-    table: &str,
-    kind: &'static str,
-    id: &str,
-) -> PersistenceError {
-    // Table names are selected by the repository, never taken from user input.
-    let result = connection.query_row(
-        &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE id = ?1)"),
-        [id],
-        |row| row.get::<_, bool>(0),
-    );
-    match result {
-        Ok(true) => PersistenceError::Conflict {
-            kind,
-            id: id.to_owned(),
-        },
-        Ok(false) => PersistenceError::NotFound {
-            kind,
-            id: id.to_owned(),
-        },
-        Err(error) => PersistenceError::failure("inspect a failed record write", error),
-    }
 }

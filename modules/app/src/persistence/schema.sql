@@ -1,6 +1,5 @@
 CREATE TABLE resource_folders (
     id TEXT PRIMARY KEY NOT NULL,
-    revision INTEGER NOT NULL CHECK (revision > 0),
     name TEXT NOT NULL,
     parent_id TEXT REFERENCES resource_folders(id),
     created_at INTEGER NOT NULL,
@@ -10,7 +9,6 @@ CREATE UNIQUE INDEX resource_folder_names ON resource_folders(COALESCE(parent_id
 
 CREATE TABLE resources (
     id TEXT PRIMARY KEY NOT NULL,
-    revision INTEGER NOT NULL CHECK (revision > 0),
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     folder_id TEXT REFERENCES resource_folders(id),
@@ -121,4 +119,4 @@ CREATE TABLE image_safety (
     assessment TEXT CHECK (assessment IS NULL OR json_valid(assessment))
 );
 
-PRAGMA user_version = 17;
+PRAGMA user_version = 18;

@@ -26,7 +26,6 @@ const character = (id: string): CharacterComposition => ({
 
 const resource: Resource = {
   id: "resource",
-  revision: 1,
   description: "",
   aliases: [],
   tags: [],

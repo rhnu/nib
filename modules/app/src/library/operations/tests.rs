@@ -3,7 +3,6 @@ use super::*;
 fn folder(id: &str, parent: Option<&str>) -> ResourceFolder {
     ResourceFolder {
         id: id.into(),
-        revision: 1,
         name: id.into(),
         parent_id: parent.map(str::to_owned),
         created_at: 0,
@@ -75,3 +74,105 @@ const PARENT_ID: &str = "0e2817b2-fcd7-4ff8-853e-677362d89466";
 const CHILD_ID: &str = "e9bdb1f8-8baf-455c-81bd-bb54a0b29024";
 
 const OTHER_ID: &str = "9a524515-aa3e-48cf-a4e7-46008601ba0c";
+
+#[test]
+fn renaming_a_folder_preserves_its_current_parent() {
+    let mut latest = folder(CHILD_ID, Some(OTHER_ID));
+    latest.name = "Original".into();
+    apply_folder_changes(
+        &mut latest,
+        &[ResourceFolderChange::Name {
+            name: "Renamed".into(),
+        }],
+    );
+    assert_eq!(latest.name, "Renamed");
+    assert_eq!(latest.parent_id.as_deref(), Some(OTHER_ID));
+}
+
+#[test]
+fn moving_a_folder_preserves_its_current_name() {
+    let mut latest = folder(CHILD_ID, Some(PARENT_ID));
+    latest.name = "Latest name".into();
+    apply_folder_changes(
+        &mut latest,
+        &[ResourceFolderChange::Parent {
+            parent_id: Some(OTHER_ID.into()),
+        }],
+    );
+    assert_eq!(latest.name, "Latest name");
+    assert_eq!(latest.parent_id.as_deref(), Some(OTHER_ID));
+}
+
+#[test]
+fn parent_change_can_explicitly_move_a_folder_to_the_root() {
+    let mut latest = folder(CHILD_ID, Some(PARENT_ID));
+    apply_folder_changes(
+        &mut latest,
+        &[ResourceFolderChange::Parent { parent_id: None }],
+    );
+    assert_eq!(latest.parent_id, None);
+}
+
+#[test]
+fn folder_changes_are_applied_in_order_and_an_empty_edit_retains_current_fields() {
+    let mut latest = folder(CHILD_ID, Some(PARENT_ID));
+    let unchanged = latest.clone();
+    apply_folder_changes(&mut latest, &[]);
+    assert_eq!(latest, unchanged);
+    apply_folder_changes(
+        &mut latest,
+        &[
+            ResourceFolderChange::Name {
+                name: "First".into(),
+            },
+            ResourceFolderChange::Parent { parent_id: None },
+            ResourceFolderChange::Name {
+                name: "Last".into(),
+            },
+        ],
+    );
+    assert_eq!(latest.name, "Last");
+    assert_eq!(latest.parent_id, None);
+}
+
+#[test]
+fn folder_relationships_require_an_existing_parent_and_unique_sibling_name() {
+    let mut root = folder(PARENT_ID, None);
+    root.name = "Collection".into();
+    let folders = vec![root];
+    let mut edited = folder(CHILD_ID, Some(OTHER_ID));
+    assert!(matches!(
+        validate_folder_relationships(&edited, &folders),
+        Err(PersistenceError::NotFound { kind: "resource folder", id }) if id == OTHER_ID
+    ));
+    edited.parent_id = None;
+    edited.name = " collection ".into();
+    assert!(matches!(
+        validate_folder_relationships(&edited, &folders),
+        Err(PersistenceError::InvalidData {
+            message: crate::api::UserMessage::ResourceFolderNameConflict
+        })
+    ));
+    edited.parent_id = Some(PARENT_ID.into());
+    assert!(validate_folder_relationships(&edited, &folders).is_ok());
+}
+
+#[test]
+fn folder_relationships_reject_cycles_after_field_changes() {
+    let parent = folder(PARENT_ID, None);
+    let child = folder(CHILD_ID, Some(PARENT_ID));
+    let folders = vec![parent.clone(), child];
+    let mut edited = parent;
+    apply_folder_changes(
+        &mut edited,
+        &[ResourceFolderChange::Parent {
+            parent_id: Some(CHILD_ID.into()),
+        }],
+    );
+    assert!(matches!(
+        validate_folder_relationships(&edited, &folders),
+        Err(PersistenceError::InvalidData {
+            message: crate::api::UserMessage::ResourceFolderCycle
+        })
+    ));
+}

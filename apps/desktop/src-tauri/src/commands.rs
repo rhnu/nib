@@ -3,8 +3,8 @@
 use nib_app::{
     api::{ApiError, DraftAnalysis, ErrorCode, UserMessage, WorkspaceSnapshot},
     library::{
-        ResourceBatchAction, ResourceFolder, ResourceImpact, ResourcePage, ResourceQuery,
-        ResourceSearch as _, ResourceSelection, ResourceVersion,
+        ResourceBatchAction, ResourceFolder, ResourceFolderEdit, ResourceImpact, ResourcePage,
+        ResourceQuery, ResourceSaveMode, ResourceSearch as _, ResourceSelection,
     },
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{self, ExpansionError, PresetInstance, PromptNode, Resource, ResourceReader as _},
@@ -192,10 +192,11 @@ pub(crate) async fn get_resource(
 pub(crate) async fn save_resource(
     state: tauri::State<'_, DesktopState>,
     resource: Resource,
+    mode: ResourceSaveMode,
 ) -> Result<Resource, ApiError> {
     crate::media::with_media_write(state, move |media| {
         media
-            .save_resource_with_cover(&resource)
+            .save_resource_with_cover(&resource, mode)
             .map_err(persistence_error)
     })
     .await
@@ -205,13 +206,12 @@ pub(crate) async fn save_resource(
 pub(crate) async fn delete_resource(
     state: tauri::State<'_, DesktopState>,
     id: String,
-    revision: u32,
 ) -> Result<(), ApiError> {
     crate::media::with_media_write(state, move |media| {
         media
             .batch_resources(
                 &ResourceSelection {
-                    resources: vec![ResourceVersion { id, revision }],
+                    resources: vec![id],
                     folders: Vec::new(),
                 },
                 &ResourceBatchAction::Delete,
@@ -320,11 +320,11 @@ pub(crate) async fn list_resource_folders(
 #[tauri::command]
 pub(crate) async fn save_resource_folder(
     state: tauri::State<'_, DesktopState>,
-    folder: ResourceFolder,
+    edit: ResourceFolderEdit,
 ) -> Result<ResourceFolder, ApiError> {
     with_database_write(state, move |database| {
         database
-            .save_resource_folder(&folder)
+            .save_resource_folder(&edit)
             .map_err(persistence_error)
     })
     .await

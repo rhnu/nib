@@ -198,7 +198,6 @@ fn job_encoder_retains_source_and_optional_mask() {
 fn resource_collects_cover_and_preset_materials_without_treating_text_as_media() {
     let mut resource = Resource {
         id: "resource".into(),
-        revision: 0,
         name: "name-only".into(),
         description: "text-only".into(),
         aliases: Vec::new(),

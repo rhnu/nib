@@ -12,6 +12,7 @@ import { resourceQuery } from "./resource-queries";
 import { useLibrarySessionStore } from "./model/library-session-context";
 import {
   acceptLibrarySave,
+  dismissLibraryResource,
   editLibraryResource,
   type LibrarySessionState,
 } from "./model/library-session";
@@ -26,8 +27,9 @@ export function useResourceEditor(
   const store = useLibrarySessionStore();
   const state = useStore(
     store,
-    useShallow(({ editor, dirty, busy, confirm, error }) => ({
+    useShallow(({ editor, saveMode, dirty, busy, confirm, error }) => ({
       editor,
+      saveMode,
       dirty,
       busy,
       confirm,
@@ -125,7 +127,6 @@ export function useResourceEditor(
         version: current.version + 1,
         editor: {
           id: crypto.randomUUID(),
-          revision: 0,
           name: "",
           description: "",
           aliases: [],
@@ -146,6 +147,7 @@ export function useResourceEditor(
                   references: emptyReferences(),
                 },
         },
+        saveMode: "create",
         dirty: false,
         error: "",
       });
@@ -168,6 +170,7 @@ export function useResourceEditor(
             store.setState({
               version: store.getState().version + 1,
               editor: resource,
+              saveMode: "update",
               dirty: false,
               error: "",
             });
@@ -208,7 +211,10 @@ export function useResourceEditor(
     const operation = current.operation + 1;
     store.setState({ operation, busy: true, error: "" });
     try {
-      const saved = await libraryApi.saveResource({ ...snapshot, name: snapshot.name.trim() });
+      const saved = await libraryApi.saveResource(
+        { ...snapshot, name: snapshot.name.trim() },
+        current.saveMode,
+      );
       if (!isCurrent(operation)) return;
       client.setQueryData(["resource", saved.id], saved);
       acceptLibrarySave(store, request, saved);
@@ -232,14 +238,7 @@ export function useResourceEditor(
 
   const dismiss = () => {
     discardDraftCovers();
-    const current = store.getState();
-    store.setState({
-      operation: current.operation + 1,
-      version: current.version + 1,
-      editor: null,
-      dirty: false,
-      busy: false,
-    });
+    dismissLibraryResource(store);
   };
 
   return {

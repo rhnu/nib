@@ -11,7 +11,6 @@ use crate::{
 pub(crate) fn summary(resource: &Resource) -> ResourceSummary {
     ResourceSummary {
         id: resource.id.clone(),
-        revision: resource.revision,
         name: resource.name.clone(),
         kind: match resource.content {
             ResourceContent::Chunk { .. } => ResourceKind::Chunk,
@@ -91,7 +90,7 @@ impl ResourceSearch for SqliteDatabase {
         };
         let direction = if query.descending { "DESC" } else { "ASC" };
         // Project list fields directly; content is decoded only when opened or resolved.
-        let columns = "sorted.id,sorted.revision,sorted.name,sorted.kind,sorted.description,sorted.folder_id,sorted.cover_asset_id,sorted.created_at,sorted.updated_at,(SELECT json_group_array(value) FROM (SELECT value FROM resource_aliases WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE)),(SELECT json_group_array(value) FROM (SELECT value FROM resource_tags WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE)),(SELECT json_group_array(value) FROM (SELECT value FROM resource_models WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE))";
+        let columns = "sorted.id,sorted.name,sorted.kind,sorted.description,sorted.folder_id,sorted.cover_asset_id,sorted.created_at,sorted.updated_at,(SELECT json_group_array(value) FROM (SELECT value FROM resource_aliases WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE)),(SELECT json_group_array(value) FROM (SELECT value FROM resource_tags WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE)),(SELECT json_group_array(value) FROM (SELECT value FROM resource_models WHERE resource_id=sorted.id ORDER BY value COLLATE NOCASE))";
         let mut statement = transaction.prepare(&format!("SELECT {columns} FROM ({filter}) matched JOIN resources sorted ON sorted.id=matched.id ORDER BY {order} {direction},matched.id {direction} LIMIT ?8 OFFSET ?9"))
             .map_err(|error|PersistenceError::failure("prepare resource search",error))?;
         let items = statement
@@ -121,12 +120,12 @@ impl ResourceSearch for SqliteDatabase {
 }
 
 fn read_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<ResourceSummary> {
-    let kind = match row.get::<_, String>(3)?.as_str() {
+    let kind = match row.get::<_, String>(2)?.as_str() {
         "chunk" => ResourceKind::Chunk,
         "preset" => ResourceKind::Preset,
         _ => {
             return Err(rusqlite::Error::InvalidColumnType(
-                3,
+                2,
                 "kind".into(),
                 rusqlite::types::Type::Text,
             ));
@@ -134,17 +133,16 @@ fn read_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<ResourceSummary> {
     };
     Ok(ResourceSummary {
         id: row.get(0)?,
-        revision: row.get(1)?,
-        name: row.get(2)?,
+        name: row.get(1)?,
         kind,
-        description: row.get(4)?,
-        folder_id: row.get(5)?,
-        cover_asset_id: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
-        aliases: read_values(row, 9)?,
-        tags: read_values(row, 10)?,
-        models: read_values(row, 11)?,
+        description: row.get(3)?,
+        folder_id: row.get(4)?,
+        cover_asset_id: row.get(5)?,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
+        aliases: read_values(row, 8)?,
+        tags: read_values(row, 9)?,
+        models: read_values(row, 10)?,
     })
 }
 

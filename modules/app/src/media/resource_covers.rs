@@ -11,7 +11,10 @@ use super::{
     sqlite::{insert_asset, read_asset_on},
 };
 use crate::{
-    library::{ResourceBatchAction, ResourceImpact, ResourceSelection, operations::batch_on},
+    library::{
+        ResourceBatchAction, ResourceImpact, ResourceSaveMode, ResourceSelection,
+        operations::batch_on,
+    },
     persistence::PersistenceError,
     prompt::{Resource, sqlite::save_resource_on},
 };
@@ -117,10 +120,11 @@ impl MediaLibrary {
 
     /// Saves metadata, owned cover and explicit media references in one transaction.
     /// # Errors
-    /// Returns invalid metadata, revision conflicts, unavailable images or storage failures.
+    /// Returns invalid metadata, missing resources, unavailable images or storage failures.
     pub fn save_resource_with_cover(
         &self,
         resource: &Resource,
+        mode: ResourceSaveMode,
     ) -> Result<Resource, PersistenceError> {
         let mut connection = self.database.connection()?;
         let transaction = connection
@@ -135,7 +139,7 @@ impl MediaLibrary {
                 resource.cover_asset_id = Some(asset.id);
             }
         }
-        let saved = save_resource_on(&transaction, &resource)?;
+        let saved = save_resource_on(&transaction, &resource, mode)?;
         transaction
             .commit()
             .map_err(|error| PersistenceError::failure("commit resource and cover save", error))?;
@@ -144,7 +148,7 @@ impl MediaLibrary {
 
     /// Applies a complete selection atomically, including independent cover records.
     /// # Errors
-    /// Returns selection conflicts, invalid moves, unavailable covers or storage failures.
+    /// Returns missing selections, invalid moves, unavailable covers or storage failures.
     pub fn batch_resources(
         &self,
         selection: &ResourceSelection,

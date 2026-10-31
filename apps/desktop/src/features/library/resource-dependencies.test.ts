@@ -81,7 +81,6 @@ describe("resource dependencies", () => {
   it("includes disabled resource outputs without interpreting literal Chunk text as references", () => {
     const preset: Resource = {
       id: "preset",
-      revision: 1,
       description: "",
       aliases: [],
       tags: [],
@@ -107,7 +106,6 @@ describe("resource dependencies", () => {
     expect(
       resourceDependencies({
         id: "literal",
-        revision: 1,
         description: "",
         aliases: [],
         tags: [],

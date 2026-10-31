@@ -52,7 +52,6 @@ fn repeated_reads_reuse_the_definition_without_sharing_mutable_results() {
         created_at: 0,
         updated_at: 0,
         id: CHUNK_ID.into(),
-        revision: 1,
         name: "Original".into(),
         content: ResourceContent::Chunk { text: "cat".into() },
     };
@@ -99,7 +98,6 @@ fn cached_absence_still_reports_every_affected_instance() {
         created_at: 0,
         updated_at: 0,
         id: RECIPE_ID.into(),
-        revision: 1,
         name: "Recipe".into(),
         content: ResourceContent::Preset {
             composition: references(MISSING_ID).composition,

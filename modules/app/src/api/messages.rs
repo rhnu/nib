@@ -181,7 +181,6 @@ pub enum UserMessage {
     AppliedRevisionOutOfRange,
     FiniteRequired,
     FiniteCoordinatesRequired,
-    RevisionOverflow,
 }
 
 impl UserMessage {

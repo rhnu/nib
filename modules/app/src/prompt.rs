@@ -92,7 +92,6 @@ pub fn scoped_output_id(instance_id: Option<&str>, local_id: &str) -> String {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct Resource {
     pub id: String,
-    pub revision: u32,
     pub name: String,
     pub description: String,
     pub aliases: Vec<String>,
@@ -182,17 +181,21 @@ pub trait ResourceReader {
 }
 
 pub trait ResourceWriter {
-    /// Saves a structurally valid definition using its expected revision.
+    /// Creates or updates a structurally valid definition explicitly.
     ///
     /// # Errors
-    /// Returns validation, revision conflict, missing-record or backend failures.
-    fn save_resource(&self, resource: &Resource) -> Result<Resource, PersistenceError>;
+    /// Returns validation, duplicate identity, missing-record or backend failures.
+    fn save_resource(
+        &self,
+        resource: &Resource,
+        mode: crate::library::ResourceSaveMode,
+    ) -> Result<Resource, PersistenceError>;
 
-    /// Deletes the resource only if its revision still matches.
+    /// Deletes the resource by its stable identity.
     ///
     /// # Errors
-    /// Returns a missing-record, revision conflict or backend failure.
-    fn delete_resource(&self, id: &str, revision: u32) -> Result<(), PersistenceError>;
+    /// Returns a missing-record or backend failure.
+    fn delete_resource(&self, id: &str) -> Result<(), PersistenceError>;
 }
 
 #[cfg(test)]

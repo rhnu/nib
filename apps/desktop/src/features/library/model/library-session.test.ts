@@ -6,11 +6,12 @@ import {
   editLibraryResource,
   filterLibraryResources,
   completeLibraryPaste,
+  dismissLibraryResource,
+  runLibraryOperation,
 } from "./library-session";
 
-const resource = (text: string, revision = 1): Resource => ({
+const resource = (text: string): Resource => ({
   id: "chunk",
-  revision,
   description: "",
   aliases: [],
   tags: [],
@@ -26,8 +27,8 @@ const resource = (text: string, revision = 1): Resource => ({
 describe("library session edits", () => {
   it("consumes only the cut buffer used by a completed paste", () => {
     const store = createLibrarySessionStore();
-    const first = { resources: [{ id: "first", revision: 1 }], folders: [] };
-    const second = { resources: [{ id: "second", revision: 1 }], folders: [] };
+    const first = { resources: ["first"], folders: [] };
+    const second = { resources: ["second"], folders: [] };
     store.setState({ clipboard: { selection: first, cut: true } });
     completeLibraryPaste(store, second);
     expect(store.getState().clipboard?.selection).toBe(first);
@@ -69,40 +70,74 @@ describe("library session edits", () => {
     unsubscribe();
 
     editLibraryResource(store, resource("edited during save"));
-    acceptLibrarySave(store, request, resource("submitted", 2));
+    acceptLibrarySave(store, request, resource("submitted"));
 
     expect(store.getState()).toMatchObject({
       query: "portrait",
       kind: "chunk",
-      editor: resource("edited during save", 2),
+      editor: resource("edited during save"),
+      saveMode: "update",
       dirty: true,
     });
     acceptLibrarySave(
       store,
       { id: "chunk", version: store.getState().version },
-      resource("edited during save", 3),
+      resource("edited during save"),
     );
     expect(store.getState()).toMatchObject({
-      editor: resource("edited during save", 3),
+      editor: resource("edited during save"),
       dirty: false,
     });
   });
 
   it("ignores edits and save responses belonging to a previous selection", () => {
     const store = createLibrarySessionStore();
-    const selected = { ...resource("selected", 4), id: "other" };
+    const selected = { ...resource("selected"), id: "other" };
     store.setState({ editor: selected });
     editLibraryResource(store, resource("stale"));
-    acceptLibrarySave(store, { id: "chunk", version: 0 }, resource("stale", 5));
+    acceptLibrarySave(store, { id: "chunk", version: 0 }, resource("stale"));
     expect(store.getState()).toMatchObject({ editor: selected, dirty: false });
     editLibraryResource(store, {
       ...selected,
-      revision: 0,
       content: { kind: "chunk", text: "new" },
     });
     expect(store.getState().editor).toMatchObject({
-      revision: 4,
       content: { kind: "chunk", text: "new" },
     });
+  });
+
+  it("blocks another action until the deleted editor's operation finishes refreshing", async () => {
+    const store = createLibrarySessionStore();
+    store.setState({ editor: resource("deleted"), saveMode: "update", dirty: true });
+    let finishRefresh!: () => void;
+    const refresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const deleting = runLibraryOperation(store, async () => {
+      dismissLibraryResource(store);
+      await refresh;
+    });
+    expect(store.getState()).toMatchObject({ editor: null, dirty: false, busy: true });
+    const next = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    await runLibraryOperation(store, next);
+    expect(next).not.toHaveBeenCalled();
+    finishRefresh();
+    await deleting;
+    expect(store.getState().busy).toBe(false);
+    await runLibraryOperation(store, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("retains an operation failure and releases the session for retry", async () => {
+    const store = createLibrarySessionStore();
+    const failure = new Error("refresh failed");
+    await runLibraryOperation(store, async () => {
+      throw failure;
+    });
+    expect(store.getState()).toMatchObject({ busy: false, error: failure });
+    const retry = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    await runLibraryOperation(store, retry);
+    expect(retry).toHaveBeenCalledOnce();
+    expect(store.getState()).toMatchObject({ busy: false, error: "" });
   });
 });

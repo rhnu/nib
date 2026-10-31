@@ -14,7 +14,7 @@ export const library = {
     "Fill in only the settings managed by this preset. Leave fields blank to keep inheriting them.",
   retryModelQuery: "Retry model query",
   unsaved: "Unsaved",
-  revision: "Revision {{value0}}",
+  saved: "Saved",
   newResource: "New resource",
   saving: "Saving…",
   saveResource: "Save resource",

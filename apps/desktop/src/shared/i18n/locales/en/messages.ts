@@ -107,7 +107,6 @@ export const messages = {
   appliedRevisionOutOfRange: "The applied revision exceeds the content revision.",
   finiteRequired: "The value must be finite.",
   finiteCoordinatesRequired: "Coordinates must be finite.",
-  revisionOverflow: "The record revision cannot be incremented.",
   appStoppedBeforeCompletion: "The app stopped before this job finished.",
   jobPageLimit: "The job page size must be between 1 and 100.",
   notFound: "{{entity}} {{id}} was not found.",

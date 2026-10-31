@@ -5,7 +5,7 @@ mod sqlite;
 use std::error::Error;
 
 pub use sqlite::SqliteDatabase;
-pub(crate) use sqlite::{decode, encode, next_revision, write_miss};
+pub(crate) use sqlite::{decode, encode};
 
 use crate::api::UserMessage;
 

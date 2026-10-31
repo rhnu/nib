@@ -13,7 +13,6 @@ export function mergeResourceSave(
     : {
         editor: {
           ...current,
-          revision: saved.revision,
           createdAt: saved.createdAt,
           updatedAt: saved.updatedAt,
           coverAssetId:

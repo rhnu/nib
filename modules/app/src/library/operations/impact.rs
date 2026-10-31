@@ -18,21 +18,15 @@ fn selected_folders(
     folders: &[ResourceFolder],
 ) -> Result<HashSet<String>, PersistenceError> {
     let mut selected = HashSet::new();
-    for version in &selection.folders {
-        validate_id(&version.id)?;
+    for id in &selection.folders {
+        validate_id(id)?;
         let folder = folders
             .iter()
-            .find(|folder| folder.id == version.id)
+            .find(|folder| folder.id == *id)
             .ok_or_else(|| PersistenceError::NotFound {
                 kind: "resource folder",
-                id: version.id.clone(),
+                id: id.clone(),
             })?;
-        if folder.revision != version.revision {
-            return Err(PersistenceError::Conflict {
-                kind: "resource folder",
-                id: version.id.clone(),
-            });
-        }
         selected.insert(folder.id.clone());
     }
     loop {
@@ -74,21 +68,15 @@ pub(crate) fn impact_on(
     let selected_folders = selected_folders(selection, &folders)?;
     let all = all_resources(connection)?;
     let mut ids = HashSet::new();
-    for version in &selection.resources {
-        validate_id(&version.id)?;
+    for id in &selection.resources {
+        validate_id(id)?;
         let resource = all
             .iter()
-            .find(|resource| resource.id == version.id)
+            .find(|resource| resource.id == *id)
             .ok_or_else(|| PersistenceError::NotFound {
                 kind: "resource",
-                id: version.id.clone(),
+                id: id.clone(),
             })?;
-        if resource.revision != version.revision {
-            return Err(PersistenceError::Conflict {
-                kind: "resource",
-                id: version.id.clone(),
-            });
-        }
         ids.insert(resource.id.clone());
     }
     for resource in &all {

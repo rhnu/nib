@@ -85,7 +85,6 @@ export const messages = {
   appliedRevisionOutOfRange: "应用版本超出内容修订范围。",
   finiteRequired: "数值必须有限。",
   finiteCoordinatesRequired: "坐标必须为有限数值。",
-  revisionOverflow: "记录修订号无法继续递增。",
   appStoppedBeforeCompletion: "应用在此任务完成前已停止。",
   jobPageLimit: "任务分页数量必须在 1 到 100 之间。",
   notFound: "未找到{{entity}} {{id}}。",

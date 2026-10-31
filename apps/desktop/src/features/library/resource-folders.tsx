@@ -117,7 +117,7 @@ export function ResourceFolders({
                   resourceDragType,
                   JSON.stringify({
                     resources: [],
-                    folders: [{ id: folder.id, revision: folder.revision }],
+                    folders: [folder.id],
                   }),
                 );
               }}

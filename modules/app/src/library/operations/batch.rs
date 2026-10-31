@@ -5,7 +5,10 @@ use rusqlite::Connection;
 
 use super::{folders_on, impact_on, require_folder, save_folder_on};
 use crate::{
-    library::{ResourceBatchAction, ResourceImpact, ResourceSelection, invalid, sqlite::summary},
+    library::{
+        ResourceBatchAction, ResourceImpact, ResourceSaveMode, ResourceSelection, invalid,
+        sqlite::summary,
+    },
     persistence::PersistenceError,
     prompt::{
         Resource,
@@ -80,9 +83,11 @@ pub(crate) fn batch_on(
                 if let Some(models) = models {
                     resource.models.clone_from(models);
                 }
-                result
-                    .resources
-                    .push(summary(&save_resource_on(connection, &resource)?));
+                result.resources.push(summary(&save_resource_on(
+                    connection,
+                    &resource,
+                    ResourceSaveMode::Update,
+                )?));
             }
         },
         ResourceBatchAction::Copy { folder_id } => {
@@ -180,7 +185,11 @@ fn move_selection(
     {
         let mut folder = folder.clone();
         folder.parent_id = folder_id.map(str::to_owned);
-        result.folders.push(save_folder_on(connection, &folder)?);
+        result.folders.push(save_folder_on(
+            connection,
+            &folder,
+            ResourceSaveMode::Update,
+        )?);
     }
     for resource in &impact.resources {
         if resource.folder_id.as_ref().is_some_and(|folder| {
@@ -197,9 +206,11 @@ fn move_selection(
                 id: resource.id.clone(),
             })?;
         resource.folder_id = folder_id.map(str::to_owned);
-        result
-            .resources
-            .push(summary(&save_resource_on(connection, &resource)?));
+        result.resources.push(summary(&save_resource_on(
+            connection,
+            &resource,
+            ResourceSaveMode::Update,
+        )?));
     }
 
     Ok(())
@@ -238,7 +249,6 @@ fn copy_selection(
             let id = uuid::Uuid::new_v4().to_string();
             let mut folder = original.clone();
             folder.id.clone_from(&id);
-            folder.revision = 0;
             folder.parent_id = if roots.contains(&original.id) {
                 folder_id.map(str::to_owned)
             } else {
@@ -257,7 +267,11 @@ fn copy_selection(
                 suffix += 1;
                 folder.name = format!("{base} ({suffix})");
             }
-            result.folders.push(save_folder_on(connection, &folder)?);
+            result.folders.push(save_folder_on(
+                connection,
+                &folder,
+                ResourceSaveMode::Create,
+            )?);
             mapping.insert(original.id.clone(), id);
         }
         remaining.retain(|folder| !ready.iter().any(|candidate| candidate.id == folder.id));
@@ -276,7 +290,6 @@ fn copy_selection(
         let id = resource_mapping[&resource.id].clone();
         resource.cover_asset_id = copy_cover(connection, &resource, &id)?;
         resource.id = id;
-        resource.revision = 0;
         resource.folder_id = original
             .folder_id
             .as_ref()
@@ -284,9 +297,11 @@ fn copy_selection(
             .or_else(|| folder_id.map(str::to_owned));
         // Copies of a selected preset use the selected chunk copies, preserving the copied collection.
         remap_content(&mut resource.content, &resource_mapping);
-        result
-            .resources
-            .push(summary(&save_resource_on(connection, &resource)?));
+        result.resources.push(summary(&save_resource_on(
+            connection,
+            &resource,
+            ResourceSaveMode::Create,
+        )?));
     }
 
     Ok(())

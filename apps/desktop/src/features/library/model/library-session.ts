@@ -1,5 +1,11 @@
 import { createStore } from "zustand/vanilla";
-import type { Resource, ResourceKind, ResourceSelection, ResourceSort } from "@/bindings/workbench";
+import type {
+  Resource,
+  ResourceKind,
+  ResourceSaveMode,
+  ResourceSelection,
+  ResourceSort,
+} from "@/bindings/workbench";
 import { mergeResourceSave } from "../resource-edit";
 
 export type LibrarySessionState = {
@@ -20,6 +26,7 @@ export type LibrarySessionState = {
   pendingCoverIds: string[];
   collapsedFolders: string[];
   editor: Resource | null;
+  saveMode: ResourceSaveMode;
   dirty: boolean;
   busy: boolean;
   version: number;
@@ -48,6 +55,7 @@ export function createLibrarySessionStore() {
     pendingCoverIds: [],
     collapsedFolders: [],
     editor: null,
+    saveMode: "create",
     dirty: false,
     busy: false,
     version: 0,
@@ -59,13 +67,26 @@ export function createLibrarySessionStore() {
 
 export type LibrarySessionStore = ReturnType<typeof createLibrarySessionStore>;
 
-/** Keep the host revision when replacing a resource's editable content. */
+/** Hold the session busy through the write and every refresh owned by that operation. */
+export async function runLibraryOperation(store: LibrarySessionStore, action: () => Promise<void>) {
+  if (store.getState().busy) return;
+  store.setState({ busy: true, error: "" });
+  try {
+    await action();
+  } catch (error) {
+    store.setState({ error });
+  } finally {
+    store.setState({ busy: false });
+  }
+}
+
+/** Record edits independently of the active save operation. */
 export function editLibraryResource(store: LibrarySessionStore, resource: Resource) {
   const current = store.getState();
   if (!current.editor || resource.id !== current.editor.id) return;
   store.setState({
     version: current.version + 1,
-    editor: { ...resource, revision: current.editor.revision },
+    editor: resource,
     dirty: true,
   });
 }
@@ -78,7 +99,19 @@ export function acceptLibrarySave(
 ) {
   const current = store.getState();
   const merged = mergeResourceSave(current.editor, current.version, request, saved);
-  if (merged) store.setState(merged);
+  if (merged) store.setState({ ...merged, saveMode: "update" });
+}
+
+/** Close the editor without releasing the operation that may still be refreshing data. */
+export function dismissLibraryResource(store: LibrarySessionStore) {
+  const current = store.getState();
+  store.setState({
+    operation: current.operation + 1,
+    version: current.version + 1,
+    editor: null,
+    saveMode: "create",
+    dirty: false,
+  });
 }
 
 export type LibraryFilters = Pick<

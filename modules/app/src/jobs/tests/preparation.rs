@@ -356,7 +356,6 @@ fn model_restrictions_reject_both_quote_and_submission_before_media_or_credentia
     let reader = Resources {
         resource: Resource {
             id: CHUNK_ID.into(),
-            revision: 1,
             name: "Restricted".into(),
             description: String::new(),
             aliases: vec![],

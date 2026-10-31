@@ -53,7 +53,7 @@ export function ResourceList({
               event.dataTransfer.setData(
                 resourceDragType,
                 JSON.stringify({
-                  resources: selected.map(({ id, revision }) => ({ id, revision })),
+                  resources: selected.map(({ id }) => id),
                   folders: [],
                 }),
               );

@@ -10,27 +10,27 @@ pub(crate) use impact::impact_on;
 use rusqlite::{Connection, params};
 
 use super::{
-    ResourceFolder, ResourceImpact, ResourceSelection, invalid,
+    ResourceFolder, ResourceFolderChange, ResourceFolderEdit, ResourceImpact, ResourceSaveMode,
+    ResourceSelection, invalid,
     sqlite::{all_resources, summary},
     validate_id,
 };
 use crate::{
-    persistence::{PersistenceError, SqliteDatabase, next_revision, write_miss},
+    persistence::{PersistenceError, SqliteDatabase},
     prompt::sqlite::save_resource_on,
 };
 
 pub(crate) fn folders_on(connection: &Connection) -> Result<Vec<ResourceFolder>, PersistenceError> {
-    let mut statement = connection.prepare("SELECT id,revision,name,parent_id,created_at,updated_at FROM resource_folders ORDER BY name COLLATE NOCASE,id")
+    let mut statement = connection.prepare("SELECT id,name,parent_id,created_at,updated_at FROM resource_folders ORDER BY name COLLATE NOCASE,id")
         .map_err(|error|PersistenceError::failure("prepare resource folders",error))?;
     statement
         .query_map([], |row| {
             Ok(ResourceFolder {
                 id: row.get(0)?,
-                revision: row.get(1)?,
-                name: row.get(2)?,
-                parent_id: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                name: row.get(1)?,
+                parent_id: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
             })
         })
         .map_err(|error| PersistenceError::failure("read resource folders", error))?
@@ -80,18 +80,35 @@ pub(crate) fn validate_parent(
     Ok(())
 }
 
-pub(crate) fn save_folder_on(
-    connection: &Connection,
+/// Applies only the caller's explicit changes to the latest stored folder.
+fn apply_folder_changes(folder: &mut ResourceFolder, changes: &[ResourceFolderChange]) {
+    for change in changes {
+        match change {
+            ResourceFolderChange::Name { name } => folder.name.clone_from(name),
+            ResourceFolderChange::Parent { parent_id } => folder.parent_id.clone_from(parent_id),
+        }
+    }
+}
+
+/// Checks the proposed folder against the current tree without performing database I/O.
+fn validate_folder_relationships(
     folder: &ResourceFolder,
-) -> Result<ResourceFolder, PersistenceError> {
-    validate_id(&folder.id)?;
+    folders: &[ResourceFolder],
+) -> Result<(), PersistenceError> {
     let name = folder.name.trim();
     if name.is_empty() {
         return Err(invalid(crate::api::UserMessage::ResourceFolderNameRequired));
     }
-    require_folder(connection, folder.parent_id.as_deref())?;
-    let folders = folders_on(connection)?;
-    validate_parent(&folder.id, folder.parent_id.as_deref(), &folders)?;
+    if let Some(parent) = folder.parent_id.as_deref() {
+        validate_id(parent)?;
+        if !folders.iter().any(|candidate| candidate.id == parent) {
+            return Err(PersistenceError::NotFound {
+                kind: "resource folder",
+                id: parent.to_owned(),
+            });
+        }
+    }
+    validate_parent(&folder.id, folder.parent_id.as_deref(), folders)?;
     if folders.iter().any(|other| {
         other.id != folder.id
             && other.parent_id == folder.parent_id
@@ -99,21 +116,42 @@ pub(crate) fn save_folder_on(
     }) {
         return Err(invalid(crate::api::UserMessage::ResourceFolderNameConflict));
     }
-    let now = crate::jobs::timestamp()?;
-    let revision = next_revision(folder.revision)?;
-    let count=if folder.revision==0 {
-        connection.execute("INSERT INTO resource_folders(id,revision,name,parent_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?5) ON CONFLICT(id) DO NOTHING",params![folder.id,revision,name,folder.parent_id,now])
-    } else {
-        connection.execute("UPDATE resource_folders SET revision=?2,name=?3,parent_id=?4,updated_at=?5 WHERE id=?1 AND revision=?6",params![folder.id,revision,name,folder.parent_id,now,folder.revision])
-    }.map_err(|error|PersistenceError::failure("save resource folder",error))?;
-    if count == 0 {
-        return Err(write_miss(
-            connection,
-            "resource_folders",
-            "resource folder",
-            &folder.id,
-        ));
+    Ok(())
+}
+
+pub(crate) fn save_folder_on(
+    connection: &Connection,
+    folder: &ResourceFolder,
+    mode: ResourceSaveMode,
+) -> Result<ResourceFolder, PersistenceError> {
+    validate_id(&folder.id)?;
+    let folders = folders_on(connection)?;
+    let exists = folders.iter().any(|existing| existing.id == folder.id);
+    match (mode, exists) {
+        (ResourceSaveMode::Create, true) => {
+            return Err(PersistenceError::Conflict {
+                kind: "resource folder",
+                id: folder.id.clone(),
+            });
+        },
+        (ResourceSaveMode::Update, false) => {
+            return Err(PersistenceError::NotFound {
+                kind: "resource folder",
+                id: folder.id.clone(),
+            });
+        },
+        _ => {},
     }
+    validate_folder_relationships(folder, &folders)?;
+    let now = crate::jobs::timestamp()?;
+    match mode {
+        ResourceSaveMode::Create => connection.execute(
+            "INSERT INTO resource_folders(id,name,parent_id,created_at,updated_at) VALUES (?1,?2,?3,?4,?4)",
+            params![folder.id,folder.name.trim(),folder.parent_id,now]),
+        ResourceSaveMode::Update => connection.execute(
+            "UPDATE resource_folders SET name=?2,parent_id=?3,updated_at=?4 WHERE id=?1",
+            params![folder.id,folder.name.trim(),folder.parent_id,now]),
+    }.map_err(|error| PersistenceError::failure("save resource folder",error))?;
     folders_on(connection)?
         .into_iter()
         .find(|value| value.id == folder.id)
@@ -121,6 +159,44 @@ pub(crate) fn save_folder_on(
             kind: "resource folder",
             id: folder.id.clone(),
         })
+}
+
+fn edit_folder_on(
+    connection: &Connection,
+    edit: &ResourceFolderEdit,
+) -> Result<ResourceFolder, PersistenceError> {
+    match edit {
+        ResourceFolderEdit::Create {
+            id,
+            name,
+            parent_id,
+        } => save_folder_on(
+            connection,
+            &ResourceFolder {
+                id: id.clone(),
+                name: name.clone(),
+                parent_id: parent_id.clone(),
+                created_at: 0,
+                updated_at: 0,
+            },
+            ResourceSaveMode::Create,
+        ),
+        ResourceFolderEdit::Update { id, changes } => {
+            validate_id(id)?;
+            let mut folder = folders_on(connection)?
+                .into_iter()
+                .find(|folder| folder.id == *id)
+                .ok_or_else(|| PersistenceError::NotFound {
+                    kind: "resource folder",
+                    id: id.clone(),
+                })?;
+            if changes.is_empty() {
+                return Ok(folder);
+            }
+            apply_folder_changes(&mut folder, changes);
+            save_folder_on(connection, &folder, ResourceSaveMode::Update)
+        },
+    }
 }
 
 impl SqliteDatabase {
@@ -132,18 +208,18 @@ impl SqliteDatabase {
         folders_on(&connection)
     }
 
-    /// Saves a folder using its expected revision.
+    /// Creates a folder or applies explicit changes to its latest stored fields.
     /// # Errors
-    /// Returns invalid topology, duplicate sibling names, revision conflicts or storage failures.
+    /// Returns invalid topology, duplicate identities or sibling names, missing folders or storage failures.
     pub fn save_resource_folder(
         &self,
-        folder: &ResourceFolder,
+        edit: &ResourceFolderEdit,
     ) -> Result<ResourceFolder, PersistenceError> {
         let mut connection = self.connection()?;
         let transaction = connection
             .transaction()
             .map_err(|error| PersistenceError::failure("begin folder edit", error))?;
-        let saved = save_folder_on(&transaction, folder)?;
+        let saved = edit_folder_on(&transaction, edit)?;
         transaction
             .commit()
             .map_err(|error| PersistenceError::failure("commit folder edit", error))?;
@@ -167,7 +243,7 @@ impl SqliteDatabase {
 
     /// Reports selected descendants and current resource consumers.
     /// # Errors
-    /// Returns missing selections, stale revisions or storage failures.
+    /// Returns missing selections or storage failures.
     pub fn resource_selection_impact(
         &self,
         selection: &ResourceSelection,
@@ -247,7 +323,11 @@ impl SqliteDatabase {
             if let Some(replacement) = replacement {
                 resource.tags.push(replacement.into());
             }
-            changed.push(summary(&save_resource_on(&transaction, &resource)?));
+            changed.push(summary(&save_resource_on(
+                &transaction,
+                &resource,
+                ResourceSaveMode::Update,
+            )?));
         }
         transaction
             .commit()

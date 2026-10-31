@@ -61,7 +61,6 @@ fn chunk(id: &str, value: &str) -> Resource {
         created_at: 0,
         updated_at: 0,
         id: id.into(),
-        revision: 1,
         name: format!("Name {id}"),
         content: ResourceContent::Chunk { text: value.into() },
     }
@@ -83,7 +82,6 @@ fn preset(
         created_at: 0,
         updated_at: 0,
         id: id.into(),
-        revision: 1,
         name: format!("Name {id}"),
         content: ResourceContent::Preset {
             composition: Composition { positive, negative },

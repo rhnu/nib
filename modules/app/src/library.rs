@@ -21,7 +21,6 @@ pub enum ResourceKind {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ResourceSummary {
     pub id: String,
-    pub revision: u32,
     pub name: String,
     pub kind: ResourceKind,
     pub description: String,
@@ -74,7 +73,6 @@ pub struct ResourcePage {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ResourceFolder {
     pub id: String,
-    pub revision: u32,
     pub name: String,
     pub parent_id: Option<String>,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
@@ -83,20 +81,54 @@ pub struct ResourceFolder {
     pub updated_at: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Explicitly distinguishes first persistence from replacing an existing resource.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct ResourceVersion {
-    pub id: String,
-    pub revision: u32,
+pub enum ResourceSaveMode {
+    Create,
+    Update,
+}
+
+/// Folder writes carry only the fields the caller intends to change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ResourceFolderEdit {
+    Create {
+        id: String,
+        name: String,
+        parent_id: Option<String>,
+    },
+    Update {
+        id: String,
+        changes: Vec<ResourceFolderChange>,
+    },
+}
+
+/// One intentional folder field change, including an explicit move to the root.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum ResourceFolderChange {
+    Name { name: String },
+    Parent { parent_id: Option<String> },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ResourceSelection {
-    pub resources: Vec<ResourceVersion>,
-    pub folders: Vec<ResourceVersion>,
+    pub resources: Vec<String>,
+    pub folders: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

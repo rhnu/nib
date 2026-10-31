@@ -15,8 +15,9 @@ use nib_app::{
         ParameterDiagnostic, RequestSettlement, TokenFieldUsage, VibeEncodingOutcome,
     },
     library::{
-        ResourceBatchAction, ResourceFolder, ResourceImpact, ResourceKind, ResourcePage,
-        ResourceQuery, ResourceSelection, ResourceSort, ResourceSummary, ResourceVersion,
+        ResourceBatchAction, ResourceFolder, ResourceFolderChange, ResourceFolderEdit,
+        ResourceImpact, ResourceKind, ResourcePage, ResourceQuery, ResourceSaveMode,
+        ResourceSelection, ResourceSort, ResourceSummary,
     },
     media::{
         AssetKind, AssetSource, BlobId, GenerationResult, ImageMetadataReport, ImageMetadataStatus,
@@ -345,7 +346,9 @@ fn workbench_types(config: &Config) -> String {
         ResourceQuery::decl(config),
         ResourcePage::decl(config),
         ResourceFolder::decl(config),
-        ResourceVersion::decl(config),
+        ResourceSaveMode::decl(config),
+        ResourceFolderEdit::decl(config),
+        ResourceFolderChange::decl(config),
         ResourceSelection::decl(config),
         ResourceBatchAction::decl(config),
         ResourceImpact::decl(config),

@@ -235,7 +235,6 @@ const staticMessages = {
   appliedRevisionOutOfRange: "messages.appliedRevisionOutOfRange",
   finiteRequired: "messages.finiteRequired",
   finiteCoordinatesRequired: "messages.finiteCoordinatesRequired",
-  revisionOverflow: "messages.revisionOverflow",
 } as const;
 
 /** Interpret errors at display time, preserving raw external details and nested application messages. */
@@ -370,5 +369,4 @@ const messageKinds = new Set<string>([
   "appliedRevisionOutOfRange",
   "finiteRequired",
   "finiteCoordinatesRequired",
-  "revisionOverflow",
 ]);
