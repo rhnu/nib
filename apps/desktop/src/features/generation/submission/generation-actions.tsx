@@ -3,7 +3,7 @@ import { useAccount } from "../account/account-context";
 import { originForOperation } from "./work-state";
 import { useSubmission } from "./submission-context";
 import { useRef, useState, type ReactNode } from "react";
-import { KeyRound, WandSparkles, RotateCw } from "lucide-react";
+import { AlertCircle, KeyRound, WandSparkles, RotateCw } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import { Button } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
@@ -102,6 +102,17 @@ export function GenerationActions({
   const currentSubmitError =
     submitError?.key === estimate.key ? errorMessage(submitError.message) : null;
   const error = currentSubmitError ?? accountError ?? accountSummaryError ?? estimate.error;
+  const actionError =
+    working === "idle" && !accountLoading
+      ? (error ??
+        (estimate.quote && !effectiveOperation
+          ? draft.inputs.operation.kind === "inpainting"
+            ? t("generation.inpaintNotApplied")
+            : t("generation.maxEnhanceNotApplied")
+          : estimate.quote?.tooExpensive
+            ? t("generation.costLimitExceeded")
+            : null))
+      : null;
   return (
     <div className="generation-actions">
       <AccountSnapshot compact />
@@ -109,6 +120,8 @@ export function GenerationActions({
       <div className="generation-submit-row">
         <Button
           className="primary"
+          data-error={actionError ? "" : undefined}
+          title={actionError ?? undefined}
           aria-busy={working !== "idle"}
           disabled={
             accountLoading ||
@@ -127,29 +140,37 @@ export function GenerationActions({
             else void submit();
           }}
         >
-          <span className="generation-submit-label">
-            {account?.configured ? (
-              <WandSparkles size={16} aria-hidden />
-            ) : (
-              <KeyRound size={14} aria-hidden />
-            )}
-            {working === "loading"
-              ? t("generation.loading")
-              : working === "running"
-                ? t("generation.working")
-                : working === "queued"
-                  ? t("generation.queued")
-                  : working === "submitting"
-                    ? t("generation.submitting")
-                    : accountLoading
-                      ? t("generation.loadingAccount")
-                      : !account?.configured
-                        ? t("generation.configureAccount")
-                        : submissionBlocked
-                          ? t("generation.savingSettings")
-                          : actionLabel}
-          </span>
-          {account?.configured &&
+          {actionError ? (
+            <span className="generation-submit-error" role="alert">
+              <AlertCircle size={16} aria-hidden />
+              <span>{actionError}</span>
+            </span>
+          ) : (
+            <span className="generation-submit-label">
+              {account?.configured ? (
+                <WandSparkles size={16} aria-hidden />
+              ) : (
+                <KeyRound size={14} aria-hidden />
+              )}
+              {working === "loading"
+                ? t("generation.loading")
+                : working === "running"
+                  ? t("generation.working")
+                  : working === "queued"
+                    ? t("generation.queued")
+                    : working === "submitting"
+                      ? t("generation.submitting")
+                      : accountLoading
+                        ? t("generation.loadingAccount")
+                        : !account?.configured
+                          ? t("generation.configureAccount")
+                          : submissionBlocked
+                            ? t("generation.savingSettings")
+                            : actionLabel}
+            </span>
+          )}
+          {!actionError &&
+            account?.configured &&
             (estimate.quote && !effectiveOperation ? (
               <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
             ) : displayQuote ? (
@@ -169,22 +190,11 @@ export function GenerationActions({
             ))}
         </Button>
       </div>
-      {estimate.quote && !effectiveOperation && (
-        <p className="generation-danger" role="alert">
-          {draft.inputs.operation.kind === "inpainting"
-            ? t("generation.inpaintNotApplied")
-            : t("generation.maxEnhanceNotApplied")}
-        </p>
-      )}
-      {estimate.quote?.tooExpensive && (
-        <span className="generation-danger">{t("generation.costLimitExceeded")}</span>
-      )}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}
-      {error && (
-        <div className="generation-action-error" role="alert">
-          <span>{error}</span>
+      {actionError && error && (
+        <div className="generation-action-error">
           {(currentSubmitError ? submitFields : estimate.fields).map((field) => (
             <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
               {t("generation.locateParameter")}

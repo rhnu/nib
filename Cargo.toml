@@ -24,7 +24,7 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls", 
 anyhow = "1.0.104"
 async-trait = "0.1.92"
 clap = { version = "4.6.7", features = ["derive"] }
-novelai-bridge = { version = "0.8.0", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
+novelai-bridge = { version = "0.8.1", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
 novelai-bridge-prompt = "0.1.0"
 futures-util = "0.3.34"
 keyring-core = "1.0.1"

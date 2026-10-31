@@ -2,6 +2,55 @@
 use super::*;
 
 #[test]
+fn blank_prompts_can_be_quoted_and_submitted_with_enabled_characters() {
+    for policy in [
+        novelai_bridge::ValidationPolicy::Normalize,
+        novelai_bridge::ValidationPolicy::Reject,
+    ] {
+        for character_negative in [None, Some(""), Some("blurry")] {
+            let (mut queue, unexpected_call) = memory_queue(Arc::new(MemoryJobs::default()), true);
+            Arc::get_mut(&mut queue).unwrap().tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+            let mut draft = Draft::default();
+            draft.settings.quality = Some(novelai_bridge::QualityPreset::None);
+            draft.settings.uc_preset = Some(novelai_bridge::UcPreset::None);
+            draft.settings.seed = Some(42);
+            draft.inputs.policy = policy;
+            if let Some(negative) = character_negative {
+                draft.characters.push(crate::prompt::CharacterComposition {
+                    id: "character".to_owned(),
+                    enabled: true,
+                    position: novelai_bridge::CharacterPosition::default(),
+                    composition: Composition {
+                        positive: Vec::new(),
+                        negative: vec![PromptNode::Text {
+                            id: "negative".to_owned(),
+                            enabled: true,
+                            text: negative.to_owned(),
+                        }],
+                    },
+                });
+            }
+            let quote = queue.quote(&draft).unwrap();
+            let quoted = quote.resolved.unwrap();
+            assert_eq!(quoted.positive, "");
+            assert_eq!(quoted.negative, "");
+            let batch = queue.submit(&draft).unwrap();
+            assert_eq!(batch.jobs.len(), 1);
+            let submitted = batch.jobs[0].submission.resolved().unwrap();
+            assert_eq!(submitted.positive, "");
+            assert_eq!(submitted.negative, "");
+            if let Some(negative) = character_negative {
+                assert_eq!(submitted.characters.len(), 1);
+                assert!(submitted.characters[0].enabled);
+                assert_eq!(submitted.characters[0].positive, "");
+                assert_eq!(submitted.characters[0].negative, negative);
+            }
+            assert!(!unexpected_call.load(Ordering::Acquire));
+        }
+    }
+}
+
+#[test]
 fn batch_submission_keeps_request_identity_and_fixed_seed() {
     let store = Arc::new(MemoryJobs::default());
     let (queue, _) = memory_queue(Arc::clone(&store), true);
@@ -117,10 +166,8 @@ async fn draining_pauses_new_submissions_until_resumed() {
         Err(JobError::Unavailable)
     ));
     queue.resume();
-    assert!(matches!(
-        queue.submit(&Draft::default()),
-        Err(JobError::Bridge(_) | JobError::Invalid(_))
-    ));
+    let batch = queue.submit(&Draft::default()).unwrap();
+    assert_eq!(batch.jobs.len(), 1);
 }
 
 #[test]

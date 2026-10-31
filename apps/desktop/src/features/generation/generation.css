@@ -94,6 +94,25 @@
   align-items: center;
   gap: 6px;
 }
+.generation-submit-row > .primary[data-error],
+.generation-submit-row > .primary[data-error]:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--bg);
+  opacity: 1;
+}
+.generation-submit-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.generation-submit-error > svg {
+  flex-shrink: 0;
+}
 .generation-submit-cost {
   padding: 2px 6px;
   border: 1px solid currentColor;
