@@ -24,6 +24,18 @@
         "bytes": 2679,
         "sha256": "4d8526cf1934b0ee0b7a7e13f5d6eb8a54ed21e5efd8a165947c3540ada6f91c"
       }
+    },
+    {
+      "id": "wd-swinv2-tagger-v3",
+      "name": "WD ratings and image tags",
+      "description": "Optional safety review and general/character tag extraction with a revision-pinned model.",
+      "version": "1.0.0",
+      "manifest": {
+        "path": "resource.json",
+        "url": "https://github.com/rhnu/nib/releases/download/resource-wd-swinv2-tagger-v3-v1.0.0/resource.json",
+        "bytes": 1012,
+        "sha256": "e0ff1dd060e7466cd61beabebef363be48821ea0d22749cc078d1847e49a244b"
+      }
     }
   ]
 }
