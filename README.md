@@ -18,7 +18,9 @@ nib 是本地优先、专用于 NovelAI 的桌面创作工作台，将原生图�
 
 ## 启动
 
-当前开发与构建目标为 Windows x64，需准备：
+Windows x64 用户可从[最新应用版本](https://github.com/rhnu/nib/releases/latest)下载并运行安装包，后续更新可在应用内完成。
+
+源码开发与构建目标为 Windows x64，需准备：
 
 - Visual Studio 的 C++ 桌面开发工具、Windows SDK 和 Microsoft Edge WebView2 Runtime，见 [Tauri 前置条件](https://v2.tauri.app/start/prerequisites/)。
 - Rustup；工具链由 [rust-toolchain.toml](rust-toolchain.toml) 固定。
