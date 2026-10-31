@@ -124,6 +124,10 @@
 .prompt-completion-popup ul {
   max-width: min(620px, calc(100vw - 30px));
 }
+.prompt-completion-pending li {
+  opacity: 0.6;
+  pointer-events: none;
+}
 .prompt-completion-popup .cm-completionLabel {
   font-family: var(--font-mono);
 }
