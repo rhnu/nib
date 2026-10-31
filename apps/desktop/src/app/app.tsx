@@ -13,6 +13,7 @@ import { useApplicationSettings } from "./use-application-settings";
 import { useCloseGuard } from "@/shared/host/use-close-guard";
 import { Button, Notice } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
+import { NavigationIcon } from "./navigation-icon";
 
 /** Composition root: application startup and theme, then domain-owned surfaces. */
 export default function App() {
@@ -75,12 +76,14 @@ export default function App() {
                       aria-current={startupPage === "create" ? "page" : undefined}
                       onClick={() => setStartupPage("create")}
                     >
+                      <NavigationIcon page="create" />
                       {t("app.create")}
                     </Button>
                     <Button
                       aria-current={startupPage === "settings" ? "page" : undefined}
                       onClick={() => setStartupPage("settings")}
                     >
+                      <NavigationIcon page="settings" />
                       {t("app.settings")}
                     </Button>
                   </nav>

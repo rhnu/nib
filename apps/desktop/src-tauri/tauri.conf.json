@@ -14,10 +14,10 @@
       {
         "label": "main",
         "title": "nib",
-        "width": 1120,
+        "width": 1280,
         "height": 760,
-        "minWidth": 720,
-        "minHeight": 520,
+        "minWidth": 1280,
+        "minHeight": 720,
         "decorations": false,
         "dragDropEnabled": false
       }

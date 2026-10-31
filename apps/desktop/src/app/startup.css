@@ -14,16 +14,6 @@
   padding: 24px;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  font-size: 26px;
-  font-weight: 500;
   margin-bottom: 20px;
 }
 .startup-panel h1 {

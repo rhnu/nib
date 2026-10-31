@@ -1,6 +1,7 @@
 import { t, useTranslation, Trans } from "@/shared/i18n";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/shared/ui";
+import appIcon from "@/assets/app-icon.svg";
 
 export function StartupScreen({
   loading,
@@ -18,7 +19,14 @@ export function StartupScreen({
   return (
     <main className="startup">
       <section className="startup-panel">
-        <div className="brand-mark">{t("app.brandMark")}</div>
+        <img
+          className="app-icon brand-mark"
+          src={appIcon}
+          width={48}
+          height={48}
+          alt=""
+          aria-hidden
+        />
         <h1>{t("app.brandName")}</h1>
         {loading ? (
           <output className="startup-message">

@@ -188,6 +188,8 @@ Rusteward 管理 Rust 格式与 Clippy，Oxfmt 管理前端和工程配置，rum
 
 Rust 检查顺序为编译 → 格式 → lint → 单元测试。按影响选择检查，默认只新增或运行纯逻辑单元测试，不引入集成、UI、E2E、性能或快照测试；内存后端可验证调度逻辑，不能代替真实服务与恢复验收。文档修改收尾运行 `pnpm docs:fix <本次修改的文件...>`；桌面构建独立于统一检查。
 
+应用图标的矢量源为 [app-icon.svg](../apps/desktop/src/assets/app-icon.svg)，标题栏、启动页与浏览器图标共用此文件。修改后运行 `pnpm --filter @nib/desktop exec tauri icon src/assets/app-icon.svg`，生成的多尺寸及平台资源位于 `src-tauri/icons/`，Windows 程序使用 `icon.ico`。
+
 ## 词库资源与构建
 
 应用代码和资源维护使用不同分支。main 的 `resources/lexicon/` 保存 `recipe.json`、`models.lock.json`、`novelai.json` 与模型许可，分别定义词条筛选与语义契约、固定模型、NovelAI 补充数据和许可说明。独立的 orphan `resource` 分支保存 `catalog.json`、`lexicon/sources.lock.json`、`lexicon/cache/` 与 `lexicon/versions/<version>/`；资源版本采用独立的稳定 `major.minor.patch`，不随应用版本变化。普通应用开发与 `pnpm check` 不需要检出该分支或下载 LFS 对象。

@@ -2,6 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import type { ReactNode } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { Button, IconButton, Notice } from "@/shared/ui";
+import appIcon from "@/assets/app-icon.svg";
 import { useWindowControls } from "./use-window-controls";
 
 /** Application chrome stays available during workspace startup and failures. */
@@ -12,7 +13,10 @@ export function TitleBar({ navigation }: { navigation?: ReactNode }) {
   return (
     <>
       <header className="titlebar" aria-label={t("app.titleBar")}>
-        <span className="titlebar-brand">{t("app.brandName")}</span>
+        <span className="titlebar-brand">
+          <img className="app-icon" src={appIcon} width={22} height={22} alt="" aria-hidden />
+          {t("app.brandName")}
+        </span>
         {navigation}
         <div
           className="titlebar-drag-region"

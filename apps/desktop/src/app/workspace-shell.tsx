@@ -15,6 +15,7 @@ import { errorMessage } from "@/shared/host/error";
 import { WorkspaceDialogs } from "./workspace-dialogs";
 import { createWorkspaceRouter } from "./router";
 import { pageAtPath, pagePaths } from "./navigation";
+import { NavigationIcon } from "./navigation-icon";
 
 type WorkspaceShellProps = Omit<WorkbenchControllerOptions, "page" | "navigate"> & {
   startupSettings: boolean;
@@ -106,6 +107,7 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                           : void navigate(target)
                       }
                     >
+                      <NavigationIcon page={target} />
                       {navigationLabels[target]}
                     </Button>
                   ))}

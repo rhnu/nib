@@ -8,7 +8,7 @@ export const app = {
   preferencesUnsaved: "App settings have not been saved: ",
   dismissNotice: "Dismiss",
   mainNavigation: "Main navigation",
-  create: "Create",
+  create: "Image Generation",
   settings: "Settings",
   changeStorage: "Change storage location",
   dataUnavailable:
@@ -49,7 +49,6 @@ export const app = {
   switchToLight: "Switch to light",
   switchToDark: "Switch to dark",
   openingData: "Opening creation data…",
-  brandMark: "n",
   brandName: "nib",
   desktopRequired:
     "You are running in a standalone browser without a desktop host connection. Open resources and the current creation in the nib desktop app.",
@@ -83,7 +82,7 @@ export const app = {
   discardMaskTitle: "Discard unapplied mask edits?",
   directorTools: "Director Tools",
   gallery: "Gallery",
-  library: "Library",
+  library: "Resources",
   lexicon: "Lexicon",
   workspace: "Workspace",
   retryResources: "Retry loading resources",
