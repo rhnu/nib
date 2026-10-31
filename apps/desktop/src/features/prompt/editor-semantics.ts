@@ -90,7 +90,17 @@ function visibleDecorations(view: EditorView, diagnostics = false): DecorationSe
     }
     for (const token of document.analysis.tokens) {
       if (!["text", "renderedText", "uncertainText"].includes(token.kind)) {
-        mark(token.from, token.to, `prompt-syntax prompt-syntax-${token.kind}`);
+        let className = `prompt-syntax prompt-syntax-${token.kind}`;
+        if (token.kind === "numericWeight") {
+          className += ` ${weightClass(
+            token.value === null ? { kind: "unknown" } : { kind: "exact", value: token.value },
+          )}`;
+        } else if (token.kind === "strengthen" || token.kind === "weaken") {
+          // Closing braces/brackets keep their opening symbol's color, despite reversing its effect.
+          className +=
+            token.text === "{" || token.text === "}" ? " prompt-weight-up" : " prompt-weight-down";
+        }
+        mark(token.from, token.to, className);
       }
     }
     for (const comment of document.comments) mark(comment.from, comment.to, "prompt-comment");
