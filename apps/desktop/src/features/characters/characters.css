@@ -114,9 +114,6 @@
 .character-body[hidden] {
   display: none;
 }
-.character-prompts .prompt-text-editor > textarea {
-  min-height: 62px;
-}
 .character-prompts .prompt-node {
   margin-bottom: 5px;
 }

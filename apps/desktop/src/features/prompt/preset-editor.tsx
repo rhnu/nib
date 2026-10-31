@@ -1,6 +1,6 @@
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
-import { FileText, Link2 } from "lucide-react";
+import { ArrowDown, ArrowUp, FileText, Link2, Trash2 } from "lucide-react";
 import type {
   InstanceOverride,
   GenerationSettings,
@@ -11,8 +11,9 @@ import type {
 import { CompositionEditor } from "./composition-editor";
 import { SettingsEditor } from "./settings-editor";
 import { PresetOverrides } from "./preset-overrides";
+import { PromptEditorScope } from "./prompt-editor-state";
 import { promptApi } from "./api";
-import { ActionsMenu, Button, Toggle } from "@/shared/ui";
+import { ActionsMenu, Button, IconButton, IconCheckbox } from "@/shared/ui";
 import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { settingsWithDefaults } from "./settings";
 import {
@@ -214,236 +215,246 @@ export function PresetEditor({
   if (part === "characters")
     return characters.length ||
       (binding.kind === "linked" && binding.outputOverrides.characters.length) ? (
-      <section
-        className={`preset-character-context ${instance.enabled ? "" : "node-disabled"}`}
-        data-preset-instance-id={instance.id}
-      >
-        <h4>{name}</h4>
-        {characterEditor}
-      </section>
+      <PromptEditorScope path={["preset", instance.id]}>
+        <section
+          className={`preset-character-context ${instance.enabled ? "" : "node-disabled"}`}
+          data-preset-instance-id={instance.id}
+        >
+          <h4>{name}</h4>
+          {characterEditor}
+        </section>
+      </PromptEditorScope>
     ) : null;
   return (
-    <article
-      className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}
-      data-preset-instance-id={instance.id}
-    >
-      <header className="node-heading">
-        <span className="node-label">
-          {binding.kind === "linked" ? <Link2 size={15} /> : <FileText size={15} />}
-          {name}
-        </span>
-        <div className="button-group">
-          <span className="tag">
-            {binding.kind === "linked" ? t("prompt.linked") : t("prompt.expanded")}
+    <PromptEditorScope path={["preset", instance.id]}>
+      <article
+        className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}
+        data-preset-instance-id={instance.id}
+      >
+        <header className="node-heading">
+          <span className="node-label">
+            {binding.kind === "linked" ? <Link2 size={15} /> : <FileText size={15} />}
+            <span title={name}>{name}</span>
           </span>
-          <Toggle
-            label={t("prompt.enableNamedItem", { value0: name })}
-            checked={instance.enabled}
-            onChange={(enabled) => emit({ ...latest.current.instance, enabled })}
-          />
-          <ActionsMenu
-            label={t("prompt.namedItemActions", { value0: name })}
-            items={[
-              { label: t("prompt.moveUp"), action: up, disabled: !canUp },
-              { label: t("prompt.moveDown"), action: down, disabled: !canDown },
-              ...(binding.kind === "linked"
-                ? [
-                    {
-                      label: t("prompt.expandToPreset"),
-                      action: () => {
-                        void promptApi.expandPreset(instance).then(
-                          (result) => {
-                            if (latest.current.active && latest.current.instance === instance)
-                              emit(result);
-                            else if (latest.current.active)
-                              onError(deferMessage(() => t("prompt.presetChanged")));
-                          },
-                          (cause: unknown) => onError(cause),
-                        );
-                      },
+          <div className="button-group">
+            <span className="tag">
+              {binding.kind === "linked" ? t("prompt.linked") : t("prompt.expanded")}
+            </span>
+            <IconCheckbox
+              label={t("prompt.enableNamedItem", { value0: name })}
+              checked={instance.enabled}
+              onChange={(enabled) => emit({ ...latest.current.instance, enabled })}
+            />
+            <IconButton label={t("prompt.moveUp")} onClick={up} disabled={!canUp}>
+              <ArrowUp size={14} aria-hidden />
+            </IconButton>
+            <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
+              <ArrowDown size={14} aria-hidden />
+            </IconButton>
+            {binding.kind === "linked" && (
+              <ActionsMenu
+                label={t("prompt.namedItemActions", { value0: name })}
+                items={[
+                  {
+                    label: t("prompt.expandToPreset"),
+                    action: () => {
+                      void promptApi.expandPreset(instance).then(
+                        (result) => {
+                          if (latest.current.active && latest.current.instance === instance)
+                            emit(result);
+                          else if (latest.current.active)
+                            onError(deferMessage(() => t("prompt.presetChanged")));
+                        },
+                        (cause: unknown) => onError(cause),
+                      );
                     },
-                  ]
-                : []),
-              { label: t("prompt.removePreset"), action: onRemove, danger: true },
-            ]}
-          />
-        </div>
-      </header>
-      {composition ? (
-        <details ref={details}>
-          <summary>{t("prompt.instanceContentSettings")}</summary>
-          <div className="preset-detail">
-            {binding.kind === "linked" ? (
-              <PresetOverrides
-                composition={composition}
-                overrides={binding.overrides}
-                resources={resources}
-                name={name}
-                model={model}
-                onChange={override}
+                  },
+                ]}
               />
-            ) : (
-              <>
-                <CompositionEditor
-                  compact
-                  allowChunk={false}
-                  value={binding.composition}
-                  resources={resources}
-                  model={model}
-                  onChange={(composition) => updateExpanded({ composition })}
-                  expandChunk={async (node) => {
-                    try {
-                      return await promptApi.expandChunk(node);
-                    } catch (cause) {
-                      onError(cause);
-                      return node;
-                    }
-                  }}
-                />
-              </>
             )}
-            {part !== "content" &&
-              ((outputCapabilities?.maxCharacters ?? 0) > 0 ||
-                characters.length > 0 ||
-                settings.useCoords !== null) && (
-                <CharacterPositionPolicy
-                  value={settings.useCoords}
-                  inherited={
-                    binding.kind === "linked"
-                      ? inherited?.useCoords
-                      : effectiveCapabilities?.defaults.useCoords
-                  }
-                  onChange={(useCoords) => {
-                    const current = latest.current.instance.binding;
-                    changeSettings({
-                      ...(current.kind === "linked" ? current.settingsOverrides : current.defaults),
-                      useCoords,
-                    });
-                  }}
+            <IconButton label={t("prompt.removePreset")} onClick={onRemove} className="danger">
+              <Trash2 size={14} aria-hidden />
+            </IconButton>
+          </div>
+        </header>
+        {composition ? (
+          <details ref={details}>
+            <summary>{t("prompt.instanceContentSettings")}</summary>
+            <div className="preset-detail">
+              {binding.kind === "linked" ? (
+                <PresetOverrides
+                  composition={composition}
+                  overrides={binding.overrides}
+                  resources={resources}
+                  name={name}
+                  model={model}
+                  onChange={override}
                 />
+              ) : (
+                <>
+                  <CompositionEditor
+                    compact
+                    allowChunk={false}
+                    value={binding.composition}
+                    resources={resources}
+                    model={model}
+                    onChange={(composition) => updateExpanded({ composition })}
+                    expandChunk={async (node) => {
+                      try {
+                        return await promptApi.expandChunk(node);
+                      } catch (cause) {
+                        onError(cause);
+                        return node;
+                      }
+                    }}
+                  />
+                </>
               )}
-            {references &&
-              (binding.kind === "linked" ? (
-                <PreciseReferenceOutputOverrides
-                  value={references.precise}
-                  overrides={binding.outputOverrides.precise}
-                  onChange={(precise) =>
-                    updateLinked((current) => ({
-                      ...current,
-                      outputOverrides: { ...current.outputOverrides, precise },
-                    }))
-                  }
-                  capabilities={outputCapabilities}
-                  contextKey={`${instance.id}:${binding.resourceId}`}
-                  issues={preciseIssues}
-                />
-              ) : (
-                <PreciseReferenceEditor
-                  value={references.precise}
-                  onChange={(precise) => {
-                    const current = latest.current.instance.binding;
-                    if (current.kind === "expanded")
-                      updateExpanded({ references: { ...current.references, precise } });
-                  }}
-                  capabilities={outputCapabilities}
-                  contextKey={instance.id}
-                  issues={preciseIssues}
-                />
-              ))}
-            {references &&
-              showVibeReferences(outputCapabilities) &&
-              (binding.kind === "linked" ? (
-                <VibeOutputOverrides
-                  value={references.vibes}
-                  overrides={binding.outputOverrides.vibes}
-                  normalizeValue={binding.outputOverrides.normalizeVibeStrength}
-                  normalizeInherited={references.normalizeVibeStrength}
-                  onNormalizeChange={(normalizeVibeStrength) =>
-                    updateLinked((current) => ({
-                      ...current,
-                      outputOverrides: { ...current.outputOverrides, normalizeVibeStrength },
-                    }))
-                  }
-                  onChange={(vibes) =>
-                    updateLinked((current) => ({
-                      ...current,
-                      outputOverrides: { ...current.outputOverrides, vibes },
-                    }))
-                  }
-                  capabilities={outputCapabilities}
-                  contextKey={`${instance.id}:${binding.resourceId}`}
-                  issues={vibeIssues}
-                />
-              ) : (
-                <VibeReferenceEditor
-                  value={references.vibes}
-                  normalizeValue={references.normalizeVibeStrength}
-                  onNormalizeChange={(normalizeVibeStrength) => {
-                    const current = latest.current.instance.binding;
-                    if (current.kind === "expanded")
-                      updateExpanded({
-                        references: { ...current.references, normalizeVibeStrength },
+              {part !== "content" &&
+                ((outputCapabilities?.maxCharacters ?? 0) > 0 ||
+                  characters.length > 0 ||
+                  settings.useCoords !== null) && (
+                  <CharacterPositionPolicy
+                    value={settings.useCoords}
+                    inherited={
+                      binding.kind === "linked"
+                        ? inherited?.useCoords
+                        : effectiveCapabilities?.defaults.useCoords
+                    }
+                    onChange={(useCoords) => {
+                      const current = latest.current.instance.binding;
+                      changeSettings({
+                        ...(current.kind === "linked"
+                          ? current.settingsOverrides
+                          : current.defaults),
+                        useCoords,
                       });
-                  }}
-                  onChange={(vibes) => {
-                    const current = latest.current.instance.binding;
-                    if (current.kind === "expanded")
-                      updateExpanded({ references: { ...current.references, vibes } });
-                  }}
-                  capabilities={outputCapabilities}
-                  contextKey={instance.id}
-                  issues={vibeIssues}
-                />
-              ))}
-            {part !== "content" && characterEditor}
-            {staleText.map((item) => (
-              <div
-                className="character-stale-override"
-                data-prompt-node-id={item.nodeId}
-                key={item.nodeId}
-              >
-                <span>
-                  {t("prompt.removedSegmentOverridePrefix")}
-                  <code>{item.nodeId}</code>
-                </span>
-                <Button
-                  onClick={() => override({ nodeId: item.nodeId, enabled: null, text: null })}
+                    }}
+                  />
+                )}
+              {references &&
+                (binding.kind === "linked" ? (
+                  <PreciseReferenceOutputOverrides
+                    value={references.precise}
+                    overrides={binding.outputOverrides.precise}
+                    onChange={(precise) =>
+                      updateLinked((current) => ({
+                        ...current,
+                        outputOverrides: { ...current.outputOverrides, precise },
+                      }))
+                    }
+                    capabilities={outputCapabilities}
+                    contextKey={`${instance.id}:${binding.resourceId}`}
+                    issues={preciseIssues}
+                  />
+                ) : (
+                  <PreciseReferenceEditor
+                    value={references.precise}
+                    onChange={(precise) => {
+                      const current = latest.current.instance.binding;
+                      if (current.kind === "expanded")
+                        updateExpanded({ references: { ...current.references, precise } });
+                    }}
+                    capabilities={outputCapabilities}
+                    contextKey={instance.id}
+                    issues={preciseIssues}
+                  />
+                ))}
+              {references &&
+                showVibeReferences(outputCapabilities) &&
+                (binding.kind === "linked" ? (
+                  <VibeOutputOverrides
+                    value={references.vibes}
+                    overrides={binding.outputOverrides.vibes}
+                    normalizeValue={binding.outputOverrides.normalizeVibeStrength}
+                    normalizeInherited={references.normalizeVibeStrength}
+                    onNormalizeChange={(normalizeVibeStrength) =>
+                      updateLinked((current) => ({
+                        ...current,
+                        outputOverrides: { ...current.outputOverrides, normalizeVibeStrength },
+                      }))
+                    }
+                    onChange={(vibes) =>
+                      updateLinked((current) => ({
+                        ...current,
+                        outputOverrides: { ...current.outputOverrides, vibes },
+                      }))
+                    }
+                    capabilities={outputCapabilities}
+                    contextKey={`${instance.id}:${binding.resourceId}`}
+                    issues={vibeIssues}
+                  />
+                ) : (
+                  <VibeReferenceEditor
+                    value={references.vibes}
+                    normalizeValue={references.normalizeVibeStrength}
+                    onNormalizeChange={(normalizeVibeStrength) => {
+                      const current = latest.current.instance.binding;
+                      if (current.kind === "expanded")
+                        updateExpanded({
+                          references: { ...current.references, normalizeVibeStrength },
+                        });
+                    }}
+                    onChange={(vibes) => {
+                      const current = latest.current.instance.binding;
+                      if (current.kind === "expanded")
+                        updateExpanded({ references: { ...current.references, vibes } });
+                    }}
+                    capabilities={outputCapabilities}
+                    contextKey={instance.id}
+                    issues={vibeIssues}
+                  />
+                ))}
+              {part !== "content" && characterEditor}
+              {staleText.map((item) => (
+                <div
+                  className="character-stale-override"
+                  data-prompt-node-id={item.nodeId}
+                  key={item.nodeId}
                 >
-                  {t("prompt.removeStaleOverride")}
-                </Button>
-              </div>
-            ))}
-            <section className="preset-settings">
-              <h3>
-                {binding.kind === "linked"
-                  ? t("prompt.instanceSettingsOverride")
-                  : t("prompt.presetDefaults")}
-              </h3>
-              {capabilityState.loading && (
-                <output className="muted">{t("prompt.loadingModelOptions")}</output>
-              )}
-              {capabilityState.error && (
-                <div className="inline-warning" role="alert">
-                  {capabilityState.error}
-                  <Button className="quiet" onClick={capabilityState.retry}>
-                    {t("prompt.retry")}
+                  <span>
+                    {t("prompt.removedSegmentOverridePrefix")}
+                    <code>{item.nodeId}</code>
+                  </span>
+                  <Button
+                    onClick={() => override({ nodeId: item.nodeId, enabled: null, text: null })}
+                  >
+                    {t("prompt.removeStaleOverride")}
                   </Button>
                 </div>
-              )}
-              <SettingsEditor
-                value={settings}
-                models={models}
-                capabilities={effectiveCapabilities}
-                resolved={binding.kind === "linked" ? inherited : undefined}
-                mode={binding.kind === "linked" ? "instance" : "preset"}
-                onChange={changeSettings}
-              />
-            </section>
-          </div>
-        </details>
-      ) : (
-        <p className="inline-warning">{t("prompt.referencedPresetMissing")}</p>
-      )}
-    </article>
+              ))}
+              <section className="preset-settings">
+                <h3>
+                  {binding.kind === "linked"
+                    ? t("prompt.instanceSettingsOverride")
+                    : t("prompt.presetDefaults")}
+                </h3>
+                {capabilityState.loading && (
+                  <output className="muted">{t("prompt.loadingModelOptions")}</output>
+                )}
+                {capabilityState.error && (
+                  <div className="inline-warning" role="alert">
+                    {capabilityState.error}
+                    <Button className="quiet" onClick={capabilityState.retry}>
+                      {t("prompt.retry")}
+                    </Button>
+                  </div>
+                )}
+                <SettingsEditor
+                  value={settings}
+                  models={models}
+                  capabilities={effectiveCapabilities}
+                  resolved={binding.kind === "linked" ? inherited : undefined}
+                  mode={binding.kind === "linked" ? "instance" : "preset"}
+                  onChange={changeSettings}
+                />
+              </section>
+            </div>
+          </details>
+        ) : (
+          <p className="inline-warning">{t("prompt.referencedPresetMissing")}</p>
+        )}
+      </article>
+    </PromptEditorScope>
   );
 }

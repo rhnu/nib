@@ -1,5 +1,6 @@
 import { t } from "@/shared/i18n";
 import type { GenerationSettings, ResolvedSettings } from "@/bindings/workbench";
+import { focusPromptEditor } from "./editor-focus";
 
 export const settingLabels = {
   get model() {
@@ -199,6 +200,7 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
       const panel = root.querySelector<HTMLElement>(
         `.prompt-workspace [data-prompt-scope="${scope}"]`,
       );
+      if (panel && focusPromptEditor(panel)) return;
       const control =
         panel?.querySelector<HTMLElement>('[role="textbox"], textarea') ??
         panel?.querySelector<HTMLElement>("button");

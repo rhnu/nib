@@ -33,7 +33,7 @@ use nib_app::{
         ActivePage, CreationInputs, CreationOperation, DirectorToolKind, DirectorToolState,
         DirectorWorkspace, Draft, DraftSaveReceipt, ImageOperationKind, ImageOperationOptions,
         MaskCommand, MaskEditorState, MaskPoint, MaskSession, PngTextEditorState, PngTextSession,
-        PngTextValue, PreciseReferenceInput, ReferenceInputs, VibeEncodingInput,
+        PngTextValue, PreciseReferenceInput, PromptEditorState, ReferenceInputs, VibeEncodingInput,
         VibeEncodingOptions, VibeInput, VibeReferenceInput,
     },
     settings::{
@@ -84,6 +84,7 @@ pub(super) fn run(check: bool) -> Result<()> {
         PresetBinding::decl(&config),
         PresetInstance::decl(&config),
         Draft::decl(&config),
+        PromptEditorState::decl(&config),
         DraftSaveReceipt::decl(&config),
         DraftAnalysis::decl(&config),
         ActivePage::decl(&config),

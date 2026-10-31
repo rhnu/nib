@@ -5,6 +5,7 @@ import type { ParameterDiagnostic } from "@/bindings/generation";
 import { characterDefinition } from "@/features/positioning/model";
 import { focusSetting } from "@/features/prompt/settings";
 import { outputIdentity } from "@/features/prompt/output-identity";
+import { focusPromptEditor } from "@/features/prompt/editor-focus";
 
 export type OutputFieldIssue = { field: string; message: string };
 export type OutputIssues = {
@@ -206,6 +207,7 @@ export function focusOutputField(
         )
       : null;
     const fieldContainer = control ?? container;
+    if ((textScope || selected.nodeId) && focusPromptEditor(fieldContainer)) return;
     const focus = fieldContainer.matches(
       '[role="textbox"], textarea, input:not([type="hidden"]), select, button',
     )

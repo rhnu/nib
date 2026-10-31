@@ -50,6 +50,9 @@ button.primary:hover:not(:disabled) {
   background: transparent;
   border-color: transparent;
 }
+.icon-checkbox[data-checked] {
+  color: var(--accent);
+}
 button.active-button {
   background: var(--accent-soft);
   color: var(--accent);

@@ -101,6 +101,7 @@ export function directorToolSubmission(
     vibeEncoder: null,
     director: { selectedTool: "lineart", tools: [] },
     pngTextEditor: { sessions: [] },
+    promptEditor: { collapsedBlocks: {} },
     activePage: "director",
   };
 }

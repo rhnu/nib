@@ -1,5 +1,7 @@
 //! Automatically retained current creation. The frontend owns high-frequency edits.
 
+use std::collections::BTreeMap;
+
 mod director;
 mod inputs;
 mod mask_editor;
@@ -32,12 +34,21 @@ pub struct Draft {
     pub characters: Vec<CharacterComposition>,
     #[serde(default)]
     pub inputs: CreationInputs,
+    pub prompt_editor: PromptEditorState,
     pub mask_editor: MaskEditorState,
     // Separately retained encoder edits never replace the active image operation.
     pub vibe_encoder: Option<VibeEncodingInput>,
     pub director: DirectorWorkspace,
     pub png_text_editor: PngTextEditorState,
     pub active_page: ActivePage,
+}
+
+/// Retains explicit collapse choices by opaque frontend scope and stable block identity.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct PromptEditorState {
+    pub collapsed_blocks: BTreeMap<String, bool>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,3 +85,6 @@ pub trait DraftStore {
     /// Returns validation, revision conflict or backend failures.
     fn save_draft(&self, draft: &Draft) -> Result<DraftSaveReceipt, PersistenceError>;
 }
+
+#[cfg(test)]
+mod tests;

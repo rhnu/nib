@@ -7,6 +7,7 @@ import { Button, IconButton } from "@/shared/ui";
 import { moveItem, textNode } from "./model";
 import { NodeEditor } from "./node-editor";
 import { ChunkPicker } from "./chunk-picker";
+import { PromptEditorScope } from "./prompt-editor-state";
 
 export function CompositionEditor({
   value,
@@ -80,41 +81,43 @@ export function CompositionEditor({
           data-prompt-scope={scope}
           keepMounted
         >
-          {value[scope].length === 0 && (
-            <div className="scope-empty">
-              <Button type="button" className="quiet" onClick={() => update(scope, [textNode()])}>
-                <Plus size={14} />
-                {scope === "positive"
-                  ? t("prompt.writePositivePrompt")
-                  : t("prompt.writeNegativePrompt")}
-              </Button>
-            </div>
-          )}
-          {value[scope].map((node, index) => (
-            <NodeEditor
-              key={node.id}
-              node={node}
-              model={model}
-              resource={node.kind === "chunk" ? resources.get(node.resourceId) : undefined}
-              onChange={(next) =>
-                update(
-                  scope,
-                  value[scope].map((item) => (item.id === node.id ? next : item)),
-                )
-              }
-              up={() => update(scope, moveItem(value[scope], index, -1))}
-              down={() => update(scope, moveItem(value[scope], index, 1))}
-              canUp={index > 0}
-              canDown={index < value[scope].length - 1}
-              remove={() =>
-                update(
-                  scope,
-                  value[scope].filter((item) => item.id !== node.id),
-                )
-              }
-              expand={expandChunk}
-            />
-          ))}
+          <PromptEditorScope path={[scope]}>
+            {value[scope].length === 0 && (
+              <div className="scope-empty">
+                <Button type="button" className="quiet" onClick={() => update(scope, [textNode()])}>
+                  <Plus size={14} />
+                  {scope === "positive"
+                    ? t("prompt.writePositivePrompt")
+                    : t("prompt.writeNegativePrompt")}
+                </Button>
+              </div>
+            )}
+            {value[scope].map((node, index) => (
+              <NodeEditor
+                key={node.id}
+                node={node}
+                model={model}
+                resource={node.kind === "chunk" ? resources.get(node.resourceId) : undefined}
+                onChange={(next) =>
+                  update(
+                    scope,
+                    value[scope].map((item) => (item.id === node.id ? next : item)),
+                  )
+                }
+                up={() => update(scope, moveItem(value[scope], index, -1))}
+                down={() => update(scope, moveItem(value[scope], index, 1))}
+                canUp={index > 0}
+                canDown={index < value[scope].length - 1}
+                remove={() =>
+                  update(
+                    scope,
+                    value[scope].filter((item) => item.id !== node.id),
+                  )
+                }
+                expand={expandChunk}
+              />
+            ))}
+          </PromptEditorScope>
         </Tabs.Panel>
       ))}
       {pickerScope && (

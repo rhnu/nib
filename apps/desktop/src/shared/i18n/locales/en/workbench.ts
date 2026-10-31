@@ -2,7 +2,7 @@ export const workbench = {
   presets: "Presets",
   presetsHelp: "About presets",
   presetsDescription:
-    "Presets are applied in order, followed by the current prompt. Editing linked content overrides only the current instance. Use the actions menu to reorder presets or expand them into independent presets.",
+    "Presets are applied in order, followed by the current prompt. Editing linked content overrides only the current instance. Reorder presets in the header or use the actions menu to expand them into independent presets.",
   addPreset: "Add Preset",
   imageSettings: "Image settings",
   generationRequests: "Generation requests",

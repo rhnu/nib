@@ -31,6 +31,7 @@ const draft: Draft = {
   vibeEncoder: input,
   director: { selectedTool: "lineart", tools: [] },
   pngTextEditor: { sessions: [] },
+  promptEditor: { collapsedBlocks: {} },
   activePage: "create",
 };
 

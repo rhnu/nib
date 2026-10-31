@@ -176,8 +176,28 @@
 }
 .node-label > svg {
   color: var(--muted);
+  flex-shrink: 0;
 }
-.prompt-node .prompt-editor-host {
+.node-label > span:not(.tag) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-heading > .button-group {
+  flex-shrink: 0;
+}
+.node-heading .icon-button {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 3px;
+}
+.node-label .tag {
+  flex-shrink: 0;
+  font-size: 9px;
+  padding-inline: 3px;
+}
+.prompt-node :is(.prompt-editor-host, .prompt-editor-preview) {
   border: 0;
   border-top: 1px solid var(--line-subtle);
   border-radius: 0;
@@ -189,11 +209,9 @@
 .prompt-node:has(.cm-focused) {
   border-color: var(--accent);
 }
-.prompt-node .cm-content {
-  min-height: 132px;
-}
 .node-disabled .node-label,
-.node-disabled .prompt-editor-host {
+.node-disabled .prompt-editor-host,
+.node-disabled .prompt-editor-preview {
   opacity: 0.55;
 }
 .inspector {
@@ -301,26 +319,11 @@
 .preset-detail h3 {
   margin-top: 16px;
 }
-.instance-override {
-  margin: 8px 0 12px;
-}
-.instance-override header {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.instance-override .cm-content {
-  font-size: 12px;
-  min-height: 82px;
-}
 .preset-instance .inline-warning {
   padding: 8px 10px;
   margin: 0;
 }
 .compact-composition .prompt-node .cm-content {
-  min-height: 100px;
   font-size: 12px;
 }
 

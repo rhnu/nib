@@ -22,6 +22,10 @@ export function usePromptEditor(
   onChange: ((value: string) => void) | undefined,
   onSelection: (position: number) => void,
   onInsertionError: (cause: unknown) => void,
+  {
+    visible = true,
+    sizing = "bounded",
+  }: { visible?: boolean; sizing?: "bounded" | "content" } = {},
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const disabledProbe = useRef<HTMLInputElement>(null);
@@ -143,6 +147,13 @@ export function usePromptEditor(
     configuration.analysisPending,
     document,
   ]);
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+    // A retained view cannot measure its layout while hidden; measure after it is revealed.
+    const frame = requestAnimationFrame(() => viewRef.current?.requestMeasure());
+    return () => cancelAnimationFrame(frame);
+  }, [visible, sizing]);
 
   return { hostRef, viewRef, disabledProbe };
 }

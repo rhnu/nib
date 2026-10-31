@@ -10,6 +10,7 @@ import type {
 } from "@/bindings/workbench";
 import { Button, IconButton, Toggle } from "@/shared/ui";
 import { PresetOverrides } from "@/features/prompt/preset-overrides";
+import { PromptEditorScope } from "@/features/prompt/prompt-editor-state";
 import { CharacterPositionFields } from "./character-position-fields";
 import { setCharacterOverride, type CharacterIssues } from "./model";
 import "./characters.css";
@@ -139,17 +140,19 @@ export function CharacterOutputOverrides({
               hidden={collapsed.has(character.id) && fieldIssues.length === 0}
             >
               <div className="character-prompts">
-                <PresetOverrides
-                  composition={character.composition}
-                  overrides={textOverrides}
-                  resources={resources}
-                  model={capabilities?.model}
-                  name={t("characters.namedCharacter", { value0: name, value1: index + 1 })}
-                  onChange={onTextChange}
-                  errorScopes={fieldIssues
-                    .filter((issue) => issue.field === "positive" || issue.field === "negative")
-                    .map((issue) => issue.field)}
-                />
+                <PromptEditorScope path={["character", character.id]}>
+                  <PresetOverrides
+                    composition={character.composition}
+                    overrides={textOverrides}
+                    resources={resources}
+                    model={capabilities?.model}
+                    name={t("characters.namedCharacter", { value0: name, value1: index + 1 })}
+                    onChange={onTextChange}
+                    errorScopes={fieldIssues
+                      .filter((issue) => issue.field === "positive" || issue.field === "negative")
+                      .map((issue) => issue.field)}
+                  />
+                </PromptEditorScope>
               </div>
               {!onPosition && (
                 <CharacterPositionFields

@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "luc
 import type { CharacterComposition, ModelCapabilities, Resource } from "@/bindings/workbench";
 import { IconButton, Toggle } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
+import { PromptEditorScope } from "@/features/prompt/prompt-editor-state";
 import { promptApi } from "@/features/prompt/api";
 import { moveItem } from "@/features/prompt/model";
 import { CharacterPositionFields } from "./character-position-fields";
@@ -121,22 +122,24 @@ function CharacterRow({
       ))}
       <div className="character-body" hidden={isCollapsed}>
         <div className="character-prompts">
-          <CompositionEditor
-            compact
-            value={character.composition}
-            resources={resources}
-            model={capabilities?.model}
-            allowChunk={allowChunk}
-            onChange={(composition) => update({ composition })}
-            expandChunk={async (node) => {
-              try {
-                return await promptApi.expandChunk(node);
-              } catch (cause) {
-                onError(cause);
-                return node;
-              }
-            }}
-          />
+          <PromptEditorScope path={["character", character.id]}>
+            <CompositionEditor
+              compact
+              value={character.composition}
+              resources={resources}
+              model={capabilities?.model}
+              allowChunk={allowChunk}
+              onChange={(composition) => update({ composition })}
+              expandChunk={async (node) => {
+                try {
+                  return await promptApi.expandChunk(node);
+                } catch (cause) {
+                  onError(cause);
+                  return node;
+                }
+              }}
+            />
+          </PromptEditorScope>
         </div>
         {!onPosition && (
           <CharacterPositionFields

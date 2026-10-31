@@ -66,6 +66,7 @@ describe("resource dependencies", () => {
       vibeEncoder: null,
       director: { selectedTool: "lineart", tools: [] },
       pngTextEditor: { sessions: [] },
+      promptEditor: { collapsedBlocks: {} },
       activePage: "create",
     };
     expect(draftResourceIds(draft)).toEqual([

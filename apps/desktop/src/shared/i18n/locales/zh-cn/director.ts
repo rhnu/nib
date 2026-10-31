@@ -4,7 +4,7 @@ export const director = {
   requiredPrompt: "Prompt · 必填",
   optionalPrompt: "Prompt · 可选",
   toolPrompt: "导演工具 Prompt",
-  tokenRulesUnavailable: "导演工具未提供本地 Token 规则",
+  tokenRulesUnavailable: "导演工具未提供本地词符规则",
   advancedSettings: "高级设置",
   strictSuffix: " · 严格拒绝",
   parameterHandling: "参数处理",

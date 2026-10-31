@@ -21,6 +21,7 @@ export function slotEncodingDraft(input: VibeEncodingInput): Draft {
     vibeEncoder: null,
     director: { selectedTool: "lineart", tools: [] },
     pngTextEditor: { sessions: [] },
+    promptEditor: { collapsedBlocks: {} },
     activePage: "create",
   };
 }

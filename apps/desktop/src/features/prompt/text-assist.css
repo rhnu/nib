@@ -10,6 +10,15 @@
   --prompt-weight-down: #275d94;
   --prompt-weight-negative: #9c347e;
 }
+.prompt-text-editor[data-sizing="content"] {
+  --prompt-editor-min-height: 62px;
+  --prompt-editor-padding-y: 4px;
+  --prompt-editor-max-height: none;
+}
+.prompt-editor-surface {
+  position: relative;
+  min-width: 0;
+}
 .prompt-editor-host {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -68,31 +77,49 @@
   text-decoration: underline wavy var(--danger);
   text-underline-offset: 4px;
 }
-.prompt-token-indicator {
+.prompt-editor-actions {
   position: absolute;
   top: 4px;
   right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.prompt-text-editor .prompt-editor-action.icon-button {
   width: 26px;
   height: 26px;
   min-height: 26px;
   padding: 0;
-  border-radius: 50%;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
   color: var(--muted);
   background: var(--input);
 }
-.prompt-token-indicator.danger {
+.prompt-text-editor .prompt-editor-action.icon-button:hover:not(:disabled) {
+  background: var(--hover);
+}
+.prompt-text-editor .prompt-editor-action.danger {
   color: var(--danger);
 }
-.prompt-lexicon-trigger {
-  position: absolute;
-  top: 31px;
-  right: 4px;
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
+.prompt-editor-preview {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  min-height: 34px;
+  padding: 4px 36px 4px 9px;
+  text-align: left;
   color: var(--muted);
   background: var(--input);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.prompt-editor-preview > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .prompt-completion-popup ul {
   max-width: min(620px, calc(100vw - 30px));

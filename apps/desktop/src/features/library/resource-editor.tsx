@@ -120,7 +120,7 @@ export function ResourceEditor({
         ) : (
           <>
             <CompositionEditor
-              key={editor.id}
+              key={`composition:${editor.id}`}
               compact
               value={editor.content.composition}
               resources={resources}
@@ -175,7 +175,7 @@ export function ResourceEditor({
               />
             )}
             <CharacterListEditor
-              key={editor.id}
+              key={`characters:${editor.id}`}
               value={editor.content.characters}
               onChange={(characters) => updatePreset({ characters })}
               resources={resources}

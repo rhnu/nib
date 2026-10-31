@@ -45,6 +45,7 @@ function restoredDraft(): Draft {
     maskEditor: { activeSourceId: null, sessions: [] },
     vibeEncoder: null,
     pngTextEditor: { sessions: [] },
+    promptEditor: { collapsedBlocks: {} },
     activePage: "director",
   };
 }

@@ -16,7 +16,7 @@ export const references = {
   movePreciseUp: "上移精确参考 {{value0}}",
   movePreciseDown: "下移精确参考 {{value0}}",
   removePreciseReference: "移除精确参考 {{value0}}",
-  presetPreciseOverrides: "配方精确参考覆盖",
+  presetPreciseOverrides: "预设精确参考覆盖",
   preciseReferencePrefix: "精确参考 · ",
   revertPreciseOverrides: "撤销精确参考 {{value0}} 全部覆盖",
   originalReferenceMissing: "原精确参考已不存在，覆盖不生效。",

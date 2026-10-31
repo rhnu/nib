@@ -25,6 +25,7 @@ const draft = (): Draft => ({
   vibeEncoder: null,
   director: { selectedTool: "lineart", tools: [] },
   pngTextEditor: { sessions: [] },
+  promptEditor: { collapsedBlocks: {} },
   activePage: "create",
   revision: 0,
   composition: emptyComposition(),

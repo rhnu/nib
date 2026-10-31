@@ -53,6 +53,6 @@ export const lexicon = {
   insert: "插入提示词",
   staleEditor: "提示词或光标已改变。请关闭面板后重新打开，在新的位置插入。",
   insertionFailed: "无法插入词条：{{detail}}",
-  saveHelp: "插入后是普通提示词文本，可通过已有 Chunk 或 Preset 保存。",
+  saveHelp: "插入后是普通提示词文本，可通过已有片段或预设保存。",
   lookupOnly: "只读浏览。从可编辑提示词打开此面板以插入词条。",
 } satisfies { [K in keyof typeof English]: string };

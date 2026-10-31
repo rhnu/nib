@@ -1,9 +1,10 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { Link2, Type } from "lucide-react";
+import { ArrowDown, ArrowUp, Link2, Trash2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "@/bindings/workbench";
-import { ActionsMenu, Toggle } from "@/shared/ui";
+import { ActionsMenu, IconButton } from "@/shared/ui";
 import { PromptTextEditor } from "./prompt-text-editor";
+import { PromptBlock } from "./prompt-block";
 
 export function NodeEditor({
   node,
@@ -44,77 +45,83 @@ export function NodeEditor({
   }, []);
   const sourceText = resource?.content.kind === "chunk" ? resource.content.text : "";
   return (
-    <article
-      className={`prompt-node ${node.enabled ? "" : "node-disabled"}`}
-      data-prompt-node-id={node.id}
-    >
-      <header className="node-heading">
-        <span className="node-label">
+    <PromptBlock
+      nodeId={node.id}
+      defaultCollapsed={node.kind === "chunk"}
+      enabled={node.enabled}
+      onEnabledChange={(enabled) => onChange({ ...latest.current.node, enabled })}
+      title={
+        <>
           {node.kind === "chunk" ? <Link2 size={14} /> : <Type size={14} />}
-          {node.kind === "chunk"
-            ? (resource?.name ?? t("prompt.resourceMissing"))
-            : t("prompt.text")}
-        </span>
-        <div className="button-group">
+          <span title={node.kind === "chunk" ? resource?.name : undefined}>
+            {node.kind === "chunk"
+              ? (resource?.name ?? t("prompt.resourceMissing"))
+              : t("prompt.text")}
+          </span>
           {node.kind === "chunk" && node.overrideText !== null && (
             <span className="tag">{t("prompt.instanceOverride")}</span>
           )}
-          <Toggle
-            checked={node.enabled}
-            label={t("prompt.enableSegment")}
-            onChange={(enabled) => onChange({ ...node, enabled })}
-          />
-          <ActionsMenu
-            label={t("prompt.segmentActions")}
-            items={[
-              { label: t("prompt.moveUp"), action: up, disabled: !canUp },
-              { label: t("prompt.moveDown"), action: down, disabled: !canDown },
-              ...(node.kind === "chunk"
-                ? [
-                    {
-                      label: t("prompt.expandToText"),
-                      action: () => {
-                        void expand(node).then((result) => {
-                          if (
-                            latest.current.active &&
-                            latest.current.node === node &&
-                            result !== node
-                          )
-                            latest.current.onChange(result);
-                        });
-                      },
-                    },
-                    {
-                      label: t("prompt.revertOverride"),
-                      action: () => onChange({ ...node, overrideText: null }),
-                      disabled: node.overrideText === null,
-                    },
-                  ]
-                : []),
-              { label: t("prompt.removeSegment"), action: remove, danger: true },
-            ]}
-          />
-        </div>
-      </header>
-      <PromptTextEditor
-        label={
-          node.kind === "text"
-            ? t("prompt.promptText")
-            : t("prompt.instanceContent", { value0: resource?.name ?? t("prompt.missingChunk") })
-        }
-        model={model}
-        value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
-        placeholder={
-          node.kind === "text"
-            ? t("prompt.promptPlaceholder")
-            : resource
-              ? t("prompt.emptyChunk")
-              : t("prompt.missingResourceHelp")
-        }
-        onChange={(text) =>
-          onChange(node.kind === "text" ? { ...node, text } : { ...node, overrideText: text })
-        }
-      />
-    </article>
+        </>
+      }
+      actions={
+        <>
+          <IconButton label={t("prompt.moveUp")} onClick={up} disabled={!canUp}>
+            <ArrowUp size={14} aria-hidden />
+          </IconButton>
+          <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
+            <ArrowDown size={14} aria-hidden />
+          </IconButton>
+          {node.kind === "chunk" && (
+            <ActionsMenu
+              label={t("prompt.segmentActions")}
+              items={[
+                {
+                  label: t("prompt.expandToText"),
+                  action: () => {
+                    void expand(node).then((result) => {
+                      if (latest.current.active && latest.current.node === node && result !== node)
+                        latest.current.onChange(result);
+                    });
+                  },
+                },
+                {
+                  label: t("prompt.revertOverride"),
+                  action: () => onChange({ ...node, overrideText: null }),
+                  disabled: node.overrideText === null,
+                },
+              ]}
+            />
+          )}
+          <IconButton label={t("prompt.removeSegment")} onClick={remove} className="danger">
+            <Trash2 size={14} aria-hidden />
+          </IconButton>
+        </>
+      }
+    >
+      {({ collapsed, onExpand }) => (
+        <PromptTextEditor
+          collapsed={collapsed}
+          onExpand={onExpand}
+          sizing="content"
+          label={
+            node.kind === "text"
+              ? t("prompt.promptText")
+              : t("prompt.instanceContent", { value0: resource?.name ?? t("prompt.missingChunk") })
+          }
+          model={model}
+          value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
+          placeholder={
+            node.kind === "text"
+              ? t("prompt.promptPlaceholder")
+              : resource
+                ? t("prompt.emptyChunk")
+                : t("prompt.missingResourceHelp")
+          }
+          onChange={(text) =>
+            onChange(node.kind === "text" ? { ...node, text } : { ...node, overrideText: text })
+          }
+        />
+      )}
+    </PromptBlock>
   );
 }

@@ -1,11 +1,11 @@
 import type { workbench as source } from "../en/workbench";
 
 export const workbench = {
-  presets: "配方",
-  presetsHelp: "配方帮助",
+  presets: "预设",
+  presetsHelp: "预设帮助",
   presetsDescription:
-    "配方按顺序应用，随后追加当前提示词。修改链接内容只覆盖当前实例；可在操作菜单中排序或展开为独立配方。",
-  addPreset: "添加 Preset",
+    "预设按顺序应用，随后追加当前提示词。修改链接内容只覆盖当前实例；标题栏可排序，操作菜单可展开为独立预设。",
+  addPreset: "添加预设",
   imageSettings: "图像设置",
   generationRequests: "生成请求",
   requestCountHelp: "依次提交的独立请求数。每个请求按样本数同时生成多张图片。",

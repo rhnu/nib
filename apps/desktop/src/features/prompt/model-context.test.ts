@@ -21,6 +21,7 @@ const draft: Draft = {
   vibeEncoder: null,
   director: { selectedTool: "lineart", tools: [] },
   pngTextEditor: { sessions: [] },
+  promptEditor: { collapsedBlocks: {} },
 };
 
 describe("model-specific display retention", () => {

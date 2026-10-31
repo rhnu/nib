@@ -3,6 +3,7 @@ export { Field, FormField, FormGrid } from "./field";
 export { Modal } from "./modal";
 export { ActionsMenu } from "./actions-menu";
 export { Toggle } from "./toggle";
+export { IconCheckbox } from "./icon-checkbox";
 export { Notice } from "./notice";
 export { HelpMarker } from "./help-marker";
 export { FilePicker } from "./file-picker";
