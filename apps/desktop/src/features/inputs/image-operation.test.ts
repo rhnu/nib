@@ -41,7 +41,6 @@ const creation = (operation: CreationOperation): Draft => ({
   pngTextEditor: { sessions: [] },
   promptEditor: { collapsedBlocks: {} },
   activePage: "create",
-  revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: emptyComposition(),
   presets: [],

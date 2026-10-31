@@ -9,7 +9,6 @@ const draft: Draft = {
   pngTextEditor: { sessions: [] },
   promptEditor: { collapsedBlocks: {} },
   activePage: "create",
-  revision: 1,
   maskEditor: { activeSourceId: null, sessions: [] },
   composition: { positive: [], negative: [] },
   presets: [],
@@ -65,8 +64,7 @@ describe("effective image operation", () => {
 });
 
 describe("generation quote identity", () => {
-  it("preserves a quote across saves but invalidates it when resources change", () => {
-    expect(generationQuoteKey({ ...draft, revision: 2 }, 1)).toBe(generationQuoteKey(draft, 1));
+  it("invalidates a quote when resources change", () => {
     expect(generationQuoteKey(draft, 2)).not.toBe(generationQuoteKey(draft, 1));
   });
 

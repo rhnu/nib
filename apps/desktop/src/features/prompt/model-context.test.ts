@@ -5,7 +5,6 @@ import { promptModelContext } from "./model-context";
 
 const draft: Draft = {
   activePage: "create",
-  revision: 1,
   composition: { positive: [], negative: [] },
   presets: [],
   settings: { ...emptySettings(), model: "model-a" },

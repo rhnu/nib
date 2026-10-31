@@ -226,7 +226,7 @@ pub(crate) async fn delete_resource(
 pub(crate) async fn save_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
-) -> Result<nib_app::session::DraftSaveReceipt, ApiError> {
+) -> Result<(), ApiError> {
     with_database_write(state, move |database| {
         database.save_draft(&draft).map_err(persistence_error)
     })

@@ -142,7 +142,6 @@ fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt
     };
     let restored =
         restore_submission(&submitted, Some(42), Draft::default(), "restored-result").unwrap();
-    assert_eq!(restored.revision, 0);
     assert_eq!(restored.presets.len(), 0);
     assert_eq!(restored.settings.seed, Some(42));
     assert!(

@@ -85,7 +85,6 @@ export function directorToolSubmission(
 ): Draft | null {
   if (!assetId || command === undefined || policy === undefined) return null;
   return {
-    revision: 0,
     composition: emptyComposition(),
     presets: [],
     characters: [],

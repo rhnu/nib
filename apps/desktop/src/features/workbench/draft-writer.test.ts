@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftWriter } from "./draft-writer";
 
-type Document = { revision: number; text: string };
-const initial: Document = { revision: 1, text: "original" };
+type Document = { text: string };
+const initial: Document = { text: "original" };
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -22,10 +22,9 @@ describe("DraftWriter", () => {
   });
 
   it("automatically saves the latest content and parameters after edits settle", async () => {
-    const write = vi.fn(async (value: Document & { steps: number }) => ({
-      ...value,
-      revision: value.revision + 1,
-    }));
+    const write = vi
+      .fn<(value: Document & { steps: number }) => Promise<void>>()
+      .mockResolvedValue(undefined);
     const writer = new DraftWriter(write);
     writer.replace({ ...initial, steps: 20 });
     writer.edit({ ...initial, steps: 20, text: "edited" });
@@ -36,7 +35,7 @@ describe("DraftWriter", () => {
     await vi.advanceTimersByTimeAsync(50);
     expect(write).toHaveBeenCalledExactlyOnceWith({ ...initial, text: "edited", steps: 28 });
     expect(writer.getSnapshot()).toMatchObject({
-      value: { revision: 2, text: "edited", steps: 28 },
+      value: { text: "edited", steps: 28 },
       dirty: false,
       error: null,
     });
@@ -44,15 +43,15 @@ describe("DraftWriter", () => {
 
   it("retains failed automatic saves and resumes automatically on the next edit", async () => {
     const write = vi
-      .fn<(value: Document) => Promise<Document>>()
+      .fn<(value: Document) => Promise<void>>()
       .mockRejectedValueOnce(new Error("offline"))
-      .mockImplementation(async (value) => ({ ...value, revision: 2 }));
+      .mockResolvedValue(undefined);
     const writer = new DraftWriter(write);
     writer.replace(initial);
     writer.edit({ ...initial, text: "keep me" });
     await vi.advanceTimersByTimeAsync(250);
     expect(writer.getSnapshot()).toMatchObject({
-      value: { revision: 1, text: "keep me" },
+      value: { text: "keep me" },
       dirty: true,
       saving: false,
       error: expect.any(Error),
@@ -60,18 +59,18 @@ describe("DraftWriter", () => {
     writer.edit({ ...initial, text: "latest" });
     await vi.advanceTimersByTimeAsync(250);
     expect(writer.getSnapshot()).toMatchObject({
-      value: { revision: 2, text: "latest" },
+      value: { text: "latest" },
       dirty: false,
       error: null,
     });
   });
 
-  it("serializes edits made during a save using the returned revision", async () => {
-    const first = deferred<Document>();
+  it("serializes saves and preserves edits made while a save is in flight", async () => {
+    const first = deferred<void>();
     const writes: Document[] = [];
     const writer = new DraftWriter<Document>((value) => {
       writes.push(value);
-      return writes.length === 1 ? first.promise : Promise.resolve({ ...value, revision: 3 });
+      return writes.length === 1 ? first.promise : Promise.resolve();
     });
     writer.replace(initial);
     writer.edit({ ...initial, text: "first" });
@@ -79,14 +78,15 @@ describe("DraftWriter", () => {
     expect(writer.flush()).toBe(saving);
     await Promise.resolve();
     writer.edit({ ...initial, text: "latest" });
-    first.resolve({ ...initial, revision: 2, text: "first" });
+    expect(writer.getSnapshot()).toMatchObject({ value: { text: "latest" }, dirty: true });
+    first.resolve(undefined);
     await saving;
     expect(writes).toEqual([
       { ...initial, text: "first" },
-      { ...initial, revision: 2, text: "latest" },
+      { ...initial, text: "latest" },
     ]);
     expect(writer.getSnapshot()).toMatchObject({
-      value: { revision: 3, text: "latest" },
+      value: { text: "latest" },
       dirty: false,
       saving: false,
     });
@@ -97,7 +97,7 @@ describe("DraftWriter", () => {
       composition: { entries: { text: string }[] };
       model: { id: string };
     };
-    const write = vi.fn(async (value: Nested) => ({ revision: value.revision + 1 }));
+    const write = vi.fn<(value: Nested) => Promise<void>>().mockResolvedValue(undefined);
     const writer = new DraftWriter(write);
     const original: Nested = {
       ...initial,
@@ -119,25 +119,14 @@ describe("DraftWriter", () => {
     ]);
     expect(writer.getSnapshot().value?.model).toBe(original.model);
     await writer.flush();
-    expect(writer.getSnapshot()).toMatchObject({ dirty: false, value: { revision: 2 } });
+    expect(writer.getSnapshot()).toMatchObject({ dirty: false });
   });
 
-  it("keeps the acknowledged revision when an older edit snapshot is submitted", async () => {
-    const write = vi.fn(async (value: Document) => ({ revision: value.revision + 1 }));
-    const writer = new DraftWriter(write);
-    writer.replace(initial);
-    writer.edit({ ...initial, text: "first" });
-    await writer.flush();
-    writer.edit({ ...initial, text: "later" });
-    await writer.flush();
-    expect(write.mock.calls[1][0]).toEqual({ revision: 2, text: "later" });
-  });
-
-  it("preserves unsaved edits after failure and retries without changing their revision", async () => {
-    const failed = deferred<Document>();
+  it("preserves unsaved edits after failure and retries the latest content", async () => {
+    const failed = deferred<void>();
     let attempts = 0;
-    const writer = new DraftWriter<Document>((value) =>
-      ++attempts === 1 ? failed.promise : Promise.resolve({ ...value, revision: 2 }),
+    const writer = new DraftWriter<Document>(() =>
+      ++attempts === 1 ? failed.promise : Promise.resolve(),
     );
     writer.replace(initial);
     writer.edit({ ...initial, text: "keep me" });
@@ -146,14 +135,14 @@ describe("DraftWriter", () => {
     failed.reject(new Error("offline"));
     await assertion;
     expect(writer.getSnapshot()).toMatchObject({
-      value: { text: "keep me", revision: 1 },
+      value: { text: "keep me" },
       dirty: true,
       saving: false,
     });
     expect(() => writer.replace(initial)).toThrow();
     await writer.flush();
     expect(writer.getSnapshot()).toMatchObject({
-      value: { text: "keep me", revision: 2 },
+      value: { text: "keep me" },
       dirty: false,
       error: null,
     });

@@ -15,7 +15,6 @@ const input: VibeEncodingInput = {
   infoExtractSeed: -42,
 };
 const draft: Draft = {
-  revision: 1,
   composition: emptyComposition(),
   characters: [],
   presets: [],

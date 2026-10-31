@@ -79,11 +79,9 @@ export type PresetBinding = { "kind": "linked", resourceId: string, overrides: A
 
 export type PresetInstance = { id: string, enabled: boolean, binding: PresetBinding, };
 
-export type Draft = { revision: number, composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, promptEditor: PromptEditorState, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, director: DirectorWorkspace, pngTextEditor: PngTextEditorState, activePage: ActivePage, };
+export type Draft = { composition: Composition, presets: Array<PresetInstance>, settings: GenerationSettings, characters: Array<CharacterComposition>, inputs: CreationInputs, promptEditor: PromptEditorState, maskEditor: MaskEditorState, vibeEncoder: VibeEncodingInput | null, director: DirectorWorkspace, pngTextEditor: PngTextEditorState, activePage: ActivePage, };
 
 export type PromptEditorState = { collapsedBlocks: { [key in string]: boolean }, };
-
-export type DraftSaveReceipt = { revision: number, };
 
 export type DraftAnalysis = { resolved: ResolvedDraft, capabilities: ModelCapabilities | null, quote: GenerationQuote | null, quoteError: ApiError | null, };
 

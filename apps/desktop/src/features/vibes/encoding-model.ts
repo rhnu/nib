@@ -5,7 +5,6 @@ import { emptyComposition, emptyReferences, emptySettings } from "@/features/pro
 /** Slot encoding has no editable generation prompt and always submits one encoding request. */
 export function slotEncodingDraft(input: VibeEncodingInput): Draft {
   return {
-    revision: 0,
     composition: emptyComposition(),
     presets: [],
     settings: emptySettings(),

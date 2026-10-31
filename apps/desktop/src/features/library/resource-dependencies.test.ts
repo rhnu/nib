@@ -21,7 +21,6 @@ const character = (resourceId: string): CharacterComposition => ({
 describe("resource dependencies", () => {
   it("deduplicates draft roots across scopes, roles and disabled linked or expanded presets", () => {
     const draft: Draft = {
-      revision: 0,
       composition: { positive: [reference("shared")], negative: [reference("negative")] },
       characters: [character("role")],
       presets: [

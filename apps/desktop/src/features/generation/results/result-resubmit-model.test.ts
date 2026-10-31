@@ -6,7 +6,6 @@ import { prepareResubmission } from "./result-resubmit-model";
 
 function restoredDraft(): Draft {
   return {
-    revision: 7,
     composition: {
       positive: [{ kind: "text", id: "main-prompt", enabled: true, text: "forest" }],
       negative: [],

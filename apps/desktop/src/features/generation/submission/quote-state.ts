@@ -14,7 +14,7 @@ export function isOperationEffective(
   );
 }
 
-// A save changes the revision, but not the content or resource versions being estimated.
+/** Estimate identity follows generation inputs and explicit resource or account refreshes. */
 export function generationQuoteKey(draft: Draft, refreshKey?: unknown): string {
   return JSON.stringify([
     draft.composition,

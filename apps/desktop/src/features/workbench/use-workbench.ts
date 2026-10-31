@@ -93,7 +93,6 @@ export function useWorkbench(
     const current = readCurrentDraft();
     writer.edit({
       ...value,
-      revision: current.revision,
       maskEditor: current.maskEditor,
       vibeEncoder: current.vibeEncoder,
       director: current.director,

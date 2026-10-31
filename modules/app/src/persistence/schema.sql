@@ -42,7 +42,6 @@ CREATE INDEX resource_model_values ON resource_models(value);
 
 CREATE TABLE current_creation (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    revision INTEGER NOT NULL CHECK (revision > 0),
     composition TEXT NOT NULL CHECK (json_valid(composition)),
     presets TEXT NOT NULL CHECK (json_valid(presets)),
     settings TEXT NOT NULL CHECK (json_valid(settings)),
@@ -122,4 +121,4 @@ CREATE TABLE image_safety (
     assessment TEXT CHECK (assessment IS NULL OR json_valid(assessment))
 );
 
-PRAGMA user_version = 16;
+PRAGMA user_version = 17;

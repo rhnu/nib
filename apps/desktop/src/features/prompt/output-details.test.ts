@@ -27,7 +27,6 @@ const draft = (): Draft => ({
   pngTextEditor: { sessions: [] },
   promptEditor: { collapsedBlocks: {} },
   activePage: "create",
-  revision: 0,
   composition: emptyComposition(),
   settings: emptySettings(),
   presets: [],

@@ -34,9 +34,9 @@ use nib_app::{
     },
     session::{
         ActivePage, CreationInputs, CreationOperation, DirectorToolKind, DirectorToolState,
-        DirectorWorkspace, Draft, DraftSaveReceipt, ImageOperationKind, ImageOperationOptions,
-        MaskCommand, MaskEditorState, MaskPoint, MaskSession, PngTextEditorState, PngTextSession,
-        PngTextValue, PreciseReferenceInput, PromptEditorState, ReferenceInputs, VibeEncodingInput,
+        DirectorWorkspace, Draft, ImageOperationKind, ImageOperationOptions, MaskCommand,
+        MaskEditorState, MaskPoint, MaskSession, PngTextEditorState, PngTextSession, PngTextValue,
+        PreciseReferenceInput, PromptEditorState, ReferenceInputs, VibeEncodingInput,
         VibeEncodingOptions, VibeInput, VibeReferenceInput,
     },
     settings::{
@@ -378,7 +378,6 @@ fn workbench_types(config: &Config) -> String {
         PresetInstance::decl(config),
         Draft::decl(config),
         PromptEditorState::decl(config),
-        DraftSaveReceipt::decl(config),
         DraftAnalysis::decl(config),
         ActivePage::decl(config),
         DirectorToolKind::decl(config),

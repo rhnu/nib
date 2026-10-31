@@ -26,7 +26,6 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct Draft {
-    pub revision: u32,
     pub composition: Composition,
     pub presets: Vec<PresetInstance>,
     pub settings: GenerationSettings,
@@ -65,14 +64,6 @@ pub enum ActivePage {
     Settings,
 }
 
-/// A successful save acknowledges its revision without echoing retained editing history.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
-pub struct DraftSaveReceipt {
-    pub revision: u32,
-}
-
 pub trait DraftStore {
     /// Reads the current creation, returning a blank state before its first save.
     ///
@@ -80,11 +71,11 @@ pub trait DraftStore {
     /// Returns backend read or decoding failures.
     fn get_draft(&self) -> Result<Draft, PersistenceError>;
 
-    /// Saves a structurally valid draft using its expected revision.
+    /// Replaces the current creation and its media references atomically.
     ///
     /// # Errors
-    /// Returns validation, revision conflict or backend failures.
-    fn save_draft(&self, draft: &Draft) -> Result<DraftSaveReceipt, PersistenceError>;
+    /// Returns validation or backend failures.
+    fn save_draft(&self, draft: &Draft) -> Result<(), PersistenceError>;
 }
 
 #[cfg(test)]

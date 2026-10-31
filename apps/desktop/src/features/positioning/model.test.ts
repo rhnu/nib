@@ -65,7 +65,6 @@ const creation = (): Draft => ({
   pngTextEditor: { sessions: [] },
   promptEditor: { collapsedBlocks: {} },
   activePage: "create",
-  revision: 1,
   composition: emptyComposition(),
   characters: [character("direct")],
   settings: emptySettings(),

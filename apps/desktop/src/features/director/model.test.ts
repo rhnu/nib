@@ -30,7 +30,6 @@ const director: DirectorWorkspace = {
 };
 
 const draft: Draft = {
-  revision: 4,
   composition: {
     positive: [{ kind: "text", id: "main-prompt", enabled: true, text: "landscape" }],
     negative: [],
@@ -86,7 +85,6 @@ describe("independent Director state", () => {
   it("keeps selection and unrelated creation edits out of Director quote identity", () => {
     const changed: Draft = {
       ...draft,
-      revision: 100,
       activePage: "create",
       settings: { ...draft.settings, steps: 50 },
       director: updateDirectorTool(director, "emotion", { selectedResultId: "older-expression" }),

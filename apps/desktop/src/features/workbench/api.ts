@@ -1,7 +1,7 @@
 import { invokeHost } from "@/shared/host/invoke";
-import type { Draft, DraftSaveReceipt, WorkspaceSnapshot } from "@/bindings/workbench";
+import type { Draft, WorkspaceSnapshot } from "@/bindings/workbench";
 
 export const workbenchApi = {
   workspace: () => invokeHost<WorkspaceSnapshot>("get_workspace"),
-  saveDraft: (draft: Draft) => invokeHost<DraftSaveReceipt>("save_draft", { draft }),
+  saveDraft: (draft: Draft) => invokeHost<void>("save_draft", { draft }),
 };

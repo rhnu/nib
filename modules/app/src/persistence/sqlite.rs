@@ -38,7 +38,7 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("read the database schema version", error)
             })?;
-        if version != 0 && version != 16 {
+        if version != 0 && version != 17 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

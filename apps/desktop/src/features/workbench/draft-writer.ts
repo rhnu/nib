@@ -4,8 +4,8 @@ import { createStore } from "zustand/vanilla";
 
 export type WriteState<T> = { value: T | null; dirty: boolean; saving: boolean; error: unknown };
 
-/** Serialize writes and apply returned revisions without replacing edits made in flight. */
-export class DraftWriter<T extends { revision: number }> {
+/** Serialize saves while preserving edits made in flight. */
+export class DraftWriter<T> {
   readonly store = createStore<WriteState<T>>(() => ({
     value: null,
     dirty: false,
@@ -21,9 +21,9 @@ export class DraftWriter<T extends { revision: number }> {
 
   private timer: ReturnType<typeof setTimeout> | null = null;
 
-  private write: (value: T) => Promise<{ revision: number }>;
+  private write: (value: T) => Promise<void>;
 
-  constructor(write: (value: T) => Promise<{ revision: number }>) {
+  constructor(write: (value: T) => Promise<void>) {
     this.write = write;
   }
 
@@ -49,7 +49,7 @@ export class DraftWriter<T extends { revision: number }> {
     this.version++;
     this.publish({
       ...state,
-      value: { ...value, revision: state.value.revision },
+      value,
       dirty: true,
       error: null,
     });
@@ -77,12 +77,11 @@ export class DraftWriter<T extends { revision: number }> {
       try {
         while (this.savedVersion !== this.version && this.getSnapshot().value) {
           const version = this.version;
-          const result = await this.write(this.getSnapshot().value!);
+          await this.write(this.getSnapshot().value!);
           this.savedVersion = version;
           const state = this.getSnapshot();
           this.publish({
             ...state,
-            value: { ...state.value!, revision: result.revision },
             dirty: version !== this.version,
           });
         }
