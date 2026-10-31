@@ -314,6 +314,8 @@ Node、Rust 与 wasm-bindgen 安装逻辑集中在 `.github/actions/`。pnpm sto
 
 ## 应用发布与更新
 
+发布脚本从 Release 列表识别同 tag 的公开版本与可续传草稿，草稿资产通过 Release ID 读取核对；[按 tag 查询的 API](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name) 只返回已公开版本。
+
 [Windows 发布](../.github/workflows/release.yml) 由推送 `vMAJOR.MINOR.PATCH` tag 触发，tag 必须与根 `Cargo.toml` 的版本完全一致，且不含预发布或构建后缀。工作流调用 CI 的 `release` 模式，强制执行所有检查；desktop 作业使用已检查的 Web 产物，先编译主程序，再用 `tauri bundle` 构建当前用户安装的 Windows x64 NSIS 包并生成 Tauri 更新签名。安装包配置在编译完成后加入已生成的 `DirectML.dll`，Tauri 的 `bundleVCRuntime` 同时打包 Visual C++ 运行库。普通 main / PR CI 不读取签名秘密；签名秘密只注入打包步骤。`pnpm build:installer` 是本地打包入口，签名环境变量与发布作业一致。
 
 发布作业只在整个 CI 成功后运行，先创建草稿 Release，上传 `*-setup.exe`、对应 `.sig` 和 `latest.json`，核对文件大小后再公开。更新清单采用 `windows-x86_64`，安装包地址固定到具体 tag；发布说明排除独立资源发布的 tag。公开版本不覆盖资产，失败的草稿可重新上传；补发旧版本不替换应用 Latest。应用发布按仓库串行排队，使用 GitHub 支持的 [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) 保留等待中的发布。资源发布继续使用 `--latest=false`。

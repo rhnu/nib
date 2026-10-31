@@ -30,17 +30,17 @@ def gh(*arguments: str) -> str:
     return subprocess.check_output(["gh", *arguments], text=True)
 
 
-def api(path: str, *, allow_missing: bool = False):
-    result = subprocess.run(["gh", "api", path], text=True, capture_output=True)
-    if result.returncode:
-        try:
-            response = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            response = {}
-        if allow_missing and str(response.get("status")) == "404":
-            return None
-        raise RuntimeError(result.stderr.strip())
-    return json.loads(result.stdout)
+def api(path: str):
+    return json.loads(gh("api", path))
+
+
+def releases(repository: str) -> list[dict]:
+    pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repository}/releases?per_page=100"))
+    return [release for page in pages for release in page]
+
+
+def release_for_tag(candidates: list[dict], tag: str) -> dict | None:
+    return next((release for release in candidates if release["tag_name"] == tag), None)
 
 
 def update_manifest(version: str, repository: str, tag: str, installer: str, signature: str, notes: str, published_at: str) -> dict:
@@ -70,7 +70,9 @@ def publish(assets: Path) -> None:
         raise ValueError("The installer signature is empty")
     manifest_path = assets / "latest.json"
     expected_names = {installer.name, signature_path.name, manifest_path.name}
-    release = api(f"repos/{repository}/releases/tags/{tag}", allow_missing=True)
+    # The tag endpoint only returns published releases. Lists also include our writable drafts.
+    candidates = releases(repository)
+    release = release_for_tag(candidates, tag)
     if release and not release["draft"]:
         if not expected_names.issubset({asset["name"] for asset in release["assets"]}):
             raise ValueError("An incomplete release is already public; published release assets must not be replaced")
@@ -78,8 +80,7 @@ def publish(assets: Path) -> None:
         return
 
     # Use the preceding application tag, excluding independently published resource releases.
-    pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repository}/releases?per_page=100"))
-    published = [release for page in pages for release in page if not release["draft"] and not release["prerelease"] and stable_version(release["tag_name"]) is not None]
+    published = [release for release in candidates if not release["draft"] and not release["prerelease"] and stable_version(release["tag_name"]) is not None]
     preceding = [release for release in published if stable_version(release["tag_name"]) < stable_version(tag)]
     previous = max(preceding, key=lambda item: stable_version(item["tag_name"]), default=None)
     arguments = ["api", f"repos/{repository}/releases/generate-notes", "-f", f"tag_name={tag}"]
@@ -91,10 +92,13 @@ def publish(assets: Path) -> None:
     manifest_path.write_text(json.dumps(update_manifest(version, repository, tag, installer.name, signature, notes, datetime.now(timezone.utc).isoformat()), indent=2) + "\n", encoding="utf-8")
     if not release:
         gh("release", "create", tag, "--repo", repository, "--verify-tag", "--draft", "--latest=false", "--title", f"nib {version}", "--notes-file", str(notes_path))
+        release = release_for_tag(releases(repository), tag)
+        if release is None:
+            raise ValueError("The newly created draft release is missing")
     else:
         gh("release", "edit", tag, "--repo", repository, "--notes-file", str(notes_path))
     gh("release", "upload", tag, str(installer), str(signature_path), str(manifest_path), "--repo", repository, "--clobber")
-    uploaded = api(f"repos/{repository}/releases/tags/{tag}")
+    uploaded = api(f"repos/{repository}/releases/{release['id']}")
     actual = {asset["name"]: asset for asset in uploaded["assets"]}
     for path in (installer, signature_path, manifest_path):
         if path.name not in actual or actual[path.name]["size"] != path.stat().st_size:

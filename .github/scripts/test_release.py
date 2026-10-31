@@ -2,10 +2,18 @@
 
 import unittest
 
-from release import stable_version, update_manifest
+from release import release_for_tag, stable_version, update_manifest
 
 
 class ReleaseMetadataTests(unittest.TestCase):
+    def test_existing_draft_is_selected_for_resuming_a_release(self):
+        releases = [
+            {"id": 1, "tag_name": "resource-lexicon-v1.0.0", "draft": False},
+            {"id": 2, "tag_name": "v1.0.0", "draft": True},
+        ]
+        self.assertEqual(release_for_tag(releases, "v1.0.0")["id"], 2)
+        self.assertIsNone(release_for_tag(releases, "v1.0.1"))
+
     def test_stable_tags_have_unambiguous_numeric_versions(self):
         self.assertEqual(stable_version("v1.12.3"), (1, 12, 3))
         self.assertLess(stable_version("v1.9.9"), stable_version("v1.10.0"))
