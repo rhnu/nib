@@ -7,7 +7,7 @@ use std::{
 use rusqlite::Connection;
 use serde::{Serialize, de::DeserializeOwned};
 
-use super::PersistenceError;
+use super::{PersistenceError, migrations::MIGRATIONS, schema};
 use crate::{api::UserMessage, prompt::ResourceSnapshot};
 
 /// One local database, shared by independent domain capabilities.
@@ -33,25 +33,26 @@ impl SqliteDatabase {
             .map_err(|error| {
                 PersistenceError::failure("configure the database busy timeout", error)
             })?;
-        let version: i64 = connection
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::failure("read the database schema version", error)
-            })?;
-        if version != 0 && version != 20 {
+        let version = schema::version(&connection)?;
+        if version != 0 && version != MIGRATIONS.current {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
             let transaction = connection.transaction().map_err(|error| {
-                PersistenceError::failure("begin the initial database migration", error)
+                PersistenceError::failure("begin creation database initialization", error)
             })?;
             transaction
                 .execute_batch(include_str!("schema.sql"))
                 .map_err(|error| {
-                    PersistenceError::failure("apply the initial database migration", error)
+                    PersistenceError::failure("initialize the creation database schema", error)
+                })?;
+            transaction
+                .pragma_update(None, "user_version", MIGRATIONS.current)
+                .map_err(|error| {
+                    PersistenceError::failure("record initial creation schema version", error)
                 })?;
             transaction.commit().map_err(|error| {
-                PersistenceError::failure("commit the initial database migration", error)
+                PersistenceError::failure("commit creation database initialization", error)
             })?;
         }
         Ok(Self {

@@ -2,7 +2,8 @@
 
 开始修改前阅读 [README](README.md) 与[开发说明](docs/development.md)，涉及领域行为时再读[功能说明](docs/features.md)与[设计说明](docs/design.md)。
 
-- 当前项目处于开发阶段，数据库 schema、缓存等各种版本化设计不要进行前版本兼容，**直接破坏性变更即可**。
+- 稳定版数据库 schema 从 1 开始保留升级历史；结构或持久内容发生不兼容变更时递增版本并提供自动升级。升级独立于新库初始化，在业务 bootstrap 前持有目录锁执行；可重建缓存递增格式版本并重建，不丢弃用户数据。开发版旧库不兼容。
+- 软件版本只在根 `Cargo.toml` 的 `workspace.package.version` 维护；Rust 包与 Tauri 继承该值，私有前端包不单独声明软件版本。
 - 未实现的业务模块仅有职责说明，不以占位类型、空服务或模拟成功响应填充功能。
 - nib 直接依赖 novelai-bridge；NAI 语义与校验归 SDK，应用资源、会话、调度和结果归 nib。
 - 应用库不依赖 Tauri；app 的 bootstrap/state 组合业务能力并管理生命周期，桌面宿主负责前端交互、平台适配与 I/O 装配。跨 crate 契约按领域放在 nib-contract，可替换能力由使用它的领域定义。

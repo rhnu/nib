@@ -6,10 +6,10 @@ use std::{
 
 use rusqlite::{Connection, params};
 
-use super::ApplicationPreferences;
+use super::{ApplicationPreferences, migrations::MIGRATIONS};
 use crate::{
     api::UserMessage,
-    persistence::{PersistenceError, decode, encode},
+    persistence::{PersistenceError, decode, encode, schema},
 };
 
 /// The selected creation-data directory, independent of the current process handles.
@@ -104,12 +104,8 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("configure the settings busy timeout", error)
             })?;
-        let version: i64 = connection
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(|error| {
-                PersistenceError::failure("read the settings schema version", error)
-            })?;
-        if version != 0 && version != 9 {
+        let version = schema::version(&connection)?;
+        if version != 0 && version != MIGRATIONS.current {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -128,6 +124,11 @@ impl GlobalSettingsStore {
                 )
                 .map_err(|error| {
                     PersistenceError::failure("initialize application preferences", error)
+                })?;
+            transaction
+                .pragma_update(None, "user_version", MIGRATIONS.current)
+                .map_err(|error| {
+                    PersistenceError::failure("record initial settings schema version", error)
                 })?;
             transaction.commit().map_err(|error| {
                 PersistenceError::failure("commit global settings initialization", error)

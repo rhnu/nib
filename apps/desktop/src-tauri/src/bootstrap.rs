@@ -15,6 +15,7 @@ pub(crate) fn start(
     handle: tauri::AppHandle,
 ) -> anyhow::Result<DesktopState> {
     let storage = Arc::new(StorageManager::open(base, development)?);
+    storage.upgrade_creation()?;
     let credentials = Arc::new(NativeCredentials::new(development));
     let app = Bootstrap {
         settings: Arc::clone(&storage.settings),

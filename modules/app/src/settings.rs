@@ -5,6 +5,7 @@ use crate::api::UserMessage;
 mod accounts;
 pub use accounts::{AccountError, activate_account, delete_account, save_account};
 mod danbooru;
+pub(crate) mod migrations;
 mod sqlite;
 use std::error::Error;
 

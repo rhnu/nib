@@ -125,5 +125,3 @@ CREATE TABLE agent_chat (
     history_json TEXT NOT NULL CHECK (json_valid(history_json)),
     resource_edits_json TEXT NOT NULL CHECK (json_valid(resource_edits_json))
 );
-
-PRAGMA user_version = 20;

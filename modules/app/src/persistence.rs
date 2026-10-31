@@ -1,5 +1,7 @@
 //! SQLite lifecycle shared by the domain-owned repository implementations.
 
+pub(crate) mod migrations;
+pub(crate) mod schema;
 mod sqlite;
 
 use std::error::Error;

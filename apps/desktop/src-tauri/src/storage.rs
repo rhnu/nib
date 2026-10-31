@@ -42,9 +42,9 @@ impl StorageManager {
             PersistenceError::failure("create the global configuration directory", error)
         })?;
         let lock = lock_directory(&config_directory.join(".nib.lock"))?;
-        let settings = Arc::new(GlobalSettingsStore::open(
-            &config_directory.join("settings.sqlite3"),
-        )?);
+        let settings_path = config_directory.join("settings.sqlite3");
+        nib_app::migrations::upgrade_settings(&settings_path)?;
+        let settings = Arc::new(GlobalSettingsStore::open(&settings_path)?);
 
         Ok(Self {
             config_directory: fs::canonicalize(&config_directory).map_err(|error| {
@@ -57,6 +57,11 @@ impl StorageManager {
             active: Mutex::new(None),
             _lock: lock,
         })
+    }
+
+    /// Upgrades retained creation data while its directory is locked and workers have not started.
+    pub(crate) fn upgrade_creation(&self) -> Result<(), PersistenceError> {
+        nib_app::migrations::upgrade_creation(&self.data_directory()?.join("nib.sqlite3"))
     }
 
     /// Locks the selected creation-data directory before opening SQLite or media.

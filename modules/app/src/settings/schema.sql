@@ -25,4 +25,3 @@ CREATE TABLE danbooru_connection (
     CHECK ((username IS NULL) = (user_id IS NULL))
 );
 INSERT INTO danbooru_connection (id) VALUES (1);
-PRAGMA user_version = 9;

@@ -18,6 +18,8 @@
 
 React 前端与宿主位于 `apps/desktop/`，由 pnpm 和 Cargo workspace 分别管理。Rust 成员依赖统一从 workspace 继承，锁文件纳入版本管理。
 
+软件版本只在根 `Cargo.toml` 的 `workspace.package.version` 配置。所有 Rust 包通过 `version.workspace = true` 继承；Tauri 省略配置中的 `version`，直接使用宿主 Cargo 版本。应用信息、日志和 HTTP User-Agent 均读取 Cargo 的编译期版本，私有前端包不重复声明版本。发布软件时只修改根版本并更新 Cargo 锁文件中的工作区包版本；下载资源版本与离线资源工具版本独立维护。
+
 宿主在 nib 业务包中只直接依赖 `nib-app` 并启用 `native`；app 组合 SDK、词库和资源后端。词库和资源后端依赖 `nib-contract`，不依赖 app。词库契约位于 `nib-contract::lexicon`，下载状态位于 `nib-contract::downloads`，app 按领域重导出。具体资源后端错误归 `nib-resources`，安装任务和对宿主的分类错误归 app。
 
 `nib-prompt` 只直接使用 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入网络、图像或 Tokenizer。下载依赖留在 `nib-resources`，原生图像推理留在 `nib-image-analysis`，语义 Tokenizer 与向量索引留在 `nib-lexicon`，ONNX 进程环境归 `nib-inference-runtime`。app 的 `native` 默认关闭；xtask 仅启用 `typegen`，类型生成与提示词 WASM 不引入原生推理后端。
@@ -57,7 +59,11 @@ SDK 客户端及 bundled Tokenizer 由 app 的 `sdk` 模块共享，本地计数
 
 ### 数据与身份
 
-SQLite 使用 rusqlite bundled 后端，全局配置与创作数据分库。目录布局和用户迁移方式见[数据位置与备份](features.md#数据位置与备份)。宿主打开配置库并注入 app，app 按需打开创作库；没有当前创作记录时返回空白状态。结构以 `user_version` 标识，事务初始化，开发阶段版本不匹配明确报错，不兼容旧结构或回退为空库。
+SQLite 使用 rusqlite bundled 后端，全局配置与创作数据分库。目录布局和用户迁移方式见[数据位置与备份](features.md#数据位置与备份)。宿主打开配置库并注入 app，app 按需打开创作库；没有当前创作记录时返回空白状态。结构以 `user_version` 标识，两库的稳定版基线均为 1，不兼容开发版旧库。新库只在空结构上事务初始化，不以空库替换已有数据。
+
+升级入口为 `nib_app::migrations`，与各库的新建初始化代码分开。宿主先锁定配置目录并升级配置库，再读取配置、锁定创作目录并升级已有创作库，全部成功后才调用 app 的 `Bootstrap::start`；升级不创建新库，也不启动媒体或后台任务。任一数据库升级失败都会阻止业务启动。
+
+配置库和创作库分别在所属领域的 `migrations.rs` 维护 `MIGRATIONS.current` 与按序的 `Migration { from, apply }`；`apply` 使用传入的事务执行从 `from` 到 `from + 1` 的结构及持久内容转换，不自行提交或回滚。修改结构或持久内容格式时，同步更新新库结构、递增当前版本并保留历史步骤。运行器先核对升级步骤连续完整，再在同一事务执行全部所需步骤和版本更新；失败回滚。更高版本、缺失步骤或已有结构却没有版本的数据库明确报错。可重建缓存通过递增格式版本失效重建；下载资源保持独立的版本与格式契约。
 
 资源、目录与媒体资产身份使用规范 UUID。媒体资产的逻辑身份与内容身份分离：`media_assets` 保存类型、来源和可选封面归属，引用 `media_blobs` 中以精确字节 SHA-256 标识的内容；字节长度只在内容记录保存。同一内容可由多个独立资产持有，来源不决定文件路径或当前归属。目录、别名、标签与模型范围使用明确列和关系表，组合内容使用必要 JSON；批量操作按稳定身份读取当前对象，在同一事务检查存在性与目录关系。
 

@@ -10,6 +10,7 @@ pub mod jobs;
 pub mod lexicon;
 pub mod library;
 pub mod media;
+pub mod migrations;
 pub mod persistence;
 pub mod prompt;
 pub mod safety;
