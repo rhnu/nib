@@ -1,6 +1,6 @@
 import { t, useTranslation } from "@/shared/i18n";
 import type { CreationOperation, ImageOperationOptions } from "@/bindings/workbench";
-import { Button, Field } from "@/shared/ui";
+import { Button, Field, Select } from "@/shared/ui";
 import type { ImageOperationFeedback } from "./image-operation-feedback";
 
 /** Upscale consumes only its model and SDK blur options. */
@@ -28,59 +28,57 @@ export function UpscaleSettings({
     <div className="image-operation-fields">
       <div data-setting-field="upscaleModel">
         <Field label={t("inputs.upscaleModel")}>
-          <select
+          <Select
             {...controlProps("model")}
             value={operation.model}
-            onChange={(event) => {
-              const model = event.target.value;
+            onValueChange={(model) => {
               updateOperation((current) =>
                 current.kind === "upscale" ? { ...current, model } : current,
               );
             }}
-          >
-            {!models.includes(operation.model) && (
-              <option value={operation.model}>
-                {operation.model}
-                {t("inputs.savedSuffix")}
-              </option>
-            )}
-            {models.map((model) => (
-              <option value={model} key={model}>
-                {model}
-              </option>
-            ))}
-          </select>
+            options={[
+              ...(!models.includes(operation.model)
+                ? [
+                    {
+                      value: operation.model,
+                      label: `${operation.model}${t("inputs.savedSuffix")}`,
+                    },
+                  ]
+                : []),
+              ...models.map((model) => ({ value: model, label: model })),
+            ]}
+          />
         </Field>
         {messages("model")}
       </div>
       <div data-setting-field="declaredBlurSigma">
         <Field label={t("inputs.blurSigma")}>
-          <select
+          <Select
             {...controlProps("declaredBlurSigma")}
-            value={operation.declaredBlurSigma}
+            value={String(operation.declaredBlurSigma)}
             disabled={!options}
-            onChange={(event) => {
-              const sigma = options?.upscaleBlurSigmas.find(
-                (value) => String(value) === event.target.value,
-              );
+            onValueChange={(selected) => {
+              const sigma = options?.upscaleBlurSigmas.find((value) => String(value) === selected);
               if (sigma !== undefined)
                 updateOperation((current) =>
                   current.kind === "upscale" ? { ...current, declaredBlurSigma: sigma } : current,
                 );
             }}
-          >
-            {!options?.upscaleBlurSigmas.includes(operation.declaredBlurSigma) && (
-              <option value={operation.declaredBlurSigma}>
-                {operation.declaredBlurSigma}
-                {t("inputs.savedSuffix")}
-              </option>
-            )}
-            {options?.upscaleBlurSigmas.map((sigma) => (
-              <option key={sigma} value={sigma}>
-                {sigma}
-              </option>
-            ))}
-          </select>
+            options={[
+              ...(!options?.upscaleBlurSigmas.includes(operation.declaredBlurSigma)
+                ? [
+                    {
+                      value: String(operation.declaredBlurSigma),
+                      label: `${operation.declaredBlurSigma}${t("inputs.savedSuffix")}`,
+                    },
+                  ]
+                : []),
+              ...(options?.upscaleBlurSigmas.map((sigma) => ({
+                value: String(sigma),
+                label: String(sigma),
+              })) ?? []),
+            ]}
+          />
         </Field>
         {messages("declaredBlurSigma")}
       </div>

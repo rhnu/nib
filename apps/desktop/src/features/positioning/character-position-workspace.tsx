@@ -1,7 +1,7 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef, type PointerEvent } from "react";
 import type { ModelCapabilities, ResolvedCharacter } from "@/bindings/workbench";
-import { Button, HelpMarker, Notice } from "@/shared/ui";
+import { Button, HelpMarker, Notice, Select } from "@/shared/ui";
 import { AssetImage } from "@/features/media/asset-image";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import { CharacterPositionPolicy } from "@/features/characters";
@@ -96,17 +96,15 @@ export function CharacterPositionWorkspace({
       <header className="character-position-toolbar">
         <label className="field">
           <span>{t("positioning.character")}</span>
-          <select
+          <Select
             aria-label={t("positioning.positionCharacters")}
             value={selected ? characterKey(selected) : ""}
-            onChange={(event) => onSelect(event.target.value)}
-          >
-            {characters.map((character, index) => (
-              <option key={characterKey(character)} value={characterKey(character)}>
-                {label(character, index)}
-              </option>
-            ))}
-          </select>
+            onValueChange={onSelect}
+            options={characters.map((character, index) => ({
+              value: characterKey(character),
+              label: label(character, index),
+            }))}
+          />
         </label>
         <CharacterPositionPolicy
           value={useCoords}

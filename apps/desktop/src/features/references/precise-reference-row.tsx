@@ -14,6 +14,7 @@ import {
   Modal,
   Notice,
   NumberSlider,
+  Select,
   Toggle,
 } from "@/shared/ui";
 import { AssetImage, ImagePickerDialog, useMediaAsset } from "@/features/media";
@@ -178,27 +179,29 @@ export function PreciseReferenceRow({
               actions={reset("referenceType", t("references.purpose"))}
               feedback={messages("referenceType")}
             >
-              <select
+              <Select
                 id={`${prefix}-type`}
                 value={value.referenceType}
                 aria-invalid={hasIssue("referenceType") || undefined}
                 aria-describedby={
                   hasIssue("referenceType") ? `${prefix}-referenceType-issues` : undefined
                 }
-                onChange={(event) => onChange({ referenceType: event.currentTarget.value })}
-              >
-                {!options?.referenceTypes.includes(value.referenceType) && (
-                  <option value={value.referenceType}>
-                    {typeLabels[value.referenceType] ?? value.referenceType}
-                    {t("references.savedTag")}
-                  </option>
-                )}
-                {options?.referenceTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {typeLabels[type] ?? type}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(referenceType) => onChange({ referenceType })}
+                options={[
+                  ...(!options?.referenceTypes.includes(value.referenceType)
+                    ? [
+                        {
+                          value: value.referenceType,
+                          label: `${typeLabels[value.referenceType] ?? value.referenceType}${t("references.savedTag")}`,
+                        },
+                      ]
+                    : []),
+                  ...(options?.referenceTypes.map((type) => ({
+                    value: type,
+                    label: typeLabels[type] ?? type,
+                  })) ?? []),
+                ]}
+              />
             </FormField>
           </div>
           {numeric("strength", t("references.strengthLabel"), t("references.strengthHelp"))}

@@ -190,7 +190,7 @@ export function LexiconComposer({
         <div className="lexicon-composer-footer">
           {targetSelector}
           {readOnly && <p className="help-note">{t("lexicon.lookupOnly")}</p>}
-          <div className="lexicon-output-actions">
+          <div className="ui-actions lexicon-output-actions">
             <Button
               disabled={!ready}
               onClick={async () => {

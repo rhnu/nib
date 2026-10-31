@@ -1,7 +1,7 @@
 import { useContext, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ExtractedTag } from "@/bindings/safety";
-import { Button, Field, Modal, Notice, notify } from "@/shared/ui";
+import { Button, Field, Modal, Notice, Select, notify } from "@/shared/ui";
 import {
   t,
   useTranslation,
@@ -223,16 +223,11 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
               {workbench && (
                 <>
                   <Field label={t("safety.target")}>
-                    <select
+                    <Select
                       value={targetKey}
-                      onChange={(event) => setTargetKey(event.target.value)}
-                    >
-                      {targets.map((item) => (
-                        <option key={item.key} value={item.key}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={setTargetKey}
+                      options={targets.map((item) => ({ value: item.key, label: item.label }))}
+                    />
                   </Field>
                   <Button
                     disabled={busy || !selected.length || !target}

@@ -2,7 +2,7 @@ import { t, useTranslation, useMessageState, MessageError, deferMessage } from "
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Eraser, Hand, Minus, Paintbrush, Plus, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import type { MaskPoint, MaskSession } from "@/bindings/workbench";
-import { Button, HelpMarker, IconButton, Notice } from "@/shared/ui";
+import { Button, HelpMarker, IconButton, Notice, Select } from "@/shared/ui";
 import {
   appendCommand,
   appendStrokePoints,
@@ -355,20 +355,21 @@ export function InpaintCanvasWorkspace({
       <div className="inpaint-view-toolbar">
         <label>
           <span>{t("inpaint.preview")}</span>
-          <select
+          <Select
             value={preview}
             disabled={pending}
-            onChange={(event) => {
-              const next = event.target.value as Preview;
+            onValueChange={(value) => {
+              const next = value as Preview;
               if (viewport.current) stop(viewport.current);
               setPreview(next);
               if (next === "original") setTool("pan");
             }}
-          >
-            <option value="overlay">{t("inpaint.overlay")}</option>
-            <option value="original">{t("inpaint.original")}</option>
-            <option value="mask">{t("inpaint.blackWhiteMask")}</option>
-          </select>
+            options={[
+              { value: "overlay", label: t("inpaint.overlay") },
+              { value: "original", label: t("inpaint.original") },
+              { value: "mask", label: t("inpaint.blackWhiteMask") },
+            ]}
+          />
         </label>
         <div className="button-group">
           <IconButton label={t("inpaint.zoomOut")} disabled={pending} onClick={() => zoom(0.8)}>

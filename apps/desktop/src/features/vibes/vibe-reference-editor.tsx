@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
-import { FormField, HelpMarker, IconButton } from "@/shared/ui";
+import { FormField, HelpMarker, IconButton, Select } from "@/shared/ui";
 import { preciseReferenceMessages } from "@/features/references/model";
 import { VibeReferenceRow } from "./vibe-reference-row";
 import { VibeMaterialDialog } from "./vibe-material-dialog";
@@ -32,19 +32,20 @@ export function VibeNormalize({
         </HelpMarker>
       }
     >
-      <select
+      <Select
         id={id}
         className={value === null ? "inherited-control" : undefined}
         value={value === null ? "inherit" : String(value)}
-        onChange={(event) => onChange(referenceMode(event.currentTarget.value))}
-      >
-        <option value="inherit">
-          {inherited == null ? t("vibes.default") : inherited ? t("vibes.on") : t("vibes.off")}
-          {t("vibes.inheritedTag")}
-        </option>
-        <option value="true">{t("vibes.on")}</option>
-        <option value="false">{t("vibes.off")}</option>
-      </select>
+        onValueChange={(value) => onChange(referenceMode(value))}
+        options={[
+          {
+            value: "inherit",
+            label: `${inherited == null ? t("vibes.default") : inherited ? t("vibes.on") : t("vibes.off")}${t("vibes.inheritedTag")}`,
+          },
+          { value: "true", label: t("vibes.on") },
+          { value: "false", label: t("vibes.off") },
+        ]}
+      />
     </FormField>
   );
 }

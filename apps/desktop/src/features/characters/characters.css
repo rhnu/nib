@@ -56,11 +56,6 @@
 .character-position-controls > .field {
   flex: 1 1 70px;
 }
-.character-position-controls input,
-.character-position-controls select {
-  height: 30px;
-  width: 100%;
-}
 .character-position-policy {
   display: flex;
   align-items: end;

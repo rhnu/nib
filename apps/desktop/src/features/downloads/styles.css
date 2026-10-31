@@ -1,19 +1,21 @@
 .downloads-settings {
   width: 100%;
   min-width: 0;
-  padding: 20px 0;
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
 }
-.downloads-settings > .section-heading {
-  margin-bottom: 12px;
+.downloads-heading > h2 {
+  font-size: 15px;
 }
 .download-directory {
   display: grid;
-  gap: 5px;
+  gap: var(--space-1);
   min-width: 0;
-  margin-top: 20px;
-  padding-top: 14px;
+  margin-top: 0;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--line-subtle);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .download-directory > span {
   color: var(--muted);
@@ -21,42 +23,32 @@
 .download-directory > code {
   overflow-wrap: anywhere;
 }
-.download-resource {
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-  min-width: 0;
-}
-.download-resource > .section-heading > h3 {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text);
-}
 .download-versions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
+  gap: var(--space-2) var(--space-5);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .download-components {
-  margin: 16px 0;
+  margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
 }
 .download-components > legend {
   padding: 0;
-  margin-bottom: 4px;
-  font-size: 12px;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-label);
 }
 .download-component {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: start;
-  gap: 10px;
-  padding: 12px 10px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--line-subtle);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   cursor: pointer;
 }
 .download-component:hover {
@@ -71,7 +63,7 @@
 }
 .download-component-body {
   display: grid;
-  gap: 5px;
+  gap: var(--space-1);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -79,7 +71,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .download-component-description {
   color: var(--muted);
@@ -90,7 +82,7 @@
 }
 .download-dependencies,
 .download-selection-size {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   color: var(--muted);
 }
 .download-actions {
@@ -98,16 +90,16 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .download-selection-size {
   margin-right: auto;
 }
 .download-progress {
   display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 12px;
+  gap: var(--space-2);
+  margin-top: 0;
+  font-size: var(--font-size-label);
 }
 .download-progress > progress {
   width: 100%;
@@ -115,10 +107,10 @@
 }
 .download-impact {
   padding-left: 20px;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .download-impact > li {
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 @media (max-width: 480px) {
   .download-component {

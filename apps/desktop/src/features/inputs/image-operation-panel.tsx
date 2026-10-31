@@ -1,7 +1,7 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
-import { Button, HelpMarker, IconButton } from "@/shared/ui";
+import { Button, HelpMarker, IconButton, Select } from "@/shared/ui";
 import { ImageImporter } from "@/features/media/image-importer";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { ImageMetadataDialog } from "@/features/media/image-metadata-dialog";
@@ -125,24 +125,29 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
             />
             <div className="media-input-settings">
               <div className="image-source-operation" data-setting-field="maxEnhance">
-                <select
+                <Select
                   {...controlProps("maxEnhance")}
                   aria-label={t("inputs.imageOperation")}
                   value={action ?? operation.kind}
-                  onChange={(event) => selectAction(event.target.value)}
-                >
-                  <option value="imageToImage">{t("inputs.imageToImage")}</option>
-                  <option value="maxEnhance" disabled={capabilities?.maxEnhance === false}>
-                    {t("inputs.maxEnhance")}
-                  </option>
-                  <option value="upscale">{t("inputs.standaloneUpscale")}</option>
-                  <option value="inpainting" disabled={capabilities?.inpainting === false}>
-                    {t("inputs.inpainting")}
-                  </option>
-                  {currentAction === null && (
-                    <option value={operation.kind}>{operationLabel(operation)}</option>
-                  )}
-                </select>
+                  onValueChange={selectAction}
+                  options={[
+                    { value: "imageToImage", label: t("inputs.imageToImage") },
+                    {
+                      value: "maxEnhance",
+                      label: t("inputs.maxEnhance"),
+                      disabled: capabilities?.maxEnhance === false,
+                    },
+                    { value: "upscale", label: t("inputs.standaloneUpscale") },
+                    {
+                      value: "inpainting",
+                      label: t("inputs.inpainting"),
+                      disabled: capabilities?.inpainting === false,
+                    },
+                    ...(currentAction === null
+                      ? [{ value: operation.kind, label: operationLabel(operation) }]
+                      : []),
+                  ]}
+                />
                 {messages("maxEnhance")}
               </div>
               {operation.kind === "inpainting" && (

@@ -1,5 +1,6 @@
 export { Button, IconButton } from "./button";
 export { Field, FormField, FormGrid } from "./field";
+export { SettingRow, SettingsGroup } from "./settings-layout";
 export { Modal } from "./modal";
 export { ActionsMenu } from "./actions-menu";
 export type { ActionMenuItem } from "./actions-menu";

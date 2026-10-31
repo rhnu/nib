@@ -11,9 +11,10 @@ summary {
   cursor: pointer;
 }
 button {
-  @apply inline-flex items-center justify-center gap-1.5;
+  @apply inline-flex items-center justify-center;
+  gap: var(--space-2);
   min-height: var(--control-height);
-  padding: 4px 9px;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--raised);
@@ -46,7 +47,7 @@ button.primary:hover:not(:disabled) {
 .icon-button {
   flex-shrink: 0;
   width: var(--control-height);
-  padding: 4px;
+  padding: var(--space-1);
   background: transparent;
   border-color: transparent;
 }
@@ -66,7 +67,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--input);
-  padding: 6px 9px;
+  padding: var(--space-2) var(--space-3);
   outline: none;
 }
 input:where(:not([type="checkbox"], [type="radio"])),
@@ -97,13 +98,15 @@ textarea:focus {
   border-color: var(--danger);
 }
 .button-group {
-  @apply flex items-center gap-[3px];
+  @apply flex items-center;
+  gap: var(--space-1);
 }
 .field {
-  @apply grid min-w-0 gap-[5px];
+  @apply grid min-w-0;
+  gap: var(--space-1);
 }
 .field > span {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   color: var(--muted);
 }
 .full {
@@ -120,13 +123,32 @@ textarea:focus {
   color: var(--accent);
   white-space: nowrap;
 }
+.ui-heading,
 .section-heading {
-  @apply flex items-center justify-between gap-2;
-  min-height: 32px;
-  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--control-height);
 }
-.section-heading h2 {
-  flex-shrink: 0;
+.section-heading {
+  margin-bottom: var(--space-2);
+}
+.ui-heading > :is(h2, h3),
+.section-heading > :is(h2, h3) {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-section);
+  font-weight: 600;
+}
+.ui-actions,
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 /* Switch.Root exposes the checked state; focus behavior remains owned by Base UI. */
 .toggle {
@@ -162,13 +184,13 @@ textarea:focus {
   background: var(--accent-fill);
 }
 .error-banner {
-  padding: 8px 15px;
+  padding: var(--space-3) 15px;
   display: flex;
   align-items: center;
   gap: 10px;
   background: var(--danger-bg);
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
   flex-wrap: wrap;
 }
@@ -178,7 +200,7 @@ textarea:focus {
 }
 .error-banner button {
   min-height: 27px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   padding-block: 2px;
 }
 .modal-backdrop {
@@ -200,7 +222,7 @@ textarea:focus {
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: var(--radius-overlay);
-  padding: 12px;
+  padding: var(--space-4);
   box-shadow: var(--shadow);
   overflow: auto;
 }
@@ -208,11 +230,11 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-3);
   gap: 10px;
 }
 .modal-header h2 {
-  font-size: 15px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   margin: 0;
 }
@@ -225,15 +247,12 @@ textarea:focus {
   overflow: hidden;
 }
 .modal-wide .modal-header {
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--line-subtle);
   margin: 0;
 }
 .dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 .confirm-copy {
   color: var(--muted);
@@ -246,7 +265,7 @@ textarea:focus {
   min-width: 165px;
   border: 1px solid var(--line);
   border-radius: var(--radius-overlay);
-  padding: 4px;
+  padding: var(--space-1);
   background: var(--raised);
   box-shadow: var(--shadow);
   outline: 0;
@@ -257,21 +276,21 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--space-6);
   border-radius: var(--radius);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   padding: 7px 10px;
   cursor: default;
   outline: 0;
 }
 .menu-separator {
   height: 1px;
-  margin: 4px 2px;
+  margin: var(--space-1) 2px;
   background: var(--line-subtle);
 }
 .menu-shortcut {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .menu-item[data-disabled] {
   color: var(--muted);
@@ -283,33 +302,33 @@ textarea:focus {
 }
 .help-marker {
   color: var(--muted);
-  width: 26px;
-  min-height: 26px;
+  width: var(--control-height-compact);
+  min-height: var(--control-height-compact);
 }
 .help-positioner {
   z-index: 70;
 }
 .help-popup {
   width: min(300px, calc(100vw - 24px));
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-overlay);
   background: var(--raised);
   color: var(--muted);
   box-shadow: var(--shadow);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   line-height: 1.7;
 }
 .help-popup header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   margin-bottom: 5px;
 }
 .help-popup h2 {
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .help-popup p:last-child {
   margin-bottom: 0;
@@ -329,22 +348,22 @@ textarea:focus {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 8px;
+  gap: var(--space-2) var(--space-3);
   align-items: start;
 }
 .form-field {
   min-width: 0;
   display: grid;
-  grid-template-rows: 24px auto auto;
-  gap: 4px;
+  grid-template-rows: minmax(var(--label-height), auto) auto auto;
+  gap: var(--space-1);
 }
 .form-label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   line-height: 20px;
 }
 .form-label .help-marker {
@@ -364,27 +383,20 @@ textarea:focus {
   min-width: 0;
 }
 .form-actions {
-  min-width: 26px;
+  min-width: var(--control-height-compact);
   display: flex;
   flex: none;
   align-items: center;
 }
 .form-actions .icon-button {
-  width: 26px;
+  width: var(--control-height-compact);
   min-height: 30px;
   padding: 3px;
 }
 .form-feedback:empty {
   display: none;
 }
-.form-field[data-inherited] .form-control > select,
 .form-field[data-inherited] .form-control > .select-trigger {
-  color: var(--muted);
-}
-.form-field select option {
-  color: var(--text);
-}
-.form-field select option[value=""] {
   color: var(--muted);
 }
 .model-form-field {
@@ -401,7 +413,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 66px;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
   width: 100%;
 }
@@ -421,18 +433,15 @@ textarea:focus {
 }
 .modal-header > .icon-button,
 .help-popup header > .icon-button {
-  width: 26px;
-  min-height: 26px;
-  height: 26px;
+  width: var(--control-height-compact);
+  min-height: var(--control-height-compact);
+  height: var(--control-height-compact);
 }
 .help-popup header {
-  min-height: 26px;
-  margin-bottom: 4px;
+  min-height: var(--control-height-compact);
+  margin-bottom: var(--space-1);
 }
 
 .inherited-control {
   color: var(--muted);
-}
-.inherited-control option {
-  color: var(--text);
 }

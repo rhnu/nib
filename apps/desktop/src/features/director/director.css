@@ -26,27 +26,13 @@
   scrollbar-gutter: stable;
 }
 .director-sidebar-scroll > section {
-  padding: 12px 14px;
+  padding: var(--space-4) 14px;
   border-bottom: 1px solid var(--line-subtle);
-}
-.director-heading,
-.director-heading .button-group {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.director-sidebar h2,
-.director-results h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
 }
 .director-tool-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--space-2);
   margin-top: 10px;
 }
 .director-tool-picker label {
@@ -54,11 +40,11 @@
   align-items: center;
   gap: 7px;
   min-height: var(--control-height);
-  padding: 6px 8px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .director-tool-picker label:hover {
   background: var(--hover);
@@ -79,17 +65,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-3);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .director-input-metadata p {
-  margin: 6px 0;
+  margin: var(--space-2) 0;
   overflow-wrap: anywhere;
 }
 .director-parameters {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .director-parameters .cm-content {
   min-height: 100px;
@@ -97,15 +83,15 @@
 .director-advanced > summary {
   cursor: pointer;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .director-advanced > .field {
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 .director-submit {
   display: grid;
   flex-shrink: 0;
-  gap: 8px;
+  gap: var(--space-3);
   padding: 10px 14px;
   border-top: 1px solid var(--line);
 }
@@ -142,9 +128,9 @@
 }
 .director-image-frame > header {
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: var(--space-3) var(--space-4);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .director-image-surface {
   display: flex;
@@ -153,7 +139,7 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  padding: 12px;
+  padding: var(--space-4);
   overflow: auto;
 }
 .director-image-surface:has(> img) {
@@ -179,9 +165,9 @@
 .director-output-strip {
   display: flex;
   flex-shrink: 0;
-  gap: 8px;
+  gap: var(--space-3);
   max-height: 125px;
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   overflow: auto;
   border-top: 1px solid var(--line-subtle);
 }
@@ -192,9 +178,9 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  gap: 4px;
+  gap: var(--space-1);
   width: 110px;
-  padding: 4px;
+  padding: var(--space-1);
   border: 1px solid var(--line);
   background: var(--surface);
   font-size: 10px;
@@ -216,17 +202,11 @@
 }
 .director-replace-dialog {
   display: grid;
-  gap: 16px;
+  gap: var(--space-5);
   padding: 18px;
 }
 .director-replace-dialog p {
   margin: 0;
-}
-.director-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 .director-mobile-navigation {
   display: none;
@@ -234,8 +214,8 @@
 @media (max-width: 760px) {
   .director-mobile-navigation {
     display: flex;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--line);
   }
   .director-body {

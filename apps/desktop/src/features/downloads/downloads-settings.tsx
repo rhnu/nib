@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DownloadableResourceStatus } from "@/bindings/downloads";
-import { ActionsMenu, Button, HelpMarker, Modal, Notice } from "@/shared/ui";
+import { ActionsMenu, Button, HelpMarker, Modal, Notice, SettingsGroup } from "@/shared/ui";
 import { t, useMessageState, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { downloadsApi, downloadStatusKey, isDownloadActive } from "./api";
@@ -88,15 +88,18 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
     );
 
   return (
-    <section className="download-resource" aria-label={name}>
-      <div className="section-heading">
-        <h3>
+    <SettingsGroup
+      className="download-resource"
+      title={
+        <>
           {name}
           <HelpMarker label={name}>
             {resourceDescription(resource.id, resource.description)}
           </HelpMarker>
-        </h3>
-        {installed && (
+        </>
+      }
+      actions={
+        installed && (
           <ActionsMenu
             label={t("downloads.actions", { name })}
             items={[
@@ -113,8 +116,9 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
               },
             ]}
           />
-        )}
-      </div>
+        )
+      }
+    >
       <div className="download-versions">
         <span>
           {resource.installedVersion
@@ -253,7 +257,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           </Button>
         </div>
       </Modal>
-    </section>
+    </SettingsGroup>
   );
 }
 
@@ -279,13 +283,13 @@ export function DownloadsSettings() {
   });
 
   return (
-    <section className="downloads-settings">
-      <div className="section-heading">
+    <div className="downloads-settings">
+      <header className="settings-group-heading downloads-heading">
         <h2>{t("downloads.title")}</h2>
         <Button disabled={catalog.isFetching} onClick={() => void catalog.refetch()}>
           {catalog.isFetching ? t("downloads.refreshing") : t("downloads.refresh")}
         </Button>
-      </div>
+      </header>
       {status.isPending && <output>{t("downloads.loading")}</output>}
       {status.error && (
         <Notice
@@ -312,6 +316,6 @@ export function DownloadsSettings() {
           <code>{status.data.directory}</code>
         </div>
       )}
-    </section>
+    </div>
   );
 }

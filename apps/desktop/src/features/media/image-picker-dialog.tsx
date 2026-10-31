@@ -52,7 +52,7 @@ function PickerContent({
               assets.retry();
             }}
           />
-          <header className="media-library-heading">
+          <header className="ui-heading media-library-heading">
             <h3>{t("media.existingImages")}</h3>
             <Button className="quiet" disabled={assets.loading} onClick={assets.retry}>
               {t("media.refresh")}
@@ -125,7 +125,7 @@ function PickerContent({
         </div>
       </div>
       <footer className="media-picker-footer">
-        <div className="media-dialog-actions">
+        <div className="ui-actions">
           <Button onClick={onClose}>{t("media.cancel")}</Button>
           <Button
             className="primary"

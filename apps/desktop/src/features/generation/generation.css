@@ -1,24 +1,24 @@
 .generation-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .generation-account-balance {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 18px;
+  gap: var(--space-3) 18px;
   min-height: 28px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--line);
   background: var(--bg);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   line-height: 16px;
 }
 .generation-account-balance > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .generation-account-balance strong {
   font-variant-numeric: tabular-nums;
@@ -29,7 +29,7 @@
 .generation-balance-state {
   margin-left: auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .generation-actions:has(.generation-parameter-panel[data-open]) > .generation-account-balance {
   display: none;
@@ -38,9 +38,9 @@
 .generation-account-snapshot {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: var(--space-1) 10px;
   margin: 0;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1.6;
 }
 .generation-token-usage {
@@ -48,11 +48,11 @@
 }
 .generation-account-snapshot-details {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .generation-account-snapshot-details p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-account-snapshot-details .generation-metadata > div {
   grid-template-columns: 112px minmax(0, 1fr);
@@ -62,7 +62,7 @@
   align-items: center;
   justify-content: center;
   min-height: var(--control-height);
-  padding: 4px 9px;
+  padding: var(--space-1) 9px;
   color: inherit;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -86,13 +86,13 @@
 .generation-submit-row > .primary {
   flex: 1;
   width: 100%;
-  min-height: 40px;
+  min-height: var(--control-height-prominent);
   justify-content: space-between;
 }
 .generation-submit-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .generation-submit-row > .primary[data-error],
 .generation-submit-row > .primary[data-error]:hover {
@@ -104,7 +104,7 @@
 .generation-submit-error {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -114,41 +114,28 @@
   flex-shrink: 0;
 }
 .generation-submit-cost {
-  padding: 2px 6px;
+  padding: 2px var(--space-2);
   border: 1px solid currentColor;
   border-radius: var(--radius);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   font-variant-numeric: tabular-nums;
 }
 .generation-account-settings {
   display: grid;
-  gap: 10px;
+  gap: var(--space-6);
 }
 .generation-account-list {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 .generation-account-list .tag {
-  margin-left: 8px;
+  margin-left: var(--space-3);
 }
 .generation-account-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-}
-.generation-account-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.generation-account-row h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
-}
-.generation-account-row p {
-  margin: 0;
+  gap: var(--space-3);
 }
 .generation-actions button,
 .generation-dialog-body button,
@@ -176,30 +163,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
   color: var(--danger);
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   flex-wrap: wrap;
 }
 .generation-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 0;
   overflow: auto;
 }
 .generation-dialog-body p,
 .generation-detail p {
   margin: 0;
-}
-.generation-dialog-actions,
-.generation-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
 }
 .generation-spacer {
   flex: 1;
@@ -227,7 +207,7 @@
   min-height: 180px;
   min-width: 0;
   overflow: hidden;
-  padding: 16px;
+  padding: var(--space-5);
 }
 .generation-canvas-viewer {
   display: block;
@@ -252,9 +232,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-canvas p {
   margin: 0;
@@ -266,13 +246,13 @@
 }
 .generation-filmstrip {
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   border-top: 1px solid var(--line);
   background: var(--surface);
 }
 .generation-job-list {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   list-style: none;
   padding: 0;
   margin: 0;
@@ -282,8 +262,8 @@
 .generation-job {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
   background: var(--bg);
@@ -295,18 +275,18 @@
 .generation-job-description {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 8px;
+  gap: 3px var(--space-3);
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .generation-job-description strong {
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-job-description time,
 .generation-job-description > span,
 .generation-job-description small {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   color: var(--muted);
 }
 .generation-job-description > span,
@@ -324,16 +304,16 @@
   object-fit: contain;
 }
 .generation-job-cost {
-  padding: 6px 0;
+  padding: var(--space-2) 0;
   width: 100%;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .generation-job-cost summary {
   cursor: pointer;
   color: var(--muted);
 }
 .generation-job-cost dl {
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 .generation-job-cost .generation-metadata > div {
   grid-template-columns: 64px minmax(0, 1fr);
@@ -341,7 +321,7 @@
 .generation-result-grid {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-3);
   overflow-x: auto;
   padding: 1px 1px 5px;
 }
@@ -378,7 +358,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .generation-result-preview img {
   width: 100%;
@@ -398,7 +378,7 @@
   align-items: center;
   justify-content: center;
   min-height: 250px;
-  padding: 16px;
+  padding: var(--space-5);
   background: var(--bg);
 }
 .generation-detail-image img {
@@ -409,21 +389,21 @@
 .generation-detail-info {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-5);
   padding: 18px;
   overflow: auto;
   min-width: 0;
 }
 .generation-metadata {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-metadata > div {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--space-3);
 }
 .generation-metadata dt {
   color: var(--muted);
@@ -440,14 +420,14 @@
   cursor: pointer;
 }
 .generation-prompts h4 {
-  margin: 12px 0 4px;
+  margin: var(--space-4) 0 var(--space-1);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-restore-confirm {
   display: grid;
   gap: 10px;
-  padding: 12px;
+  padding: var(--space-4);
   border: 1px solid var(--accent);
   background: var(--accent-soft);
   border-radius: var(--radius);
@@ -462,20 +442,20 @@
 }
 
 .generation-sources {
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .generation-source-details {
   max-height: 300px;
   overflow: auto;
-  padding: 2px 8px 4px;
+  padding: 2px var(--space-3) var(--space-1);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
   background: var(--bg);
 }
 .generation-source-details h4 {
-  margin: 12px 0 8px;
+  margin: var(--space-4) 0 var(--space-3);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .generation-source-details .fragment-list p {
   margin-top: 5px;
@@ -484,7 +464,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--line-subtle);
 }
 .generation-source-view {
@@ -495,7 +475,7 @@
   flex-direction: column;
   gap: 10px;
   overflow: auto;
-  padding: 12px;
+  padding: var(--space-4);
 }
 .generation-source-image {
   display: block;
@@ -505,8 +485,8 @@
   object-fit: contain;
 }
 .generation-input-details {
-  margin: 12px 0;
-  font-size: 12px;
+  margin: var(--space-4) 0;
+  font-size: var(--font-size-label);
 }
 .generation-input-details > .generation-source-view {
   height: 240px;
@@ -515,7 +495,7 @@
   position: absolute;
   bottom: 10px;
   right: 12px;
-  padding: 6px 10px;
+  padding: var(--space-2) 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -589,14 +569,14 @@
 .image-seed {
   width: 108px;
   min-height: 28px;
-  padding: 3px 6px;
+  padding: 3px var(--space-2);
   font: 11px var(--font-mono);
 }
 
 .generation-view-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 3px 7px;
   height: 34px;
   flex-shrink: 0;
@@ -606,10 +586,10 @@
   height: 0;
 }
 .generation-filmstrip {
-  padding: 7px 8px;
+  padding: 7px var(--space-3);
 }
 .generation-result-grid {
-  gap: 6px;
+  gap: var(--space-2);
   padding-bottom: 2px;
 }
 .generation-result-open {
@@ -622,7 +602,7 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   flex: 0 0 84px;
 }
 .active-request-card small {
@@ -639,8 +619,8 @@
 .request-grid {
   display: grid;
   grid-auto-rows: minmax(0, 1fr);
-  gap: 6px;
-  padding: 6px;
+  gap: var(--space-2);
+  padding: var(--space-2);
   flex: 1;
   min-height: 0;
 }
@@ -664,8 +644,8 @@
   gap: 7px;
   height: 100%;
   color: var(--muted);
-  font-size: 11px;
-  padding: 12px;
+  font-size: var(--font-size-caption);
+  padding: var(--space-4);
   text-align: center;
 }
 .request-sample-number {
@@ -673,7 +653,7 @@
   bottom: 5px;
   left: 5px;
   padding: 2px 5px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   background: var(--surface);
   color: var(--muted);
 }
@@ -706,25 +686,25 @@
 }
 .queue-drawer-body {
   overflow: auto;
-  padding: 12px;
+  padding: var(--space-4);
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .queue-batch {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .queue-batch > header {
   display: flex;
-  gap: 8px;
+  gap: var(--space-3);
   align-items: center;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .queue-batch > header > span {
   flex: 1;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .queue-drawer .generation-job-list {
   max-height: none;
@@ -745,13 +725,13 @@
 }
 .gallery-scroll {
   overflow: auto;
-  padding: 16px;
+  padding: var(--space-5);
   flex: 1;
 }
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 8px;
+  gap: var(--space-3);
 }
 .gallery-grid .generation-result-preview {
   height: auto;
@@ -759,30 +739,30 @@
 }
 .gallery-more {
   display: flex;
-  margin: 16px auto;
+  margin: var(--space-5) auto;
 }
 .request-count-control {
   display: grid;
   gap: 5px;
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-caption);
 }
 .request-count-control > span {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   color: var(--muted);
 }
 
 .modal-wide > .generation-dialog-body {
-  padding: 12px;
+  padding: var(--space-4);
 }
 .queue-drawer.modal {
-  padding: 8px 10px;
+  padding: var(--space-3) 10px;
 }
 .queue-drawer-body {
   padding: 0;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .queue-drawer .generation-job-list {
   gap: 0;
@@ -791,8 +771,8 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 6px 0;
-  gap: 4px;
+  padding: var(--space-2) 0;
+  gap: var(--space-1);
 }
 .queue-drawer .generation-job + .generation-job {
   border-top: 1px solid var(--line-subtle);
@@ -801,10 +781,10 @@
   min-height: 26px;
 }
 .queue-drawer .generation-job-description {
-  gap: 3px 8px;
+  gap: 3px var(--space-3);
 }
 .queue-drawer .generation-job-cost {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 
 .generation-submit-cost[aria-busy="true"] {

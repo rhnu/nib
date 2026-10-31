@@ -315,7 +315,7 @@ export function DirectorWorkspace({
         >
           <div className="director-replace-dialog">
             <p>{t("director.replaceInputHelp")}</p>
-            <div className="director-dialog-actions">
+            <div className="ui-actions">
               <Button
                 onClick={() => {
                   completeHandoff(candidate.handoffId);

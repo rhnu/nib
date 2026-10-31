@@ -48,7 +48,7 @@ function JobRetryDialogContent({ job, onClose }: { job: JobRecord; onClose: () =
         <p className="generation-muted">{t("generation.resubmitChargeWarning")}</p>
         {!account?.configured && <Notice>{t("generation.configureCredentialsHint")}</Notice>}
         {error && <Notice>{error}</Notice>}
-        <footer className="generation-dialog-actions">
+        <footer className="ui-actions">
           <Button onClick={onClose}>{t("generation.cancel")}</Button>
           <Button
             className="primary"

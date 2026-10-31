@@ -8,7 +8,7 @@ import { useVibeAction } from "./use-vibe-action";
 import { downloadBytes } from "./model";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Draft, VibeEncodingInput, VibeReferenceInput } from "@/bindings/workbench";
-import { Button, Field, HelpMarker, Notice } from "@/shared/ui";
+import { Button, Field, HelpMarker, Notice, Select } from "@/shared/ui";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { errorMessage } from "@/shared/host/error";
 import { ImagePickerDialog, useMediaAsset, AssetImage } from "@/features/media";
@@ -235,20 +235,17 @@ export function VibeEncoderPanel({
           <div className="vibe-encoder-fields">
             <div data-encoder-field="model">
               <Field label={t("vibes.encodingModel")}>
-                <select
+                <Select
                   value={input.model}
-                  onChange={(event) => update({ model: event.target.value })}
-                >
-                  {!options.value?.models.includes(input.model) && (
-                    <option value={input.model}>
-                      {input.model}
-                      {t("vibes.savedTag")}
-                    </option>
-                  )}
-                  {options.value?.models.map((model) => (
-                    <option key={model}>{model}</option>
-                  ))}
-                </select>
+                  onValueChange={(model) => update({ model })}
+                  options={[
+                    ...(!options.value?.models.includes(input.model)
+                      ? [{ value: input.model, label: `${input.model}${t("vibes.savedTag")}` }]
+                      : []),
+                    ...(options.value?.models.map((model) => ({ value: model, label: model })) ??
+                      []),
+                  ]}
+                />
               </Field>
             </div>
             <div data-encoder-field="informationExtracted">
@@ -291,20 +288,20 @@ export function VibeEncoderPanel({
             <div className="vibe-encoder-fields">
               <div data-encoder-field="cropToMask">
                 <Field label={t("vibes.cropToMask")}>
-                  <select
+                  <Select
                     disabled={!input.maskAssetId}
                     value={input.cropToMask === null ? "" : String(input.cropToMask)}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       update({
-                        cropToMask:
-                          event.target.value === "" ? null : event.target.value === "true",
+                        cropToMask: value === "" ? null : value === "true",
                       })
                     }
-                  >
-                    <option value="">{t("vibes.default")}</option>
-                    <option value="true">{t("vibes.on")}</option>
-                    <option value="false">{t("vibes.off")}</option>
-                  </select>
+                    options={[
+                      { value: "", label: t("vibes.default") },
+                      { value: "true", label: t("vibes.on") },
+                      { value: "false", label: t("vibes.off") },
+                    ]}
+                  />
                 </Field>
               </div>
               {(["focusSeed", "infoExtractSeed"] as const).map((key) => (

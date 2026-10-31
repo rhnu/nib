@@ -10,7 +10,7 @@
   display: flex;
   gap: 7px;
   align-items: center;
-  padding: 9px 12px;
+  padding: 9px var(--space-4);
   border-bottom: 1px solid var(--line-subtle);
 }
 .library-search-field {
@@ -49,18 +49,13 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 8px 6px;
+  padding: var(--space-3) var(--space-2);
   border-right: 1px solid var(--line-subtle);
   overflow: auto;
 }
 .resource-folders > header,
 .resource-inspector > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  min-height: 30px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-3);
 }
 .resource-folders > header {
   padding: 0 7px;
@@ -117,7 +112,7 @@
   padding: 0 10px;
   border: 0;
   background: transparent;
-  gap: 8px;
+  gap: var(--space-3);
   margin-bottom: 2px;
 }
 .resource-folder-tree {
@@ -133,8 +128,8 @@
 .resource-browser-heading {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 12px;
+  gap: var(--space-4);
+  padding: 7px var(--space-4);
   border-bottom: 1px solid var(--line-subtle);
   min-height: 44px;
 }
@@ -148,24 +143,24 @@
   align-items: center;
   gap: 5px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   white-space: nowrap;
 }
 .resource-selection-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-height: 40px;
-  padding: 4px 12px;
+  padding: var(--space-1) var(--space-4);
   background: var(--accent-soft);
 }
 .resource-selection-toolbar strong {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   margin-right: auto;
 }
 .resource-list {
   flex: 1;
-  padding: 12px;
+  padding: var(--space-4);
   overflow: auto;
   min-height: 0;
 }
@@ -177,7 +172,7 @@
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
   align-content: start;
 }
 .resource-row {
@@ -216,7 +211,7 @@
   border-radius: var(--radius) var(--radius) 0 0;
 }
 .resource-grid .resource-row-title {
-  padding: 9px 10px 4px;
+  padding: 9px 10px var(--space-1);
 }
 .resource-row-title {
   min-width: 0;
@@ -226,7 +221,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 12px;
+  font-size: var(--font-size-label);
   font-weight: 500;
 }
 .resource-row-title small {
@@ -241,7 +236,7 @@
 .resource-card-description {
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -252,7 +247,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
   overflow: hidden;
 }
@@ -295,18 +290,18 @@
 .resource-list-columns {
   display: grid;
   grid-template-columns: minmax(150px, 1.4fr) minmax(80px, 1fr) minmax(95px, 1fr) 32px;
-  gap: 12px;
+  gap: var(--space-4);
   color: var(--muted);
-  font-size: 11px;
-  padding: 2px 9px 8px 53px;
+  font-size: var(--font-size-caption);
+  padding: 2px 9px var(--space-3) 53px;
 }
 .resource-detail-view .resource-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 0 9px 0 0;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 .resource-detail-view .resource-cover {
   width: 34px;
@@ -328,15 +323,15 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--line-subtle);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   color: var(--muted);
 }
 .resource-inspector {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   min-width: 0;
   padding: 10px 14px;
   border-left: 1px solid var(--line-subtle);
@@ -352,12 +347,12 @@
 }
 .resource-inspector h3 {
   margin: 1px 0;
-  font-size: 15px;
+  font-size: var(--font-size-title);
   overflow-wrap: anywhere;
 }
 .resource-inspector dl {
-  margin: 6px 0;
-  font-size: 11px;
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-caption);
 }
 .resource-inspector dt {
   color: var(--muted);
@@ -368,12 +363,12 @@
   overflow-wrap: anywhere;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .resource-description {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: var(--font-size-label);
   color: var(--muted);
   margin: 0;
 }
@@ -381,21 +376,18 @@
   min-height: 100px;
 }
 .resource-preset-summary {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   color: var(--muted);
 }
 .resource-editor {
   overflow: auto;
-  padding: 12px 20px 0;
+  padding: var(--space-4) 20px 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 .resource-editor-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-4);
 }
 .resource-editor > fieldset {
   display: grid;
@@ -422,7 +414,7 @@
   border-top: 1px solid var(--line-subtle);
 }
 .resource-editor-footer .muted {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .resource-settings-help {
   display: flex;
@@ -432,7 +424,7 @@
 .resource-metadata {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--space-5);
   align-items: start;
 }
 .resource-metadata-cover .resource-cover {
@@ -444,11 +436,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }
 .resource-cover-actions .file-picker button {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .resource-metadata-fields {
   display: grid;
@@ -468,23 +460,23 @@
 }
 .resource-models legend {
   margin-bottom: 3px;
-  font-size: 12px;
+  font-size: var(--font-size-label);
 }
 .resource-models > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 12px;
-  margin-top: 6px;
+  gap: 5px var(--space-4);
+  margin-top: var(--space-2);
 }
 .resource-models label {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .resource-organize-form {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .resource-impact-list {
   max-height: 220px;
@@ -543,7 +535,7 @@
 .resource-detail-view .resource-card-select {
   display: grid;
   grid-template-columns: 34px minmax(150px, 1.4fr) minmax(80px, 1fr) minmax(95px, 1fr);
-  gap: 12px;
+  gap: var(--space-4);
   align-items: center;
   padding: 7px 9px;
 }
@@ -606,7 +598,7 @@
   flex-shrink: 0;
 }
 .resource-picker-context {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   font-weight: 400;
   color: var(--muted);
   white-space: nowrap;
@@ -620,7 +612,7 @@
   grid-template-columns: 208px minmax(0, 1fr);
 }
 .resource-picker-body > .resource-folders {
-  padding: 12px 7px;
+  padding: var(--space-4) 7px;
 }
 .resource-picker-body > .resource-browser {
   background: var(--bg);
@@ -629,8 +621,8 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px 8px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
 }
 .resource-picker-toolbar > .select-trigger {
   width: 145px;
@@ -638,10 +630,10 @@
 }
 .resource-picker-model {
   max-width: 230px;
-  padding: 6px 9px;
+  padding: var(--space-2) 9px;
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -652,7 +644,7 @@
 }
 .resource-picker-modal .resource-browser-heading {
   flex-shrink: 0;
-  padding: 3px 16px 8px;
+  padding: 3px var(--space-5) var(--space-3);
   min-height: 36px;
 }
 .resource-picker-modal .resource-browser-heading > svg {
@@ -661,10 +653,10 @@
 }
 .resource-picker-modal .resource-browser-heading > .muted {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .resource-picker-modal .resource-list {
-  padding: 12px 16px 16px;
+  padding: var(--space-4) var(--space-5) var(--space-5);
 }
 .resource-picker-modal .resource-grid {
   grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
@@ -707,7 +699,7 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-5);
   min-height: 60px;
   padding: 10px 18px;
   border-top: 1px solid var(--line-subtle);
@@ -720,7 +712,7 @@
 .resource-picker-selection {
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -757,8 +749,8 @@
   }
   .resource-picker-footer {
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
   }
   .resource-picker-selection {
     flex: 1;

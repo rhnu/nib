@@ -11,6 +11,7 @@ export function FormGrid({
   return <div className={`form-grid ${className}`}>{children}</div>;
 }
 
+/** A labeled control row with optional help, adjacent actions and validation feedback. */
 export function FormField({
   label,
   htmlFor,
@@ -56,7 +57,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={`field grid min-w-0 gap-1 ${className}`}>
+    <label className={`field ${className}`}>
       <span>{label}</span>
       {children}
     </label>

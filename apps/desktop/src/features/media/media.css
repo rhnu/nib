@@ -1,6 +1,6 @@
 .image-importer {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   min-width: 0;
 }
 .image-importer .help-note {
@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   padding: 5px;
   border: 1px dashed var(--line);
   border-radius: var(--radius);
@@ -29,7 +29,7 @@
 }
 .media-loading {
   display: block;
-  padding: 12px;
+  padding: var(--space-4);
   color: var(--muted);
 }
 .media-picker {
@@ -49,23 +49,17 @@
   border-left: 1px solid var(--line-subtle);
 }
 .media-library-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 16px 0 6px;
-}
-.media-library-heading h3 {
-  margin: 0;
+  margin: var(--space-5) 0 var(--space-2);
 }
 .media-image-list {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .media-image-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: var(--space-3);
+  padding: var(--space-3);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
   cursor: pointer;
@@ -93,21 +87,15 @@
   color: var(--muted);
 }
 .media-picker-preview .media-asset-heading {
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 .media-picker-footer {
   padding: 10px 14px;
   border-top: 1px solid var(--line-subtle);
 }
 .media-picker-footer p {
-  font-size: 11px;
-  margin-bottom: 8px;
-}
-.media-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
+  font-size: var(--font-size-caption);
+  margin-bottom: var(--space-3);
 }
 .media-metadata-dialog {
   overflow: auto;
@@ -115,7 +103,7 @@
   min-height: 0;
 }
 .media-metadata-fields {
-  margin: 12px 0;
+  margin: var(--space-4) 0;
 }
 .media-metadata-fields > div {
   display: grid;
@@ -148,10 +136,10 @@
   overflow-wrap: anywhere;
 }
 .metadata-restore-preview {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: var(--space-4);
 }
 .metadata-restore-preview > h3 {
   color: var(--text);

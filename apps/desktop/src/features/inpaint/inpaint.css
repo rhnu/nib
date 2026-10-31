@@ -51,8 +51,8 @@
   color: var(--muted);
   font-size: 12px;
 }
-.inpaint-view-toolbar select {
-  height: 30px;
+.inpaint-view-toolbar .select-trigger {
+  height: var(--control-height);
   width: auto;
 }
 .inpaint-view-toolbar output {

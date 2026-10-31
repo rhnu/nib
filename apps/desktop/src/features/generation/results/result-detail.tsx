@@ -113,7 +113,7 @@ function ResultDetailContent({
                 : t("generation.sampleSeedValue", { value0: result.seed })}
             </p>
           )}
-          <div className="generation-detail-actions">
+          <div className="ui-actions">
             <Button
               onClick={() => {
                 setConfirmRestore(true);
@@ -139,7 +139,7 @@ function ResultDetailContent({
               <p>
                 {isDirector ? t("generation.restoreToolHelp") : t("generation.restoreCreationHelp")}
               </p>
-              <div className="generation-dialog-actions">
+              <div className="ui-actions">
                 <Button disabled={restoring} onClick={() => setConfirmRestore(false)}>
                   {isDirector ? t("generation.keepToolInput") : t("generation.keepCreation")}
                 </Button>

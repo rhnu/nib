@@ -209,7 +209,7 @@ function RestorePreview({
             : t("media.imageOperation")}
         </p>
       </details>
-      <div className="media-dialog-actions">
+      <div className="ui-actions">
         <Button onClick={cancel}>{t("media.keepCreation")}</Button>
         <Button className="primary" onClick={confirm}>
           {t("media.replaceCreation")}

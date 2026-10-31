@@ -9,7 +9,7 @@ import { formatLexiconTerms } from "@/features/prompt/format-runtime";
 import { textNode } from "@/features/prompt/model";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { errorMessage } from "@/shared/host/error";
-import { Button, Notice } from "@/shared/ui";
+import { Button, Notice, Select } from "@/shared/ui";
 import { t, useTranslation, MessageError, deferMessage } from "@/shared/i18n";
 
 /** Full-page combinations append a new text fragment, leaving existing prompt content intact. */
@@ -73,15 +73,16 @@ export function LexiconPage() {
         targetSelector={
           <label className="lexicon-target">
             {t("lexicon.target")}
-            <select
+            <Select
               value={target}
-              onChange={(event) =>
-                store.setState({ target: event.target.value as "positive" | "negative" })
+              onValueChange={(value) =>
+                store.setState({ target: value as "positive" | "negative" })
               }
-            >
-              <option value="positive">{t("prompt.positivePrompt")}</option>
-              <option value="negative">{t("prompt.negativePrompt")}</option>
-            </select>
+              options={[
+                { value: "positive", label: t("prompt.positivePrompt") },
+                { value: "negative", label: t("prompt.negativePrompt") },
+              ]}
+            />
           </label>
         }
       />

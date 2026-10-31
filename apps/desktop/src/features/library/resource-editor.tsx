@@ -92,7 +92,7 @@ export function ResourceEditor({
       }
     >
       <section className="resource-editor">
-        <header className="resource-editor-heading">
+        <header className="ui-heading resource-editor-heading">
           <Button className="quiet" onClick={() => leave(dismiss)}>
             <ArrowLeft size={14} />
             {t("library.list")}

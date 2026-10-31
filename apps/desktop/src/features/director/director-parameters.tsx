@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import type { RefObject } from "react";
 import type { DirectorToolState } from "@/bindings/workbench";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
-import { Field, HelpMarker } from "@/shared/ui";
+import { Field, HelpMarker, Select } from "@/shared/ui";
 
 export function DirectorParameters({
   state,
@@ -72,16 +72,15 @@ export function DirectorParameters({
           {state.policy === "reject" ? t("director.strictSuffix") : ""}
         </summary>
         <Field label={t("director.parameterHandling")}>
-          <select
+          <Select
             data-director-field="policy"
             value={state.policy}
-            onChange={(event) =>
-              onChange({ policy: event.target.value as DirectorToolState["policy"] })
-            }
-          >
-            <option value="normalize">{t("director.autoAdjust")}</option>
-            <option value="reject">{t("director.strict")}</option>
-          </select>
+            onValueChange={(value) => onChange({ policy: value as DirectorToolState["policy"] })}
+            options={[
+              { value: "normalize", label: t("director.autoAdjust") },
+              { value: "reject", label: t("director.strict") },
+            ]}
+          />
         </Field>
       </details>
       {state.tool === "emotion" && (

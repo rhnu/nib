@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useRef } from "react";
 import type { CharacterComposition, ModelCapabilities } from "@/bindings/workbench";
 import { LocateFixed, RotateCcw } from "lucide-react";
-import { Button, Field, HelpMarker, IconButton } from "@/shared/ui";
+import { Button, Field, HelpMarker, IconButton, Select } from "@/shared/ui";
 import "./characters.css";
 import type { CharacterFieldIssue } from "./model";
 
@@ -93,24 +93,26 @@ export function CharacterPositionFields({
         {(["x", "y"] as const).map((axis) => (
           <Field key={axis} label={axis.toUpperCase()}>
             {grid ? (
-              <select
+              <Select
                 aria-invalid={issues.some((issue) => issue.field === axis) || undefined}
                 data-character-field={axis}
-                value={value[axis]}
-                onChange={(event) => onChange({ ...value, [axis]: Number(event.target.value) })}
-              >
-                {!grid.includes(value[axis]) && (
-                  <option value={value[axis]}>
-                    {t("characters.currentValue")}
-                    {value[axis]}
-                  </option>
-                )}
-                {grid.map((coordinate) => (
-                  <option key={coordinate} value={coordinate}>
-                    {coordinate}
-                  </option>
-                ))}
-              </select>
+                value={String(value[axis])}
+                onValueChange={(coordinate) => onChange({ ...value, [axis]: Number(coordinate) })}
+                options={[
+                  ...(!grid.includes(value[axis])
+                    ? [
+                        {
+                          value: String(value[axis]),
+                          label: `${t("characters.currentValue")}${value[axis]}`,
+                        },
+                      ]
+                    : []),
+                  ...grid.map((coordinate) => ({
+                    value: String(coordinate),
+                    label: String(coordinate),
+                  })),
+                ]}
+              />
             ) : (
               <input
                 aria-invalid={issues.some((issue) => issue.field === axis) || undefined}

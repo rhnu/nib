@@ -6,7 +6,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { AccountSettings } from "@/features/generation";
 import { DownloadsSettings } from "@/features/downloads/downloads-settings";
-import { Button, Field, HelpMarker, Notice, Toggle } from "@/shared/ui";
+import { Button, HelpMarker, Notice, Toggle, Select, SettingRow, SettingsGroup } from "@/shared/ui";
 import type { ApplicationSettingsState } from "./use-application-settings";
 
 function ExecutionSettings({ settings }: { settings: ApplicationSettingsState }) {
@@ -16,12 +16,13 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
   if (!value) return null;
   const execution = value.execution;
   return (
-    <section className="preference-section">
+    <SettingsGroup>
       <details className="execution-settings">
         <summary>{t("app.advancedExecution")}</summary>
         <div className="execution-settings-fields">
-          <Field label={t("app.apiBaseUrl")}>
+          <SettingRow label={t("app.apiBaseUrl")} htmlFor="settings-endpoint" controlWidth="wide">
             <input
+              id="settings-endpoint"
               type="url"
               value={execution.imageBaseUrl ?? ""}
               placeholder={t("app.defaultEndpointHint")}
@@ -33,31 +34,35 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
                 })
               }
             />
-          </Field>
-          <Field label={t("app.requestEncoding")}>
-            <select
+          </SettingRow>
+          <SettingRow label={t("app.requestEncoding")} htmlFor="settings-encoding">
+            <Select
+              id="settings-encoding"
               value={execution.imageRequestEncoding}
-              onChange={(event) =>
+              options={[
+                { value: "json", label: t("app.json") },
+                { value: "multipart", label: t("app.multipart") },
+              ]}
+              onValueChange={(encoding) =>
                 settings.writer.edit({
                   ...value,
                   execution: {
                     ...execution,
-                    imageRequestEncoding: event.target.value === "multipart" ? "multipart" : "json",
+                    imageRequestEncoding: encoding === "multipart" ? "multipart" : "json",
                   },
                 })
               }
-            >
-              <option value="json">{t("app.json")}</option>
-              <option value="multipart">{t("app.multipart")}</option>
-            </select>
-          </Field>
-          <div className="preference-row">
-            <span className="execution-setting-label">
-              {t("app.serverImageCache")}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("app.serverImageCache")}
+            controlWidth="auto"
+            help={
               <HelpMarker label={t("app.serverImageCacheHelpLabel")}>
                 {t("app.serverImageCacheHelp")}
               </HelpMarker>
-            </span>
+            }
+          >
             <Toggle
               label={t("app.serverImageCache")}
               checked={execution.serverImageCache}
@@ -65,10 +70,10 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
                 settings.writer.edit({ ...value, execution: { ...execution, serverImageCache } })
               }
             />
-          </div>
+          </SettingRow>
         </div>
       </details>
-    </section>
+    </SettingsGroup>
   );
 }
 
@@ -113,25 +118,27 @@ function StorageSettings({
   };
 
   return (
-    <section className="preference-section storage-settings">
-      <div className="section-heading">
-        <h2>{t("app.storageLocation")}</h2>
-        {storage.development && <span className="tag">{t("app.developmentEnvironment")}</span>}
-      </div>
-      <div className="settings-path-row">
-        <div className="settings-path">
-          <span>{t("app.configDirectory")}</span>
-          <code>{storage.configDirectory}</code>
-        </div>
+    <SettingsGroup
+      title={t("app.storageLocation")}
+      headingLevel={2}
+      actions={
+        storage.development && <span className="tag">{t("app.developmentEnvironment")}</span>
+      }
+    >
+      <SettingRow
+        label={t("app.configDirectory")}
+        description={<code>{storage.configDirectory}</code>}
+        controlWidth="auto"
+      >
         <Button onClick={() => void showDirectory(storage.configDirectory)}>
           {t("app.openLocation")}
         </Button>
-      </div>
-      <div className="settings-path-row">
-        <div className="settings-path">
-          <span>{t("app.dataDirectory")}</span>
-          <code>{storage.relocatedDataDirectory ?? storage.dataDirectory}</code>
-        </div>
+      </SettingRow>
+      <SettingRow
+        label={t("app.dataDirectory")}
+        description={<code>{storage.relocatedDataDirectory ?? storage.dataDirectory}</code>}
+        controlWidth="auto"
+      >
         <Button
           onClick={() =>
             void showDirectory(storage.relocatedDataDirectory ?? storage.dataDirectory)
@@ -139,7 +146,7 @@ function StorageSettings({
         >
           {t("app.openLocation")}
         </Button>
-      </div>
+      </SettingRow>
       <div className="settings-actions">
         <Button disabled={saving || storage.restartRequired} onClick={() => void choose()}>
           {saving ? t("app.migrating") : t("app.changeLocation")}
@@ -159,7 +166,7 @@ function StorageSettings({
           {settings.storageError}
         </Notice>
       )}
-    </section>
+    </SettingsGroup>
   );
 }
 
@@ -232,39 +239,115 @@ export function SettingsPage({
           ))}
         </nav>
         <div className="settings-page-content">
-          <div hidden={section !== "account"}>
+          <div className="settings-category" hidden={section !== "account"}>
             {showAccount && (
-              <section className="preference-section">
-                <h2>{t("app.accountConnection")}</h2>
+              <div>
+                <h2 className="settings-category-title">{t("app.accountConnection")}</h2>
                 <AccountSettings onOpenTasks={onOpenTasks} />
-              </section>
+              </div>
             )}
             <ExecutionSettings settings={settings} />
           </div>
-          <section className="preference-section" hidden={section !== "generation"}>
-            <h2>{t("app.generationPreview")}</h2>
-            {preferences.value && (
-              <Field label={t("app.recentImageCount")}>
-                <input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={preferences.value.recentImageLimit}
-                  onChange={(event) => {
-                    const limit = Number(event.target.value);
-                    if (Number.isInteger(limit) && limit >= 1 && limit <= 200 && preferences.value)
-                      writer.edit({ ...preferences.value, recentImageLimit: limit });
-                  }}
-                />
-              </Field>
-            )}
+          <section className="settings-category" hidden={section !== "generation"}>
+            <h2 className="settings-category-title">{t("app.generationPreview")}</h2>
             {preferences.value && (
               <>
-                <h3>{t("safety.title")}</h3>
-                <p className="image-safety-hint">{t("safety.help")}</p>
-                {(["autoScan", "useWdReview"] as const).map((key) => (
-                  <div className="preference-row" key={key}>
-                    <span>{t(`safety.${key}`)}</span>
+                <SettingsGroup>
+                  <SettingRow
+                    label={t("app.recentImageCount")}
+                    htmlFor="settings-recent-images"
+                    controlWidth="short"
+                  >
+                    <input
+                      id="settings-recent-images"
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={preferences.value.recentImageLimit}
+                      onChange={(event) => {
+                        const limit = Number(event.target.value);
+                        if (
+                          Number.isInteger(limit) &&
+                          limit >= 1 &&
+                          limit <= 200 &&
+                          preferences.value
+                        )
+                          writer.edit({ ...preferences.value, recentImageLimit: limit });
+                      }}
+                    />
+                  </SettingRow>
+                </SettingsGroup>
+                <SettingsGroup
+                  title={t("safety.title")}
+                  description={t("safety.help")}
+                  actions={
+                    <Button onClick={() => onSectionChange("downloads")}>
+                      {t("safety.downloads")}
+                    </Button>
+                  }
+                >
+                  {(["autoScan", "useWdReview"] as const).map((key) => (
+                    <SettingRow label={t(`safety.${key}`)} key={key} controlWidth="auto">
+                      <Toggle
+                        label={t(`safety.${key}`)}
+                        checked={preferences.value!.safety[key]}
+                        onChange={(checked) => {
+                          if (preferences.value)
+                            writer.edit({
+                              ...preferences.value,
+                              safety: { ...preferences.value.safety, [key]: checked },
+                            });
+                        }}
+                      />
+                    </SettingRow>
+                  ))}
+                </SettingsGroup>
+              </>
+            )}
+          </section>
+          <section className="settings-category" hidden={section !== "appearance"}>
+            <h2 className="settings-category-title">{t("app.appearance")}</h2>
+            <SettingsGroup>
+              <SettingRow label={t("language.label")} htmlFor="settings-language">
+                <Select
+                  id="settings-language"
+                  value={preferences.value?.language ?? "system"}
+                  disabled={!preferences.value}
+                  options={[
+                    { value: "system", label: t("language.system") },
+                    { value: "en", label: t("language.english") },
+                    { value: "zh-CN", label: t("language.simplifiedChinese") },
+                  ]}
+                  onValueChange={(language) => {
+                    if (preferences.value)
+                      writer.edit({ ...preferences.value, language: language as Language });
+                  }}
+                />
+              </SettingRow>
+              <SettingRow label={t("app.theme")} controlWidth="auto">
+                <Button
+                  disabled={!theme}
+                  onClick={() => {
+                    if (preferences.value)
+                      writer.edit({
+                        ...preferences.value,
+                        theme: theme === "dark" ? "light" : "dark",
+                      });
+                  }}
+                >
+                  {theme === "dark" ? (
+                    <Sun size={15} aria-hidden />
+                  ) : (
+                    <Moon size={15} aria-hidden />
+                  )}
+                  {theme === "dark" ? t("app.switchToLight") : t("app.switchToDark")}
+                </Button>
+              </SettingRow>
+            </SettingsGroup>
+            {preferences.value && (
+              <SettingsGroup title={t("safety.title")}>
+                {(["blurNsfw", "blurDetails"] as const).map((key) => (
+                  <SettingRow label={t(`safety.${key}`)} key={key} controlWidth="auto">
                     <Toggle
                       label={t(`safety.${key}`)}
                       checked={preferences.value!.safety[key]}
@@ -276,66 +359,10 @@ export function SettingsPage({
                           });
                       }}
                     />
-                  </div>
+                  </SettingRow>
                 ))}
-                <Button onClick={() => onSectionChange("downloads")}>
-                  {t("safety.downloads")}
-                </Button>
-              </>
+              </SettingsGroup>
             )}
-          </section>
-          <section
-            className="preference-section appearance-settings"
-            hidden={section !== "appearance"}
-          >
-            <h2>{t("app.appearance")}</h2>
-            <Field label={t("language.label")}>
-              <select
-                value={preferences.value?.language ?? "system"}
-                disabled={!preferences.value}
-                onChange={(event) => {
-                  if (preferences.value)
-                    writer.edit({ ...preferences.value, language: event.target.value as Language });
-                }}
-              >
-                <option value="system">{t("language.system")}</option>
-                <option value="en">{t("language.english")}</option>
-                <option value="zh-CN">{t("language.simplifiedChinese")}</option>
-              </select>
-            </Field>
-            <div className="preference-row">
-              <span>{t("app.theme")}</span>
-              <Button
-                disabled={!theme}
-                onClick={() => {
-                  if (preferences.value)
-                    writer.edit({
-                      ...preferences.value,
-                      theme: theme === "dark" ? "light" : "dark",
-                    });
-                }}
-              >
-                {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
-                {theme === "dark" ? t("app.switchToLight") : t("app.switchToDark")}
-              </Button>
-            </div>
-            {preferences.value &&
-              (["blurNsfw", "blurDetails"] as const).map((key) => (
-                <div className="preference-row" key={key}>
-                  <span>{t(`safety.${key}`)}</span>
-                  <Toggle
-                    label={t(`safety.${key}`)}
-                    checked={preferences.value!.safety[key]}
-                    onChange={(checked) => {
-                      if (preferences.value)
-                        writer.edit({
-                          ...preferences.value,
-                          safety: { ...preferences.value.safety, [key]: checked },
-                        });
-                    }}
-                  />
-                </div>
-              ))}
           </section>
           <div hidden={section !== "storage"}>
             <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />

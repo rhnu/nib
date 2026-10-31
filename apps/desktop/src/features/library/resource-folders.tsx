@@ -75,7 +75,7 @@ export function ResourceFolders({
 
   return (
     <aside ref={element} className="resource-folders" aria-label={t("library.folders")}>
-      <header>
+      <header className="ui-heading">
         <strong>{t("library.folders")}</strong>
         <ActionsMenu label={t("library.manageFolder")} items={actions(null)} />
       </header>

@@ -31,7 +31,7 @@
 :is(h1, h2, h3, h4, h5):has(.help-marker) {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 [hidden] {
   display: none !important;
@@ -53,17 +53,17 @@ p {
   margin-top: 0;
 }
 h1 {
-  font-size: 22px;
+  font-size: var(--font-size-page);
   font-weight: 580;
   letter-spacing: -0.5px;
 }
 h2 {
-  font-size: 13px;
+  font-size: var(--font-size-section);
   font-weight: 600;
   margin: 0;
 }
 h3 {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   font-weight: 550;
   color: var(--muted);
   margin: 0 0 9px;
@@ -95,24 +95,24 @@ svg {
   letter-spacing: 1.3px;
 }
 .count {
-  margin-left: 8px;
-  font-size: 11px;
+  margin-left: var(--space-3);
+  font-size: var(--font-size-caption);
   color: var(--muted);
   font-weight: 450;
 }
 .empty-note {
-  font-size: 12px;
+  font-size: var(--font-size-label);
   line-height: 1.75;
   margin: 3px 0;
 }
 .help-note {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1.7;
-  margin: 12px 0 0;
+  margin: var(--space-4) 0 0;
 }
 details > summary {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   padding: 10px 0;
 }
 .spin {

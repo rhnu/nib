@@ -71,7 +71,7 @@ export function WorkspaceDialogs() {
             </p>
             {imageOperation.candidate.operation.kind === "imageToImage" &&
               imageOperation.candidate.operation.maxEnhance && <p>{t("app.useSourceSize")}</p>}
-            <footer className="generation-dialog-actions">
+            <footer className="ui-actions">
               <Button onClick={imageOperation.cancel}>{t("app.keepOperation")}</Button>
               <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
                 {t("app.applyChanges")}
@@ -83,7 +83,7 @@ export function WorkspaceDialogs() {
       <Modal open={mask.transition !== null} onClose={mask.cancel} title={t("app.maskNotApplied")}>
         <div className="generation-dialog-body">
           <p>{t("app.keepMaskHelp")}</p>
-          <footer className="generation-dialog-actions">
+          <footer className="ui-actions">
             <Button disabled={mask.pending} onClick={mask.cancel}>
               {t("app.cancel")}
             </Button>
@@ -120,7 +120,7 @@ export function WorkspaceDialogs() {
                 { operation: operationLabel(mask.applyConfirmation.operation) },
               )}
           </p>
-          <footer className="generation-dialog-actions">
+          <footer className="ui-actions">
             <Button onClick={() => mask.confirmApply(false)}>{t("app.cancel")}</Button>
             <Button className="primary" onClick={() => mask.confirmApply(true)}>
               {t("app.applyMaskAndSwitch")}
@@ -130,7 +130,7 @@ export function WorkspaceDialogs() {
       </Modal>
       <Modal open={mask.discarding} onClose={mask.cancelDiscard} title={t("app.discardMaskTitle")}>
         <div className="generation-dialog-body">
-          <footer className="generation-dialog-actions">
+          <footer className="ui-actions">
             <Button onClick={mask.cancelDiscard}>{t("app.cancel")}</Button>
             <Button className="primary" onClick={mask.confirmDiscard}>
               {t("app.discardEdits")}

@@ -4,7 +4,7 @@
   justify-content: space-between;
   background: var(--input);
   text-align: left;
-  font-size: 12px;
+  font-size: var(--font-size-label);
   font-weight: 400;
 }
 .select-value {
@@ -39,24 +39,24 @@
 }
 .select-list {
   max-height: min(360px, var(--available-height));
-  padding: 4px;
+  padding: var(--space-1);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .select-group-label {
-  padding: 7px 8px 4px;
+  padding: 7px var(--space-3) var(--space-1);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-size-caption);
 }
 .select-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   min-height: var(--control-height);
-  padding: 5px 8px;
+  padding: 5px var(--space-3);
   border-radius: var(--radius);
-  font-size: 12px;
+  font-size: var(--font-size-label);
   cursor: default;
   outline: none;
   overflow-wrap: anywhere;

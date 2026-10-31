@@ -32,7 +32,7 @@ export function ResourceInspector({
   const resource = query.data;
   return (
     <aside className="resource-inspector">
-      <header>
+      <header className="ui-heading">
         <strong>{t("library.inspector")}</strong>
         <IconButton label={t("library.closeInspector")} onClick={onClose}>
           <X size={15} />

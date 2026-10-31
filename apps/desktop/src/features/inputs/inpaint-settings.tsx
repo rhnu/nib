@@ -14,6 +14,7 @@ import {
   FormField,
   FormGrid,
   NumberSlider,
+  Select,
   HelpMarker,
   Modal,
   Toggle,
@@ -99,25 +100,24 @@ export function InpaintSettings({
             {t("inputs.regionalConditioningHelp")}
           </HelpMarker>
         </div>
-        <select
+        <Select
           aria-label={t("inputs.regionalConditioning")}
           {...props("img2img")}
           value={conditioning ? "conditioned" : "pure"}
-          onChange={(event) => {
-            if (event.target.value === "pure") setConfirmPure(true);
+          onValueChange={(value) => {
+            if (value === "pure") setConfirmPure(true);
             else if (defaults) update((current) => ({ ...current, img2img: { ...defaults } }));
           }}
-        >
-          <option value="pure">{t("inputs.pureInpainting")}</option>
-          <option
-            value="conditioned"
-            disabled={
-              capabilities?.inpaintingImageToImage === false || (!defaults && !conditioning)
-            }
-          >
-            {t("inputs.regionalImageToImage")}
-          </option>
-        </select>
+          options={[
+            { value: "pure", label: t("inputs.pureInpainting") },
+            {
+              value: "conditioned",
+              label: t("inputs.regionalImageToImage"),
+              disabled:
+                capabilities?.inpaintingImageToImage === false || (!defaults && !conditioning),
+            },
+          ]}
+        />
         {messages("img2img")}
       </div>
       {!defaults &&

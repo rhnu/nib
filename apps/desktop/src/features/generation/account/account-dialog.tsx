@@ -133,7 +133,7 @@ export function AccountDialog({
             {t("generation.deleteAccountConfirmation", { name })}
           </Notice>
         )}
-        <footer className="generation-dialog-actions">
+        <footer className="ui-actions">
           {id && (
             <Button className="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
               <Trash2 size={14} />
