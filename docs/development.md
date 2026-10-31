@@ -288,13 +288,15 @@ python tools/lexicon/lexicon.py export-cache --resource-dir ../nib-resource
 uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --version 1.0.0 --input .dev/lexicon-build/normalized.jsonl --semantic-dir .dev/lexicon-build/semantic
 ```
 
-包内 `resource.json` 描述资源身份、版本、组件依赖及文件 URL、大小和哈希，`lexicon.json` 保存词库领域格式；`build.json` 记录代码基线提交、dirty 状态、打包源码与输入哈希、来源锁和构建配方身份。基础 `core` 组件支持 SQLite 名称、别名与译名查询，`semantic` 组件依赖同版本的 `core`，另含 fp16 索引、稳定键列表、本地 CPU 查询模型与压缩 tokenizer。通用资源层验证文件内容，词库 consumer 核对领域清单与已验证文件的路径、大小和哈希声明，避免重复读取文件。恢复时只打开基础 SQLite，首次语义查询初始化向量索引并批量读取词条分类；同代次共享初始化结果，语义初始化不持有词法查询的数据库锁。安装准备仍校验完整语义快照，ONNX 查询编码器在首次语义编码时初始化。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约。原生绑定使用 `ort 2.0.0-rc.15`，该代 API 使用固定 RC 并由锁文件记录完整依赖，CPU 运行库随原生程序链接。
+包内 `resource.json` 描述资源身份、版本、组件依赖及文件 URL、大小和哈希，`lexicon.json` 保存词库领域格式；`build.json` 记录代码基线提交、dirty 状态、打包源码与输入哈希、来源锁和构建配方身份。基础 `core` 组件支持 SQLite 名称、别名与译名查询，`semantic` 组件依赖同版本的 `core`，另含 fp16 索引、稳定键列表、本地 CPU 查询模型与压缩 tokenizer。通用资源层验证文件内容，词库 consumer 核对领域清单与已验证文件的路径、大小和哈希声明，避免重复读取文件。恢复时只打开基础 SQLite，首次语义查询初始化向量索引并批量读取词条分类；同代次共享初始化结果，语义初始化不持有词法查询的数据库锁。语义启用时，安装准备仍校验完整语义快照，ONNX 查询编码器在首次语义编码时初始化。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约。原生绑定使用 `ort 2.0.0-rc.15`，该代 API 使用固定 RC 并由锁文件记录完整依赖，CPU 运行库随原生程序链接。
 
 文档向量缓存以规范文档内容、模型、模板、归一化和编码环境身份为键，未变化词条复用已提交批次，新词或变化词条才重新编码；删除词条不进入新索引。`build` 优先使用本地 `.dev/lexicon-build/embeddings.sqlite3`，缺少时从资源工作树的 `lexicon/cache/embeddings.sqlite3.gz` 与 `metadata.json` 恢复。`export-cache` 将已提交缓存导出到该稳定位置，`import-cache` 可显式恢复。缓存由 LFS 维护，位于版本目录之外；客户端只下载发布的资源文件，不获取构建缓存或依赖 Git LFS。
 
 通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主将资源 ID 与目标组件集合交给 app 启动任务；任务由 app 持有，离开页面不会取消。启动先读取安装元数据并标记恢复中，后台逐资源校验和准备；激活时核对代次租约身份，拒绝更新或卸载后的迟到结果。恢复状态与安装进度独立，失败只影响对应可选资源。新安装的完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。资源引用恢复完整后在后台清理缓存，目录刷新、安装结束与卸载也回收不再被引用的下载对象及续传文件；元数据恢复失败时保留缓存。开发阶段不兼容旧资源布局，旧安装需重新安装。
 
 前端通用 `downloads` 组件由设置页提供，不依赖具体词库模块；安装和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询。词库状态查询声明 `lexicon`，按 generation 变化增加修订并拒绝旧补全与插入；词库查询只消费可用代次，不拥有目录地址或下载操作。未安装空状态通过工作台导航进入资源下载设置，沿用材料提交和未应用遮罩保护。管理界面的操作说明见[资源下载](features.md#资源下载)。
+
+语义搜索总开关保存在全局偏好的 `semanticSearchEnabled`，缺少字段的已有偏好默认启用，无需改变数据库 schema。app 在恢复资源前应用偏好，保存成功后同步更新词库策略。语义索引、Tokenizer 与查询模型归可释放的运行上下文，停用时阻止新语义工作并移除缓存；各加载和检索阶段核对策略，已开始的操作结束后释放上下文。关闭期间安装仍校验文件与领域清单，不初始化语义能力。词库状态和结果携带策略修订，前端按资源代次及策略修订拒绝旧语义结果；仅开关变化不清除普通查询或已选词条。
 
 ## 图像分析资源
 

@@ -67,6 +67,7 @@ pub struct LexiconQuery {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct LexiconSearchResult {
     pub generation: Option<String>,
+    pub revision: u32,
     pub matches: Vec<LexiconMatch>,
     pub semantic_available: bool,
 }
@@ -75,6 +76,8 @@ pub struct LexiconSearchResult {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct LexiconStatus {
+    pub semantic_enabled: bool,
+    pub revision: u32,
     pub loading: bool,
     pub error: Option<String>,
     pub generation: Option<String>,

@@ -41,7 +41,7 @@ struct State {
     media: Mutex<Option<Arc<MediaLibrary>>>,
     sdk: Mutex<Option<Arc<SdkClients>>>,
     generation: Mutex<Option<Arc<JobQueue>>>,
-    lexicon: Arc<dyn LexiconSearch>,
+    lexicon: Arc<nib_lexicon::LexiconResources>,
     downloads: Downloads,
     safety: Arc<crate::safety::SafetyScanner>,
     danbooru: Arc<crate::settings::DanbooruConnection>,
@@ -54,7 +54,7 @@ struct State {
 impl AppState {
     pub(crate) fn new(
         bootstrap: Bootstrap,
-        lexicon: Arc<dyn LexiconSearch>,
+        lexicon: Arc<nib_lexicon::LexiconResources>,
         downloads: Downloads,
         safety: Arc<crate::safety::SafetyScanner>,
         danbooru: Arc<crate::settings::DanbooruConnection>,
@@ -154,6 +154,11 @@ impl AppState {
         }
         let previous = self.inner.settings.preferences()?;
         let saved = self.inner.settings.save_preferences(preferences)?;
+        if previous.semantic_search_enabled != saved.semantic_search_enabled {
+            self.inner
+                .lexicon
+                .set_semantic_enabled(saved.semantic_search_enabled);
+        }
         if previous.execution != saved.execution {
             self.invalidate_sdk()?;
             tracing::debug!(

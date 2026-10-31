@@ -15,15 +15,33 @@ use nib_contract::lexicon::{
 use nib_resources::{Preparation, PreparedResource, ResourceConsumer, ResourceGeneration};
 
 use crate::{
-    encoder::QueryEncoderPool,
     format::ResourceManifest,
     search::{Snapshot, validate_query},
+    semantic::SemanticControl,
 };
 
 /// Query state has no knowledge of download URLs, progress or catalog operations.
-#[derive(Default)]
 pub struct LexiconResources {
     state: Arc<RwLock<QueryState>>,
+    semantic: Arc<SemanticControl>,
+}
+
+impl Default for LexiconResources {
+    fn default() -> Self { Self::new(true) }
+}
+
+impl LexiconResources {
+    /// Construct query state without opening resources or initializing semantic inference.
+    #[must_use]
+    pub fn new(semantic_enabled: bool) -> Self {
+        Self {
+            state: Arc::default(),
+            semantic: Arc::new(SemanticControl::new(semantic_enabled)),
+        }
+    }
+
+    /// Retire semantic caches immediately; running native operations release them on completion.
+    pub fn set_semantic_enabled(&self, enabled: bool) { self.semantic.set_enabled(enabled); }
 }
 
 #[derive(Default)]
@@ -76,7 +94,7 @@ impl ResourceConsumer for LexiconResources {
             manifest,
             generation.generation.clone(),
             semantic,
-            Arc::<QueryEncoderPool>::default(),
+            Arc::clone(&self.semantic),
         )?;
         if preparation == Preparation::Install {
             snapshot.prepare_semantic()?;
@@ -123,6 +141,7 @@ impl ResourceConsumer for LexiconResources {
 impl LexiconSearch for LexiconResources {
     fn search(&self, query: LexiconQuery) -> Result<LexiconSearchResult, LexiconError> {
         validate_query(&query)?;
+        let (_, revision) = self.semantic.status();
         let snapshot = self
             .state
             .read()
@@ -132,11 +151,24 @@ impl LexiconSearch for LexiconResources {
             .active
             .clone();
         match snapshot {
-            Some(snapshot) => snapshot
-                .search(&query)
-                .map_err(|error| LexiconError::Failure(error.into())),
+            Some(snapshot) => {
+                let result = snapshot.search(&query, revision);
+                let (enabled, current_revision) = self.semantic.status();
+                let mut result = if current_revision == revision {
+                    result
+                } else {
+                    // A closed and reopened switch must never publish an old semantic answer.
+                    let mut lexical = query;
+                    lexical.semantic = false;
+                    snapshot.search(&lexical, current_revision)
+                }
+                .map_err(|error| LexiconError::Failure(error.into()))?;
+                result.semantic_available = snapshot.semantic_available() && enabled;
+                Ok(result)
+            },
             None => Ok(LexiconSearchResult {
                 generation: None,
+                revision,
                 matches: Vec::new(),
                 semantic_available: false,
             }),
@@ -148,14 +180,18 @@ impl LexiconSearch for LexiconResources {
             LexiconError::Unavailable("vocabulary state lock poisoned".into())
         })?;
         let active = &state.active;
+        let (semantic_enabled, revision) = self.semantic.status();
         Ok(LexiconStatus {
+            semantic_enabled,
+            revision,
             loading: state.loading,
             error: state.error.clone(),
             generation: active.as_ref().map(|snapshot| snapshot.generation.clone()),
             term_count: active.as_ref().map_or(0, |snapshot| snapshot.count),
-            semantic_available: active
-                .as_ref()
-                .is_some_and(|snapshot| snapshot.semantic_available()),
+            semantic_available: semantic_enabled
+                && active
+                    .as_ref()
+                    .is_some_and(|snapshot| snapshot.semantic_available()),
         })
     }
 }
@@ -199,7 +235,7 @@ fn verified_snapshot(directory: &Path) -> Result<Snapshot> {
         manifest.clone(),
         manifest.id.clone(),
         manifest.semantic.is_some(),
-        Arc::default(),
+        Arc::new(SemanticControl::new(true)),
     )?;
     snapshot.prepare_semantic()?;
     Ok(snapshot)
@@ -211,7 +247,7 @@ fn verified_snapshot(directory: &Path) -> Result<Snapshot> {
 /// Returns an error if verification, model initialization or the query fails.
 pub fn query_pack(directory: &Path, query: &LexiconQuery) -> Result<LexiconSearchResult> {
     validate_query(query)?;
-    verified_snapshot(directory)?.search(query)
+    verified_snapshot(directory)?.search(query, 0)
 }
 
 /// The downloader has checked bytes; domain declarations must describe those same files.

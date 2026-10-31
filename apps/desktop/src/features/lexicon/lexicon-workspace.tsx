@@ -54,6 +54,10 @@ export function LexiconWorkspace({
   const [busy, setBusy] = useState(false);
   const restoring = status.isPending || Boolean(status.data?.loading);
   const resourceError = status.data?.error;
+  const semanticHint =
+    status.data?.semanticEnabled === false
+      ? t("lexicon.semanticDisabled")
+      : t("lexicon.semanticUnavailable");
   const notInstalled = status.isSuccess && !restoring && !resourceError && !generation;
   const selected = state.generation === generation ? state.selected : [];
   const relatedRef = useRef<HTMLElement | null>(null);
@@ -95,14 +99,14 @@ export function LexiconWorkspace({
           <Button
             aria-pressed={state.mode === "semantic"}
             disabled={!status.data?.semanticAvailable}
-            title={!status.data?.semanticAvailable ? t("lexicon.semanticUnavailable") : undefined}
+            title={!status.data?.semanticAvailable ? semanticHint : undefined}
             onClick={() => store.setState({ mode: "semantic" })}
           >
             {t("lexicon.semantic")}
           </Button>
         </fieldset>
         {generation && !status.data?.semanticAvailable && (
-          <HelpMarker label={t("lexicon.semantic")}>{t("lexicon.semanticUnavailable")}</HelpMarker>
+          <HelpMarker label={t("lexicon.semantic")}>{semanticHint}</HelpMarker>
         )}
       </div>
       {notInstalled ? (

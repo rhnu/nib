@@ -6,5 +6,6 @@ mod index;
 pub mod pack;
 mod resources;
 mod search;
+mod semantic;
 
 pub use resources::{LexiconResources, query_pack, verify_pack};

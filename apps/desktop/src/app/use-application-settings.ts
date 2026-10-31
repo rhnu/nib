@@ -8,6 +8,7 @@ import { PreferencesWriter } from "./preferences-writer";
 import { settingsApi } from "./settings-api";
 import { prepareSubmissionPreferences } from "./submission-preferences";
 import { sameExecutionPreferences } from "./execution-preferences";
+import { savedSemanticSearchChanged } from "@/features/lexicon/api";
 
 export function useApplicationSettings() {
   const client = useQueryClient();
@@ -25,6 +26,8 @@ export function useApplicationSettings() {
         client.setQueryData<ApplicationSettingsSnapshot>(["application-settings"], (snapshot) =>
           snapshot ? { ...snapshot, preferences: saved } : snapshot,
         );
+        if (previous && previous.semanticSearchEnabled !== saved.semanticSearchEnabled)
+          savedSemanticSearchChanged(saved.semanticSearchEnabled);
         if (previous && !sameExecutionPreferences(previous.execution, saved.execution))
           setExecutionVersion((version) => version + 1);
       }),

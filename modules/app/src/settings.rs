@@ -71,6 +71,9 @@ pub struct ApplicationPreferences {
     pub recent_image_limit: u32,
     pub execution: ExecutionPreferences,
     pub safety: crate::safety::SafetyPreferences,
+    /// Disabling semantic search retains installed files and lexical queries.
+    #[serde(default = "default_semantic_search_enabled")]
+    pub semantic_search_enabled: bool,
 }
 
 impl Default for ApplicationPreferences {
@@ -81,9 +84,12 @@ impl Default for ApplicationPreferences {
             execution: ExecutionPreferences::default(),
             safety: crate::safety::SafetyPreferences::default(),
             recent_image_limit: 20,
+            semantic_search_enabled: default_semantic_search_enabled(),
         }
     }
 }
+
+const fn default_semantic_search_enabled() -> bool { true }
 
 /// Host transport choices captured independently from creative inputs at submission.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

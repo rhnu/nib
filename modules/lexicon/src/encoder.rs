@@ -43,13 +43,14 @@ impl QueryEncoderPool {
         generation: &str,
         model: &ModelResource,
         text: &str,
+        active: impl Fn() -> bool,
     ) -> Result<Option<Vec<f32>>> {
         let request = self.request.fetch_add(1, Ordering::AcqRel) + 1;
         let mut current = self
             .current
             .lock()
             .map_err(|_state| anyhow::anyhow!("query encoder lock poisoned"))?;
-        if self.request.load(Ordering::Acquire) != request {
+        if !active() || self.request.load(Ordering::Acquire) != request {
             return Ok(None);
         }
         let matches = current.as_ref().is_some_and(|encoder| {
@@ -62,7 +63,17 @@ impl QueryEncoderPool {
         });
         if !matches {
             let started = Instant::now();
-            let encoder = QueryEncoder::load(directory, model).inspect_err(|error| {
+            let encoder = QueryEncoder::load(directory, model, &active).inspect_err(|error| {
+                if !active() {
+                    tracing::debug!(
+                        generation,
+                        contract = model.contract.id,
+                        elapsed_ms = started.elapsed().as_millis(),
+                        ?error,
+                        "cancelled CPU query encoder initialization"
+                    );
+                    return;
+                }
                 tracing::warn!(
                     generation,
                     contract = model.contract.id,
@@ -71,6 +82,12 @@ impl QueryEncoderPool {
                     "failed to initialize CPU query encoder"
                 );
             })?;
+            let Some(encoder) = encoder else {
+                return Ok(None);
+            };
+            if !active() {
+                return Ok(None);
+            }
             *current = Some(encoder);
             tracing::info!(
                 generation,
@@ -79,25 +96,29 @@ impl QueryEncoderPool {
                 "initialized CPU query encoder"
             );
         }
-        Ok(Some(
-            current
-                .as_mut()
-                .context("query encoder unavailable")?
-                .encode(text)?,
-        ))
+        if !active() {
+            return Ok(None);
+        }
+        current
+            .as_mut()
+            .context("query encoder unavailable")?
+            .encode(text, &active)
     }
 }
 
 impl QueryEncoder {
-    pub(crate) fn load(directory: &Path, model: &ModelResource) -> Result<Self> {
-        let environment = nib_inference_runtime::environment()?;
-        let session = Session::builder(&environment)?
-            .with_intra_threads(4)
-            .map_err(ort::Error::<()>::from)?
-            .with_inter_threads(1)
-            .map_err(ort::Error::<()>::from)?
-            .commit_from_file(directory.join(&model.graph))?;
+    fn load(
+        directory: &Path,
+        model: &ModelResource,
+        active: &impl Fn() -> bool,
+    ) -> Result<Option<Self>> {
+        if !active() {
+            return Ok(None);
+        }
         let tokenizer_bytes = tokenizer_bytes(directory, model)?;
+        if !active() {
+            return Ok(None);
+        }
         let mut tokenizer =
             Tokenizer::from_bytes(&tokenizer_bytes).map_err(anyhow::Error::from_boxed)?;
         tokenizer
@@ -107,17 +128,36 @@ impl QueryEncoder {
             }))
             .map_err(anyhow::Error::from_boxed)?;
         tokenizer.with_padding(None);
-        Ok(Self {
+        if !active() {
+            return Ok(None);
+        }
+        let environment = nib_inference_runtime::environment()?;
+        if !active() {
+            return Ok(None);
+        }
+        let session = Session::builder(&environment)?
+            .with_intra_threads(4)
+            .map_err(ort::Error::<()>::from)?
+            .with_inter_threads(1)
+            .map_err(ort::Error::<()>::from)?
+            .commit_from_file(directory.join(&model.graph))?;
+        if !active() {
+            return Ok(None);
+        }
+        Ok(Some(Self {
             session,
             tokenizer,
             contract: model.contract.clone(),
             cache: VecDeque::new(),
-        })
+        }))
     }
 
-    pub(crate) fn encode(&mut self, text: &str) -> Result<Vec<f32>> {
+    fn encode(&mut self, text: &str, active: &impl Fn() -> bool) -> Result<Option<Vec<f32>>> {
+        if !active() {
+            return Ok(None);
+        }
         if let Some((_, vector)) = self.cache.iter().find(|(cached, _)| cached == text) {
-            return Ok(vector.clone());
+            return Ok(Some(vector.clone()));
         }
         let input = format!("{}{text}", self.contract.query_prefix);
         let encoding = self
@@ -135,6 +175,9 @@ impl QueryEncoder {
             .map(|value| i64::from(*value))
             .collect::<Vec<_>>();
         let length = ids.len();
+        if !active() {
+            return Ok(None);
+        }
         let output = self.session.run(ort::inputs![
             "input_ids" => Tensor::from_array(([1,length],ids))?,
             "attention_mask" => Tensor::from_array(([1,length],mask))?,
@@ -142,6 +185,9 @@ impl QueryEncoder {
             "video_features" => Tensor::from_array(([0,512],Vec::<f32>::new()))?,
             "audio_features" => Tensor::from_array(([0,512],Vec::<f32>::new()))?,
         ])?;
+        if !active() {
+            return Ok(None);
+        }
         let embedding = output
             .get("sentence_embedding")
             .context("model did not return sentence_embedding")?;
@@ -156,7 +202,7 @@ impl QueryEncoder {
             self.cache.pop_front();
         }
         self.cache.push_back((text.to_owned(), vector.clone()));
-        Ok(vector)
+        Ok(Some(vector))
     }
 }
 

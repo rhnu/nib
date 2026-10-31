@@ -8,6 +8,7 @@ function preferences(theme: ApplicationPreferences["theme"]): ApplicationPrefere
     theme,
     language: "system",
     recentImageLimit: 20,
+    semanticSearchEnabled: true,
     safety: { autoScan: true, useWdReview: true, blurNsfw: true, blurDetails: false },
     execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
   };
@@ -40,6 +41,7 @@ describe("PreferencesWriter", () => {
       theme: "light",
       language: "system",
       recentImageLimit: 20,
+      semanticSearchEnabled: true,
       safety: { autoScan: true, useWdReview: true, blurNsfw: true, blurDetails: false },
       execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     };
@@ -55,6 +57,25 @@ describe("PreferencesWriter", () => {
       saving: false,
       error: null,
     });
+  });
+
+  it("publishes semantic changes only after a successful save", async () => {
+    const onSaved = vi.fn();
+    const write = vi
+      .fn<(value: ApplicationPreferences) => Promise<ApplicationPreferences>>()
+      .mockRejectedValueOnce(new Error("save failed"))
+      .mockImplementation(async (value) => value);
+    const writer = new PreferencesWriter(write, onSaved);
+    writer.initialize(preferences("dark"));
+    const disabled = { ...preferences("dark"), semanticSearchEnabled: false };
+    writer.edit(disabled);
+    await expect(writer.flush()).rejects.toThrow("save failed");
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(writer.getSavedSnapshot()?.semanticSearchEnabled).toBe(true);
+    expect(writer.getSnapshot().error).toBeInstanceOf(Error);
+    await writer.flush();
+    expect(onSaved).toHaveBeenCalledExactlyOnceWith(disabled, preferences("dark"));
+    expect(writer.getSavedSnapshot()?.semanticSearchEnabled).toBe(false);
   });
 
   it("retains unsaved preferences after failure and retries the latest selection", async () => {

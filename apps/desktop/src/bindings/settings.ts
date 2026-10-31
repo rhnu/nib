@@ -14,7 +14,11 @@ export type ExecutionPreferences = {
  */
 imageBaseUrl: string | null, imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
 
-export type ApplicationPreferences = { theme: Theme, language: Language, recentImageLimit: number, execution: ExecutionPreferences, safety: SafetyPreferences, };
+export type ApplicationPreferences = { theme: Theme, language: Language, recentImageLimit: number, execution: ExecutionPreferences, safety: SafetyPreferences,
+/**
+ * Disabling semantic search retains installed files and lexical queries.
+ */
+semanticSearchEnabled: boolean, };
 
 export type StorageLocations = { configDirectory: string, dataDirectory: string, relocatedDataDirectory: string | null, defaultDataDirectory: string, development: boolean, restartRequired: boolean, };
 

@@ -1,11 +1,9 @@
 //! Exact names precede aliases and translations; semantic scores remain a separate signal.
 
 use std::{
-    collections::{HashMap, HashSet},
-    fs,
+    collections::HashSet,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
-    time::Instant,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Context as _, Result, ensure};
@@ -16,9 +14,8 @@ use nib_contract::lexicon::{
 use rusqlite::{Connection, OpenFlags, params};
 
 use crate::{
-    encoder::QueryEncoderPool,
     format::{FORMAT_VERSION, ResourceManifest},
-    index::FlatIndex,
+    semantic::{SemanticControl, SemanticSlot},
 };
 
 pub(crate) struct Snapshot {
@@ -28,21 +25,10 @@ pub(crate) struct Snapshot {
     directory: PathBuf,
     database: Mutex<Connection>,
     semantic: bool,
-    semantic_index: OnceLock<Result<SemanticSnapshot, SemanticLoadError>>,
-    encoder: Arc<QueryEncoderPool>,
+    semantic_control: Arc<SemanticControl>,
+    semantic_slot: Arc<SemanticSlot>,
     // Close SQLite and the model session before retiring the generation directory on Windows.
     pub(crate) lease: Option<Arc<nib_resources::ResourceGeneration>>,
-}
-
-/// A failed initialization belongs to this immutable generation and retains its cause.
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("semantic vocabulary initialization failed")]
-struct SemanticLoadError(#[source] Arc<dyn std::error::Error + Send + Sync>);
-
-struct SemanticSnapshot {
-    index: FlatIndex,
-    kinds: HashMap<String, LexiconKind>,
-    indexed_kinds: Vec<LexiconKind>,
 }
 
 impl Snapshot {
@@ -51,7 +37,7 @@ impl Snapshot {
         manifest: ResourceManifest,
         generation: String,
         semantic: bool,
-        encoder: Arc<QueryEncoderPool>,
+        semantic_control: Arc<SemanticControl>,
     ) -> Result<Self> {
         manifest.validate()?;
         let connection = Connection::open_with_flags(
@@ -78,83 +64,29 @@ impl Snapshot {
             directory: directory.to_owned(),
             database: Mutex::new(connection),
             semantic,
-            semantic_index: OnceLock::new(),
-            encoder,
+            semantic_slot: semantic_control.slot(),
+            semantic_control,
         })
     }
 
     pub(crate) fn semantic_available(&self) -> bool { self.semantic }
 
-    /// Installation validates the complete snapshot; restoration defers it to the first query.
+    /// Installation validates the complete snapshot while the semantic switch is enabled.
     pub(crate) fn prepare_semantic(&self) -> Result<()> {
-        if self.semantic {
-            crate::encoder::tokenizer_bytes(
-                &self.directory,
-                self.manifest
-                    .model
-                    .as_ref()
-                    .context("query model is missing")?,
-            )?;
-            self.semantic_snapshot()?;
+        let (_, revision) = self.semantic_control.status();
+        if self.semantic
+            && let Some(runtime) = self.semantic_control.runtime(&self.semantic_slot, revision)
+        {
+            runtime.prepare(&self.directory, &self.manifest, &self.generation)?;
         }
         Ok(())
     }
 
-    fn semantic_snapshot(&self) -> Result<&SemanticSnapshot> {
-        self.semantic_index
-            .get_or_init(|| {
-                let started = Instant::now();
-                let result = self.load_semantic();
-                match &result {
-                    Ok(_) => tracing::info!(
-                        generation = self.generation,
-                        elapsed_ms = started.elapsed().as_millis(),
-                        "prepared vocabulary semantic snapshot"
-                    ),
-                    Err(error) => tracing::warn!(
-                        generation = self.generation,
-                        elapsed_ms = started.elapsed().as_millis(),
-                        ?error,
-                        "failed to prepare vocabulary semantic snapshot"
-                    ),
-                }
-                result.map_err(|error| SemanticLoadError(Arc::from(error.into_boxed_dyn_error())))
-            })
-            .as_ref()
-            .map_err(|error| anyhow::Error::new(error.clone()))
-    }
-
-    fn load_semantic(&self) -> Result<SemanticSnapshot> {
-        let resource = self
-            .manifest
-            .semantic
-            .as_ref()
-            .context("semantic resource is missing")?;
-        let keys: Vec<String> =
-            serde_json::from_slice(&fs::read(self.directory.join(&resource.keys.path))?)?;
-        let index = FlatIndex::load(&self.directory.join(&resource.vectors.path), keys)?;
-        // Semantic initialization must not hold up independent lexical queries.
-        let connection = Connection::open_with_flags(
-            self.directory.join(&self.manifest.core.path),
-            OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )?;
-        let mut statement = connection.prepare("SELECT key,kind FROM terms")?;
-        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let kinds = indexed_kinds(&index.keys, rows)?;
-        let mut indexed_kinds = Vec::new();
-        for kind in kinds.values() {
-            if !indexed_kinds.contains(kind) {
-                indexed_kinds.push(*kind);
-            }
-        }
-        Ok(SemanticSnapshot {
-            index,
-            kinds,
-            indexed_kinds,
-        })
-    }
-
-    pub(crate) fn search(&self, query: &LexiconQuery) -> Result<LexiconSearchResult> {
+    pub(crate) fn search(
+        &self,
+        query: &LexiconQuery,
+        revision: u32,
+    ) -> Result<LexiconSearchResult> {
         let limit = query.limit as usize;
         let kinds = kind_filter(&query.kinds);
         let mut matches = {
@@ -172,8 +104,10 @@ impl Snapshot {
             && self.semantic
             && !query.text.trim().is_empty()
             && query.related_to.is_none()
+            && let Some(runtime) = self.semantic_control.runtime(&self.semantic_slot, revision)
+            && let Some(semantic) =
+                runtime.snapshot(&self.directory, &self.manifest, &self.generation)?
         {
-            let semantic = self.semantic_snapshot()?;
             let index = &semantic.index;
             let applicable = query.kinds.is_empty()
                 || semantic
@@ -181,7 +115,7 @@ impl Snapshot {
                     .iter()
                     .any(|kind| query.kinds.contains(kind));
             let vector = if applicable {
-                self.encoder.encode(
+                runtime.encoder.encode(
                     &self.directory,
                     &self.generation,
                     self.manifest
@@ -189,11 +123,14 @@ impl Snapshot {
                         .as_ref()
                         .context("query model missing")?,
                     query.text.trim(),
+                    || runtime.active(),
                 )?
             } else {
                 None
             };
-            if let Some(vector) = vector {
+            if let Some(vector) = vector
+                && runtime.active()
+            {
                 let scores = index.search(&vector, limit, |key| {
                     query.kinds.is_empty()
                         || semantic
@@ -220,29 +157,11 @@ impl Snapshot {
         rank(&mut matches, limit);
         Ok(LexiconSearchResult {
             generation: Some(self.generation.clone()),
+            revision,
             matches,
-            semantic_available: self.semantic_available(),
+            semantic_available: self.semantic_available() && self.semantic_control.status().0,
         })
     }
-}
-
-/// Map one database scan to vector identities, rejecting absent and invalid indexed terms.
-fn indexed_kinds(
-    keys: &[String],
-    rows: impl IntoIterator<Item = rusqlite::Result<(String, String)>>,
-) -> Result<HashMap<String, LexiconKind>> {
-    let keys: HashSet<_> = keys.iter().map(String::as_str).collect();
-    let mut kinds = HashMap::with_capacity(keys.len());
-    for row in rows {
-        let (key, kind) = row?;
-        if keys.contains(key.as_str()) {
-            kinds.insert(key, parse_kind(&kind)?);
-        }
-    }
-    if let Some(key) = keys.iter().find(|key| !kinds.contains_key(**key)) {
-        anyhow::bail!("index references missing term {key}");
-    }
-    Ok(kinds)
 }
 
 /// Validate before accessing an optional snapshot so invalid queries fail even when uninstalled.
@@ -266,12 +185,6 @@ pub(crate) fn kind_name(kind: LexiconKind) -> &'static str {
         LexiconKind::Character => "character",
         LexiconKind::Meta => "meta",
     }
-}
-
-fn parse_kind(kind: &str) -> Result<LexiconKind> {
-    Ok(serde_json::from_value(serde_json::Value::String(
-        kind.to_owned(),
-    ))?)
 }
 
 pub(crate) fn normalize(text: &str) -> String { text.replace('_', " ").to_lowercase() }
@@ -428,6 +341,3 @@ fn rank(matches: &mut Vec<LexiconMatch>, limit: usize) {
     matches.retain(|item| seen.insert(item.term.key.clone()));
     matches.truncate(limit);
 }
-
-#[cfg(test)]
-mod tests;

@@ -19,6 +19,7 @@ import {
   lexiconStatusKey,
 } from "@/features/lexicon/api";
 import { kindLabel, reasonLabel } from "@/features/lexicon/labels";
+import { sameLexiconState } from "@/features/lexicon/lexicon-state";
 import { queryClient } from "@/shared/query/client";
 import {
   promptAnalysis,
@@ -153,12 +154,12 @@ class CompletionQueries {
 
   constructor(view: EditorView) {
     this.view = view;
-    let generation = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey)?.generation;
+    let status = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey);
     this.unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event.query.queryKey[0] !== lexiconStatusKey[0] || event.type !== "updated") return;
-      const next = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey)?.generation;
-      if (generation === next) return;
-      generation = next;
+      const next = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey);
+      if (sameLexiconState(status, next)) return;
+      status = next;
       this.schedule(true);
     });
   }
@@ -270,7 +271,8 @@ class CompletionQueries {
         },
         (text, semantic) => lexiconApi.search(text, [], semantic),
         (result) =>
-          current(view.state) && (!result || isCurrentLexicon(result.generation, revision)),
+          current(view.state) &&
+          (!result || isCurrentLexicon(result.generation, revision, result.revision)),
         (matches) => {
           const snapshot = {
             range,

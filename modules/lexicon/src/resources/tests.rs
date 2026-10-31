@@ -37,6 +37,38 @@ fn valid_queries_without_an_installation_have_no_matches() {
 }
 
 #[test]
+fn semantic_switch_defaults_to_enabled_and_changes_revision_only_when_changed() {
+    let resources = LexiconResources::default();
+    assert!(resources.status().unwrap().semantic_enabled);
+    let initial_revision = resources.status().unwrap().revision;
+    resources.set_semantic_enabled(true);
+    assert_eq!(resources.status().unwrap().revision, initial_revision);
+    resources.set_semantic_enabled(false);
+    let status = resources.status().unwrap();
+    assert!(!status.semantic_enabled);
+    assert!(!status.semantic_available);
+    assert_ne!(status.revision, initial_revision);
+    resources.deactivate();
+    assert!(!resources.status().unwrap().semantic_enabled);
+    resources.set_semantic_enabled(true);
+    let reopened_revision = resources.status().unwrap().revision;
+    assert_ne!(reopened_revision, status.revision);
+    assert_ne!(reopened_revision, initial_revision);
+    assert!(resources.status().unwrap().semantic_enabled);
+    let mut request = query(10, "semantic request".into());
+    request.semantic = true;
+    let result = resources.search(request).unwrap();
+    assert_eq!(result.revision, reopened_revision);
+    assert!(!result.semantic_available);
+    assert!(
+        !LexiconResources::new(false)
+            .status()
+            .unwrap()
+            .semantic_enabled
+    );
+}
+
+#[test]
 fn restore_state_distinguishes_loading_failure_and_uninstalled() {
     let resources = LexiconResources::default();
     let status = resources.status().unwrap();

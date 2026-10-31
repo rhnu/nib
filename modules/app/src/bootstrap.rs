@@ -25,7 +25,9 @@ impl Bootstrap {
     /// Returns failures opening resource storage or restoring its shared state.
     pub fn start(self) -> anyhow::Result<AppState> {
         let started = Instant::now();
-        let lexicon = Arc::new(nib_lexicon::LexiconResources::default());
+        let lexicon = Arc::new(nib_lexicon::LexiconResources::new(
+            self.settings.preferences()?.semantic_search_enabled,
+        ));
         let analyzer = Arc::new(nib_image_analysis::ImageAnalyzer::default());
         let safety = Arc::new(crate::safety::SafetyScanner::new(
             Arc::clone(&analyzer),

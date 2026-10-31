@@ -10,6 +10,6 @@ export type LexiconMatch = { term: LexiconTerm, reason: LexiconMatchReason, scor
 
 export type LexiconQuery = { text: string, kinds: Array<LexiconKind>, semantic: boolean, limit: number, relatedTo?: string, };
 
-export type LexiconSearchResult = { generation: string | null, matches: Array<LexiconMatch>, semanticAvailable: boolean, };
+export type LexiconSearchResult = { generation: string | null, revision: number, matches: Array<LexiconMatch>, semanticAvailable: boolean, };
 
-export type LexiconStatus = { loading: boolean, error: string | null, generation: string | null, termCount: number, semanticAvailable: boolean, };
+export type LexiconStatus = { semanticEnabled: boolean, revision: number, loading: boolean, error: string | null, generation: string | null, termCount: number, semanticAvailable: boolean, };

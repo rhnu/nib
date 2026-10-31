@@ -384,6 +384,24 @@ export function SettingsPage({
             <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />
           </div>
           <div hidden={section !== "downloads"}>
+            {preferences.value && (
+              <SettingsGroup>
+                <SettingRow
+                  label={t("lexicon.enableSemanticSearch")}
+                  description={t("lexicon.semanticSearchHelp")}
+                  controlWidth="auto"
+                >
+                  <Toggle
+                    label={t("lexicon.enableSemanticSearch")}
+                    checked={preferences.value.semanticSearchEnabled}
+                    onChange={(semanticSearchEnabled) => {
+                      if (preferences.value)
+                        writer.edit({ ...preferences.value, semanticSearchEnabled });
+                    }}
+                  />
+                </SettingRow>
+              </SettingsGroup>
+            )}
             <DownloadsSettings />
           </div>
         </div>

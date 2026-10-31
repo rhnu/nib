@@ -20,6 +20,10 @@ export const lexicon = {
   viewRelated: "关联作品 / 题材",
   relatedHeading: "{{name}} · 关联作品 / 题材",
   noRelated: "此词条暂无关联数据。",
+  enableSemanticSearch: "启用语义搜索",
+  semanticSearchHelp:
+    "保存后生效。关闭会释放语义模型并停止语义检索，已下载资源和基础词库仍保留。重新开启后按需加载。",
+  semanticDisabled: "语义搜索已关闭，可在“设置 → 资源下载”重新开启。",
   semantic: "语义搜索",
   lexical: "常规搜索",
   searchMode: "搜索模式",

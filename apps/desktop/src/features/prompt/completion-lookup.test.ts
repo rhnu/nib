@@ -22,7 +22,7 @@ function match(name: string, reason: LexiconMatch["reason"]): LexiconMatch {
 }
 
 function result(matches: LexiconMatch[]): LexiconSearchResult {
-  return { generation: "test", matches, semanticAvailable: true };
+  return { generation: "test", revision: 1, matches, semanticAvailable: true };
 }
 
 function deferred() {
@@ -104,24 +104,31 @@ describe("completion lookups", () => {
     expect(publish).toHaveBeenCalledExactlyOnceWith([]);
   });
 
-  it("discards delayed semantic results after the resource generation changes", async () => {
-    const semantic = deferred();
-    const lexical = match("blue eyes", "name");
-    const publish = vi.fn();
-    let generation = "test";
-    lookupCompletions(
-      { text: "eyes", semantic: true, elapsed: 0 },
-      (_text, useSemantic) => (useSemantic ? semantic.promise : Promise.resolve(result([lexical]))),
-      (response) => generation === "test" && (!response || response.generation === generation),
-      publish,
-    );
-    await vi.runAllTimersAsync();
-    expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
-    generation = "replacement";
-    semantic.resolve(result([match("green eyes", "semantic")]));
-    await Promise.resolve();
-    expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
-  });
+  it.each(["generation", "revision"] as const)(
+    "discards delayed semantic results after the resource %s changes",
+    async (identity) => {
+      const semantic = deferred();
+      const lexical = match("blue eyes", "name");
+      const publish = vi.fn();
+      let generation = "test";
+      let revision = 1;
+      lookupCompletions(
+        { text: "eyes", semantic: true, elapsed: 0 },
+        (_text, useSemantic) =>
+          useSemantic ? semantic.promise : Promise.resolve(result([lexical])),
+        (response) =>
+          !response || (response.generation === generation && response.revision === revision),
+        publish,
+      );
+      await vi.runAllTimersAsync();
+      expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
+      if (identity === "generation") generation = "replacement";
+      else revision = 3;
+      semantic.resolve(result([match("green eyes", "semantic")]));
+      await Promise.resolve();
+      expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
+    },
+  );
 
   it("keeps lexical ordering when semantics finishes first", async () => {
     const lexical = deferred();

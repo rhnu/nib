@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
-import { isCurrentLexicon, lexiconApi, lexiconRevision } from "./api";
+import { isCurrentLexicon, lexiconApi, lexiconRevision, semanticSearchKey } from "./api";
 import { synchronizeLexiconGeneration, type LexiconSessionStore } from "./lexicon-session";
 import { useLexiconStatus } from "./use-lexicon-status";
 
@@ -28,7 +28,7 @@ export function useLexiconSearch(store: LexiconSessionStore) {
     retry: false,
   });
   const meaning = useQuery({
-    queryKey: ["lexicon-search", generation, pausedText, state.kind, true],
+    queryKey: [...semanticSearchKey, generation, status.data?.revision, pausedText, state.kind],
     queryFn: () => lexiconApi.search(pausedText, kinds, true, 30),
     enabled:
       Boolean(generation) && semantic && Boolean(pausedText.trim()) && state.text === pausedText,
@@ -48,7 +48,9 @@ export function useLexiconSearch(store: LexiconSessionStore) {
     lexical.data && isCurrentLexicon(lexical.data.generation, revision) ? lexical.data.matches : [];
   const meaningCurrent = semantic && state.text === pausedText && Boolean(state.text.trim());
   const semanticMatches =
-    meaningCurrent && meaning.data && isCurrentLexicon(meaning.data.generation, revision)
+    meaningCurrent &&
+    meaning.data &&
+    isCurrentLexicon(meaning.data.generation, revision, meaning.data.revision)
       ? meaning.data.matches
       : [];
   const matches = [

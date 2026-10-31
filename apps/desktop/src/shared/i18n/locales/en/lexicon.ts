@@ -18,6 +18,10 @@ export const lexicon = {
   viewRelated: "Associated works / subjects",
   relatedHeading: "{{name}} · Associated works / subjects",
   noRelated: "No association data is available for this term.",
+  enableSemanticSearch: "Enable semantic search",
+  semanticSearchHelp:
+    "After saving, turning this off unloads the semantic model and stops semantic searches. Downloads and regular lexicon search remain available. Turning it on loads resources when needed.",
+  semanticDisabled: "Semantic search is disabled. Enable it in Settings → Resource downloads.",
   semantic: "Semantic search",
   lexical: "Regular search",
   searchMode: "Search mode",

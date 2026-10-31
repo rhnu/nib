@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn semantic_search_defaults_to_enabled_for_existing_preferences() {
+    let mut existing = serde_json::to_value(ApplicationPreferences::default()).unwrap();
+    existing
+        .as_object_mut()
+        .unwrap()
+        .remove("semanticSearchEnabled");
+    let restored: ApplicationPreferences = serde_json::from_value(existing).unwrap();
+    assert!(restored.semantic_search_enabled);
+}
+
+#[test]
+fn semantic_search_choice_survives_preference_serialization() {
+    for enabled in [false, true] {
+        let preferences = ApplicationPreferences {
+            semantic_search_enabled: enabled,
+            ..ApplicationPreferences::default()
+        };
+        let stored = serde_json::to_value(&preferences).unwrap();
+        let restored: ApplicationPreferences = serde_json::from_value(stored).unwrap();
+        assert_eq!(restored.semantic_search_enabled, enabled);
+    }
+}
+
+#[test]
 fn default_execution_keeps_sdk_default_behavior() {
     assert_eq!(
         ExecutionPreferences::default().client_config(),
