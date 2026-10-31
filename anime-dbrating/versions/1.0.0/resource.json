@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "anime-dbrating",
+  "version": "1.0.0",
+  "components": [
+    {
+      "id": "core",
+      "name": "Anime image safety",
+      "description": "Pinned Atelier production model, downloaded directly from upstream.",
+      "requires": [],
+      "files": [
+        {
+          "path": "model.onnx",
+          "url": "https://huggingface.co/deepghs/anime_dbrating/resolve/7af21db648acdeb74f5c334abda9dd7403407b3c/mobilenetv3_large_100_v0_ls0.2/model.onnx?download=true",
+          "bytes": 16832684,
+          "sha256": "c7d6fd0cd71c48616fa87fe2bca87f8e1775e9a3b96d12797e2144fca3543362"
+        },
+        {
+          "path": "meta.json",
+          "url": "https://huggingface.co/deepghs/anime_dbrating/resolve/7af21db648acdeb74f5c334abda9dd7403407b3c/mobilenetv3_large_100_v0_ls0.2/meta.json?download=true",
+          "bytes": 169,
+          "sha256": "65d5d69ef309eba3d04e5058f9bafcd7b33a707a05adaa93f09d8c1655faf163"
+        }
+      ]
+    }
+  ]
+}

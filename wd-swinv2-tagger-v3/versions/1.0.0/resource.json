@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "wd-swinv2-tagger-v3",
+  "version": "1.0.0",
+  "components": [
+    {
+      "id": "core",
+      "name": "WD ratings and image tags",
+      "description": "Pinned Atelier production model, downloaded directly from upstream.",
+      "requires": [],
+      "files": [
+        {
+          "path": "model.onnx",
+          "url": "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3/resolve/627aef95638667ddcaa3ac8ae625e88ea5b02f51/model.onnx?download=true",
+          "bytes": 467460978,
+          "sha256": "e6774bff34d43bd49f75a47db4ef217dce701c9847b546523eb85ff6dbba1db1"
+        },
+        {
+          "path": "selected_tags.csv",
+          "url": "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3/resolve/627aef95638667ddcaa3ac8ae625e88ea5b02f51/selected_tags.csv?download=true",
+          "bytes": 308468,
+          "sha256": "298633d94d0031d2081c0893f29c82eab7f0df00b08483ba8f29d1e979441217"
+        }
+      ]
+    }
+  ]
+}
