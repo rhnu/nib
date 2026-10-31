@@ -573,15 +573,7 @@
   padding: 3px 6px;
   font: 11px var(--font-mono);
 }
-.image-copy-status {
-  position: absolute;
-  bottom: calc(100% + 5px);
-  left: 0;
-  font-size: 11px;
-  background: var(--surface);
-  padding: 5px;
-  white-space: nowrap;
-}
+
 .generation-view-controls {
   display: flex;
   align-items: center;
@@ -794,4 +786,8 @@
 }
 .queue-drawer .generation-job-cost {
   font-size: 11px;
+}
+
+.generation-submit-cost[aria-busy="true"] {
+  opacity: 0.65;
 }

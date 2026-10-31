@@ -1,0 +1,30 @@
+.notification-viewport {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 40px));
+}
+.notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 4px 16px #0003;
+  overflow-wrap: anywhere;
+}
+.notification[data-severity="error"] {
+  border-color: var(--danger);
+}
+.notification[data-limited],
+.notification[data-ending-style] {
+  display: none;
+}

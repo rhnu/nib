@@ -11,7 +11,8 @@ import type {
 
 export const promptApi = {
   syntax: (model?: string) => invokeHost<PromptSyntaxProfile>("get_prompt_syntax", { model }),
-  resolve: (draft: Draft) => invokeHost<DraftAnalysis>("resolve_draft", { draft }),
+  resolve: (draft: Draft, includeQuote = false) =>
+    invokeHost<DraftAnalysis>("resolve_draft", { draft, includeQuote }),
   expandChunk: (node: PromptNode) => invokeHost<PromptNode>("expand_chunk", { node }),
   expandPreset: (instance: PresetInstance) =>
     invokeHost<PresetInstance>("expand_preset", { instance }),

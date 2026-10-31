@@ -1,8 +1,8 @@
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useAccount } from "../account/account-context";
-import { useJobData } from "../jobs/job-context";
+import { originForOperation } from "./work-state";
 import { useSubmission } from "./submission-context";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { KeyRound, WandSparkles, RotateCw } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import { Button } from "@/shared/ui";
@@ -44,34 +44,29 @@ export function GenerationActions({
     accountSummaryError,
     refreshAccountSummary,
   } = useAccount();
-  const { acceptBatch } = useJobData();
-  const { submit: submitGeneration, submissionBlocked } = useSubmission();
+  const { submit: submitGeneration, submissionBlocked, work } = useSubmission();
+  const working = work[originForOperation(draft.inputs.operation.kind)];
+  const displayQuote = estimate.displayQuote;
   const effectiveOperation = isOperationEffective(
     draft.inputs.operation,
     estimate.quote?.resolved?.inputs.operation ?? null,
   );
   const actionLabel =
     draft.inputs.operation.kind === "textToImage"
-      ? estimate.quote
-        ? t("generation.generateImages", { count: estimate.quote.totalSamples })
+      ? displayQuote
+        ? t("generation.generateImages", { count: displayQuote.totalSamples })
         : t("generation.generate")
       : operationLabel(draft.inputs.operation);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<{ key: string; message: unknown } | null>(null);
-  const [submitted, setSubmitted] = useState(false);
   const [submitFields, setSubmitFields] = useState<string[]>([]);
   const submittingRef = useRef(false);
   if (submitError && submitError.key !== estimate.key) setSubmitError(null);
-  useEffect(() => {
-    if (!submitted) return;
-    const timer = setTimeout(() => setSubmitted(false), 3000);
-    return () => clearTimeout(timer);
-  }, [submitted]);
 
   async function submit() {
     if (
       submittingRef.current ||
+      working !== "idle" ||
       submissionBlocked ||
       hasPendingWork() ||
       operationPending ||
@@ -93,18 +88,14 @@ export function GenerationActions({
       return;
     }
     submittingRef.current = true;
-    setSubmitting(true);
     setSubmitError(null);
-    setSubmitted(false);
     try {
-      acceptBatch(await submitGeneration(snapshot), true);
-      setSubmitted(true);
+      await submitGeneration(snapshot);
     } catch (cause) {
       setSubmitError({ key: estimate.key, message: cause });
       setSubmitFields(validationFields(cause));
     } finally {
       submittingRef.current = false;
-      setSubmitting(false);
     }
   }
 
@@ -118,9 +109,10 @@ export function GenerationActions({
       <div className="generation-submit-row">
         <Button
           className="primary"
+          aria-busy={working !== "idle"}
           disabled={
             accountLoading ||
-            submitting ||
+            working !== "idle" ||
             (Boolean(account?.configured) &&
               (submissionBlocked ||
                 operationPending ||
@@ -141,24 +133,34 @@ export function GenerationActions({
             ) : (
               <KeyRound size={14} aria-hidden />
             )}
-            {submitting
-              ? t("generation.submitting")
-              : accountLoading
-                ? t("generation.loadingAccount")
-                : !account?.configured
-                  ? t("generation.configureAccount")
-                  : submissionBlocked
-                    ? t("generation.savingSettings")
-                    : actionLabel}
+            {working === "loading"
+              ? t("generation.loading")
+              : working === "running"
+                ? t("generation.working")
+                : working === "queued"
+                  ? t("generation.queued")
+                  : working === "submitting"
+                    ? t("generation.submitting")
+                    : accountLoading
+                      ? t("generation.loadingAccount")
+                      : !account?.configured
+                        ? t("generation.configureAccount")
+                        : submissionBlocked
+                          ? t("generation.savingSettings")
+                          : actionLabel}
           </span>
           {account?.configured &&
             (estimate.quote && !effectiveOperation ? (
               <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
-            ) : estimate.quote ? (
-              <span className="generation-submit-cost">
-                {estimate.quote.estimatedAnlas === null
+            ) : displayQuote ? (
+              <span
+                className="generation-submit-cost"
+                aria-busy={estimate.refreshing}
+                title={estimate.refreshing ? t("generation.estimating") : undefined}
+              >
+                {displayQuote.estimatedAnlas === null
                   ? t("generation.costUnknown")
-                  : `${estimate.quote.estimatedAnlas} Anlas`}
+                  : `${displayQuote.estimatedAnlas} Anlas`}
               </span>
             ) : estimate.loading ? (
               <span className="generation-submit-cost">{t("generation.estimating")}</span>
@@ -180,7 +182,6 @@ export function GenerationActions({
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}
-      {submitted && <output className="generation-muted">{t("generation.addedToQueue")}</output>}
       {error && (
         <div className="generation-action-error" role="alert">
           <span>{error}</span>
@@ -193,7 +194,6 @@ export function GenerationActions({
             className="quiet"
             onClick={() => {
               setSubmitError(null);
-              setSubmitted(false);
               estimate.retry();
               void refreshAccount();
               void refreshAccountSummary();

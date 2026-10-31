@@ -1,9 +1,9 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Copy, Download, Focus, ImageOff, Info, Minus, Plus, ArrowDownToLine } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { ResultSummary } from "@/bindings/generation";
-import { Button, IconButton } from "@/shared/ui";
+import { Button, IconButton, notify } from "@/shared/ui";
 import { useMediaContent } from "@/features/media/use-media-content";
 import { resultFilename } from "./result-file";
 import { ImageResultActions } from "./image-result-actions";
@@ -77,12 +77,6 @@ export function ResultCanvas({
 
   const image = useMediaContent(result.assetId, result.mimeType, result.available);
   const [zoom, setZoom] = useState(1);
-  const [copyState, setCopyState] = useState<"copied" | "failed" | null>(null);
-  useEffect(() => {
-    if (!copyState) return;
-    const timer = setTimeout(() => setCopyState(null), 2500);
-    return () => clearTimeout(timer);
-  }, [copyState]);
   const [decodedUrl, setDecodedUrl] = useState<string | null>(null);
   const decoded = Boolean(image.url && !image.error && decodedUrl === image.url);
   const canZoom = Boolean(image.url && !image.error);
@@ -91,9 +85,9 @@ export function ResultCanvas({
     if (result.seed === null) return;
     try {
       await navigator.clipboard.writeText(String(result.seed));
-      setCopyState("copied");
+      notify(() => t("generation.seedCopied"), "copy-seed");
     } catch {
-      setCopyState("failed");
+      notify(() => t("generation.seedCopyFailed"), "copy-seed", true);
     }
   };
 
@@ -193,11 +187,6 @@ export function ResultCanvas({
           >
             <Copy size={16} />
           </IconButton>
-          {copyState && (
-            <output className="image-copy-status">
-              {copyState === "copied" ? t("generation.seedCopied") : t("generation.seedCopyFailed")}
-            </output>
-          )}
         </div>
       )}
       <div

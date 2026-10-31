@@ -44,7 +44,12 @@ export type WorkbenchControllerOptions = {
 /** Long-lived edit and operation coordination, independent of routed page lifetimes. */
 export function useWorkbenchController(options: WorkbenchControllerOptions) {
   const { workspace, initialResources, settingsWriter, page, navigate, readOnly } = options;
-  const state = useWorkbench(workspace, initialResources, settingsWriter, navigate);
+  const { account, accountVersion, accountSummaryLoading } = useAccount();
+  const includeQuote = Boolean(account?.configured) && !accountSummaryLoading;
+  const state = useWorkbench(workspace, initialResources, settingsWriter, navigate, {
+    includeQuote,
+    quoteVersion: accountVersion,
+  });
   const {
     setBeforeClose,
     draft,
@@ -61,7 +66,6 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     openLibrary,
     resourceVersion,
   } = state;
-  const { account, accountVersion, accountSummaryLoading } = useAccount();
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const [encoderOpen, setEncoderOpen] = useState(false);
@@ -75,6 +79,8 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     generationDraft,
     quoteRefreshKey,
     Boolean(account?.configured) && !resolving && !resolveError && !accountSummaryLoading,
+    Boolean(account?.configured) && !resolveError && !accountSummaryLoading,
+    state,
   );
   const model = {
     capabilities: state.capabilities,

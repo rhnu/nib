@@ -16,14 +16,28 @@ struct FeedbackSubscription {
 pub(crate) struct DesktopState {
     pub(crate) app: AppState,
     feedback: Arc<Mutex<HashMap<String, FeedbackSubscription>>>,
+    notifications: Arc<crate::notifications::Notifications>,
 }
 
 impl DesktopState {
-    pub(crate) fn new(app: AppState) -> Self {
+    pub(crate) fn new(app: AppState, handle: tauri::AppHandle) -> Self {
         Self {
+            notifications: Arc::new(crate::notifications::Notifications::new(
+                handle,
+                app.clone(),
+            )),
             app,
             feedback: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Attaches the host observer before a command can enqueue or cancel work.
+    pub(crate) fn generation(
+        &self,
+    ) -> Result<Arc<nib_app::jobs::JobQueue>, nib_app::jobs::JobError> {
+        let queue = self.app.generation()?;
+        self.notifications.start(Arc::clone(&queue))?;
+        Ok(queue)
     }
 
     pub(crate) fn begin_feedback(&self, label: String, id: String) -> Result<(), PersistenceError> {

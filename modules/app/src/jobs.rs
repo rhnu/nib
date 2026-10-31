@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) use sqlite::{
     OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission, timestamp,
 };
-use tokio::sync::{Notify, broadcast};
+use tokio::sync::{Notify, broadcast, watch};
 pub use vibe::{VibeEncodingCandidate, VibeEncodingOutcome};
 
 use crate::{
@@ -422,6 +422,7 @@ pub struct JobQueue {
     clients: Arc<dyn SdkClientProvider>,
     tokenizers: Arc<Tokenizers>,
     feedback: broadcast::Sender<JobFeedback>,
+    status_changed: watch::Sender<()>,
     wake: Notify,
     worker_started: AtomicBool,
     failed: AtomicBool,
@@ -447,6 +448,7 @@ impl JobQueue {
     ) -> Result<Arc<Self>, JobError> {
         store.interrupt_jobs()?;
         let (feedback, _) = broadcast::channel(16);
+        let (status_changed, _) = watch::channel(());
         Ok(Arc::new(Self {
             store,
             resolver,
@@ -456,6 +458,7 @@ impl JobQueue {
             clients,
             tokenizers,
             feedback,
+            status_changed,
             wake: Notify::new(),
             worker_started: AtomicBool::new(false),
             failed: AtomicBool::new(false),
@@ -469,11 +472,22 @@ impl JobQueue {
 
     pub fn subscribe(&self) -> broadcast::Receiver<JobFeedback> { self.feedback.subscribe() }
 
+    /// Signals durable queue changes without copying previews or transient SDK observations.
+    /// Changes may coalesce; observers must reread retained state.
+    pub fn subscribe_status(&self) -> watch::Receiver<()> { self.status_changed.subscribe() }
+
     /// Local resolution, token counts and estimation require no credentials or network.
     /// # Errors
     /// Returns resource, SDK validation, image or tokenizer failures.
     pub fn quote(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
         self.quote_draft(draft)
+    }
+
+    /// Quotes an already resolved image-generation snapshot without rereading its resources.
+    /// # Errors
+    /// Returns source, SDK validation, image or tokenizer failures.
+    pub fn quote_resolved(&self, resolved: ResolvedDraft) -> Result<GenerationQuote, JobError> {
+        self.quote_generation_resolved(resolved)
     }
 
     /// Persists fixed inputs before waking the sole worker.
@@ -550,6 +564,7 @@ impl JobQueue {
             "queued generation operation"
         );
         self.wake.notify_one();
+        self.status_changed.send_replace(());
         Ok(batch)
     }
 
@@ -606,6 +621,8 @@ impl JobQueue {
     /// Returns missing task or storage failures.
     pub fn cancel(&self, id: &str) -> Result<JobRecord, JobError> {
         let record = self.store.cancel_job(id)?;
+        self.status_changed.send_replace(());
+        drop(self.feedback.send(JobFeedback::ResyncRequired));
         if let Some(active) = self
             .active
             .lock()
@@ -634,6 +651,8 @@ impl JobQueue {
         if let Err(error) = self.store.interrupt_jobs() {
             tracing::error!(error=%error,"cannot interrupt retained jobs after queue failure");
         }
+        self.status_changed.send_replace(());
+        drop(self.feedback.send(JobFeedback::ResyncRequired));
         *self
             .active
             .lock()

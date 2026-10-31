@@ -37,6 +37,8 @@ tauri = "2.12.4"
 tauri-build = "2.7.3"
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-opener = "2.7.2"
+tauri-plugin-notification = "2.8.0"
+sys-locale = "0.3.2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tokio = { version = "1.54.1", features = ["rt", "sync", "macros", "time"] }

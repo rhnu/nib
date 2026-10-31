@@ -9,3 +9,5 @@ export { FilePicker } from "./file-picker";
 
 export { NumberSlider } from "./number-slider";
 export { Select, type SelectOption } from "./select";
+
+export { notify, Notifications } from "./notifications";

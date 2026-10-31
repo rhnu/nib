@@ -228,7 +228,9 @@ pub(crate) async fn save_draft(
 pub(crate) async fn resolve_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
+    include_quote: bool,
 ) -> Result<DraftAnalysis, ApiError> {
+    let desktop = state.inner().clone();
     with_database(state, move |database| {
         nib_app::session::validate_draft(&draft).map_err(|error| ApiError {
             validation_fields: Vec::new(),
@@ -241,9 +243,30 @@ pub(crate) async fn resolve_draft(
         let resolved = database
             .read_resources(|reader| prompt::resolve_draft(&draft, reader))
             .map_err(persistence_error)?;
+        let (quote, quote_error) = if include_quote {
+            match desktop.generation().and_then(|runtime| {
+                if matches!(
+                    &draft.inputs.operation,
+                    nib_app::session::CreationOperation::TextToImage
+                        | nib_app::session::CreationOperation::ImageToImage { .. }
+                        | nib_app::session::CreationOperation::Inpainting { .. }
+                ) {
+                    runtime.quote_resolved(resolved.clone())
+                } else {
+                    runtime.quote(&draft)
+                }
+            }) {
+                Ok(quote) => (Some(quote), None),
+                Err(error) => (None, Some(crate::generation::generation_error(error))),
+            }
+        } else {
+            (None, None)
+        };
         Ok(DraftAnalysis {
             capabilities: nib_app::api::model_capabilities(&resolved),
             resolved,
+            quote,
+            quote_error,
         })
     })
     .await

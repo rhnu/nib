@@ -1,3 +1,4 @@
+import { JobNotifications } from "./job-notifications";
 import type { ReactNode } from "react";
 import { JobContext, useJobData } from "./job-context";
 import { FeedbackContext } from "./feedback-context";
@@ -14,6 +15,7 @@ export function JobProvider({ children }: { children: ReactNode }) {
   const data = useJobQuery();
   return (
     <JobContext value={data}>
+      <JobNotifications />
       <FeedbackProvider>{children}</FeedbackProvider>
     </JobContext>
   );

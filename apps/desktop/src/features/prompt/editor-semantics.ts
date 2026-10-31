@@ -8,7 +8,7 @@ import {
 } from "@codemirror/view";
 import type { PromptDocument } from "@/bindings/prompt";
 import { t, formatNumber } from "@/shared/i18n";
-import { promptAnalysis } from "./editor-analysis";
+import { promptAnalysis, promptContext, promptPending } from "./editor-analysis";
 import { promptDiagnostics } from "./editor-diagnostics";
 
 type Weight = PromptDocument["analysis"]["spans"][number]["weight"];
@@ -55,7 +55,7 @@ export function semanticDescription(document: PromptDocument | null, position: n
   return messages;
 }
 
-function visibleDecorations(view: EditorView): DecorationSet {
+function visibleDecorations(view: EditorView, diagnostics = false): DecorationSet {
   const document = view.state.field(promptAnalysis);
   if (!document) return Decoration.none;
   const ranges: ReturnType<Decoration["range"]>[] = [];
@@ -75,22 +75,25 @@ function visibleDecorations(view: EditorView): DecorationSet {
     }
   };
 
-  for (const span of document.analysis.spans) {
-    mark(span.from, span.to, weightClass(span.weight));
-  }
-  for (const token of document.analysis.tokens) {
-    if (!["text", "renderedText", "uncertainText"].includes(token.kind)) {
-      mark(token.from, token.to, `prompt-syntax prompt-syntax-${token.kind}`);
+  if (diagnostics) {
+    for (const diagnostic of promptDiagnostics(document)) {
+      mark(
+        diagnostic.from,
+        diagnostic.to,
+        `prompt-diagnostic prompt-diagnostic-${diagnostic.severity}`,
+        diagnostic.message,
+      );
     }
-  }
-  for (const comment of document.comments) mark(comment.from, comment.to, "prompt-comment");
-  for (const diagnostic of promptDiagnostics(document)) {
-    mark(
-      diagnostic.from,
-      diagnostic.to,
-      `prompt-diagnostic prompt-diagnostic-${diagnostic.severity}`,
-      diagnostic.message,
-    );
+  } else {
+    for (const span of document.analysis.spans) {
+      mark(span.from, span.to, weightClass(span.weight));
+    }
+    for (const token of document.analysis.tokens) {
+      if (!["text", "renderedText", "uncertainText"].includes(token.kind)) {
+        mark(token.from, token.to, `prompt-syntax prompt-syntax-${token.kind}`);
+      }
+    }
+    for (const comment of document.comments) mark(comment.from, comment.to, "prompt-comment");
   }
   return Decoration.set(ranges, true);
 }
@@ -98,10 +101,13 @@ function visibleDecorations(view: EditorView): DecorationSet {
 /** Decorations are built only for visible ranges; scrolling never triggers parsing. */
 export const promptSemantics = ViewPlugin.fromClass(
   class {
+    cosmetic: DecorationSet;
+
     decorations: DecorationSet;
 
     constructor(view: EditorView) {
-      this.decorations = visibleDecorations(view);
+      this.cosmetic = visibleDecorations(view);
+      this.decorations = this.cosmetic;
     }
 
     update(update: ViewUpdate) {
@@ -110,24 +116,49 @@ export const promptSemantics = ViewPlugin.fromClass(
         update.viewportChanged ||
         update.transactions.some((transaction) => transaction.effects.length)
       ) {
-        this.decorations = visibleDecorations(update.view);
+        const current = update.state.field(promptAnalysis);
+        if (current) {
+          this.cosmetic = visibleDecorations(update.view);
+        } else if (
+          update.state.field(promptPending) &&
+          update.startState.field(promptContext) === update.state.field(promptContext)
+        ) {
+          // Positions remain cosmetic: diagnostics, completion and hover read only promptAnalysis.
+          this.cosmetic = this.cosmetic.map(update.changes);
+        } else {
+          this.cosmetic = Decoration.none;
+        }
+        const diagnostics = visibleDecorations(update.view, true);
+        const ranges: ReturnType<Decoration["range"]>[] = [];
+        diagnostics.between(0, update.state.doc.length, (from, to, decoration) => {
+          ranges.push(decoration.range(from, to));
+        });
+        this.decorations = this.cosmetic.update({ add: ranges, sort: true });
       }
     }
   },
   { decorations: (plugin) => plugin.decorations },
 );
 
-export const promptSemanticTooltip = hoverTooltip((view, position) => {
-  const messages = semanticDescription(view.state.field(promptAnalysis), position);
-  if (!messages.length) return null;
-  return {
-    pos: position,
-    above: true,
-    create() {
-      const dom = document.createElement("div");
-      dom.className = "prompt-semantic-tooltip";
-      dom.textContent = messages.join(" · ");
-      return { dom };
-    },
-  };
-});
+export const promptSemanticTooltip = hoverTooltip(
+  (view, position) => {
+    const messages = semanticDescription(view.state.field(promptAnalysis), position);
+    if (!messages.length) return null;
+    return {
+      pos: position,
+      above: true,
+      create() {
+        const dom = document.createElement("div");
+        dom.className = "prompt-semantic-tooltip";
+        dom.textContent = messages.join(" · ");
+        return { dom };
+      },
+    };
+  },
+  {
+    hideOn: (transaction) =>
+      transaction.startState.field(promptAnalysis) !== transaction.state.field(promptAnalysis) ||
+      transaction.startState.field(promptContext) !== transaction.state.field(promptContext),
+    hideOnChange: true,
+  },
+);

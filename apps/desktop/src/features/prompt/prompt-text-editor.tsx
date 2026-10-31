@@ -9,6 +9,7 @@ import { LexiconBrowser } from "@/features/lexicon/lexicon-browser";
 import { isCurrentLexicon, lexiconRevision } from "@/features/lexicon/api";
 import { useLexiconStatus } from "@/features/lexicon/use-lexicon-status";
 import { errorMessage } from "@/shared/host/error";
+import { useDelayedPending } from "@/shared/query/use-delayed-pending";
 import type { LexiconFormatTerm, PromptDocument } from "@/bindings/prompt";
 import { promptApi } from "./api";
 import type { PromptContext } from "./analysis-protocol";
@@ -70,19 +71,33 @@ export function PromptTextEditor({
   const sourceInvalid = Boolean(analysis.document?.sourceDiagnostics.length);
   const tokenText = analysis.document?.text;
   const tokenReady = tokenText !== undefined && !sourceInvalid;
+  const analysisContext = JSON.stringify([
+    model,
+    context,
+    liveAnalysis.profile,
+    analysisDocument !== undefined,
+  ]);
+  const countAvailable = Boolean(model) && !sourceInvalid && !analysis.error;
   const query = useQuery({
-    queryKey: ["prompt-tokens", model, tokenText, "content_only"],
+    queryKey: ["prompt-tokens", model, tokenText, "content_only", analysisContext],
     // Rust already removed source comments. The SDK receives native prompt text exactly once.
     queryFn: () => promptApi.inspectTokens(model!, tokenText!, "content_only"),
     enabled: Boolean(model) && tokenReady,
+    placeholderData: (previous, previousQuery) =>
+      countAvailable && previousQuery?.queryKey[4] === analysisContext ? previous : undefined,
     staleTime: Infinity,
     gcTime: 60_000,
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const count = tokenReady ? query.data?.count.used : undefined;
+  const count = countAvailable && !query.isError ? query.data?.count.used : undefined;
   const tokenError = tokenReady && query.error ? errorMessage(query.error) : "";
-  const pending = analysis.pending || (Boolean(model) && tokenReady && query.isPending);
+  const pending =
+    analysis.pending ||
+    (Boolean(model) &&
+      tokenReady &&
+      (query.isPending || query.isFetching || query.isPlaceholderData));
+  const loadingIndicator = useDelayedPending(pending);
   const status = analysis.error
     ? t("prompt.analysisFailed", { value0: analysis.error })
     : sourceInvalid
@@ -93,7 +108,7 @@ export function PromptTextEditor({
           ? t("prompt.tokenCountFailed", { value0: tokenError })
           : count === undefined
             ? t("prompt.countingTokens")
-            : t("prompt.tokenCount", { count, formattedCount: formatNumber(count) });
+            : `${t("prompt.tokenCount", { count, formattedCount: formatNumber(count) })}${loadingIndicator ? ` · ${t("prompt.updating")}` : ""}`;
   const { hostRef, viewRef, disabledProbe } = usePromptEditor(
     {
       value,
@@ -104,6 +119,8 @@ export function PromptTextEditor({
       readOnly: readOnly || !onChange,
       language: i18n.resolvedLanguage ?? i18n.language,
       profile: liveAnalysis.profile,
+      analysisContext,
+      analysisPending: analysis.pending,
     },
     analysis.document,
     onChange,
@@ -211,6 +228,7 @@ export function PromptTextEditor({
         <Popover.Trigger
           className={`prompt-token-indicator icon-button${hasIssue ? " danger" : ""}`}
           disabled={disabled}
+          aria-busy={pending}
           aria-label={`${label} · ${status}${diagnostics.length ? ` · ${t("prompt.diagnosticCount", { count: diagnostics.length })}` : ""}`}
           openOnHover
           onFocus={(event) => {
@@ -219,7 +237,7 @@ export function PromptTextEditor({
         >
           {hasIssue ? (
             <TriangleAlert size={13} aria-hidden />
-          ) : pending ? (
+          ) : loadingIndicator ? (
             <LoaderCircle size={13} className="spin" aria-hidden />
           ) : (
             <Circle size={13} aria-hidden />

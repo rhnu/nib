@@ -15,10 +15,10 @@ export function GenerationProvider({
   submissionBlocked?: boolean;
 }) {
   return (
-    <SubmissionProvider beforeSubmit={beforeSubmit} submissionBlocked={submissionBlocked}>
-      <JobProvider>
+    <JobProvider>
+      <SubmissionProvider beforeSubmit={beforeSubmit} submissionBlocked={submissionBlocked}>
         <ResultViewsProvider>{children}</ResultViewsProvider>
-      </JobProvider>
-    </SubmissionProvider>
+      </SubmissionProvider>
+    </JobProvider>
   );
 }

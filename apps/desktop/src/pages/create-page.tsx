@@ -54,11 +54,13 @@ export function CreatePage() {
     restoreVersion,
   } = state;
   const tokenStatus =
-    resolving || estimate.loading
-      ? t("prompt.countingTokens")
-      : resolveError ||
-        estimate.error ||
-        (!estimate.quote ? t("prompt.tokenUsageUnavailable") : undefined);
+    resolveError ||
+    estimate.error ||
+    (estimate.loadingIndicator
+      ? t(estimate.displayQuote ? "prompt.updating" : "prompt.countingTokens")
+      : !estimate.refreshing && !estimate.displayQuote
+        ? t("prompt.tokenUsageUnavailable")
+        : undefined);
   return (
     <div className="workspace-body">
       <aside className="generation-sidebar" aria-label={t("workbench.generationSidebar")}>
@@ -70,9 +72,9 @@ export function CreatePage() {
               models={workspace.models}
               capabilities={model.capabilities}
               diagnostics={estimate.quote?.diagnostics ?? []}
-              tokens={estimate.quote?.tokens ?? []}
+              tokens={estimate.displayQuote?.tokens ?? []}
               tokenStatus={tokenStatus}
-              tokensPending={resolving || estimate.loading}
+              tokensPending={resolving || estimate.refreshing}
               errorFields={estimate.fields}
               resolved={resolved}
               resolving={resolving}
@@ -96,9 +98,9 @@ export function CreatePage() {
               onPosition={openPositions}
               outputIssues={outputIssues}
               inheritedUseCoords={estimate.quote?.resolved?.settings.useCoords}
-              quote={estimate.quote}
+              quote={estimate.displayQuote}
               tokenStatus={tokenStatus}
-              tokensPending={resolving || estimate.loading}
+              tokensPending={resolving || estimate.refreshing}
             />
           )}
           {model.error && (

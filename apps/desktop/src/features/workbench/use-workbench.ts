@@ -6,7 +6,7 @@ import { useCloseGuard, type CloseWriter } from "@/shared/host/use-close-guard";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import { useResourceCache } from "@/features/library/use-resource-cache";
 import type { InsertTarget } from "@/features/library/resource-library";
-import { useResolution } from "@/features/prompt/use-resolution";
+import { useResolution, type ResolutionEvaluation } from "@/features/prompt/use-resolution";
 import { emptySettings } from "@/features/prompt/model";
 import { DraftWriter } from "./draft-writer";
 import { workbenchApi } from "./api";
@@ -19,6 +19,7 @@ export function useWorkbench(
   initialResources: Map<string, Resource>,
   settingsWriter: CloseWriter,
   navigate: (page: Draft["activePage"]) => void,
+  evaluation: ResolutionEvaluation,
 ) {
   const [writer] = useState(() => {
     const value = new DraftWriter<Draft>(workbenchApi.saveDraft);
@@ -37,7 +38,7 @@ export function useWorkbench(
     retryResources,
   } = useResourceCache(initialResources, draft);
   const generationDraft = useGenerationDraft(draft);
-  const resolution = useResolution(generationDraft, resourceVersion);
+  const resolution = useResolution(generationDraft, resourceVersion, evaluation);
   const [error, setError] = useMessageState();
   const [librarySession] = useState(createLibrarySessionStore);
   const [lexiconSession] = useState(createLexiconSessionStore);

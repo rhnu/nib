@@ -6,6 +6,7 @@ import { jobsApi } from "./api";
 import { resultsApi } from "../results/api";
 import { mergeSummaries, summarizeJob } from "./summary";
 import { refreshHistory } from "./paged-history";
+import { BatchNotifications } from "./batch-notifications";
 import { recoverMissingJobs } from "./recover-missing-jobs";
 
 export const jobQueryKey = ["jobs"] as const;
@@ -16,6 +17,7 @@ const pageSize = 50;
 /** Durable state is queried once; stream notifications invalidate the matching queries. */
 export function useJobQuery() {
   const client = useQueryClient();
+  const [batchNotifications] = useState(() => new BatchNotifications());
   const [lastSubmission, setLastSubmission] = useState<GenerationBatch | null>(null);
   const jobsQuery = useInfiniteQuery({
     queryKey: jobQueryKey,
@@ -94,6 +96,7 @@ export function useJobQuery() {
   const acceptJob = useCallback(
     (record: JobRecord) => {
       const summary = summarizeJob(record);
+      batchNotifications.track([summary]);
       // Cancel the old read before optimistic durable state is installed; its late IPC reply is discarded.
       void client.cancelQueries({ queryKey: jobQueryKey });
       void client.cancelQueries({ queryKey: ["job", record.id], exact: true });
@@ -119,7 +122,7 @@ export function useJobQuery() {
       void client.invalidateQueries({ queryKey: resultQueryKey });
       if (summary.status === "completed") void client.invalidateQueries({ queryKey: ["media"] });
     },
-    [client],
+    [client, batchNotifications],
   );
 
   const acceptBatch = useCallback(
@@ -148,6 +151,7 @@ export function useJobQuery() {
     jobs,
     results,
     lastSubmission,
+    batchNotifications,
     acceptJob,
     acceptBatch,
     refresh,

@@ -8,7 +8,12 @@ import {
   synchronizePromptValue,
   type EditorConfiguration,
 } from "./editor-base";
-import { setPromptAnalysis, setPromptProfile } from "./editor-analysis";
+import {
+  setPromptAnalysis,
+  setPromptContext,
+  setPromptPending,
+  setPromptProfile,
+} from "./editor-analysis";
 
 /** A view lives for one mount. Configuration and controlled updates retain history and selection. */
 export function usePromptEditor(
@@ -52,8 +57,10 @@ export function usePromptEditor(
             // The matching result may have arrived while the external value was deferred by IME.
             view.dispatch({
               effects: [
+                setPromptContext.of(current.current.configuration.analysisContext),
                 setPromptAnalysis.of(current.current.document),
                 setPromptProfile.of(current.current.configuration.profile ?? null),
+                setPromptPending.of(current.current.configuration.analysisPending),
               ],
             });
           }
@@ -119,15 +126,23 @@ export function usePromptEditor(
   }, [compartments, configuration.language]);
   useEffect(() => {
     const view = viewRef.current;
-    if (view && view.state.doc.toString() === configuration.value) {
+    if (view) {
       view.dispatch({
         effects: [
-          setPromptAnalysis.of(document),
+          setPromptContext.of(configuration.analysisContext),
+          setPromptAnalysis.of(view.state.doc.toString() === configuration.value ? document : null),
           setPromptProfile.of(configuration.profile ?? null),
+          setPromptPending.of(configuration.analysisPending),
         ],
       });
     }
-  }, [configuration.value, configuration.profile, document]);
+  }, [
+    configuration.value,
+    configuration.profile,
+    configuration.analysisContext,
+    configuration.analysisPending,
+    document,
+  ]);
 
   return { hostRef, viewRef, disabledProbe };
 }

@@ -99,7 +99,7 @@ pub(crate) async fn with_generation<T: Send + 'static>(
     let guard = state.app.read_access().await;
     blocking(move || {
         let _guard = guard;
-        let runtime = state.app.generation().map_err(generation_error)?;
+        let runtime = state.generation().map_err(generation_error)?;
         action(runtime)
     })
     .await
@@ -117,7 +117,7 @@ async fn with_generation_write<T: Send + 'static>(
         .map_err(crate::commands::persistence_error)?;
     blocking(move || {
         let _guard = guard;
-        let runtime = state.app.generation().map_err(generation_error)?;
+        let runtime = state.generation().map_err(generation_error)?;
         action(runtime)
     })
     .await

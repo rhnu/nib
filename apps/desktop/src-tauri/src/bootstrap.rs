@@ -9,7 +9,11 @@ use crate::{
     storage::StorageManager,
 };
 
-pub(crate) fn start(base: &Path, development: bool) -> anyhow::Result<DesktopState> {
+pub(crate) fn start(
+    base: &Path,
+    development: bool,
+    handle: tauri::AppHandle,
+) -> anyhow::Result<DesktopState> {
     let storage = Arc::new(StorageManager::open(base, development)?);
     let credentials = Arc::new(NativeCredentials::new(development, Arc::clone(&storage)));
     let app = Bootstrap {
@@ -21,5 +25,5 @@ pub(crate) fn start(base: &Path, development: bool) -> anyhow::Result<DesktopSta
         resources_directory: base.join("resources"),
     }
     .start()?;
-    Ok(DesktopState::new(app))
+    Ok(DesktopState::new(app, handle))
 }

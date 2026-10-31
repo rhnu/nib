@@ -1,20 +1,20 @@
 //! Resolve application asset identities into SDK inputs at local preparation boundaries.
 
 use novelai_bridge::{
-    AnlasPricingContext, CharacterReference, EncodeVibeRequest, GenerateImageRequest,
-    GenerationDelivery, GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet,
-    RunDirectorToolRequest, UpscaleImageRequest, VibeReference, VibeTransferConfig,
+    CharacterReference, EncodeVibeRequest, GenerateImageRequest, GenerationDelivery,
+    GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet, RunDirectorToolRequest,
+    UpscaleImageRequest, VibeReference, VibeTransferConfig,
 };
 
-use super::{
-    FrozenSubmission, GenerationQuote, JobError, JobQueue, ParameterDiagnostic, TokenFieldUsage,
-};
+use super::{FrozenSubmission, JobError, JobQueue, ParameterDiagnostic};
 use crate::{
     api::UserMessage,
     media::AssetReader,
     prompt::{ResolvedDraft, ResolvedSettings},
     session::{CreationInputs, CreationOperation, Draft, VibeInput, validate_draft},
 };
+
+mod quote;
 
 /// Kept only for the current local preparation; frozen records contain no image payloads.
 enum QuoteBasis {
@@ -24,7 +24,49 @@ enum QuoteBasis {
     Upscale(Option<u32>),
 }
 
+/// Shared SDK validation and effective fields; persistence-only data is built on submission.
+struct GenerationPreparation {
+    resolved: ResolvedDraft,
+    prepared: novelai_bridge::PreparedGeneration,
+    diagnostics: Vec<ParameterDiagnostic>,
+    stream_body: Option<Vec<u8>>,
+}
+
+impl GenerationPreparation {
+    fn freeze(
+        mut self,
+    ) -> Result<(FrozenSubmission, novelai_bridge::PreparedGeneration), JobError> {
+        let mut request = self.prepared.normalized().request().clone();
+        request.core.seed = self.prepared.resolved_seed();
+        freeze_extra_noise_seed(
+            &mut self.resolved.inputs,
+            &self.prepared,
+            self.stream_body.as_deref(),
+        )?;
+        // Persist only SDK parameters and immutable asset IDs, never copied image payloads.
+        request.operation = GenerationInput::TextToImage;
+        request.references = None;
+        let submission = FrozenSubmission::Generation {
+            seed: request.core.seed,
+            resolved: Box::new(self.resolved),
+            request: Box::new(request),
+            diagnostics: self.diagnostics,
+        };
+        Ok((submission, self.prepared))
+    }
+}
+
 impl JobQueue {
+    fn resolve_generation(&self, draft: &Draft) -> Result<ResolvedDraft, JobError> {
+        validate_draft(draft).map_err(|error| {
+            JobError::Invalid(UserMessage::Validation {
+                field: error.field,
+                message: Box::new(error.message),
+            })
+        })?;
+        Ok(self.resolver.resolve(draft)?)
+    }
+
     pub(super) fn freeze(&self, draft: &Draft) -> Result<FrozenSubmission, JobError> {
         self.prepare_submission(draft)
             .map(|(submission, _)| submission)
@@ -107,14 +149,9 @@ impl JobQueue {
                 Ok((submission, QuoteBasis::Upscale(prepared.estimated_cost())))
             },
             _ => {
-                validate_draft(draft).map_err(|error| {
-                    JobError::Invalid(UserMessage::Validation {
-                        field: error.field,
-                        message: Box::new(error.message),
-                    })
-                })?;
-                let resolved = self.resolver.resolve(draft)?;
-                let (submission, prepared) = prepare_generation(resolved, self.assets.as_ref())?;
+                let resolved = self.resolve_generation(draft)?;
+                let preparation = prepare_generation(resolved, self.assets.as_ref())?;
+                let (submission, prepared) = preparation.freeze()?;
                 Ok((submission, QuoteBasis::Generation(Box::new(prepared))))
             },
         }
@@ -131,135 +168,19 @@ impl JobQueue {
             if !(1..=8).contains(&count) {
                 return Err(JobError::Invalid(UserMessage::RequestCountRange));
             }
-            validate_draft(draft).map_err(|error| {
-                JobError::Invalid(UserMessage::Validation {
-                    field: error.field,
-                    message: Box::new(error.message),
-                })
-            })?;
-            let mut resolved = self.resolver.resolve(draft)?;
+            let mut resolved = self.resolve_generation(draft)?;
             resolved.inputs.request_count = 1;
             // Resource resolution happens once. Each SDK preparation independently resolves auto seeds.
             (0..count)
                 .map(|_| {
-                    prepare_generation(resolved.clone(), self.assets.as_ref()).map(|value| value.0)
+                    prepare_generation(resolved.clone(), self.assets.as_ref())?
+                        .freeze()
+                        .map(|value| value.0)
                 })
                 .collect()
         } else {
             self.prepare_submission(draft).map(|value| vec![value.0])
         }
-    }
-
-    pub(super) fn quote_draft(&self, draft: &Draft) -> Result<GenerationQuote, JobError> {
-        let (submission, basis) = self.prepare_submission(draft)?;
-        let account = self.clients.account_sample();
-        let context = account
-            .as_ref()
-            .map_or_else(AnlasPricingContext::default, |sample| {
-                AnlasPricingContext::from(&sample.subscription)
-            });
-        let operation = submission.operation();
-        let diagnostics = submission.diagnostics().to_vec();
-        let mut geometry = None;
-        let mut sample_limit = None;
-        let (estimated_anlas, too_expensive, tokens) = match basis {
-            QuoteBasis::Generation(prepared) => {
-                let plan = prepared.normalized();
-                geometry = Some(*plan.geometry());
-                sample_limit = Some(
-                    plan.request()
-                        .descriptor()
-                        .sample_limit(plan.geometry().pricing_size),
-                );
-                let estimate =
-                    novelai_bridge::estimate_anlas_cost(plan.anlas_estimate_input(context));
-                let usage = plan
-                    .count_tokens(&self.tokenizers)
-                    .map_err(novelai_bridge::BridgeError::from)?;
-                let tokens = token_usage_fields(usage);
-                (Some(estimate.total), estimate.is_too_expensive(), tokens)
-            },
-            QuoteBasis::Director(prepared) => (
-                Some(prepared.estimate_anlas_cost(context)),
-                false,
-                Vec::new(),
-            ),
-            QuoteBasis::EncodeVibe(model) => (
-                Some(
-                    novelai_bridge::estimate_anlas_cost(novelai_bridge::AnlasEstimateInput {
-                        model,
-                        pending_vibe_encodes: 1,
-                        context,
-                        ..Default::default()
-                    })
-                    .vibe_encoding,
-                ),
-                false,
-                Vec::new(),
-            ),
-            QuoteBasis::Upscale(cost) => (cost, false, Vec::new()),
-        };
-        let resolved = match submission {
-            FrozenSubmission::Generation { resolved, .. } => Some(*resolved),
-            _ => None,
-        };
-        let request_count = if operation == super::OperationKind::Generation {
-            draft.inputs.request_count
-        } else {
-            1
-        };
-        if !(1..=8).contains(&request_count) {
-            return Err(JobError::Invalid(UserMessage::RequestCountRange));
-        }
-        let total_samples = resolved.as_ref().map_or(request_count, |resolved| {
-            resolved.settings.n_samples * request_count
-        });
-        let per_request_estimated_anlas = estimated_anlas;
-        let estimated_anlas = estimated_anlas.map(|cost| cost.saturating_mul(request_count));
-        let account_sampled_at = account.as_ref().map(|sample| sample.sampled_at);
-        Ok(GenerationQuote {
-            request_count,
-            total_samples,
-            sample_limit,
-            per_request_estimated_anlas,
-            operation,
-            resolved,
-            estimated_anlas,
-            geometry,
-            account_specific: account.is_some(),
-            too_expensive,
-            tokens,
-            diagnostics,
-            account_sampled_at,
-        })
-    }
-}
-
-/// Projects per-conditioning usage without combining independent SDK prompt budgets.
-fn token_usage_fields(usage: novelai_bridge::PromptTokenUsage) -> Vec<TokenFieldUsage> {
-    let mut tokens = vec![
-        token_field("prompt".to_owned(), usage.prompt),
-        token_field("negativePrompt".to_owned(), usage.negative_prompt),
-    ];
-    for character in usage.characters {
-        tokens.push(token_field(
-            format!("characters[{}].prompt", character.index),
-            character.prompt,
-        ));
-        tokens.push(token_field(
-            format!("characters[{}].negativePrompt", character.index),
-            character.negative_prompt,
-        ));
-    }
-    tokens
-}
-
-fn token_field(field: String, count: novelai_bridge::TokenCount) -> TokenFieldUsage {
-    TokenFieldUsage {
-        field,
-        used: count.used,
-        limit: count.limit,
-        over_limit: count.is_over_limit(),
     }
 }
 
@@ -268,13 +189,15 @@ pub(crate) fn prepare_submission(
     resolved: ResolvedDraft,
     assets: &dyn AssetReader,
 ) -> Result<FrozenSubmission, JobError> {
-    prepare_generation(resolved, assets).map(|(submission, _)| submission)
+    prepare_generation(resolved, assets)?
+        .freeze()
+        .map(|value| value.0)
 }
 
 fn prepare_generation(
     mut resolved: ResolvedDraft,
     assets: &dyn AssetReader,
-) -> Result<(FrozenSubmission, novelai_bridge::PreparedGeneration), JobError> {
+) -> Result<GenerationPreparation, JobError> {
     validate_resolved_prompts(&resolved)?;
     let request = hydrate(resolved.generation_request(), &resolved.inputs, assets)?;
     let prepared = request.normalize()?.prepare()?;
@@ -332,15 +255,15 @@ fn prepare_generation(
             },
         })
         .collect();
-    let mut request = normalized.request().clone();
-    request.core.seed = prepared.resolved_seed();
+    let request = normalized.request();
     resolved
         .positive
         .clone_from(&normalized.resolved_prompts().prompt);
     resolved
         .negative
         .clone_from(&normalized.resolved_prompts().negative_prompt);
-    resolved.settings = ResolvedSettings::from_request(&request);
+    resolved.settings = ResolvedSettings::from_request(request);
+    resolved.settings.seed = prepared.resolved_seed();
     if request.characters.is_none() {
         resolved.characters.clear();
         resolved
@@ -361,18 +284,13 @@ fn prepare_generation(
             source.negative.clone_from(&effective.negative_prompt);
         }
     }
-    sync_inputs(&mut resolved.inputs, &request);
-    freeze_extra_noise_seed(&mut resolved.inputs, &prepared, stream_body.as_deref())?;
-    // Persist only SDK parameters and immutable asset IDs, never copied image payloads.
-    request.operation = GenerationInput::TextToImage;
-    request.references = None;
-    let submission = FrozenSubmission::Generation {
-        seed: request.core.seed,
-        resolved: Box::new(resolved),
-        request: Box::new(request),
+    sync_inputs(&mut resolved.inputs, request);
+    Ok(GenerationPreparation {
+        resolved,
+        prepared,
         diagnostics,
-    };
-    Ok((submission, prepared))
+        stream_body,
+    })
 }
 
 /// Rejects editable source failures before preparing media or SDK parameters.

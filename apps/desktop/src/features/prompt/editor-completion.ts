@@ -201,6 +201,7 @@ export const promptCompletion = [
           return;
         clearTimeout(this.timer);
         this.timer = setTimeout(() => {
+          if (!this.view.state.field(promptAnalysis)) closeCompletion(this.view);
           if (
             this.view.hasFocus &&
             !this.view.compositionStarted &&

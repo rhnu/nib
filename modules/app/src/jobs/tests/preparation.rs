@@ -163,6 +163,152 @@ fn implicit_noise_seed_is_frozen_from_the_sdk_effective_payload() {
 }
 
 #[test]
+fn quote_keeps_effective_inputs_and_leaves_implicit_noise_seed_for_submission() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let state = Arc::get_mut(&mut queue).unwrap();
+    state.assets = Arc::new(ImageAssets);
+    state.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Text {
+        id: "prompt".to_owned(),
+        enabled: true,
+        text: "a bird".to_owned(),
+    });
+    draft.settings.seed = Some(123);
+    draft.inputs.operation = crate::session::CreationOperation::ImageToImage {
+        asset_id: "source".to_owned(),
+        strength: 4.0,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: None,
+        add_original_image: true,
+        max_enhance: false,
+    };
+    for stream in [None, Some(novelai_bridge::StreamMode::Sse)] {
+        draft.inputs.stream = stream;
+        let quote = queue.quote(&draft).unwrap();
+        let frozen = queue.freeze(&draft).unwrap();
+        let quoted = quote.resolved.unwrap();
+        let submitted = frozen.resolved().unwrap();
+        assert_eq!(quoted.settings, submitted.settings);
+        assert_eq!(quote.diagnostics, frozen.diagnostics());
+        assert_eq!(quoted.inputs.stream, submitted.inputs.stream);
+        let crate::session::CreationOperation::ImageToImage {
+            strength,
+            extra_noise_seed,
+            ..
+        } = quoted.inputs.operation
+        else {
+            panic!("expected quoted image input")
+        };
+        assert!(strength < 1.0);
+        assert!(extra_noise_seed.is_none());
+        assert!(matches!(
+            submitted.inputs.operation,
+            crate::session::CreationOperation::ImageToImage {
+                extra_noise_seed: Some(_),
+                ..
+            }
+        ));
+    }
+}
+
+#[test]
+fn quote_keeps_source_and_input_media_failures() {
+    let (queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Text {
+        id: "source".to_owned(),
+        enabled: true,
+        text: "cat /* unfinished".to_owned(),
+    });
+    assert!(matches!(
+        queue.quote(&draft),
+        Err(JobError::PromptSource { .. })
+    ));
+    draft.composition.positive.clear();
+    draft.inputs.operation = crate::session::CreationOperation::ImageToImage {
+        asset_id: "missing".to_owned(),
+        strength: 0.5,
+        noise: 0.0,
+        color_correct: true,
+        extra_noise_seed: None,
+        add_original_image: true,
+        max_enhance: false,
+    };
+    assert!(matches!(
+        queue.quote(&draft),
+        Err(JobError::InputMedia { .. })
+    ));
+}
+
+#[test]
+fn quote_keeps_unsupported_stream_delivery_normalized_to_images() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Text {
+        id: "prompt".to_owned(),
+        enabled: true,
+        text: "a bird".to_owned(),
+    });
+    draft.settings.model = Some(novelai_bridge::Model::NaiDiffusion3);
+    draft.inputs.stream = Some(novelai_bridge::StreamMode::Sse);
+    let quote = queue.quote(&draft).unwrap();
+    assert!(quote.resolved.unwrap().inputs.stream.is_none());
+}
+
+#[test]
+fn quote_resolved_uses_the_supplied_resource_snapshot_without_rereading() {
+    struct CountedResolver(Arc<std::sync::atomic::AtomicUsize>);
+    impl SubmissionResolver for CountedResolver {
+        fn resolve(&self, _draft: &Draft) -> Result<ResolvedDraft, PersistenceError> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Err(PersistenceError::NotFound {
+                kind: "resource",
+                id: "removed after resolution".to_owned(),
+            })
+        }
+    }
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let state = Arc::get_mut(&mut queue).unwrap();
+    state.resolver = Arc::new(CountedResolver(Arc::clone(&reads)));
+    state.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut resolved = submission().resolved().unwrap().clone();
+    resolved.positive = "snapshot prompt".to_owned();
+    resolved.settings.quality = novelai_bridge::QualityPreset::None;
+    resolved.inputs.request_count = 3;
+    let quote = queue.quote_resolved(resolved).unwrap();
+    assert_eq!(reads.load(Ordering::Relaxed), 0);
+    assert_eq!(quote.resolved.unwrap().positive, "snapshot prompt");
+    assert_eq!(quote.request_count, 3);
+    assert_eq!(quote.total_samples, 3);
+}
+
+#[test]
+fn upscale_quote_ignores_unrelated_prompt_dependencies() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let mut draft = Draft::default();
+    draft.composition.positive.push(PromptNode::Chunk {
+        id: "unrelated".to_owned(),
+        enabled: true,
+        resource_id: "absent".to_owned(),
+        override_text: None,
+    });
+    draft.inputs.operation = crate::session::CreationOperation::Upscale {
+        asset_id: "source".to_owned(),
+        model: novelai_bridge::Model::default(),
+        declared_blur_sigma: novelai_bridge::UpscaleBlurSigma::default(),
+    };
+    let quote = queue.quote(&draft).unwrap();
+    assert_eq!(quote.operation, OperationKind::Upscale);
+    assert!(quote.resolved.is_none());
+    assert!(quote.tokens.is_empty());
+}
+
+#[test]
 fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
     let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
     Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);

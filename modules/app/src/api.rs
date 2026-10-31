@@ -38,6 +38,8 @@ pub struct WorkspaceSnapshot {
 pub struct DraftAnalysis {
     pub resolved: crate::prompt::ResolvedDraft,
     pub capabilities: Option<ModelCapabilities>,
+    pub quote: Option<crate::jobs::GenerationQuote>,
+    pub quote_error: Option<ApiError>,
 }
 
 /// Actionable error categories at the IPC boundary.

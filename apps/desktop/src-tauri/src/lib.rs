@@ -11,6 +11,7 @@ mod downloads;
 mod generation;
 mod lexicon;
 mod media;
+mod notifications;
 mod sdk;
 mod settings;
 mod state;
@@ -28,10 +29,11 @@ pub fn run() -> anyhow::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let development = tauri::is_dev();
             let base = application_base(app.handle(), development)?;
-            let desktop = bootstrap::start(&base, development)?;
+            let desktop = bootstrap::start(&base, development, app.handle().clone())?;
             app.manage(desktop);
             Ok(())
         })

@@ -209,7 +209,9 @@ export const generation = {
   maxEnhanceNotApplied:
     "The SDK did not retain Max Enhance. Switch to a supported model or explicitly choose regular image-to-image before submitting.",
   costLimitExceeded: "Cost limit exceeded",
-  addedToQueue: "Added to sequential queue",
+  working: "Working…",
+  batchCompleted: "Batch completed ({{count}} requests)",
+  batchFailed: "Batch finished with errors ({{count}} requests)",
   locateParameter: "Locate parameter",
   upscaleLabel: "Upscale · {{value0}}",
   emotion: "Emotion",

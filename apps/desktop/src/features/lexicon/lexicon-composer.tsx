@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
 import { ArrowDown, ArrowUp, ChevronDown, Copy, X } from "lucide-react";
 import type { PromptSyntaxProfile } from "@/bindings/prompt";
-import { Button, IconButton, Notice } from "@/shared/ui";
+import { Button, IconButton, Notice, notify } from "@/shared/ui";
 import { formatNumber, t, useMessageState, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { formatLexiconTerms } from "@/features/prompt/format-runtime";
@@ -39,7 +39,6 @@ export function LexiconComposer({
   useTranslation();
   const { selected, invalidated, generation: selectedGeneration } = useStore(store);
   const [error, setError] = useMessageState();
-  const [copied, setCopied] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const valid =
     generation !== null &&
@@ -198,7 +197,7 @@ export function LexiconComposer({
                 setError("");
                 try {
                   await navigator.clipboard.writeText(preview.data!);
-                  setCopied(preview.data!);
+                  notify(() => t("lexicon.copied"), "copy-prompt");
                 } catch (cause) {
                   setError(cause);
                 }
@@ -213,7 +212,6 @@ export function LexiconComposer({
               </Button>
             )}
           </div>
-          {ready && copied === preview.data && <output>{t("lexicon.copied")}</output>}
           {error && <Notice>{error}</Notice>}
         </div>
       </div>

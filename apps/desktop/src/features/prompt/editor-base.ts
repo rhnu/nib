@@ -7,6 +7,8 @@ import {
   promptRevision,
   promptProfile,
   promptInsertionError,
+  promptContext,
+  promptPending,
 } from "./editor-analysis";
 import { promptSemantics, promptSemanticTooltip } from "./editor-semantics";
 import { promptEditorTheme } from "./editor-theme";
@@ -27,6 +29,8 @@ export type EditorConfiguration = {
   readOnly: boolean;
   language: string;
   profile?: PromptSyntaxProfile;
+  analysisContext: string;
+  analysisPending: boolean;
 };
 
 export function editorConfiguration(configuration: EditorConfiguration) {
@@ -68,6 +72,8 @@ export function createPromptEditor(
         EditorView.lineWrapping,
         keymap.of([...defaultKeymap, ...historyKeymap]),
         promptEditorTheme,
+        promptContext,
+        promptPending,
         promptAnalysis,
         promptRevision,
         promptProfile,

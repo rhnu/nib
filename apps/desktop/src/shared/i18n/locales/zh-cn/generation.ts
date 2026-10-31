@@ -203,7 +203,9 @@ export const generation = {
   maxEnhanceNotApplied:
     "SDK 未保留 Max Enhance 操作。请切换支持的模型，或明确选择普通图生图后再提交。",
   costLimitExceeded: "超出费用限制",
-  addedToQueue: "已加入顺序队列",
+  working: "工作中…",
+  batchCompleted: "批次已完成（{{count}} 个请求）",
+  batchFailed: "批次结束，存在失败请求（{{count}} 个请求）",
   locateParameter: "定位参数",
   upscaleLabel: "放大 · {{value0}}",
   emotion: "情绪处理",

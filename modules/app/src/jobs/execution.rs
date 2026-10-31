@@ -81,6 +81,7 @@ impl JobQueue {
             self.idle.notify_one();
             let store = Arc::clone(&self.store);
             let finished = tokio::task::spawn_blocking(move || store.get_job(&id)).await??;
+            self.status_changed.send_replace(());
             drop(self.feedback.send(JobFeedback::Finished {
                 job_id: finished.id,
                 status: finished.status,
