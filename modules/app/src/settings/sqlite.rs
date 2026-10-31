@@ -25,6 +25,27 @@ pub struct GlobalSettingsStore {
 }
 
 impl GlobalSettingsStore {
+    pub(super) fn danbooru_metadata(
+        &self,
+    ) -> Result<super::danbooru::DanbooruMetadata, PersistenceError> {
+        self.connection()?.query_row(
+            "SELECT username, secret_id, user_id, revision, valid FROM danbooru_connection WHERE id=1",
+            [],
+            |row| Ok(super::danbooru::DanbooruMetadata { username: row.get(0)?, secret_id: row.get(1)?, user_id: row.get(2)?, revision: row.get(3)?, valid: row.get(4)? }),
+        ).map_err(|error| PersistenceError::failure("read Danbooru connection", error))
+    }
+
+    pub(super) fn save_danbooru_metadata(
+        &self,
+        previous_revision: u32,
+        metadata: &super::danbooru::DanbooruMetadata,
+    ) -> Result<bool, PersistenceError> {
+        self.connection()?.execute(
+            "UPDATE danbooru_connection SET username=?1, secret_id=?2, user_id=?3, revision=?4, valid=?5 WHERE id=1 AND revision=?6",
+            params![metadata.username, metadata.secret_id, metadata.user_id, metadata.revision, metadata.valid, previous_revision],
+        ).map(|changed| changed == 1).map_err(|error| PersistenceError::failure("save Danbooru connection", error))
+    }
+
     /// Opens global settings and atomically initializes a new configuration database.
     ///
     /// # Errors
@@ -46,7 +67,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 5 {
+        if version != 0 && version != 6 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

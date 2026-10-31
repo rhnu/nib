@@ -8,6 +8,8 @@ mod bootstrap;
 mod commands;
 mod credentials;
 mod downloads;
+mod explore;
+mod explore_connection;
 mod generation;
 mod lexicon;
 mod media;
@@ -91,6 +93,15 @@ fn application_base(
 /// Registers the explicit desktop command surface in one place.
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        explore::search_explore,
+        explore::get_explore_detail,
+        explore::read_explore_media,
+        explore::import_explore_image,
+        explore::restore_explore_metadata,
+        explore_connection::get_danbooru_connection,
+        explore_connection::save_danbooru_connection,
+        explore_connection::verify_danbooru_connection,
+        explore_connection::disconnect_danbooru_connection,
         safety::get_image_analysis_status,
         safety::get_image_safety,
         safety::rescan_image_safety,

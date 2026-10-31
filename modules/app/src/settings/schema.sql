@@ -12,4 +12,15 @@ CREATE TABLE credentials (
 );
 CREATE UNIQUE INDEX one_active_credential ON credentials(active) WHERE active = 1;
 CREATE TABLE credential_versions (id TEXT PRIMARY KEY, credential_id TEXT NOT NULL REFERENCES credentials(id));
-PRAGMA user_version = 5;
+CREATE TABLE danbooru_connection (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    username TEXT,
+    secret_id TEXT,
+    user_id INTEGER,
+    revision INTEGER NOT NULL DEFAULT 0,
+    valid INTEGER NOT NULL DEFAULT 0 CHECK (valid IN (0, 1)),
+    CHECK ((username IS NULL) = (secret_id IS NULL)),
+    CHECK ((username IS NULL) = (user_id IS NULL))
+);
+INSERT INTO danbooru_connection (id) VALUES (1);
+PRAGMA user_version = 6;

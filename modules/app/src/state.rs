@@ -43,6 +43,8 @@ struct State {
     lexicon: Arc<dyn LexiconSearch>,
     downloads: Downloads,
     safety: Arc<crate::safety::SafetyScanner>,
+    danbooru: Arc<crate::settings::DanbooruConnection>,
+    explore: Arc<crate::explore::ExploreService>,
 }
 
 impl AppState {
@@ -51,6 +53,8 @@ impl AppState {
         lexicon: Arc<dyn LexiconSearch>,
         downloads: Downloads,
         safety: Arc<crate::safety::SafetyScanner>,
+        danbooru: Arc<crate::settings::DanbooruConnection>,
+        explore: Arc<crate::explore::ExploreService>,
     ) -> Self {
         Self {
             inner: Arc::new(State {
@@ -67,6 +71,8 @@ impl AppState {
                 lexicon,
                 downloads,
                 safety,
+                danbooru,
+                explore,
             }),
         }
     }
@@ -76,6 +82,12 @@ impl AppState {
 
     /// The host supplies the native credential implementation through its domain contract.
     pub fn credentials(&self) -> &dyn CredentialStore { self.inner.credentials.as_ref() }
+
+    /// Optional discovery authentication is independent from `NovelAI` account selection.
+    pub fn danbooru(&self) -> &Arc<crate::settings::DanbooruConnection> { &self.inner.danbooru }
+
+    /// Discovery shares source revisions with the optional Danbooru connection.
+    pub fn explore(&self) -> &Arc<crate::explore::ExploreService> { &self.inner.explore }
 
     /// Reads preferences and storage locations without starting generation.
     /// # Errors

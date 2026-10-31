@@ -45,17 +45,22 @@ export function tagPromptTargets(
 /** Append an independent fragment so existing prompt grammar and resource bindings stay intact. */
 export function appendRecognizedTags<
   T extends Pick<Draft, "composition" | "characters" | "presets">,
->(draft: T, target: TagPromptTarget, text: string): T | null {
+>(
+  draft: T,
+  target: TagPromptTarget,
+  text: string,
+  scope: "positive" | "negative" = "positive",
+): T | null {
   const node = textNode(text);
   if (target.key === "main")
     return {
       ...draft,
-      composition: { ...draft.composition, positive: [...draft.composition.positive, node] },
+      composition: { ...draft.composition, [scope]: [...draft.composition[scope], node] },
     };
 
   const append = (character: Draft["characters"][number]) => ({
     ...character,
-    composition: { ...character.composition, positive: [...character.composition.positive, node] },
+    composition: { ...character.composition, [scope]: [...character.composition[scope], node] },
   });
 
   if (!target.presetId) {

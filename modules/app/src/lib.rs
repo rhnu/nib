@@ -4,6 +4,7 @@ pub mod api;
 #[cfg(feature = "native")]
 pub mod bootstrap;
 pub mod downloads;
+pub mod explore;
 pub mod jobs;
 pub mod lexicon;
 pub mod library;

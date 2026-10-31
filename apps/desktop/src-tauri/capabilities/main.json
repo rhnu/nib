@@ -4,6 +4,15 @@
   "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
+    "allow-search-explore",
+    "allow-get-explore-detail",
+    "allow-read-explore-media",
+    "allow-import-explore-image",
+    "allow-restore-explore-metadata",
+    "allow-get-danbooru-connection",
+    "allow-save-danbooru-connection",
+    "allow-verify-danbooru-connection",
+    "allow-disconnect-danbooru-connection",
     "allow-get-image-analysis-status",
     "allow-get-image-safety",
     "allow-rescan-image-safety",
@@ -18,6 +27,14 @@
     "allow-uninstall-download",
     "dialog:allow-open",
     "opener:allow-reveal-item-in-dir",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://danbooru.donmai.us/posts/*" },
+        { "url": "https://danbooru.donmai.us/profile" },
+        { "url": "https://novelai.net/explore/image/*" }
+      ]
+    },
     "allow-get-application-settings",
     "allow-save-application-preferences",
     "allow-set-data-directory",

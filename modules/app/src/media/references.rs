@@ -141,6 +141,7 @@ fn source_ids(source: &AssetSource) -> AssetIds<'_> {
         // Job inputs are retained by the job's own references; these are provenance only.
         AssetSource::ResourceCover { .. }
         | AssetSource::Import { .. }
+        | AssetSource::Explore { .. }
         | AssetSource::Job { .. } => {},
     }
     ids

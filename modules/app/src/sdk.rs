@@ -199,7 +199,7 @@ impl SdkClients {
     pub fn tokenizers(&self) -> Arc<Tokenizers> { Arc::clone(&self.tokenizers) }
 
     fn active_identity(&self) -> Result<Option<(String, String)>, JobError> {
-        let Some(id) = self.credentials.active_id()? else {
+        let Some(id) = self.settings.active_credential()? else {
             return Ok(None);
         };
         Ok(Some((
@@ -234,7 +234,7 @@ impl SdkClients {
     }
 
     fn begin_account_refresh(&self, force: bool) -> Result<Option<AccountRefresh>, JobError> {
-        let Some(credential_id) = self.credentials.active_id()? else {
+        let Some(credential_id) = self.settings.active_credential()? else {
             return Ok(None);
         };
         let execution = self.execution_preferences()?;
@@ -319,8 +319,8 @@ fn now_millis() -> i64 {
 
 impl SdkClientProvider for SdkClients {
     fn credential_id(&self) -> Result<String, JobError> {
-        self.credentials
-            .active_id()?
+        self.settings
+            .active_credential()?
             .ok_or(JobError::MissingCredentials)
     }
 

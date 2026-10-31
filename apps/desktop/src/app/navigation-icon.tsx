@@ -1,9 +1,18 @@
-import { BookOpen, Clapperboard, Images, Layers, Settings, WandSparkles } from "lucide-react";
+import {
+  BookOpen,
+  Clapperboard,
+  Compass,
+  Images,
+  Layers,
+  Settings,
+  WandSparkles,
+} from "lucide-react";
 
 const icons = {
   create: WandSparkles,
   director: Clapperboard,
   gallery: Images,
+  explore: Compass,
   library: Layers,
   lexicon: BookOpen,
   settings: Settings,

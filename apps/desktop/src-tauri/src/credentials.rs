@@ -1,25 +1,21 @@
 //! The desktop selects the secret backend; no secret is part of retained app data.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use nib_app::settings::{CredentialError, CredentialStore};
 use novelai_bridge::SecretString;
 use secrecy::ExposeSecret as _;
 
-use crate::storage::StorageManager;
-
-/// Serializes access to the one `NovelAI` API key in the OS credential store.
+/// Serializes access to immutable provider secrets in the OS credential store.
 pub(crate) struct NativeCredentials {
     entry: Mutex<()>,
-    storage: Arc<StorageManager>,
     development: bool,
 }
 
 impl NativeCredentials {
-    pub(crate) fn new(development: bool, storage: Arc<StorageManager>) -> Self {
+    pub(crate) fn new(development: bool) -> Self {
         Self {
             entry: Mutex::new(()),
-            storage,
             development,
         }
     }
@@ -39,19 +35,12 @@ impl NativeCredentials {
             keyring_core::Error::BadEncoding(_) | keyring_core::Error::BadDataFormat(..) => {
                 CredentialError::InvalidKey
             },
-            error => CredentialError::failure("access the NovelAI credential", error),
+            error => CredentialError::failure("access the provider credential", error),
         })
     }
 }
 
 impl CredentialStore for NativeCredentials {
-    fn active_id(&self) -> Result<Option<String>, CredentialError> {
-        self.storage
-            .settings
-            .active_credential()
-            .map_err(|error| CredentialError::failure("read the active account", error))
-    }
-
     fn load(&self, id: &str) -> Result<Option<SecretString>, CredentialError> {
         self.with_entry(id, |entry| match entry.get_password() {
             Ok(value) => Ok(Some(SecretString::from(value))),

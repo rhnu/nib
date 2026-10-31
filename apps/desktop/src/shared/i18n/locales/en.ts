@@ -20,7 +20,10 @@ import { lexicon } from "./en/lexicon";
 import { downloads } from "./en/downloads";
 import { safety } from "./en/safety";
 
+import { explore } from "./en/explore";
+
 export const en = {
+  explore,
   app: app,
   characters: characters,
   director: director,

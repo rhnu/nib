@@ -87,7 +87,7 @@ export type DraftSaveReceipt = { revision: number, };
 
 export type DraftAnalysis = { resolved: ResolvedDraft, capabilities: ModelCapabilities | null, quote: GenerationQuote | null, quoteError: ApiError | null, };
 
-export type ActivePage = "create" | "director" | "gallery" | "library" | "lexicon" | "settings";
+export type ActivePage = "create" | "director" | "gallery" | "explore" | "library" | "lexicon" | "settings";
 
 export type DirectorToolKind = "lineart" | "sketch" | "bgRemoval" | "emotion" | "declutter" | "declutterKeepBubbles" | "colorize";
 

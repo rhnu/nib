@@ -441,10 +441,6 @@ struct TestCredentials {
 }
 
 impl CredentialStore for TestCredentials {
-    fn active_id(&self) -> Result<Option<String>, CredentialError> {
-        Ok(Some("test-account".to_owned()))
-    }
-
     fn load(&self, _id: &str) -> Result<Option<novelai_bridge::SecretString>, CredentialError> {
         Ok(self.configured.then(|| "unit-test-only".to_owned().into()))
     }

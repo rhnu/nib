@@ -32,6 +32,9 @@ const navigationLabels = {
   get gallery() {
     return t("app.gallery");
   },
+  get explore() {
+    return t("explore.title");
+  },
   get library() {
     return t("app.library");
   },

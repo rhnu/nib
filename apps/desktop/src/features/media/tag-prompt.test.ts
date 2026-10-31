@@ -58,6 +58,26 @@ describe("recognized tag prompt targets", () => {
     expect(result?.characters).toEqual(original.characters);
   });
 
+  it("appends negative text to the selected scope without changing positive content", () => {
+    const original = content();
+    const main = appendRecognizedTags(
+      original,
+      { key: "main", label: "main" },
+      "avoid text",
+      "negative",
+    );
+    expect(main?.composition.negative).toEqual([expect.objectContaining({ text: "avoid text" })]);
+    expect(main?.composition.positive).toEqual(original.composition.positive);
+    const target = tagPromptTargets(original, new Map()).find((item) => item.presetId === "first")!;
+    const result = appendRecognizedTags(original, target, "character exclusion", "negative");
+    const first = result?.presets[0].binding;
+    expect(first?.kind === "expanded" && first.characters[0].composition.negative).toEqual([
+      expect.objectContaining({ text: "character exclusion" }),
+    ]);
+    expect(result?.composition).toEqual(original.composition);
+    expect(result?.presets[1]).toEqual(original.presets[1]);
+  });
+
   it("rejects a character target removed after recognition", () => {
     expect(
       appendRecognizedTags(

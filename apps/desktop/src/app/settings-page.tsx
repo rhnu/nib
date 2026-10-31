@@ -4,6 +4,7 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
+import { ExploreConnectionSettings } from "@/features/explore/connection-settings";
 import { AccountSettings } from "@/features/generation";
 import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 import { Button, HelpMarker, Notice, Toggle, Select, SettingRow, SettingsGroup } from "@/shared/ui";
@@ -246,6 +247,7 @@ export function SettingsPage({
                 <AccountSettings onOpenTasks={onOpenTasks} />
               </div>
             )}
+            <ExploreConnectionSettings />
             <ExecutionSettings settings={settings} />
           </div>
           <section className="settings-category" hidden={section !== "generation"}>

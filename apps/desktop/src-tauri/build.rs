@@ -1,6 +1,15 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let attributes =
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "search_explore",
+            "get_explore_detail",
+            "read_explore_media",
+            "import_explore_image",
+            "restore_explore_metadata",
+            "get_danbooru_connection",
+            "save_danbooru_connection",
+            "verify_danbooru_connection",
+            "disconnect_danbooru_connection",
             "get_image_analysis_status",
             "get_image_safety",
             "rescan_image_safety",

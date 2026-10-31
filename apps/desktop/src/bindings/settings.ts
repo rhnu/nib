@@ -19,3 +19,7 @@ export type ApplicationPreferences = { theme: Theme, language: Language, recentI
 export type StorageLocations = { configDirectory: string, dataDirectory: string, relocatedDataDirectory: string | null, defaultDataDirectory: string, development: boolean, restartRequired: boolean, };
 
 export type ApplicationSettingsSnapshot = { preferences: ApplicationPreferences, storage: StorageLocations, };
+
+export type DanbooruConnectionState = "disconnected" | "connected" | "invalid";
+
+export type DanbooruConnectionStatus = { state: DanbooruConnectionState, username: string | null, revision: number, };

@@ -20,7 +20,10 @@ import { lexicon } from "./zh-cn/lexicon";
 import { downloads } from "./zh-cn/downloads";
 import { safety } from "./zh-cn/safety";
 
+import { explore } from "./zh-cn/explore";
+
 export const zhCN = {
+  explore,
   app: app,
   characters: characters,
   director: director,

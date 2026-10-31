@@ -8,6 +8,8 @@ describe("startup navigation", () => {
   });
   it("uses a supported URL ahead of the persisted navigation snapshot", () => {
     expect(startupPage("/gallery", "create", false)).toBe("gallery");
+    expect(startupPage("/explore", "create", false)).toBe("explore");
+    expect(startupPage("/", "explore", false)).toBe("explore");
     expect(startupPage("/lexicon", "create", false)).toBe("lexicon");
     expect(startupPage("/", "lexicon", false)).toBe("lexicon");
   });

@@ -31,6 +31,11 @@ pub enum AssetSource {
     Import {
         name: Option<String>,
     },
+    Explore {
+        source: crate::explore::ExploreSource,
+        item_id: String,
+        website_url: String,
+    },
     Asset {
         asset_id: String,
     },
@@ -394,7 +399,7 @@ impl MediaLibrary {
                     self.require_asset(id, AssetKind::VibeDocument)?;
                 }
             },
-            AssetSource::Import { .. } => {},
+            AssetSource::Import { .. } | AssetSource::Explore { .. } => {},
         }
         Ok(())
     }

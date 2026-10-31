@@ -24,6 +24,7 @@ import { usePendingInputTransition } from "./use-pending-input-transition";
 import { encodingApi } from "@/features/vibes/encoding-api";
 import { mediaApi } from "@/features/media/api";
 import { referenceApi } from "@/features/references/api";
+import { createExploreSession } from "@/features/explore/session";
 import { canLeaveWorkbench } from "./navigation-guard";
 
 export type WorkbenchControllerOptions = {
@@ -65,6 +66,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     readCurrentDraft,
     resourceVersion,
   } = state;
+  const [exploreSession] = useState(createExploreSession);
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const [encoderOpen, setEncoderOpen] = useState(false);
@@ -210,38 +212,37 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
       setPage("director");
     });
 
+  const prepareImportedReference = async (assetId: string, kind: "precise" | "vibe") => {
+    const referenceType = editorCapabilities?.preciseReferenceOptions.referenceTypes[0];
+    if (kind === "precise" && !referenceType)
+      throw new MessageError(deferMessage(() => t("workbench.preciseReferenceUnsupported")));
+    const reference =
+      kind === "vibe"
+        ? await mediaApi.createVibeReference(assetId)
+        : await referenceApi.create(assetId, crypto.randomUUID(), referenceType!);
+    const current = readCurrentDraft();
+    const references = current.inputs.references;
+    edit({
+      ...current,
+      inputs: {
+        ...current.inputs,
+        references:
+          kind === "vibe"
+            ? { ...references, vibes: [...references.vibes, reference as VibeReferenceInput] }
+            : {
+                ...references,
+                precise: [...references.precise, reference as (typeof references.precise)[number]],
+              },
+      },
+    });
+    await setPage("create");
+  };
+
   const addImageReference = (assetId: string, kind: "precise" | "vibe") =>
     guard(() => {
-      void trackPendingWork(
-        (async () => {
-          const referenceType = editorCapabilities?.preciseReferenceOptions.referenceTypes[0];
-          if (kind === "precise" && !referenceType)
-            throw new MessageError(deferMessage(() => t("workbench.preciseReferenceUnsupported")));
-          const reference =
-            kind === "vibe"
-              ? await mediaApi.createVibeReference(assetId)
-              : await referenceApi.create(assetId, crypto.randomUUID(), referenceType!);
-          const current = readCurrentDraft();
-          const references = current.inputs.references;
-          edit({
-            ...current,
-            inputs: {
-              ...current.inputs,
-              references:
-                kind === "vibe"
-                  ? { ...references, vibes: [...references.vibes, reference as VibeReferenceInput] }
-                  : {
-                      ...references,
-                      precise: [
-                        ...references.precise,
-                        reference as (typeof references.precise)[number],
-                      ],
-                    },
-            },
-          });
-          setPage("create");
-        })(),
-      ).catch((cause: unknown) => setError(cause));
+      void trackPendingWork(prepareImportedReference(assetId, kind)).catch((cause: unknown) =>
+        setError(cause),
+      );
     });
 
   const encodeImage = (assetId: string) =>
@@ -359,6 +360,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
 
   return {
     options,
+    exploreSession,
     workspace,
     state,
     page,
@@ -372,6 +374,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     guardedRestore,
     requestOperation,
     prepareImportedOperation,
+    prepareImportedReference,
     guard,
     guardNavigation,
     openDownloads,

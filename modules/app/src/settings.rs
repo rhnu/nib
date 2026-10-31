@@ -4,10 +4,14 @@ use crate::api::UserMessage;
 
 mod accounts;
 pub use accounts::{AccountError, activate_account, delete_account, save_account};
+mod danbooru;
 mod sqlite;
-
 use std::error::Error;
 
+pub use danbooru::{
+    DanbooruAccess, DanbooruConnection, DanbooruConnectionError, DanbooruConnectionState,
+    DanbooruConnectionStatus, DanbooruCredentials,
+};
 use novelai_bridge::SecretString;
 use serde::{Deserialize, Serialize};
 pub use sqlite::{DataDirectories, GlobalSettingsStore};
@@ -199,12 +203,6 @@ impl CredentialError {
 
 /// The desktop host selects the native credential backend.
 pub trait CredentialStore: Send + Sync {
-    /// Reads the immutable credential identity selected for future operations.
-    ///
-    /// # Errors
-    /// Returns a backend failure without secret material in its diagnostics.
-    fn active_id(&self) -> Result<Option<String>, CredentialError>;
-
     /// Reads exactly the requested immutable version; absence never selects another key.
     ///
     /// # Errors

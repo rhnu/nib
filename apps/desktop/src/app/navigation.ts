@@ -4,6 +4,7 @@ export const pagePaths = {
   create: "/create",
   director: "/director",
   gallery: "/gallery",
+  explore: "/explore",
   library: "/library",
   lexicon: "/lexicon",
   settings: "/settings",

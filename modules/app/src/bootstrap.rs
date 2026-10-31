@@ -43,7 +43,12 @@ impl Bootstrap {
             consumers,
         )?);
         let downloads = Downloads::new(store, self.runtime.clone());
-        let app = AppState::new(self, lexicon, downloads, safety);
+        let danbooru = Arc::new(crate::settings::DanbooruConnection::new(
+            Arc::clone(&self.settings),
+            Arc::clone(&self.credentials),
+        )?);
+        let explore = Arc::new(crate::explore::ExploreService::new(Arc::clone(&danbooru))?);
+        let app = AppState::new(self, lexicon, downloads, safety, danbooru, explore);
         app.start_safety_backfill();
         if let Err(error) = app.sdk() {
             // Provider and credential diagnostics may contain secrets; use the public projection.
