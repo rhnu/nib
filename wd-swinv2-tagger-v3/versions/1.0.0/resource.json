@@ -6,7 +6,7 @@
     {
       "id": "core",
       "name": "WD ratings and image tags",
-      "description": "Pinned Atelier production model, downloaded directly from upstream.",
+      "description": "Optional safety review and general/character tag extraction with a revision-pinned model.",
       "requires": [],
       "files": [
         {

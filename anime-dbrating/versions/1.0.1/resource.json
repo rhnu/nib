@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "id": "anime-dbrating",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "components": [
     {
       "id": "core",
       "name": "Anime image safety",
-      "description": "Pinned Atelier production model, downloaded directly from upstream.",
+      "description": "Local anime image safety ratings with a revision-pinned model.",
       "requires": [],
       "files": [
         {

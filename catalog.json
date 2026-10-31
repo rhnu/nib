@@ -4,7 +4,7 @@
     {
       "id": "anime-dbrating",
       "name": "Anime image safety",
-      "description": "Pinned local anime image safety rating model used by the Atelier cascade.",
+      "description": "Local anime image safety ratings with a revision-pinned model.",
       "version": "1.0.0",
       "manifest": {
         "path": "resource.json",
