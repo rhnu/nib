@@ -44,7 +44,32 @@ jobs:
         with:
           name: windows-x64-installer
           path: release-assets
-      - name: Upload verified assets and publish the application release
+      - name: Prepare release notes and updater manifest
+        id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python .github/scripts/release.py publish --assets release-assets
+        run: python .github/scripts/release.py prepare --assets release-assets
+      - name: Create or resume the draft and upload release assets
+        if: steps.prepare.outputs.publish == 'true'
+        id: release
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: nib ${{ steps.prepare.outputs.version }}
+          body_path: release-assets/release-notes.md
+          draft: true
+          prerelease: false
+          make_latest: "false"
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/*-setup.exe
+            release-assets/*-setup.exe.sig
+            release-assets/latest.json
+      - name: Verify uploaded contents and publish by release ID
+        if: steps.prepare.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: python .github/scripts/release.py finalize --assets release-assets --release-id "$RELEASE_ID"

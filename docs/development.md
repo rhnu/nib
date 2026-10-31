@@ -316,11 +316,11 @@ Node、Rust 与 wasm-bindgen 安装逻辑集中在 `.github/actions/`。pnpm sto
 
 ## 应用发布与更新
 
-发布脚本从 Release 列表识别同 tag 的公开版本与可续传草稿，草稿资产通过 Release ID 读取核对；[按 tag 查询的 API](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name) 只返回已公开版本。
+应用发布使用 [softprops/action-gh-release](https://github.com/softprops/action-gh-release) 创建或恢复草稿并上传附件。发布脚本只负责应用版本、发布说明、Tauri 更新清单和公开前核验；新建草稿后直接使用 Action 返回的 Release ID 查询资产与公开版本，不依赖草稿立即出现在 Release 列表或 tag 查询中。
 
 [Windows 发布](../.github/workflows/release.yml) 由推送 `vMAJOR.MINOR.PATCH` tag 触发，tag 必须与根 `Cargo.toml` 的版本完全一致，且不含预发布或构建后缀。工作流调用 CI 的 `release` 模式，强制执行所有检查；desktop 作业使用已检查的 Web 产物，先编译主程序，再用 `tauri bundle` 构建当前用户安装的 Windows x64 NSIS 包并生成 Tauri 更新签名。安装包配置在编译完成后加入已生成的 `DirectML.dll`，Tauri 的 `bundleVCRuntime` 同时打包 Visual C++ 运行库。普通 main / PR CI 不读取签名秘密；签名秘密只注入打包步骤。`pnpm build:installer` 是本地打包入口，签名环境变量与发布作业一致。
 
-发布作业只在整个 CI 成功后运行，先创建草稿 Release，上传 `*-setup.exe`、对应 `.sig` 和 `latest.json`，核对文件大小后再公开。更新清单采用 `windows-x86_64`，安装包地址固定到具体 tag；发布说明排除独立资源发布的 tag。公开版本不覆盖资产，失败的草稿可重新上传；补发旧版本不替换应用 Latest。应用发布按仓库串行排队，使用 GitHub 支持的 [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) 保留等待中的发布。资源发布继续使用 `--latest=false`。
+发布作业只在整个 CI 成功后运行，先创建草稿 Release，上传 `*-setup.exe`、对应 `.sig` 和 `latest.json`，核对每个附件的上传状态、文件大小与 SHA-256 后再按 Release ID 公开。更新清单采用 `windows-x86_64`，安装包地址固定到具体 tag；发布说明排除独立资源发布的 tag。公开版本不覆盖资产，失败的草稿可重新上传；同 tag 存在多个 Release 时停止并要求清理重复项，补发旧版本不替换应用 Latest。应用发布按仓库串行排队，使用 GitHub 支持的 [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) 保留等待中的发布。资源发布继续使用 `--latest=false`。
 
 更新入口是 `https://github.com/rhnu/nib/releases/latest/download/latest.json`。`tauri-plugin-updater` 在宿主完成检查、下载、签名验证和安装；更新包只由宿主持有，前端查询状态与进度。检查超时 20 秒，下载最多等待 30 分钟；开发模式禁用更新。前端关闭与安装共用退出准备，后端在独占数据访问前检查 Agent 状态，排空已有写入后检查全部未完成生成任务；有任务时拒绝安装。安装准备通过独立写入阶段与队列暂停阻止新工作，保护由安装阻塞任务持有，失败或取消时释放；数据库升级仍在重启后的业务 bootstrap 前执行。用户操作见[应用更新](features.md#应用更新)。
 
