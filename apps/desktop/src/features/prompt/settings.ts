@@ -122,10 +122,70 @@ export function settingValue(
 ): string {
   if (value === null) return key === "imageFormat" ? t("prompt.defaultFormat") : t("prompt.unset");
   if (typeof value === "boolean") return value ? t("prompt.on") : t("prompt.off");
-  if (typeof value === "object") return `${value.width} × ${value.height}`;
+  if (typeof value === "object") return `${value.width}×${value.height}`;
   if (key === "seed" && value === 0) return t("prompt.automaticZero");
+  if (typeof value === "string") {
+    if (key === "model" && value.startsWith("nai-diffusion-"))
+      return `NAI Diffusion ${value
+        .slice("nai-diffusion-".length)
+        .replace(/(?<=\d)-(?=\d)/g, ".")
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")}`;
+    if (key === "imageFormat" || key === "responseFormat") return value.toUpperCase();
+    if (key === "sampler") return samplerLabels[value] ?? value;
+    if (key === "noiseSchedule") return noiseScheduleLabels[value] ?? value;
+    if (key === "quality") {
+      switch (value) {
+        case "standard":
+          return t("prompt.standardQuality");
+        case "light":
+          return t("prompt.lightQuality");
+        case "none":
+          return t("prompt.off");
+      }
+    }
+    if (key === "ucPreset") {
+      switch (value) {
+        case "heavy":
+          return t("prompt.heavyNegative");
+        case "light":
+          return t("prompt.lightNegative");
+        case "furry_focus":
+          return t("prompt.furryFocusNegative");
+        case "human_focus":
+          return t("prompt.humanFocusNegative");
+        case "none":
+          return t("prompt.off");
+      }
+    }
+    if (key === "alphaMode") {
+      if (value === "straight") return t("prompt.straightAlpha");
+      if (value === "premultiplied") return t("prompt.premultipliedAlpha");
+    }
+  }
   return String(value);
 }
+
+// Labels describe SDK identifiers without defining supported choices or validation rules.
+const samplerLabels: Record<string, string> = {
+  k_euler: "Euler",
+  k_euler_ancestral: "Euler A",
+  k_dpm_2: "DPM2",
+  k_dpm_2_ancestral: "DPM2 A",
+  k_dpmpp_2m: "DPM++ 2M",
+  k_dpmpp_2m_sde: "DPM++ 2M SDE",
+  k_dpmpp_2s_ancestral: "DPM++ 2S A",
+  k_dpmpp_sde: "DPM++ SDE",
+  ddim: "DDIM",
+  ddim_v3: "DDIM V3",
+};
+const noiseScheduleLabels: Record<string, string> = {
+  native: "Native",
+  karras: "Karras",
+  exponential: "Exponential",
+  polyexponential: "Polyexponential",
+};
 
 /** Reveal collapsed containers before focusing the actual setting control. */
 export function focusSetting(field: string, root: ParentNode = document): boolean {
@@ -177,7 +237,9 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
     if (!trigger) return false;
     trigger.click();
     requestAnimationFrame(() => {
-      const control = root.querySelector<HTMLElement>(`${selector} select`);
+      const control = root.querySelector<HTMLElement>(
+        `${selector} [role="combobox"], ${selector} select`,
+      );
       control?.scrollIntoView({ block: "nearest" });
       control?.focus();
     });
@@ -186,11 +248,24 @@ export function focusSetting(field: string, root: ParentNode = document): boolea
   for (let parent = target.parentElement; parent; parent = parent.parentElement) {
     if (parent instanceof HTMLDetailsElement) parent.open = true;
   }
-  target.scrollIntoView({ block: "nearest" });
-  (
-    target.querySelector<HTMLElement>('input:not([type="range"]), select') ??
-    target.querySelector<HTMLElement>("input") ??
-    target.querySelector<HTMLElement>("button")
-  )?.focus();
+  const toggle = target
+    .closest(".generation-parameter-panel")
+    ?.querySelector<HTMLButtonElement>("[data-parameter-toggle]");
+
+  const focus = () => {
+    target.scrollIntoView({ block: "nearest" });
+    (
+      target.querySelector<HTMLElement>(
+        'input:not([type="range"]):not([type="hidden"]), select, [role="combobox"]',
+      ) ??
+      target.querySelector<HTMLElement>('input:not([type="hidden"])') ??
+      target.querySelector<HTMLElement>("button")
+    )?.focus();
+  };
+
+  if (toggle?.getAttribute("aria-expanded") === "false") {
+    toggle.click();
+    requestAnimationFrame(focus);
+  } else focus();
   return true;
 }

@@ -1,7 +1,6 @@
 import type { workbench as source } from "../en/workbench";
 
 export const workbench = {
-  guidanceSummary: "Guidance {{value}}",
   presets: "配方",
   presetsHelp: "配方帮助",
   presetsDescription:
@@ -13,8 +12,6 @@ export const workbench = {
   requestCount: "生成请求数",
   pendingDraftChanges: "当前创作仍有待写入的修改。",
   draftNotLoaded: "当前创作尚未加载。",
-  stepCount_one: "{{count}} 步",
-  stepCount_other: "{{count}} 步",
   generationParameters: "生成参数",
   validationFailed: "此项未通过校验。",
   promptSettings: "提示词设置",

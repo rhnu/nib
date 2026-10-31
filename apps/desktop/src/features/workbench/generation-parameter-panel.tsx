@@ -1,25 +1,31 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect, useRef, useState } from "react";
+import { useId, useState } from "react";
+import { ChevronUp } from "lucide-react";
 import { SettingsEditor, type SettingsEditorProps } from "@/features/prompt/settings-editor";
-import { diagnosticSetting } from "@/features/prompt/settings";
+import { diagnosticSetting, settingLabels, settingValue } from "@/features/prompt/settings";
+import { Button } from "@/shared/ui";
 import "./generation-parameter-panel.css";
 
 /** The dock owns disclosure state; sparse parameter edits remain with the draft. */
 export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "fields">) {
   useTranslation();
 
-  const [open, setOpen] = useState(false);
-  const panel = useRef<HTMLDetailsElement>(null);
+  const contentId = useId();
   const { value, capabilities, resolved, diagnostics = [], errorFields = [] } = props;
   const effective = resolved ?? capabilities?.defaults;
-  const steps = value.steps ?? effective?.steps;
-  const scale = value.scale ?? effective?.scale;
-  const summary = [
-    steps === undefined ? null : t("workbench.stepCount", { count: steps }),
-    scale === undefined ? null : t("workbench.guidanceSummary", { value: scale }),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const summary = (["steps", "scale", "seed", "sampler"] as const).map((key) => {
+    const current = value[key] ?? effective?.[key];
+    return {
+      key,
+      label: settingLabels[key],
+      value:
+        current === undefined
+          ? "—"
+          : key === "seed" && current === 0
+            ? t("prompt.randomSeed")
+            : settingValue(key, current),
+    };
+  });
   const issueSignature = JSON.stringify([diagnostics, errorFields]);
   const hasParameterIssue = [...diagnostics.map((item) => item.field), ...errorFields].some(
     (field) => {
@@ -40,23 +46,35 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
       );
     },
   );
-  useEffect(() => {
-    if (hasParameterIssue && panel.current) panel.current.open = true;
-  }, [hasParameterIssue, issueSignature]);
+  const [open, setOpen] = useState(hasParameterIssue);
+  const [seenIssue, setSeenIssue] = useState(issueSignature);
+  if (seenIssue !== issueSignature) {
+    setSeenIssue(issueSignature);
+    if (hasParameterIssue) setOpen(true);
+  }
   return (
-    <details
-      className="generation-parameter-panel"
-      ref={panel}
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>
-        <span>{t("workbench.generationParameters")}</span>
-        {!open && summary && <small>{summary}</small>}
-      </summary>
-      <div className="generation-parameter-content">
+    <section className="generation-parameter-panel" data-open={open || undefined}>
+      <div id={contentId} className="generation-parameter-content" hidden={!open}>
         <SettingsEditor {...props} fields="parameters" />
       </div>
-    </details>
+      <Button
+        className="generation-parameter-toggle"
+        data-parameter-toggle
+        aria-label={t("workbench.generationParameters")}
+        aria-expanded={open}
+        aria-controls={contentId}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="generation-parameter-summary">
+          {summary.map((item) => (
+            <span key={item.key}>
+              <span>{item.label}</span>
+              <strong title={item.value}>{item.value}</strong>
+            </span>
+          ))}
+        </span>
+        <ChevronUp size={14} aria-hidden />
+      </Button>
+    </section>
   );
 }

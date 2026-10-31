@@ -3,6 +3,37 @@
   flex-direction: column;
   gap: 6px;
 }
+.generation-account-balance {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  line-height: 16px;
+}
+.generation-account-balance > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.generation-account-balance strong {
+  font-variant-numeric: tabular-nums;
+}
+.generation-account-balance svg {
+  color: var(--accent);
+}
+.generation-balance-state {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.generation-actions:has(.generation-parameter-panel[data-open]) > .generation-account-balance {
+  display: none;
+}
 .generation-token-usage,
 .generation-account-snapshot {
   display: flex;

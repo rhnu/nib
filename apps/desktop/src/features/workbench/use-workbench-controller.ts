@@ -16,7 +16,6 @@ import { useImageOperationRequest } from "@/features/inputs/use-image-operation-
 import { type ImageOperationAction } from "@/features/inputs/image-operation";
 import { useAccount } from "@/features/generation/account/account-context";
 import { useGenerationQuote } from "@/features/generation/submission/use-generation-quote";
-import { isQuoteEligible } from "@/features/generation/submission/quote-state";
 import { useMaskEditor } from "./use-mask-editor";
 import { characterKey, livePositionCharacters } from "@/features/positioning/model";
 import { outputIdentity } from "@/features/prompt/output-identity";
@@ -62,7 +61,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     openLibrary,
     resourceVersion,
   } = state;
-  const { accountVersion, accountSummaryLoading } = useAccount();
+  const { account, accountVersion, accountSummaryLoading } = useAccount();
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
   const [viewedAssetId, setViewedAssetId] = useState<string | null>(null);
   const [encoderOpen, setEncoderOpen] = useState(false);
@@ -75,7 +74,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
   const estimate = useGenerationQuote(
     generationDraft,
     quoteRefreshKey,
-    !resolving && !accountSummaryLoading && isQuoteEligible(draft, resolved),
+    Boolean(account?.configured) && !resolving && !resolveError && !accountSummaryLoading,
   );
   const model = {
     capabilities: state.capabilities,

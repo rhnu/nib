@@ -359,7 +359,8 @@ textarea:focus {
 .form-feedback:empty {
   display: none;
 }
-.form-field[data-inherited] .form-control > select {
+.form-field[data-inherited] .form-control > select,
+.form-field[data-inherited] .form-control > .select-trigger {
   color: var(--muted);
 }
 .form-field select option {

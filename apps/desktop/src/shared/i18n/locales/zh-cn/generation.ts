@@ -1,6 +1,11 @@
 import type { generation as source } from "../en/generation";
 
 export const generation = {
+  opusQuota: "Opus 额度 (V5)",
+  accountRequired: "需要配置账户",
+  accountReadFailed: "账户读取失败",
+  generateImages_one: "生成 {{count}} 张图像",
+  generateImages_other: "生成 {{count}} 张图像",
   accountProviderRequired: "账户组件需要位于 GenerationProvider 内。",
   editAccount: "编辑账户",
   addAccount: "添加账户",
@@ -29,12 +34,9 @@ export const generation = {
   noAccountSnapshot: "暂无账户采样，按非订阅条件估费",
   snapshotTimeUnknown: "采样时间未知",
   snapshotSummary: "账户快照 · {{value0}}",
-  balancePrefix: "余额 ",
   anlasSuffix: " Anlas",
-  v5QuotaPrefix: "V5 额度 ",
   refreshing: "更新中…",
   staleSnapshot: "上次采样 · 已过期",
-  accountSnapshot: "账户快照",
   staleSnapshotHelp: "显示上次成功采样，当前数据已过期。",
   anlasBalance: "Anlas 余额",
   subscription: "订阅",
@@ -190,7 +192,7 @@ export const generation = {
   sourceImagePrefix: "源图 · ",
   operationSource: "当前操作的源图",
   loadingSource: "正在读取源图…",
-  generate: "生成",
+  generate: "生成图像",
   creationChanged: "当前创作已改变，请等待费用重新估算后提交。",
   loadingAccount: "读取账户…",
   configureAccount: "配置账户",
@@ -272,6 +274,5 @@ export const generation = {
   sdkAdjustmentCount: "SDK 参数调整（{{count}}）",
   samplingDetails_one: "{{sampler}} · {{count}} 步 · Scale {{scale}}",
   samplingDetails_other: "{{sampler}} · {{count}} 步 · Scale {{scale}}",
-  requestBatchSize: "请求次数：{{requests}} · 每次图片数：{{samples}}",
   apiKeyLabel: "NovelAI API Key",
 } satisfies { [K in keyof typeof source]: string };

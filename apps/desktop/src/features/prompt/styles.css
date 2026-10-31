@@ -23,10 +23,6 @@
   width: 24px;
   min-height: 24px;
 }
-.setting-field select {
-  width: 100%;
-  min-width: 0;
-}
 .setting-note,
 .advanced-settings summary small {
   color: var(--muted);
@@ -56,7 +52,7 @@
   margin: 0;
 }
 .setting-diagnostic input,
-.setting-diagnostic select {
+.setting-diagnostic .select-trigger {
   border-color: var(--danger);
 }
 .resolution-diagnostics p {
@@ -64,7 +60,7 @@
   line-height: 1.6;
 }
 .settings-fields input,
-.settings-fields select {
+.settings-fields .select-trigger {
   height: 30px;
   border-radius: var(--radius);
   font-size: 12px;

@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { Field } from "@/shared/ui";
+import { Field, Select } from "@/shared/ui";
 
 const modeLabel = (mode: string) =>
   mode === "sse"
@@ -31,22 +31,24 @@ export function StreamModeSelect({
   return (
     <div data-setting-field="stream">
       <Field label={t("generation.responseMode")}>
-        <select
+        <Select
           value={value ?? ""}
-          onChange={(event) => {
-            const mode = options.find((option) => option === event.target.value);
+          aria-label={t("generation.responseMode")}
+          onValueChange={(next) => {
+            const mode = options.find((option) => option === next);
             onChange(mode ?? null);
           }}
           aria-invalid={invalid}
-        >
-          <option value="">{t("generation.standardResponse")}</option>
-          {options.map((mode) => (
-            <option key={mode} value={mode} disabled={supported === false}>
-              {modeLabel(mode)}
-            </option>
-          ))}
-          {value && !options.includes(value) && <option value={value}>{modeLabel(value)}</option>}
-        </select>
+          options={[
+            { value: "", label: t("generation.standardResponse") },
+            ...options.map((mode) => ({
+              value: mode,
+              label: modeLabel(mode),
+              disabled: supported === false,
+            })),
+            ...(value && !options.includes(value) ? [{ value, label: modeLabel(value) }] : []),
+          ]}
+        />
       </Field>
       {invalid && <span className="generation-danger">{t("generation.streamUnsupported")}</span>}
     </div>

@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { Button, Field, Notice } from "@/shared/ui";
+import { Button, Field, Notice, Select } from "@/shared/ui";
 import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
 import { PromptWorkspace } from "@/features/workbench/prompt-workspace";
 import { CharacterContext } from "@/features/workbench/character-context";
@@ -131,59 +131,62 @@ export function CreatePage() {
             outputIssues={outputIssues}
           />
         </div>
-        {draft.inputs.operation.kind !== "upscale" && (
-          <GenerationParameterPanel
-            value={draft.settings}
-            models={workspace.models}
-            capabilities={editorCapabilities}
-            diagnostics={estimate.quote?.diagnostics ?? []}
-            errorFields={estimate.fields}
-            resolved={resolved?.settings}
-            onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
-            advancedContent={
-              <>
-                <StreamModeSelect
-                  value={draft.inputs.stream}
-                  supported={editorCapabilities?.streaming ?? null}
-                  modes={editorCapabilities?.streamModes ?? null}
-                  onChange={(stream) => {
-                    const current = readCurrentDraft();
-                    edit({ ...current, inputs: { ...current.inputs, stream } });
-                  }}
-                />
-                <div data-setting-field="policy">
-                  <Field label={t("workbench.parameterValidation")}>
-                    <select
-                      value={draft.inputs.policy}
-                      onChange={(event) => {
-                        const current = readCurrentDraft();
-                        edit({
-                          ...current,
-                          inputs: {
-                            ...current.inputs,
-                            policy: event.target.value === "reject" ? "reject" : "normalize",
-                          },
-                        });
-                      }}
-                    >
-                      <option value="normalize">{t("workbench.autoAdjust")}</option>
-                      <option value="reject">{t("workbench.strictReject")}</option>
-                    </select>
-                  </Field>
-                </div>
-              </>
-            }
-          />
-        )}
         <div className="generation-actions-slot">
           <GenerationActions
             draft={draft}
             readCurrentDraft={readCurrentDraft}
             refreshKey={quoteRefreshKey}
-            resolved={resolved}
             estimate={estimate}
             operationPending={extension.operationPending}
             onFocusField={focusField}
+            parameters={
+              draft.inputs.operation.kind !== "upscale" && (
+                <GenerationParameterPanel
+                  value={draft.settings}
+                  models={workspace.models}
+                  capabilities={editorCapabilities}
+                  diagnostics={estimate.quote?.diagnostics ?? []}
+                  errorFields={estimate.fields}
+                  resolved={resolved?.settings}
+                  onChange={(settings) => edit({ ...readCurrentDraft(), settings })}
+                  advancedContent={
+                    <>
+                      <StreamModeSelect
+                        value={draft.inputs.stream}
+                        supported={editorCapabilities?.streaming ?? null}
+                        modes={editorCapabilities?.streamModes ?? null}
+                        onChange={(stream) => {
+                          const current = readCurrentDraft();
+                          edit({ ...current, inputs: { ...current.inputs, stream } });
+                        }}
+                      />
+                      <div data-setting-field="policy">
+                        <Field label={t("workbench.parameterValidation")}>
+                          <Select
+                            value={draft.inputs.policy}
+                            aria-label={t("workbench.parameterValidation")}
+                            onValueChange={(policy) => {
+                              const current = readCurrentDraft();
+                              edit({
+                                ...current,
+                                inputs: {
+                                  ...current.inputs,
+                                  policy: policy === "reject" ? "reject" : "normalize",
+                                },
+                              });
+                            }}
+                            options={[
+                              { value: "normalize", label: t("workbench.autoAdjust") },
+                              { value: "reject", label: t("workbench.strictReject") },
+                            ]}
+                          />
+                        </Field>
+                      </div>
+                    </>
+                  }
+                />
+              )
+            }
           />
         </div>
       </aside>

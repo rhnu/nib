@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CreationOperation, Draft } from "@/bindings/workbench";
 import { emptyReferences, emptySettings } from "@/features/prompt/model";
-import {
-  generationQuoteKey,
-  hasResolvedPrompt,
-  isQuoteEligible,
-  isOperationEffective,
-} from "./quote-state";
+import { generationQuoteKey, isOperationEffective } from "./quote-state";
 
 const draft: Draft = {
   vibeEncoder: null,
@@ -65,51 +60,6 @@ describe("effective image operation", () => {
         { ...requested, maxEnhance: false },
       ),
     ).toBe(true);
-  });
-});
-
-describe("generation quote eligibility", () => {
-  it("waits for resolved positive text, including text supplied by resources", () => {
-    expect(hasResolvedPrompt(null)).toBe(false);
-    expect(hasResolvedPrompt({ positive: " \n\t" })).toBe(false);
-    expect(hasResolvedPrompt({ positive: "resolved chunk content" })).toBe(true);
-  });
-
-  it("leaves nonempty NAI syntax to the SDK", () => {
-    expect(hasResolvedPrompt({ positive: "{}[]" })).toBe(true);
-  });
-
-  it("allows image tools to be quoted without an unrelated generation prompt", () => {
-    expect(
-      isQuoteEligible(
-        {
-          ...draft,
-          inputs: {
-            ...draft.inputs,
-            operation: { kind: "director", assetId: "image", command: "lineart" },
-          },
-        },
-        null,
-      ),
-    ).toBe(true);
-    expect(
-      isQuoteEligible(
-        {
-          ...draft,
-          inputs: {
-            ...draft.inputs,
-            operation: {
-              kind: "upscale",
-              assetId: "image",
-              model: "nai-diffusion-5-curated",
-              declaredBlurSigma: 0,
-            },
-          },
-        },
-        null,
-      ),
-    ).toBe(true);
-    expect(isQuoteEligible(draft, null)).toBe(false);
   });
 });
 

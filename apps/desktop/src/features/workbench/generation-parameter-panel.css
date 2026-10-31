@@ -1,33 +1,52 @@
 .generation-parameter-panel {
-  flex: 0 0 auto;
   min-width: 0;
-  border-top: 1px solid var(--line-subtle);
-  background: var(--surface);
 }
-.generation-parameter-panel > summary {
-  padding: 8px 12px;
-  cursor: pointer;
+.generation-parameter-toggle {
+  width: 100%;
+  justify-content: space-between;
+  padding: 3px 2px;
+  border-color: transparent;
+  background: transparent;
+}
+.generation-parameter-summary {
+  display: grid;
+  grid-template-columns: 0.6fr 0.9fr 1fr 1.25fr;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   font-size: 12px;
-  font-weight: 550;
+  line-height: 16px;
 }
-.generation-parameter-panel > summary small {
-  margin-left: 9px;
+.generation-parameter-summary > span {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.generation-parameter-summary > span > span {
   color: var(--muted);
-  font-size: 11px;
   font-weight: 400;
 }
+.generation-parameter-summary strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.generation-parameter-toggle[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
 .generation-parameter-content {
-  max-height: min(52vh, 480px);
+  max-height: min(52dvh, 480px);
   overflow-y: auto;
-  padding: 0 12px 10px;
+  padding: 8px 0;
   scrollbar-gutter: stable;
 }
-.generation-parameter-panel .settings-fields {
+.generation-parameter-content .settings-fields {
   gap: 5px 8px;
 }
-.generation-parameter-panel .setting-label {
+.generation-parameter-content .form-label {
   min-height: 21px;
 }
-.generation-parameter-panel .advanced-settings {
+.generation-parameter-content .advanced-settings {
   padding-top: 7px;
 }

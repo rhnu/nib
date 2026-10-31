@@ -343,7 +343,6 @@ export function VibeEncoderPanel({
                 return encodingSubmission(current, current.vibeEncoder!);
               }}
               refreshKey={refreshKey}
-              resolved={null}
               estimate={estimate}
               operationPending={busy}
               onFocusField={locate}

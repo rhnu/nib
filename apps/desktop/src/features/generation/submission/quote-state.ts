@@ -1,4 +1,4 @@
-import type { CreationOperation, Draft, ResolvedDraft } from "@/bindings/workbench";
+import type { CreationOperation, Draft } from "@/bindings/workbench";
 
 /** Normalization must not silently switch a requested image operation or drop its conditioning mode. */
 export function isOperationEffective(
@@ -24,21 +24,4 @@ export function generationQuoteKey(draft: Draft, refreshKey?: unknown): string {
     draft.inputs,
     refreshKey ?? null,
   ]);
-}
-
-export function hasResolvedPrompt(resolved?: Pick<ResolvedDraft, "positive"> | null): boolean {
-  return Boolean(resolved?.positive.trim());
-}
-
-export function isQuoteEligible(
-  draft: Draft,
-  resolved?: Pick<ResolvedDraft, "positive"> | null,
-): boolean {
-  const operation = draft.inputs.operation.kind;
-  return (
-    operation === "director" ||
-    operation === "encodeVibe" ||
-    operation === "upscale" ||
-    hasResolvedPrompt(resolved)
-  );
 }

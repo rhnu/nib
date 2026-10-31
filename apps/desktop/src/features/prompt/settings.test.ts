@@ -20,6 +20,21 @@ describe("setting diagnostics", () => {
 });
 
 describe("sparse settings presentation", () => {
+  it("formats provider identifiers for readable selections and inherited values", () => {
+    expect(settingValue("model", "nai-diffusion-4-5-full")).toBe("NAI Diffusion 4.5 Full");
+    expect(settingValue("sampler", "k_euler_ancestral")).toBe("Euler A");
+    expect(settingValue("sampler", "k_dpm_2_ancestral")).toBe("DPM2 A");
+    expect(settingValue("noiseSchedule", "karras")).toBe("Karras");
+    expect(settingValue("alphaMode", "premultiplied")).toBe("预乘");
+    expect(settingValue("imageFormat", "webp")).toBe("WEBP");
+    expect(settingValue("responseFormat", "json")).toBe("JSON");
+    expect(settingValue("quality", "standard")).toBe("标准");
+    expect(settingValue("quality", "none")).toBe("关闭");
+    expect(settingValue("ucPreset", "light")).toBe("轻度");
+    expect(settingValue("ucPreset", "furry_focus")).toBe("兽人优先");
+    expect(settingValue("sampler", "future_sampler")).toBe("future_sampler");
+  });
+
   it("distinguishes automatic seed, explicit false and absent overrides", () => {
     expect(settingValue("seed", 0)).toBe("自动（0）");
     expect(settingValue("varietyBoost", false)).toBe("关闭");

@@ -4,7 +4,14 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftRight, RotateCcw } from "lucide-react";
 import type { GenerationSettings, ModelCapabilities, ResolvedSettings } from "@/bindings/workbench";
 import type { ParameterDiagnostic } from "@/bindings/generation";
-import { FormField, FormGrid, HelpMarker, IconButton } from "@/shared/ui";
+import {
+  FormField,
+  FormGrid,
+  HelpMarker,
+  IconButton,
+  Select,
+  type SelectOption,
+} from "@/shared/ui";
 import {
   advancedSettingKeys,
   diagnosticSetting,
@@ -19,8 +26,8 @@ const sizePresetLabels: Record<string, () => string> = {
   portrait: () => t("presets.portrait"),
   landscape: () => t("presets.landscape"),
   square: () => t("presets.square"),
-  largePortrait: () => t("presets.largePortrait"),
-  largeLandscape: () => t("presets.largeLandscape"),
+  largePortrait: () => t("presets.portrait"),
+  largeLandscape: () => t("presets.landscape"),
 };
 
 export interface SettingsEditorProps {
@@ -206,26 +213,24 @@ export function SettingsEditor({
     const hasCurrent = current !== null && choices?.includes(current);
     return wrapper(
       key,
-      <select
+      <Select
         {...controlProps(key)}
         value={current ?? ""}
-        onChange={(event) => change(key, (event.target.value || null) as GenerationSettings[K])}
-      >
-        <option value="">{inherited(key)}</option>
-        {current !== null && !hasCurrent && (
-          <option value={current}>
-            {current}
-            {t("prompt.savedTag")}
-          </option>
-        )}
-        {choices?.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>,
+        onValueChange={(next) => change(key, (next || null) as GenerationSettings[K])}
+        options={[
+          { value: "", label: inherited(key) },
+          ...(current !== null && !hasCurrent
+            ? [{ value: current, label: `${settingValue(key, current)}${t("prompt.savedTag")}` }]
+            : []),
+          ...(choices?.map((option) => ({ value: option, label: settingValue(key, option) })) ??
+            []),
+        ]}
+      />,
       fixed
-        ? t("prompt.fixedValueOverrideKept", { value0: help ? `${help} ` : "", value1: fixed })
+        ? t("prompt.fixedValueOverrideKept", {
+            value0: help ? `${help} ` : "",
+            value1: settingValue(key, fixed),
+          })
         : help,
       current !== null && choices !== undefined && !hasCurrent,
     );
@@ -245,19 +250,16 @@ export function SettingsEditor({
   ) =>
     wrapper(
       key,
-      <select
+      <Select
         {...controlProps(key)}
         value={value[key] === null ? "" : String(value[key])}
-        onChange={(event) =>
-          change(key, event.target.value === "" ? null : event.target.value === "true")
-        }
-      >
-        <option value="">{inherited(key)}</option>
-        <option value="true" disabled={supported === false}>
-          {t("prompt.on")}
-        </option>
-        <option value="false">{t("prompt.off")}</option>
-      </select>,
+        onValueChange={(next) => change(key, next === "" ? null : next === "true")}
+        options={[
+          { value: "", label: inherited(key) },
+          { value: "true", label: t("prompt.on"), disabled: supported === false },
+          { value: "false", label: t("prompt.off") },
+        ]}
+      />,
       help,
       supported === false && value[key] === true,
     );
@@ -292,13 +294,14 @@ export function SettingsEditor({
           {wrapper(
             "size",
             <div className="size-editor">
-              <select
+              <Select
                 aria-label={t("prompt.sizePreset")}
+                aria-invalid={controlProps("size")["aria-invalid"]}
+                aria-describedby={controlProps("size")["aria-describedby"]}
                 value={
                   value.size === null ? "" : customSize ? "custom" : (sizePreset?.id ?? "custom")
                 }
-                onChange={(event) => {
-                  const selected = event.target.value;
+                onValueChange={(selected) => {
                   setCustomSize(selected === "custom");
                   if (!selected) change("size", null);
                   else if (selected === "custom") {
@@ -310,16 +313,18 @@ export function SettingsEditor({
                     if (preset) change("size", { width: preset.width, height: preset.height });
                   }
                 }}
-              >
-                <option value="">{inherited("size")}</option>
-                {capabilities?.sizePresets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {sizePresetLabels[preset.id]?.() ?? preset.id} · {preset.width} ×{" "}
-                    {preset.height}
-                  </option>
-                ))}
-                <option value="custom">{t("prompt.customSize")}</option>
-              </select>
+                options={[
+                  { value: "", label: inherited("size") },
+                  ...(capabilities?.sizePresets.map((preset): SelectOption => ({
+                    value: preset.id,
+                    label: `${sizePresetLabels[preset.id]?.() ?? preset.id} (${preset.width}×${preset.height})`,
+                    group: preset.id.startsWith("large")
+                      ? t("prompt.largeSizes")
+                      : t("prompt.standardSizes"),
+                  })) ?? []),
+                  { value: "custom", label: t("prompt.custom") },
+                ]}
+              />
               <div className="size-inputs">
                 <input
                   {...controlProps("size")}

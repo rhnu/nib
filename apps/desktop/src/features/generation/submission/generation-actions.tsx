@@ -2,15 +2,15 @@ import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useAccount } from "../account/account-context";
 import { useJobData } from "../jobs/job-context";
 import { useSubmission } from "./submission-context";
-import { useEffect, useRef, useState } from "react";
-import { KeyRound, Play, RotateCw } from "lucide-react";
-import type { Draft, ResolvedDraft } from "@/bindings/workbench";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { KeyRound, WandSparkles, RotateCw } from "lucide-react";
+import type { Draft } from "@/bindings/workbench";
 import { Button } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork } from "@/shared/host/pending-work";
 import { AccountDialog } from "../account/account-dialog";
 import { useGenerationQuote, validationFields } from "./use-generation-quote";
-import { generationQuoteKey, isQuoteEligible, isOperationEffective } from "./quote-state";
+import { generationQuoteKey, isOperationEffective } from "./quote-state";
 import { ParameterDiagnostics } from "./parameter-diagnostics";
 import { AccountSnapshot } from "../account/account-snapshot";
 import { focusSetting } from "@/features/prompt/settings-editor";
@@ -20,7 +20,7 @@ export function GenerationActions({
   draft,
   readCurrentDraft,
   refreshKey,
-  resolved,
+  parameters,
   estimate,
   operationPending,
   onFocusField = focusSetting,
@@ -28,25 +28,33 @@ export function GenerationActions({
   draft: Draft;
   readCurrentDraft: () => Draft;
   refreshKey?: unknown;
-  resolved?: ResolvedDraft | null;
+  parameters?: ReactNode;
   estimate: ReturnType<typeof useGenerationQuote>;
   operationPending: boolean;
   onFocusField?: (field: string) => void;
 }) {
   useTranslation();
 
-  const { account, accountLoading, accountError, refreshAccount, accountSummaryLoading } =
-    useAccount();
+  const {
+    account,
+    accountLoading,
+    accountError,
+    refreshAccount,
+    accountSummaryLoading,
+    accountSummaryError,
+    refreshAccountSummary,
+  } = useAccount();
   const { acceptBatch } = useJobData();
   const { submit: submitGeneration, submissionBlocked } = useSubmission();
-  const hasPrompt = isQuoteEligible(draft, resolved);
   const effectiveOperation = isOperationEffective(
     draft.inputs.operation,
     estimate.quote?.resolved?.inputs.operation ?? null,
   );
   const actionLabel =
     draft.inputs.operation.kind === "textToImage"
-      ? t("generation.generate")
+      ? estimate.quote
+        ? t("generation.generateImages", { count: estimate.quote.totalSamples })
+        : t("generation.generate")
       : operationLabel(draft.inputs.operation);
   const [accountOpen, setAccountOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -54,7 +62,7 @@ export function GenerationActions({
   const [submitted, setSubmitted] = useState(false);
   const [submitFields, setSubmitFields] = useState<string[]>([]);
   const submittingRef = useRef(false);
-  if (submitError && (!hasPrompt || submitError.key !== estimate.key)) setSubmitError(null);
+  if (submitError && submitError.key !== estimate.key) setSubmitError(null);
   useEffect(() => {
     if (!submitted) return;
     const timer = setTimeout(() => setSubmitted(false), 3000);
@@ -101,22 +109,24 @@ export function GenerationActions({
   }
 
   const currentSubmitError =
-    hasPrompt && submitError?.key === estimate.key ? errorMessage(submitError.message) : null;
-  const error = currentSubmitError ?? accountError ?? estimate.error;
+    submitError?.key === estimate.key ? errorMessage(submitError.message) : null;
+  const error = currentSubmitError ?? accountError ?? accountSummaryError ?? estimate.error;
   return (
     <div className="generation-actions">
+      <AccountSnapshot compact />
+      {parameters}
       <div className="generation-submit-row">
         <Button
           className="primary"
           disabled={
-            submitting ||
-            submissionBlocked ||
-            operationPending ||
-            (Boolean(estimate.quote) && !effectiveOperation) ||
             accountLoading ||
-            accountSummaryLoading ||
+            submitting ||
             (Boolean(account?.configured) &&
-              (!estimate.quote ||
+              (submissionBlocked ||
+                operationPending ||
+                accountSummaryLoading ||
+                !effectiveOperation ||
+                !estimate.quote ||
                 estimate.quote.tooExpensive ||
                 estimate.quote.tokens.some((token) => token.overLimit)))
           }
@@ -126,41 +136,37 @@ export function GenerationActions({
           }}
         >
           <span className="generation-submit-label">
-            {account?.configured ? <Play size={14} /> : <KeyRound size={14} />}
+            {account?.configured ? (
+              <WandSparkles size={16} aria-hidden />
+            ) : (
+              <KeyRound size={14} aria-hidden />
+            )}
             {submitting
               ? t("generation.submitting")
-              : submissionBlocked
-                ? t("generation.savingSettings")
-                : accountLoading
-                  ? t("generation.loadingAccount")
-                  : account?.configured
-                    ? actionLabel
-                    : t("generation.configureAccount")}
-            {account?.configured &&
-              estimate.quote?.operation === "generation" &&
-              estimate.quote.requestCount > 1 && (
-                <small>
-                  {t("generation.requestBatchSize", {
-                    requests: estimate.quote.requestCount,
-                    samples: estimate.quote.totalSamples / estimate.quote.requestCount,
-                  })}
-                </small>
-              )}
+              : accountLoading
+                ? t("generation.loadingAccount")
+                : !account?.configured
+                  ? t("generation.configureAccount")
+                  : submissionBlocked
+                    ? t("generation.savingSettings")
+                    : actionLabel}
           </span>
-          {estimate.quote && !effectiveOperation ? (
-            <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
-          ) : estimate.quote ? (
-            <span className="generation-submit-cost">
-              {estimate.quote.estimatedAnlas === null
-                ? t("generation.costUnknown")
-                : `${estimate.quote.estimatedAnlas} Anlas`}
-            </span>
-          ) : estimate.loading ? (
-            <span className="generation-submit-cost">{t("generation.estimating")}</span>
-          ) : null}
+          {account?.configured &&
+            (estimate.quote && !effectiveOperation ? (
+              <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
+            ) : estimate.quote ? (
+              <span className="generation-submit-cost">
+                {estimate.quote.estimatedAnlas === null
+                  ? t("generation.costUnknown")
+                  : `${estimate.quote.estimatedAnlas} Anlas`}
+              </span>
+            ) : estimate.loading ? (
+              <span className="generation-submit-cost">{t("generation.estimating")}</span>
+            ) : (
+              <span className="generation-submit-cost">{t("generation.costUnknown")}</span>
+            ))}
         </Button>
       </div>
-      <AccountSnapshot compact />
       {estimate.quote && !effectiveOperation && (
         <p className="generation-danger" role="alert">
           {draft.inputs.operation.kind === "inpainting"
@@ -190,6 +196,7 @@ export function GenerationActions({
               setSubmitted(false);
               estimate.retry();
               void refreshAccount();
+              void refreshAccountSummary();
             }}
           >
             <RotateCw size={13} />

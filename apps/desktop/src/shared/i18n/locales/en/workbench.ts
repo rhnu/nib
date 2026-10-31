@@ -1,5 +1,4 @@
 export const workbench = {
-  guidanceSummary: "Guidance {{value}}",
   presets: "Presets",
   presetsHelp: "About presets",
   presetsDescription:
@@ -12,8 +11,6 @@ export const workbench = {
   requestCount: "Generation request count",
   pendingDraftChanges: "The current creation still has changes waiting to be written.",
   draftNotLoaded: "The current creation has not loaded yet.",
-  stepCount_one: "{{count}} step",
-  stepCount_other: "{{count}} steps",
   generationParameters: "Generation parameters",
   validationFailed: "This field failed validation.",
   promptSettings: "Prompt settings",
