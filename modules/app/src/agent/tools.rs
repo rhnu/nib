@@ -1,4 +1,4 @@
-//! Typed application tools, without arbitrary SQL, paths, JSON patches or paid submission.
+//! Typed application tools with domain validation and permission-controlled generation.
 
 use std::sync::{Arc, atomic::Ordering};
 
@@ -155,7 +155,7 @@ pub(super) fn tools(
             vec!["id", "negative"],
         ),
     ];
-    specs.into_iter().map(|(name,description,op,properties,required)| {
+    let mut tools: Vec<_> = specs.into_iter().map(|(name,description,op,properties,required)| {
         let runtime=Arc::clone(runtime); let app=app.clone(); let lease=Arc::clone(lease);
         DynamicTool::new(ToolName::new(name).expect("static tool names are nonempty"),description,json!({"type":"object","properties":properties,"required":required,"additionalProperties":false}),move |arguments| {
             let runtime=Arc::clone(&runtime); let app=app.clone(); let lease=Arc::clone(&lease);
@@ -182,12 +182,59 @@ pub(super) fn tools(
                 result.map(ToolOutput::json).map_err(|error|ToolExecutionError::invalid_args(error.safe_message()))
             })
         })
-    }).collect()
+    }).collect();
+    tools.extend(super::images::tools(runtime, app));
+    tools.push(super::generation::tool(runtime, app, lease));
+    tools
+}
+
+/// Records rich tool outputs by asset identity, keeping bytes out of IPC and durable chat state.
+pub(super) fn record_output(
+    runtime: &AgentRuntime,
+    name: &str,
+    result: Result<ToolOutput, AgentError>,
+    asset_ids: Vec<String>,
+) -> Result<ToolOutput, ToolExecutionError> {
+    let (output, success, content) = match result {
+        Ok(output) => {
+            let success = !output.as_content().iter().any(|part| matches!(part, rig_core::message::ToolResultContent::Json { value } if value.get("ok").and_then(Value::as_bool) == Some(false)));
+            let content = if success {
+                format!("{name}: completed successfully")
+            } else {
+                "Some generation jobs failed, were cancelled or were interrupted. Inspect the generation queue for details.".into()
+            };
+            (output, success, content)
+        },
+        Err(error) => {
+            let content = tool_error(&error);
+            (
+                ToolOutput::json(json!({"ok":false,"error":content})),
+                false,
+                content,
+            )
+        },
+    };
+    let mut chat = runtime
+        .chat
+        .lock()
+        .map_err(|_error| ToolExecutionError::other("Assistant state is unavailable."))?;
+    let mut record = message("tool", content, Some(name.into()), Some(success));
+    record.asset_ids = asset_ids;
+    chat.snapshot.messages.push(record);
+    if runtime.database.save_agent_chat(&chat).is_err() {
+        runtime.storage_failed.store(true, Ordering::Release);
+        return Err(ToolExecutionError::other(
+            "The tool result could not be saved.",
+        ));
+    }
+    tracing::debug!(tool = name, success, "assistant domain tool finished");
+    Ok(output)
 }
 
 fn tool_error(error: &AgentError) -> String {
     match error {
         AgentError::Persistence(error) => error.user_message().to_string(),
+        AgentError::Generation(error) => error.user_message().to_string(),
         _ => error.safe_message().into(),
     }
 }

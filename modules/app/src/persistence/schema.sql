@@ -94,7 +94,7 @@ CREATE INDEX media_assets_blob ON media_assets(blob_id);
 CREATE INDEX media_assets_owner ON media_assets(owner_resource_id);
 
 CREATE TABLE media_references (
-    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('resource', 'creation', 'job', 'asset', 'result')),
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('resource', 'creation', 'job', 'asset', 'result', 'agent')),
     owner_id TEXT NOT NULL,
     asset_id TEXT NOT NULL REFERENCES media_assets(id) ON DELETE RESTRICT,
     PRIMARY KEY (owner_kind, owner_id, asset_id)
@@ -126,4 +126,4 @@ CREATE TABLE agent_chat (
     resource_edits_json TEXT NOT NULL CHECK (json_valid(resource_edits_json))
 );
 
-PRAGMA user_version = 19;
+PRAGMA user_version = 20;

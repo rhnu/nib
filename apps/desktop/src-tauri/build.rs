@@ -1,6 +1,9 @@
 // Explicit command permissions shared with the desktop capability manifest.
 const COMMANDS: &[&str] = &[
     "get_agent_connection",
+    "list_agent_models",
+    "save_agent_permission",
+    "approve_agent_generation",
     "save_agent_connection",
     "get_agent_state",
     "start_agent_run",

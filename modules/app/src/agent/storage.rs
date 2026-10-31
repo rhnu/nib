@@ -54,8 +54,16 @@ impl SqliteDatabase {
     }
 
     pub(crate) fn save_agent_chat(&self, chat: &StoredChat) -> Result<(), PersistenceError> {
-        self.connection()?.execute("INSERT INTO agent_chat(id,snapshot_json,history_json,resource_edits_json) VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET snapshot_json=excluded.snapshot_json,history_json=excluded.history_json,resource_edits_json=excluded.resource_edits_json", params![encode(&chat.snapshot)?,encode(&chat.history)?,encode(&chat.edits)?])
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction().map_err(|error| {
+            PersistenceError::failure("begin assistant conversation write", error)
+        })?;
+        transaction.execute("INSERT INTO agent_chat(id,snapshot_json,history_json,resource_edits_json) VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET snapshot_json=excluded.snapshot_json,history_json=excluded.history_json,resource_edits_json=excluded.resource_edits_json", params![encode(&chat.snapshot)?,encode(&chat.history)?,encode(&chat.edits)?])
             .map_err(|error| PersistenceError::failure("save assistant conversation", error))?;
+        crate::media::references::sync_agent_on(&transaction, &chat.snapshot)?;
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit assistant conversation", error))?;
         Ok(())
     }
 }

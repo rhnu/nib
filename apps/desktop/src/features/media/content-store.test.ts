@@ -11,6 +11,25 @@ function deferred<T>() {
 }
 
 describe("mounted media content", () => {
+  it("recovers a failed shared image load when a consumer retries", async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("creation is owned by Agent"))
+      .mockResolvedValueOnce("blob:recovered");
+    const store = new MediaContentStore(vi.fn());
+    const resource = store.resource("thumbnail:asset", load);
+    const history = store.resource("thumbnail:asset", load);
+    const release = resource.subscribe(() => {});
+    const releaseHistory = history.subscribe(() => {});
+    await vi.waitFor(() => expect(resource.getSnapshot().error).toBeInstanceOf(Error));
+    history.retry();
+    await vi.waitFor(() => expect(resource.getSnapshot().url).toBe("blob:recovered"));
+    expect(history.getSnapshot().error).toBeNull();
+    expect(load).toHaveBeenCalledTimes(2);
+    release();
+    releaseHistory();
+  });
+
   it("reformats a retained display failure when the language changes", () => {
     const resource = new MediaContentStore(vi.fn()).resource(
       "original:asset",

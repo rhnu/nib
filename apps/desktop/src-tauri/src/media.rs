@@ -468,7 +468,9 @@ pub(crate) async fn read_media_thumbnail(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<tauri::ipc::Response, ApiError> {
-    with_media_write(state, move |media| {
+    // Thumbnail cache writes participate in relocation protection, but do not edit the creation.
+    let access = state.app.write_access().await.map_err(persistence_error)?;
+    run_media(state.inner().clone(), access, move |media| {
         Ok(tauri::ipc::Response::new(
             media.thumbnail(&id).map_err(persistence_error)?.bytes,
         ))

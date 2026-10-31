@@ -220,6 +220,15 @@ pub struct GenerationQuote {
     pub account_sampled_at: Option<i64>,
 }
 
+/// A locally prepared batch binds approval to exact inputs, seeds, credentials and execution options.
+#[cfg(feature = "native")]
+pub(crate) struct PreparedBatch {
+    pub quote: GenerationQuote,
+    submissions: Vec<FrozenSubmission>,
+    execution: ExecutionPreferences,
+    pub(crate) credential_id: String,
+}
+
 /// Transient feedback is bounded in memory and never becomes a final result.
 #[derive(Debug, Clone, Serialize)]
 #[serde(
@@ -510,6 +519,56 @@ impl JobQueue {
             &submissions,
             self.clients.execution_preferences()?,
             &credential_id,
+            None,
+        )
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn prepare_batch(&self, draft: &Draft) -> Result<PreparedBatch, JobError> {
+        if !matches!(
+            draft.inputs.operation,
+            crate::session::CreationOperation::TextToImage
+                | crate::session::CreationOperation::ImageToImage { .. }
+                | crate::session::CreationOperation::Inpainting { .. }
+        ) {
+            return Err(JobError::Invalid(UserMessage::external(
+                "Agent generation requires a text-to-image, image-to-image or inpainting creation.",
+            )));
+        }
+        let credential_id = self.clients.credential_id()?;
+        self.check_credentials(&credential_id)?;
+        let submissions = self.freeze_batch(draft)?;
+        let mut resolved = submissions
+            .first()
+            .and_then(FrozenSubmission::resolved)
+            .cloned()
+            .ok_or(JobError::Unavailable)?;
+        resolved.inputs.request_count = draft.inputs.request_count;
+        let mut quote = self.quote_resolved(resolved)?;
+        quote.diagnostics = submissions[0].diagnostics().to_vec();
+        if quote.too_expensive || quote.tokens.iter().any(|usage| usage.over_limit) {
+            return Err(JobError::Invalid(UserMessage::external(
+                "The generation exceeds the model's token or cost limits.",
+            )));
+        }
+        Ok(PreparedBatch {
+            quote,
+            submissions,
+            execution: self.clients.execution_preferences()?,
+            credential_id,
+        })
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn submit_prepared(
+        &self,
+        batch: PreparedBatch,
+    ) -> Result<GenerationBatch, JobError> {
+        self.check_credentials(&batch.credential_id)?;
+        self.enqueue_with(
+            &batch.submissions,
+            batch.execution,
+            &batch.credential_id,
             None,
         )
     }

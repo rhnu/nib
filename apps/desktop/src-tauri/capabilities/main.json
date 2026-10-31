@@ -5,6 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "allow-get-agent-connection",
+    "allow-list-agent-models",
+    "allow-save-agent-permission",
+    "allow-approve-agent-generation",
     "allow-save-agent-connection",
     "allow-get-agent-state",
     "allow-start-agent-run",

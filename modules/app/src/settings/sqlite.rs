@@ -25,6 +25,48 @@ pub struct GlobalSettingsStore {
 }
 
 impl GlobalSettingsStore {
+    #[cfg(feature = "native")]
+    pub(crate) fn credential_name_for_version(
+        &self,
+        version: &str,
+    ) -> Result<String, PersistenceError> {
+        self.connection()?.query_row("SELECT credentials.name FROM credentials JOIN credential_versions ON credentials.id=credential_versions.credential_id WHERE credential_versions.id=?1", [version], |row| row.get(0))
+            .map_err(|error| PersistenceError::failure("read the generation account name", error))
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn agent_permission(
+        &self,
+    ) -> Result<crate::agent::AgentPermission, PersistenceError> {
+        let encoded: String = self
+            .connection()?
+            .query_row(
+                "SELECT agent_generation_permission FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                PersistenceError::failure("read Agent generation permission", error)
+            })?;
+        decode(&encoded)
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn save_agent_permission(
+        &self,
+        permission: crate::agent::AgentPermission,
+    ) -> Result<(), PersistenceError> {
+        self.connection()?
+            .execute(
+                "UPDATE global_settings SET agent_generation_permission=?1 WHERE id=1",
+                [encode(&permission)?],
+            )
+            .map_err(|error| {
+                PersistenceError::failure("save Agent generation permission", error)
+            })?;
+        Ok(())
+    }
+
     pub(super) fn danbooru_metadata(
         &self,
     ) -> Result<super::danbooru::DanbooruMetadata, PersistenceError> {
@@ -67,7 +109,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 7 {
+        if version != 0 && version != 9 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {

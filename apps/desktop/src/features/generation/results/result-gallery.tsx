@@ -1,7 +1,17 @@
 import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useState, type ReactNode } from "react";
-import { Copy, Download, Focus, ImageOff, Info, Minus, Plus, ArrowDownToLine } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Focus,
+  ImageOff,
+  Info,
+  Minus,
+  Plus,
+  ArrowDownToLine,
+  RefreshCw,
+} from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { ResultSummary } from "@/bindings/generation";
 import { ActionsMenu, Button, ContextActions, IconButton, notify } from "@/shared/ui";
@@ -33,34 +43,43 @@ export function ResultTile({
       available={result.available}
       filename={resultFilename(result)}
     >
-      <Button
-        className={"generation-result-open" + (selected ? " selected" : "")}
-        aria-pressed={selected}
-        aria-label={
-          result.seed === null
-            ? t("generation.viewImage")
-            : t("generation.viewImageSeedPrefix") + result.seed
-        }
-        onClick={onSelect}
-      >
-        <span className="generation-result-preview">
-          {!result.available ? (
-            <ImageOff size={22} />
-          ) : image.error ? (
-            <span>{t("generation.loadFailed")}</span>
-          ) : image.url ? (
-            <SafetyImage
-              assetId={result.assetId}
-              src={image.url}
-              alt=""
-              loading="lazy"
-              onError={image.failed}
-            />
-          ) : (
-            <span>{t("generation.loading")}</span>
-          )}
-        </span>
-      </Button>
+      <div className="generation-result-image">
+        <Button
+          className={"generation-result-open" + (selected ? " selected" : "")}
+          aria-pressed={selected}
+          aria-label={
+            result.seed === null
+              ? t("generation.viewImage")
+              : t("generation.viewImageSeedPrefix") + result.seed
+          }
+          onClick={onSelect}
+        >
+          <span className="generation-result-preview">
+            {!result.available ? (
+              <ImageOff size={22} />
+            ) : image.error ? (
+              <span>{t("generation.loadFailed")}</span>
+            ) : image.url ? (
+              <SafetyImage
+                assetId={result.assetId}
+                src={image.url}
+                alt=""
+                loading="lazy"
+                onError={image.failed}
+              />
+            ) : (
+              <span>{t("generation.loading")}</span>
+            )}
+          </span>
+        </Button>
+        {image.error && (
+          <div className="image-overlay image-overlay-top-right">
+            <IconButton label={t("media.retryRead")} onClick={image.retry}>
+              <RefreshCw size={14} aria-hidden />
+            </IconButton>
+          </div>
+        )}
+      </div>
     </ImageContextActions>
   );
 }

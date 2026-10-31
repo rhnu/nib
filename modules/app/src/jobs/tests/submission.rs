@@ -1,6 +1,78 @@
 //! Batch identity, explicit submission and reuse are verified without remote requests.
 use super::*;
 
+#[cfg(feature = "native")]
+#[test]
+fn approved_batch_keeps_its_inputs_account_and_execution_after_configuration_changes() {
+    struct MutableClient {
+        id: Mutex<String>,
+        execution: Mutex<ExecutionPreferences>,
+    }
+    impl SdkClientProvider for MutableClient {
+        fn credential_id(&self) -> Result<String, JobError> { Ok(self.id.lock().unwrap().clone()) }
+
+        fn client(&self) -> Result<SdkClient, JobError> { Err(JobError::MissingCredentials) }
+
+        fn execution_preferences(&self) -> Result<ExecutionPreferences, JobError> {
+            Ok(self.execution.lock().unwrap().clone())
+        }
+    }
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, unexpected_call) = memory_queue(Arc::clone(&store), true);
+    let original_execution = ExecutionPreferences {
+        server_image_cache: true,
+        ..ExecutionPreferences::default()
+    };
+    let client = Arc::new(MutableClient {
+        id: Mutex::new("original-account".into()),
+        execution: Mutex::new(original_execution.clone()),
+    });
+    let inner = Arc::get_mut(&mut queue).unwrap();
+    inner.clients = Arc::<MutableClient>::clone(&client);
+    inner.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.settings.seed = Some(17);
+    draft.inputs.request_count = 2;
+    draft.composition.positive.push(PromptNode::Text {
+        id: "prompt".into(),
+        enabled: true,
+        text: "a white bird".into(),
+    });
+    let prepared = queue.prepare_batch(&draft).unwrap();
+    assert!(store.records.lock().unwrap().is_empty());
+    assert!(!unexpected_call.load(Ordering::Acquire));
+    assert_eq!(prepared.quote.request_count, 2);
+    *client.id.lock().unwrap() = "different-account".into();
+    *client.execution.lock().unwrap() = ExecutionPreferences::default();
+    draft.settings.seed = Some(99);
+    draft.composition.positive.clear();
+    let batch = queue.submit_prepared(prepared).unwrap();
+    assert_eq!(batch.jobs.len(), 2);
+    for job in batch.jobs {
+        assert_eq!(job.credential_id, "original-account");
+        assert_eq!(job.execution, original_execution);
+        assert_eq!(job.submission.seed(), Some(17));
+        assert!(
+            request(&job.submission)
+                .core
+                .prompt
+                .contains("a white bird")
+        );
+    }
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn discarding_an_unapproved_batch_does_not_queue_jobs() {
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, unexpected_call) = memory_queue(Arc::clone(&store), true);
+    Arc::get_mut(&mut queue).unwrap().tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let prepared = queue.prepare_batch(&Draft::default()).unwrap();
+    drop(prepared);
+    assert!(store.records.lock().unwrap().is_empty());
+    assert!(!unexpected_call.load(Ordering::Acquire));
+}
+
 #[test]
 fn blank_prompts_can_be_quoted_and_submitted_with_enabled_characters() {
     for policy in [

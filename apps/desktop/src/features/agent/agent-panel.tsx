@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Settings2, Square, Trash2, Undo2, X } from "lucide-react";
-import type { AgentApi, AgentConnectionConfig, AgentMessage } from "@/bindings/agent";
-import { Button, Field, IconButton, Select } from "@/shared/ui";
+import { Bot, Settings2, Square, Trash2, Undo2, X } from "lucide-react";
+import type { AgentMessage } from "@/bindings/agent";
+import { Button, IconButton } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { t, useTranslation } from "@/shared/i18n";
 import type { AgentController } from "./use-agent";
+import { AgentConnection } from "./agent-connection";
+import { AgentComposer } from "./agent-composer";
+import { AgentImage } from "./agent-image";
+import { AgentApprovalCard } from "./agent-approval";
+import { AgentMarkdown } from "./agent-markdown";
 import "./styles.css";
 
 const toolLabelKeys = {
@@ -22,6 +27,9 @@ const toolLabelKeys = {
   list_resource_folders: "agent.tools.listResourceFolders",
   search_lexicon: "agent.tools.searchLexicon",
   attach_resource: "agent.tools.attachResource",
+  read_image: "agent.tools.readImage",
+  list_image_results: "agent.tools.listImageResults",
+  generate_image: "agent.tools.generateImage",
 } as const;
 
 /** Tool identifiers remain transport data; the conversation presents domain actions. */
@@ -49,8 +57,6 @@ export function AgentPanel({
   onClose: () => void;
 }) {
   useTranslation();
-  const [prompt, setPrompt] = useState("");
-  const [sending, setSending] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const panel = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -82,17 +88,6 @@ export function AgentPanel({
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [open, onClose]);
-
-  const send = async () => {
-    const request = prompt.trim();
-    if (!request || sending) return;
-    setSending(true);
-    try {
-      if (await agent.start(request)) setPrompt("");
-    } finally {
-      setSending(false);
-    }
-  };
 
   return (
     <aside
@@ -178,7 +173,21 @@ export function AgentPanel({
                 </span>
               )}
             </div>
-            <div className="agent-message-content">{messageContent(message)}</div>
+            <div className="agent-message-content">
+              {message.role === "assistant" ? (
+                <AgentMarkdown
+                  content={message.content}
+                  streaming={agent.snapshot?.status === "running" && last?.id === message.id}
+                />
+              ) : (
+                messageContent(message)
+              )}
+            </div>
+            <div className="agent-message-images">
+              {message.assetIds.map((id) => (
+                <AgentImage key={id} id={id} />
+              ))}
+            </div>
           </article>
         ))}
       </div>
@@ -216,148 +225,8 @@ export function AgentPanel({
           </Button>
         )}
       </div>
-      <form
-        className="agent-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send();
-        }}
-      >
-        <Field label={t("agent.prompt")}>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder={t("agent.promptPlaceholder")}
-            disabled={locked || readOnly}
-            rows={3}
-          />
-        </Field>
-        <div className="agent-composer-actions">
-          <Button
-            className="primary"
-            type="submit"
-            disabled={
-              locked ||
-              agent.connectionBusy ||
-              readOnly ||
-              sending ||
-              !prompt.trim() ||
-              !agent.connection?.configured ||
-              !agent.snapshot
-            }
-          >
-            <Send size={14} aria-hidden />
-            {t("agent.send")}
-          </Button>
-        </div>
-      </form>
+      <AgentApprovalCard agent={agent} readOnly={readOnly} />
+      <AgentComposer agent={agent} disabled={locked || readOnly} />
     </aside>
-  );
-}
-
-/** A password stays in the input until one IPC submission, then is cleared immediately. */
-function AgentConnection({
-  agent,
-  disabled,
-  open,
-  visible,
-}: {
-  agent: AgentController;
-  disabled: boolean;
-  open: boolean;
-  visible: boolean;
-}) {
-  const [editedConfig, setConfig] = useState<AgentConnectionConfig | null>(null);
-  const config = editedConfig ??
-    agent.connection?.config ?? { endpoint: "", model: "", api: "chatCompletions" };
-  const [saved, setSaved] = useState(false);
-  const password = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if ((!open || !visible) && password.current) password.current.value = "";
-  }, [open, visible]);
-
-  return (
-    <form
-      id="agent-connection"
-      className="agent-connection"
-      hidden={!visible}
-      onSubmit={(event) => {
-        event.preventDefault();
-        const key = password.current?.value.trim() || null;
-        if (password.current) password.current.value = "";
-        setSaved(false);
-        void agent
-          .saveConnection(
-            { ...config, endpoint: config.endpoint.trim(), model: config.model.trim() },
-            key,
-          )
-          .then((success) => {
-            setSaved(success);
-            if (success) setConfig(null);
-          });
-      }}
-    >
-      <fieldset disabled={disabled || agent.connectionBusy}>
-        <legend>{t("agent.connection")}</legend>
-        <Field label={t("agent.protocol")}>
-          <Select
-            value={config.api}
-            onValueChange={(api) => {
-              setSaved(false);
-              setConfig({ ...config, api: api as AgentApi });
-            }}
-            options={[
-              { value: "chatCompletions", label: t("agent.chatCompletions") },
-              { value: "responses", label: t("agent.responses") },
-            ]}
-          />
-        </Field>
-        <Field label={t("agent.endpoint")}>
-          <input
-            type="url"
-            required
-            value={config.endpoint}
-            placeholder="https://api.openai.com/v1"
-            onChange={(event) => {
-              setSaved(false);
-              setConfig({ ...config, endpoint: event.target.value });
-            }}
-            aria-describedby="agent-endpoint-help"
-          />
-        </Field>
-        <p id="agent-endpoint-help" className="agent-help">
-          {t("agent.endpointHelp")}
-        </p>
-        <Field label={t("agent.model")}>
-          <input
-            required
-            value={config.model}
-            onChange={(event) => {
-              setSaved(false);
-              setConfig({ ...config, model: event.target.value });
-            }}
-          />
-        </Field>
-        <Field label={t("agent.apiKey")}>
-          <input
-            ref={password}
-            type="password"
-            autoComplete="new-password"
-            required={!agent.connection?.configured}
-            aria-describedby="agent-key-help"
-            onChange={() => setSaved(false)}
-          />
-        </Field>
-        <p id="agent-key-help" className="agent-help">
-          {t(agent.connection?.configured ? "agent.keyStored" : "agent.keyRequired")}
-        </p>
-        <div className="agent-connection-actions">
-          {saved && <output>{t("agent.connectionSaved")}</output>}
-          <Button type="submit" disabled={agent.connectionBusy}>
-            {t("agent.saveConnection")}
-          </Button>
-        </div>
-      </fieldset>
-    </form>
   );
 }

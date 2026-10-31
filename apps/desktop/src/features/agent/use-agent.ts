@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AgentConnectionConfig, AgentConnectionStatus, AgentSnapshot } from "@/bindings/agent";
+import type {
+  AgentConnectionConfig,
+  AgentConnectionStatus,
+  AgentSnapshot,
+  AgentPermission,
+} from "@/bindings/agent";
 import type { WorkbenchController } from "@/features/workbench/workbench-context";
 import type { Draft } from "@/bindings/workbench";
 import { workbenchApi } from "@/features/workbench/api";
@@ -31,6 +36,7 @@ export function useAgent({
   const [pollError, setPollError] = useState<unknown>(null);
   const [cancelling, setCancelling] = useState(false);
   const [connectionBusy, setConnectionBusy] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [undoDraft, setUndoDraft] = useState<Draft | null>(null);
   const latest = useRef({ controller, onLock, readOnly, onRunning });
   useLayoutEffect(() => {
@@ -159,7 +165,7 @@ export function useAgent({
     };
   }, [refresh]);
 
-  const start = async (prompt: string) => {
+  const start = async (prompt: string, assetIds: string[]) => {
     const run = runtime.current;
     if (run.busy || run.phase !== "ready") return false;
     if (latest.current.readOnly) {
@@ -198,7 +204,7 @@ export function useAgent({
       if (resource.busy) throw new MessageError(deferMessage(() => t("agent.resourcesBusy")));
       state.writer.setEditingLocked(true);
       startAttempted = true;
-      let next = await agentApi.start(prompt, state.readDraftEpoch());
+      let next = await agentApi.start(prompt, assetIds, state.readDraftEpoch());
       // Cancellation may arrive while the start IPC is establishing backend ownership.
       if (run.cancelled) next = await agentApi.cancel();
       run.snapshot = next;
@@ -270,6 +276,33 @@ export function useAgent({
       setError(cause);
     } finally {
       runtime.current.busy = false;
+    }
+  };
+
+  const savePermission = async (permission: AgentPermission) => {
+    setConnectionBusy(true);
+    try {
+      setConnection(await agentApi.permission(permission));
+      setError(null);
+    } catch (cause) {
+      setError(cause);
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
+
+  const approve = async (id: string, allow: boolean) => {
+    setApprovalBusy(true);
+    runtime.current.requestVersion++;
+    try {
+      const next = await agentApi.approve(id, allow);
+      runtime.current.snapshot = next;
+      setSnapshot(next);
+      setError(null);
+    } catch (cause) {
+      setError(cause);
+    } finally {
+      setApprovalBusy(false);
     }
   };
 
@@ -352,6 +385,7 @@ export function useAgent({
     snapshot,
     connection,
     connectionBusy,
+    approvalBusy,
     phase,
     error: error ?? pollError,
     cancelling,
@@ -359,6 +393,8 @@ export function useAgent({
     start,
     cancel,
     saveConnection,
+    savePermission,
+    approve,
     clear,
     undo,
     undoResources,

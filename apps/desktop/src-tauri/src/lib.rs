@@ -99,6 +99,9 @@ fn application_base(
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         agent::get_agent_connection,
+        agent::list_agent_models,
+        agent::save_agent_permission,
+        agent::approve_agent_generation,
         agent::save_agent_connection,
         agent::get_agent_state,
         agent::start_agent_run,

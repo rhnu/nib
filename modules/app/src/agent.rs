@@ -3,6 +3,12 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "native")]
+mod connection;
+#[cfg(feature = "native")]
+mod generation;
+#[cfg(feature = "native")]
+mod images;
+#[cfg(feature = "native")]
 mod runtime;
 #[cfg(feature = "native")]
 pub(crate) mod storage;
@@ -20,14 +26,49 @@ pub enum AgentApi {
     Responses,
 }
 
-/// Nonsecret connection metadata. Endpoint is the API root, usually ending in `/v1`.
+/// Official providers own their endpoint and protocol; only custom connections expose them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum AgentProvider {
+    OpenAi,
+    DeepSeek,
+    OpenRouter,
+    Custom { endpoint: String, api: AgentApi },
+}
+
+impl AgentProvider {
+    /// The API root used for model discovery and credential destination checks.
+    #[must_use]
+    pub fn endpoint(&self) -> &str {
+        match self {
+            Self::OpenAi => "https://api.openai.com/v1",
+            Self::DeepSeek => "https://api.deepseek.com",
+            Self::OpenRouter => "https://openrouter.ai/api/v1",
+            Self::Custom { endpoint, .. } => endpoint,
+        }
+    }
+
+    #[must_use]
+    pub fn api(&self) -> AgentApi {
+        match self {
+            Self::Custom { api, .. } => *api,
+            Self::OpenAi | Self::DeepSeek | Self::OpenRouter => AgentApi::Responses,
+        }
+    }
+}
+
+/// Nonsecret metadata without duplicate official endpoint or protocol fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct AgentConnectionConfig {
-    pub endpoint: String,
     pub model: String,
-    pub api: AgentApi,
+    pub provider: AgentProvider,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +77,28 @@ pub struct AgentConnectionConfig {
 pub struct AgentConnectionStatus {
     pub config: Option<AgentConnectionConfig>,
     pub configured: bool,
+    pub generation_permission: AgentPermission,
+}
+
+/// Persistent permission for Agent-initiated paid generation.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub enum AgentPermission {
+    #[default]
+    Ask,
+    Allow,
+    Deny,
+}
+
+/// A single concrete submission awaiting a user decision; never resumed after restart.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AgentApproval {
+    pub id: String,
+    pub account_name: String,
+    pub quote: crate::jobs::GenerationQuote,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +123,7 @@ pub struct AgentMessage {
     pub content: String,
     pub tool_name: Option<String>,
     pub success: Option<bool>,
+    pub asset_ids: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -72,6 +136,8 @@ pub struct AgentSnapshot {
     pub error: Option<String>,
     #[serde(default)]
     pub resources_undo_available: bool,
+    #[serde(skip_deserializing)]
+    pub approval: Option<AgentApproval>,
 }
 
 /// Deliberate safe errors. Provider bodies and transport URLs never become user diagnostics.
@@ -99,6 +165,8 @@ pub enum AgentError {
     Persistence(#[from] crate::persistence::PersistenceError),
     #[error("the system credential store could not complete the operation")]
     Credentials(#[from] crate::settings::CredentialError),
+    #[error(transparent)]
+    Generation(#[from] crate::jobs::JobError),
 }
 
 impl AgentError {
@@ -125,6 +193,9 @@ impl AgentError {
             Self::Locked => "The assistant state is unavailable.",
             Self::Persistence(_) => "The assistant could not read or save local data.",
             Self::Credentials(_) => "The system credential store could not complete the operation.",
+            Self::Generation(_) => {
+                "The image generation operation could not be completed. Inspect the generation queue for details."
+            },
         }
     }
 

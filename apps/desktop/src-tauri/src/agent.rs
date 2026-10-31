@@ -1,7 +1,10 @@
 //! Desktop adapters for application-owned Agent connections and runs.
 
 use nib_app::{
-    agent::{AgentConnectionConfig, AgentConnectionStatus, AgentError, AgentSnapshot},
+    agent::{
+        AgentConnectionConfig, AgentConnectionStatus, AgentError, AgentPermission, AgentProvider,
+        AgentSnapshot,
+    },
     api::{ApiError, ErrorCode, UserMessage},
 };
 
@@ -79,6 +82,7 @@ pub(crate) async fn get_agent_state(
 pub(crate) async fn start_agent_run(
     state: tauri::State<'_, DesktopState>,
     prompt: String,
+    asset_ids: Vec<String>,
     expected_epoch: String,
 ) -> Result<AgentSnapshot, ApiError> {
     let access = state.app.read_access().await;
@@ -90,9 +94,51 @@ pub(crate) async fn start_agent_run(
     })
     .await?;
     runtime
-        .start(app, prompt, expected_epoch)
+        .start(app, prompt, asset_ids, expected_epoch)
         .await
         .map_err(agent_error)
+}
+
+#[tauri::command]
+pub(crate) async fn list_agent_models(
+    state: tauri::State<'_, DesktopState>,
+    provider: AgentProvider,
+    api_key: Option<String>,
+) -> Result<Vec<String>, ApiError> {
+    let app = state.app.clone();
+    let runtime = blocking(move || app.agent().map_err(persistence_error)).await?;
+    runtime.models(provider, api_key).await.map_err(agent_error)
+}
+
+#[tauri::command]
+pub(crate) async fn save_agent_permission(
+    state: tauri::State<'_, DesktopState>,
+    permission: AgentPermission,
+) -> Result<AgentConnectionStatus, ApiError> {
+    let app = state.app.clone();
+    blocking(move || {
+        app.agent()
+            .map_err(persistence_error)?
+            .save_permission(permission)
+            .map_err(agent_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn approve_agent_generation(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    allow: bool,
+) -> Result<AgentSnapshot, ApiError> {
+    let app = state.app.clone();
+    blocking(move || {
+        app.agent()
+            .map_err(persistence_error)?
+            .approve(&id, allow)
+            .map_err(agent_error)
+    })
+    .await
 }
 
 #[tauri::command]

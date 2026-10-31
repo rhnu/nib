@@ -11,6 +11,8 @@
 @import "@/features/workbench/styles.css";
 @import "@/features/prompt/styles.css";
 @import "@/features/library/styles.css";
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/cjk/dist/*.js";
 
 /* Preserve nib's pixel density while exposing existing theme tokens to utilities. */
 @theme inline {

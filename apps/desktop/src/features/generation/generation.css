@@ -341,6 +341,10 @@
   align-items: stretch;
   border-radius: var(--radius);
 }
+.generation-result-image {
+  position: relative;
+  min-width: 0;
+}
 .generation-result-open.selected {
   border-color: var(--accent);
 }

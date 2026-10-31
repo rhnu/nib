@@ -235,5 +235,22 @@ pub(crate) fn remove_owner_on(
     Ok(())
 }
 
+#[cfg(feature = "native")]
+pub(crate) fn sync_agent_on(
+    connection: &Connection,
+    snapshot: &crate::agent::AgentSnapshot,
+) -> Result<(), PersistenceError> {
+    replace_on(
+        connection,
+        "agent",
+        "1",
+        snapshot
+            .messages
+            .iter()
+            .flat_map(|message| message.asset_ids.iter().map(String::as_str))
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests;
