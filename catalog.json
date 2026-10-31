@@ -2,6 +2,18 @@
   "schemaVersion": 1,
   "resources": [
     {
+      "id": "anime-dbrating",
+      "name": "Anime image safety",
+      "description": "Pinned local anime image safety rating model used by the Atelier cascade.",
+      "version": "1.0.0",
+      "manifest": {
+        "path": "resource.json",
+        "url": "https://github.com/rhnu/nib/releases/download/resource-anime-dbrating-v1.0.0/resource.json",
+        "bytes": 1002,
+        "sha256": "62fbca5471c6e9d797b944729bebe6a9bc2fbc963792c337667deb320fe7f76e"
+      }
+    },
+    {
       "id": "lexicon",
       "name": "Prompt lexicon",
       "description": "Offline prompt lexicon with optional local semantic search.",
