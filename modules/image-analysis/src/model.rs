@@ -55,7 +55,11 @@ impl Snapshot {
         } else {
             ANIME_RESOURCE_ID
         };
-        if lease.id != expected_id || lease.version != "1.0.0" || lease.components != ["core"] {
+        let expected_version = if wd { "1.0.0" } else { "1.0.1" };
+        if lease.id != expected_id
+            || lease.version != expected_version
+            || lease.components != ["core"]
+        {
             return Err(AnalysisError::InvalidResource(format!(
                 "unsupported {expected_id} resource identity, version or components"
             )));

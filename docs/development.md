@@ -264,7 +264,7 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --v
 
 ## 图像分析资源
 
-本地图像分析沿用 Atelier 的固定模型、预处理与 `anime-rating-cascade` v1 策略。主模型为 `deepghs/anime_dbrating` 的 `mobilenetv3_large_100_v0_ls0.2`；复核及标签模型为 `SmilingWolf/wd-swinv2-tagger-v3`。下载清单固定 revision、文件大小和 SHA-256，权威清单位于资源分支的 `anime-dbrating/versions/1.0.0/` 与 `wd-swinv2-tagger-v3/versions/1.0.0/`。
+本地图像分析使用固定模型、对应预处理与 `anime-rating-cascade` v1 策略。主模型为 `deepghs/anime_dbrating` 的 `mobilenetv3_large_100_v0_ls0.2`；复核及标签模型为 `SmilingWolf/wd-swinv2-tagger-v3`。下载清单固定 revision、文件大小和 SHA-256，权威清单位于资源分支的 `anime-dbrating/versions/1.0.1/` 与 `wd-swinv2-tagger-v3/versions/1.0.0/`。
 
 模型通过资源 consumer 和代次租约使用，与词库共用应用的 CPU ONNX Runtime。原生推理依赖不进入类型生成或提示词 WASM。安全状态、证据和按媒体内容的关联归应用领域；宿主只装配与投影 IPC，前端以共用展示策略管理模糊。评分失败保留可用生成图片，存储失败仍按持久化错误处理。
 

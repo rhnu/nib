@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use super::RatingScores;
 
-/// Production calibration is shared with the validated Atelier cascade.
+/// Versioned calibration for the primary classifier and optional review cascade.
 #[derive(serde::Deserialize)]
 pub(super) struct Policy {
     pub id: String,
