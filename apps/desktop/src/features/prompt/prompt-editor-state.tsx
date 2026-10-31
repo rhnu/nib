@@ -56,3 +56,8 @@ export function usePromptBlockCollapse(nodeId: string, defaultCollapsed: boolean
 
   return [collapsed, setCollapsed] as const;
 }
+
+/** Current composition address also identifies drag destinations. */
+export function usePromptEditorPath() {
+  return useContext(PromptEditorScopeContext);
+}

@@ -1,9 +1,11 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { ArrowDown, ArrowUp, Link2, Trash2, Type } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Link2, Trash2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "@/bindings/workbench";
 import { ActionsMenu, IconButton } from "@/shared/ui";
 import { PromptTextEditor } from "./prompt-text-editor";
+import type { PromptTarget } from "./prompt-transfer";
+import { promptDragType, usePromptTransfer } from "./prompt-transfer-context";
 import { PromptBlock } from "./prompt-block";
 
 export function NodeEditor({
@@ -17,6 +19,7 @@ export function NodeEditor({
   remove,
   expand,
   model,
+  transferTarget,
 }: {
   node: PromptNode;
   resource?: Resource;
@@ -28,9 +31,16 @@ export function NodeEditor({
   remove: () => void;
   expand: (node: PromptNode) => Promise<PromptNode>;
   model?: string;
+  transferTarget?: PromptTarget;
 }) {
   useTranslation();
 
+  const transfer = usePromptTransfer();
+  const destinations = [...(transfer?.destinations.values() ?? [])].filter(
+    (item) =>
+      (item.allowChunk || node.kind === "text") &&
+      JSON.stringify(item.target) !== JSON.stringify(transferTarget),
+  );
   const latest = useRef({ node, onChange, active: true });
   useLayoutEffect(() => {
     latest.current.node = node;
@@ -52,6 +62,22 @@ export function NodeEditor({
       onEnabledChange={(enabled) => onChange({ ...latest.current.node, enabled })}
       title={
         <>
+          {transfer && transferTarget && (
+            <span
+              className="prompt-drag-handle"
+              draggable
+              title={t("prompt.dragSegment")}
+              aria-label={t("prompt.dragSegment")}
+              onDragStart={(event) => {
+                event.dataTransfer.setData(promptDragType, node.id);
+                event.dataTransfer.effectAllowed = "move";
+                transfer.start({ from: transferTarget, node });
+              }}
+              onDragEnd={() => transfer.start(null)}
+            >
+              <GripVertical size={14} aria-hidden />
+            </span>
+          )}
           {node.kind === "chunk" ? <Link2 size={14} /> : <Type size={14} />}
           <span title={node.kind === "chunk" ? resource?.name : undefined}>
             {node.kind === "chunk"
@@ -71,24 +97,43 @@ export function NodeEditor({
           <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
             <ArrowDown size={14} aria-hidden />
           </IconButton>
-          {node.kind === "chunk" && (
+          {(node.kind === "chunk" || destinations.length > 0) && (
             <ActionsMenu
               label={t("prompt.segmentActions")}
               items={[
-                {
-                  label: t("prompt.expandToText"),
-                  action: () => {
-                    void expand(node).then((result) => {
-                      if (latest.current.active && latest.current.node === node && result !== node)
-                        latest.current.onChange(result);
-                    });
-                  },
-                },
-                {
-                  label: t("prompt.revertOverride"),
-                  action: () => onChange({ ...node, overrideText: null }),
-                  disabled: node.overrideText === null,
-                },
+                ...(transferTarget && destinations.length
+                  ? [
+                      {
+                        label: t("prompt.moveSegmentTo"),
+                        items: destinations.map(({ target, label }) => ({
+                          label,
+                          action: () => transfer?.move(transferTarget, target, node.id),
+                        })),
+                      },
+                    ]
+                  : []),
+                ...(node.kind === "chunk"
+                  ? [
+                      {
+                        label: t("prompt.expandToText"),
+                        action: () => {
+                          void expand(node).then((result) => {
+                            if (
+                              latest.current.active &&
+                              latest.current.node === node &&
+                              result !== node
+                            )
+                              latest.current.onChange(result);
+                          });
+                        },
+                      },
+                      {
+                        label: t("prompt.revertOverride"),
+                        action: () => onChange({ ...node, overrideText: null }),
+                        disabled: node.overrideText === null,
+                      },
+                    ]
+                  : []),
               ]}
             />
           )}

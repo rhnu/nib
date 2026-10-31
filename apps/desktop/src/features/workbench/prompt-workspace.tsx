@@ -87,6 +87,7 @@ export function PromptWorkspace({
         onChange={(settings) => edit({ ...draft, settings })}
       />
       <CompositionEditor
+        negativeSupported={capabilities?.customNegativePrompts}
         value={draft.composition}
         resources={resources}
         model={capabilities?.model ?? resolved?.settings.model ?? draft.settings.model ?? undefined}

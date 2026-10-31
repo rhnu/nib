@@ -126,6 +126,7 @@ function CharacterRow({
         <div className="character-prompts">
           <PromptEditorScope path={["character", character.id]}>
             <CompositionEditor
+              negativeSupported={capabilities?.customNegativePrompts}
               compact
               contextLabel={[contextLabel, t("prompt.namedCharacter", { value0: index + 1 })]
                 .filter(Boolean)

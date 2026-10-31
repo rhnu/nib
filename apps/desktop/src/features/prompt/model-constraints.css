@@ -1,0 +1,13 @@
+.setting-constraint {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.setting-constraint > svg {
+  flex: none;
+  margin-top: 2px;
+}

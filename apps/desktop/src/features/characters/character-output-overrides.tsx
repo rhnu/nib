@@ -142,6 +142,7 @@ export function CharacterOutputOverrides({
               <div className="character-prompts">
                 <PromptEditorScope path={["character", character.id]}>
                   <PresetOverrides
+                    negativeSupported={capabilities?.customNegativePrompts}
                     composition={character.composition}
                     overrides={textOverrides}
                     resources={resources}

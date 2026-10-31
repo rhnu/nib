@@ -1,7 +1,7 @@
 import { t, useTranslation, formatNumber } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowLeftRight, RotateCcw } from "lucide-react";
+import { ArrowLeftRight, LockKeyhole, RotateCcw } from "lucide-react";
 import type { GenerationSettings, ModelCapabilities, ResolvedSettings } from "@/bindings/workbench";
 import type { ParameterDiagnostic } from "@/bindings/generation";
 import {
@@ -19,6 +19,7 @@ import {
   settingValue,
   type SettingKey,
 } from "./settings";
+import "./model-constraints.css";
 
 export { focusSetting } from "./settings";
 
@@ -91,7 +92,13 @@ export function SettingsEditor({
   const diagnosticsFor = (key: SettingKey) =>
     diagnostics.filter((item) => diagnosticSetting(item.field) === key);
 
-  const wrapper = (key: SettingKey, control: ReactNode, help?: string, unsupported = false) => {
+  const wrapper = (
+    key: SettingKey,
+    control: ReactNode,
+    help?: string,
+    lockReason?: string,
+    unsupported = false,
+  ) => {
     const messages = diagnosticsFor(key);
     const rejected = errorFields.some((field) => diagnosticSetting(field) === key);
     return (
@@ -125,6 +132,17 @@ export function SettingsEditor({
         >
           {control}
         </FormField>
+        {lockReason && (
+          <small id={`${prefix}-${key}-constraint`} className="setting-constraint">
+            <LockKeyhole size={12} aria-hidden />
+            <span>
+              {lockReason}
+              {value[key] !== null && (
+                <> {t("prompt.savedOverrideKept", { value0: settingValue(key, value[key]) })}</>
+              )}
+            </span>
+          </small>
+        )}
         {unsupported && (
           <small className="setting-note">{t("prompt.unsupportedSettingKept")}</small>
         )}
@@ -140,22 +158,30 @@ export function SettingsEditor({
     );
   };
 
-  const controlProps = (key: SettingKey) => ({
+  const controlProps = (key: SettingKey, locked = false) => ({
     id: `${prefix}-${key}`,
-    "aria-describedby": diagnosticsFor(key).length ? `${prefix}-${key}-diagnostic` : undefined,
+    "aria-describedby":
+      [
+        locked ? `${prefix}-${key}-constraint` : "",
+        diagnosticsFor(key).length ? `${prefix}-${key}-diagnostic` : "",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     "aria-invalid": errorFields.some((field) => diagnosticSetting(field) === key) || undefined,
   });
 
   const number = (key: "steps" | "scale" | "seed" | "nSamples" | "cfgRescale", help?: string) => {
     const range = key === "seed" ? undefined : capabilities?.ranges[key];
+    const fixed = range !== undefined && range.min === range.max;
     const numericInput = (
       <input
-        {...controlProps(key)}
+        {...controlProps(key, fixed)}
+        disabled={fixed}
         type="number"
         step={key === "scale" || key === "cfgRescale" ? "any" : 1}
         min={range?.min}
         max={range?.max}
-        value={value[key] ?? ""}
+        value={fixed ? range.min : (value[key] ?? "")}
         placeholder={inherited(key)}
         onChange={(event) => {
           if (event.target.value === "") change(key, null);
@@ -164,7 +190,7 @@ export function SettingsEditor({
         }}
       />
     );
-    const sliderValue = value[key] ?? effective?.[key];
+    const sliderValue = fixed ? range.min : (value[key] ?? effective?.[key]);
     const hasSlider = (key === "steps" || key === "scale") && range && sliderValue !== undefined;
     return wrapper(
       key,
@@ -174,12 +200,12 @@ export function SettingsEditor({
             type="range"
             aria-label={t("prompt.settingSlider", { value0: settingLabels[key] })}
             aria-invalid={controlProps(key)["aria-invalid"]}
-            aria-describedby={controlProps(key)["aria-describedby"]}
+            aria-describedby={controlProps(key, fixed)["aria-describedby"]}
             min={range.min}
             max={range.max}
             step={key === "steps" ? 1 : "any"}
             value={Math.max(range.min, Math.min(range.max, sliderValue))}
-            disabled={range.min === range.max}
+            disabled={fixed}
             onChange={(event) => change(key, event.currentTarget.valueAsNumber)}
           />
           {numericInput}
@@ -187,9 +213,8 @@ export function SettingsEditor({
       ) : (
         numericInput
       ),
-      range && range.min === range.max
-        ? t("prompt.fixedValueKept", { value0: help ? `${help} ` : "", value1: range.min })
-        : help,
+      help,
+      fixed ? t("prompt.fixedValueLocked", { value0: range.min }) : undefined,
     );
   };
 
@@ -210,29 +235,38 @@ export function SettingsEditor({
     fixed?: string | null,
   ) => {
     const current = value[key];
+    const locked = fixed !== null && fixed !== undefined;
     const hasCurrent = current !== null && choices?.includes(current);
     return wrapper(
       key,
       <Select
-        {...controlProps(key)}
-        value={current ?? ""}
+        {...controlProps(key, locked)}
+        disabled={locked}
+        value={locked ? fixed : (current ?? "")}
         onValueChange={(next) => change(key, (next || null) as GenerationSettings[K])}
-        options={[
-          { value: "", label: inherited(key) },
-          ...(current !== null && !hasCurrent
-            ? [{ value: current, label: `${settingValue(key, current)}${t("prompt.savedTag")}` }]
-            : []),
-          ...(choices?.map((option) => ({ value: option, label: settingValue(key, option) })) ??
-            []),
-        ]}
+        options={
+          locked
+            ? [{ value: fixed, label: settingValue(key, fixed) }]
+            : [
+                { value: "", label: inherited(key) },
+                ...(current !== null && !hasCurrent
+                  ? [
+                      {
+                        value: current,
+                        label: `${settingValue(key, current)}${t("prompt.savedTag")}`,
+                      },
+                    ]
+                  : []),
+                ...(choices?.map((option) => ({
+                  value: option,
+                  label: settingValue(key, option),
+                })) ?? []),
+              ]
+        }
       />,
-      fixed
-        ? t("prompt.fixedValueOverrideKept", {
-            value0: help ? `${help} ` : "",
-            value1: settingValue(key, fixed),
-          })
-        : help,
-      current !== null && choices !== undefined && !hasCurrent,
+      help,
+      locked ? t("prompt.fixedValueLocked", { value0: settingValue(key, fixed) }) : undefined,
+      !locked && current !== null && choices !== undefined && !hasCurrent,
     );
   };
 
@@ -251,8 +285,9 @@ export function SettingsEditor({
     wrapper(
       key,
       <Select
-        {...controlProps(key)}
-        value={value[key] === null ? "" : String(value[key])}
+        {...controlProps(key, supported === false)}
+        disabled={supported === false}
+        value={supported === false ? "false" : value[key] === null ? "" : String(value[key])}
         onValueChange={(next) => change(key, next === "" ? null : next === "true")}
         options={[
           { value: "", label: inherited(key) },
@@ -261,13 +296,17 @@ export function SettingsEditor({
         ]}
       />,
       help,
-      supported === false && value[key] === true,
+      supported === false ? t("prompt.unsupportedSettingLocked") : undefined,
     );
 
   const advancedCount = advancedSettingKeys.filter((key) => value[key] !== null).length;
   const advancedSummary = advancedCount
     ? t("prompt.configuredCount", { count: advancedCount })
     : "";
+  const fixedSamples =
+    capabilities && capabilities.ranges.nSamples.min === capabilities.ranges.nSamples.max
+      ? capabilities.ranges.nSamples.min
+      : undefined;
   return (
     <div className="settings-editor" data-setting-editor={mode}>
       {(fields === "all" || fields === "model" || fields === "modelOnly") && (
@@ -407,13 +446,20 @@ export function SettingsEditor({
           {capabilities
             ? wrapper(
                 "nSamples",
-                <fieldset className="sample-options" aria-label={t("prompt.samples")}>
+                <fieldset
+                  className="sample-options"
+                  aria-label={t("prompt.samples")}
+                  aria-describedby={
+                    controlProps("nSamples", fixedSamples !== undefined)["aria-describedby"]
+                  }
+                  disabled={fixedSamples !== undefined}
+                >
                   <button
                     id={`${prefix}-nSamples`}
                     type="button"
                     className="sample-inherit"
                     title={inherited("nSamples")}
-                    aria-pressed={value.nSamples === null}
+                    aria-pressed={fixedSamples === undefined && value.nSamples === null}
                     onClick={() => change("nSamples", null)}
                   >
                     {t("prompt.inherit")}
@@ -432,13 +478,14 @@ export function SettingsEditor({
                     <button
                       type="button"
                       key={count}
-                      aria-pressed={value.nSamples === count}
+                      aria-pressed={(fixedSamples ?? value.nSamples) === count}
                       onClick={() => change("nSamples", count)}
                     >
                       {count}
                     </button>
                   ))}
-                  {value.nSamples !== null &&
+                  {fixedSamples === undefined &&
+                    value.nSamples !== null &&
                     (value.nSamples < capabilities.ranges.nSamples.min ||
                       value.nSamples > capabilities.ranges.nSamples.max) && (
                       <output className="sample-saved">
@@ -448,6 +495,9 @@ export function SettingsEditor({
                     )}
                 </fieldset>,
                 t("prompt.samplesHelp"),
+                fixedSamples !== undefined
+                  ? t("prompt.fixedValueLocked", { value0: fixedSamples })
+                  : undefined,
               )
             : number("nSamples", t("prompt.samplesHelp"))}
         </FormGrid>

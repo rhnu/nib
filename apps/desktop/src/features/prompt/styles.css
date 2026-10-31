@@ -142,7 +142,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 116px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--muted);
@@ -412,4 +412,26 @@
   border: 1px solid var(--danger);
   border-radius: var(--radius);
   color: var(--danger);
+}
+
+.prompt-drop-slot + .prompt-drop-slot {
+  margin-top: 8px;
+}
+.prompt-drag-handle {
+  cursor: grab;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.prompt-drag-handle:active {
+  cursor: grabbing;
+}
+.prompt-drop-before {
+  box-shadow: 0 -2px 0 var(--accent);
+}
+.prompt-drop-end {
+  box-shadow: 0 2px 0 var(--accent);
+}
+.prompt-tabs > button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

@@ -284,6 +284,7 @@ export function PresetEditor({
             <div className="preset-detail">
               {binding.kind === "linked" ? (
                 <PresetOverrides
+                  negativeSupported={outputCapabilities?.customNegativePrompts}
                   composition={composition}
                   overrides={binding.overrides}
                   resources={resources}
@@ -294,6 +295,7 @@ export function PresetEditor({
               ) : (
                 <>
                   <CompositionEditor
+                    negativeSupported={outputCapabilities?.customNegativePrompts}
                     compact
                     contextLabel={name}
                     allowChunk={false}

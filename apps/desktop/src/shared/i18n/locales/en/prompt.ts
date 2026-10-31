@@ -41,6 +41,8 @@ export const prompt = {
   segmentActions: "Segment actions",
   moveUp: "Move up",
   moveDown: "Move down",
+  dragSegment: "Drag segment",
+  moveSegmentTo: "Move to",
   expandToText: "Expand to independent text",
   revertOverride: "Revert instance override",
   removeSegment: "Remove segment",
@@ -148,14 +150,14 @@ export const prompt = {
   default: "Default",
   settingHelp: "About {{value0}}",
   restoreInheritance: "Restore inherited {{value0}}",
+  unsupportedSettingLocked: "The current model does not support this setting; it is off.",
   unsupportedSettingKept: "Not supported by the current model. The setting has been kept.",
   invalidSetting: "This setting is invalid. See the error in the generation area.",
   settingSlider: "{{value0}} slider",
-  fixedValueKept:
-    "{{value0}}The current model fixes this value at {{value1}}. The setting has been kept.",
+  fixedValueLocked: "The current model fixes this value at {{value0}}.",
+  savedOverrideKept:
+    "Saved override: {{value0}}. Kept for other models; inheritance can be restored.",
   savedTag: " · Saved",
-  fixedValueOverrideKept:
-    "{{value0}}The current model fixes this value at {{value1}}. Switching models will not clear existing overrides.",
   on: "On",
   off: "Off",
   configuredCount_one: "{{count}} setting configured",
