@@ -6,8 +6,12 @@ import { ErrorBoundary } from "react-error-boundary";
 import { queryClient } from "@/shared/query/client";
 import App from "@/app/app";
 import "@/app/styles.css";
-import { Notice } from "@/shared/ui";
+import { Notice, Notifications } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
+import { disableDefaultContextMenu, TextContextMenu } from "@/shared/ui/text-context-menu";
+
+const restoreContextMenu = disableDefaultContextMenu();
+import.meta.hot?.dispose(restoreContextMenu);
 
 const root = document.getElementById("root");
 
@@ -22,6 +26,8 @@ function RootFailure({ error }: { error: unknown }) {
 
 createRoot(root).render(
   <StrictMode>
+    <Notifications />
+    <TextContextMenu />
     <ErrorBoundary
       onError={(error, info) =>
         console.error("Application root render failed", error, info.componentStack)

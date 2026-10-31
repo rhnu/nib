@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
+import { registerPromptContextMenu } from "./editor-context-menu";
 import type { PromptDocument } from "@/bindings/prompt";
 import {
   createPromptEditor,
@@ -73,6 +74,7 @@ export function usePromptEditor(
       (cause) => current.current.onInsertionError(cause),
     );
     viewRef.current = view;
+    const unregisterContextMenu = registerPromptContextMenu(view);
     const observer = new MutationObserver(() => {
       view.dispatch({
         effects: compartments.configuration.reconfigure(
@@ -92,6 +94,7 @@ export function usePromptEditor(
     return () => {
       clearTimeout(compositionTimer);
       observer.disconnect();
+      unregisterContextMenu();
       viewRef.current = null;
       view.destroy();
     };

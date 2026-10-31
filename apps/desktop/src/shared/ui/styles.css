@@ -250,13 +250,28 @@ textarea:focus {
   background: var(--raised);
   box-shadow: var(--shadow);
   outline: 0;
+  max-height: var(--available-height, 80vh);
+  overflow-y: auto;
 }
 .menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   border-radius: var(--radius);
   font-size: 12px;
   padding: 7px 10px;
   cursor: default;
   outline: 0;
+}
+.menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--line-subtle);
+}
+.menu-shortcut {
+  color: var(--muted);
+  font-size: 11px;
 }
 .menu-item[data-disabled] {
   color: var(--muted);

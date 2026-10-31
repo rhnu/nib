@@ -12,7 +12,6 @@ import { ResolutionInspector } from "@/features/prompt/resolution-inspector";
 import { promptApi } from "@/features/prompt/api";
 import { TokenUsageIndicator } from "@/features/prompt/token-usage-indicator";
 import { promptTokenUsage } from "@/features/prompt/token-usage";
-import type { InsertTarget } from "@/features/library/resource-library";
 
 export function PromptWorkspace({
   draft,
@@ -27,7 +26,7 @@ export function PromptWorkspace({
   tokenStatus,
   tokensPending,
   errorFields,
-  openLibrary,
+  readCurrentDraft,
   edit,
   setError,
   onFocusField,
@@ -44,7 +43,7 @@ export function PromptWorkspace({
   tokenStatus?: string;
   tokensPending?: boolean;
   errorFields: string[];
-  openLibrary: (target: InsertTarget) => void;
+  readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
   setError: (message: unknown) => void;
   onFocusField?: (field: string) => void;
@@ -91,8 +90,7 @@ export function PromptWorkspace({
         value={draft.composition}
         resources={resources}
         model={capabilities?.model ?? resolved?.settings.model ?? draft.settings.model ?? undefined}
-        onChange={(composition) => edit({ ...draft, composition })}
-        addChunk={openLibrary}
+        onChange={(composition) => edit({ ...readCurrentDraft(), composition })}
         toolbarActions={
           <>
             <Popover.Root

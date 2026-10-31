@@ -91,6 +91,10 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
             value={{
               onDirector: controller.sendToDirector,
               onPngText: (asset) => controller.afterInputs(() => controller.setPngAsset(asset)),
+              onImageOperation: controller.requestOperation,
+              onRestore: controller.guardedRestore,
+              canMaxEnhance: controller.extension.canMaxEnhance,
+              canInpaint: controller.extension.canInpaint,
             }}
           >
             <div className="workbench">
@@ -101,11 +105,7 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                       key={target}
                       disabled={props.readOnly}
                       aria-current={target === page ? "page" : undefined}
-                      onClick={() =>
-                        target === "library"
-                          ? controller.guardedLibrary("positive")
-                          : void navigate(target)
-                      }
+                      onClick={() => void navigate(target)}
                     >
                       <NavigationIcon page={target} />
                       {navigationLabels[target]}

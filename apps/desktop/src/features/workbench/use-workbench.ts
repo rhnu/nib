@@ -4,8 +4,8 @@ import { useStore } from "zustand";
 import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "@/bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "@/shared/host/use-close-guard";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
+import { notify } from "@/shared/ui";
 import { useResourceCache } from "@/features/library/use-resource-cache";
-import type { InsertTarget } from "@/features/library/resource-library";
 import { useResolution, type ResolutionEvaluation } from "@/features/prompt/use-resolution";
 import { emptySettings } from "@/features/prompt/model";
 import { DraftWriter } from "./draft-writer";
@@ -46,11 +46,6 @@ export function useWorkbench(
 
   const getResourceDirty = () => librarySession.getState().dirty || librarySession.getState().busy;
 
-  const setLibrary = (open: boolean) => {
-    navigate(open ? "library" : "create");
-  };
-
-  const [insertTarget, setInsertTarget] = useState<InsertTarget>("positive");
   const [restoreVersion, setRestoreVersion] = useState(0);
   const beforeClose = useRef<() => Promise<boolean>>(async () => true);
 
@@ -83,7 +78,7 @@ export function useWorkbench(
     getResourceDirty,
     onResourceBlocked: () => {
       setError(deferMessage(() => t("workbench.saveResourcesBeforeClose")));
-      setLibrary(true);
+      navigate("library");
     },
     onError: setError,
     beforeClose: () => beforeClose.current(),
@@ -107,47 +102,33 @@ export function useWorkbench(
     });
   };
 
-  const openLibrary = (target: InsertTarget) => {
-    setInsertTarget(target);
-  };
-
-  const insert = (resource: ResourceSummary) => {
+  const insertPreset = (resource: ResourceSummary) => {
     writer.update((current) => {
-      if (resource.kind === "preset") {
-        current.presets.push({
-          id: crypto.randomUUID(),
-          enabled: true,
-          binding: {
-            kind: "linked",
-            resourceId: resource.id,
-            overrides: [],
-            settingsOverrides: emptySettings(),
-            outputOverrides: {
-              characters: [],
-              precise: [],
-              vibes: [],
-              normalizeVibeStrength: null,
-            },
-          },
-        });
-      } else {
-        const scope = insertTarget === "negative" ? "negative" : "positive";
-        current.composition[scope].push({
-          kind: "chunk",
-          id: crypto.randomUUID(),
+      current.presets.push({
+        id: crypto.randomUUID(),
+        enabled: true,
+        binding: {
+          kind: "linked",
           resourceId: resource.id,
-          enabled: true,
-          overrideText: null,
-        });
-      }
+          overrides: [],
+          settingsOverrides: emptySettings(),
+          outputOverrides: {
+            characters: [],
+            precise: [],
+            vibes: [],
+            normalizeVibeStrength: null,
+          },
+        },
+      });
     });
     if (!resources.has(resource.id))
       void ensureResources([resource.id]).catch((cause) => setError(cause));
+    notify(() => t("library.resourceInserted", { name: resource.name }));
   };
 
   const prepareMigration = async () => {
     if (getResourceDirty()) {
-      setLibrary(true);
+      navigate("library");
       const message = new MessageError(
         deferMessage(() => t("workbench.saveResourcesBeforeMigration")),
       );
@@ -180,13 +161,10 @@ export function useWorkbench(
     setError,
     librarySession,
     lexiconSession,
-    setLibrary,
-    insertTarget,
     edit,
     restore,
     restoreVersion,
     readCurrentDraft,
-    openLibrary,
-    insert,
+    insertPreset,
   };
 }

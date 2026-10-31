@@ -55,6 +55,19 @@ pub enum UserMessage {
     MissingResource {
         id: String,
     },
+    ResourceModelMismatch {
+        id: String,
+        name: String,
+        model: String,
+    },
+    InvalidResourceId,
+    InvalidResourceMetadata,
+    UnknownResourceModel,
+    ResourceFolderCycle,
+    ResourceFolderNameConflict,
+    ResourceCoverOwnership,
+    ResourcePageLimit,
+    ResourceFolderNameRequired,
     ResourceTypeMismatch {
         id: String,
         expected: crate::library::ResourceKind,

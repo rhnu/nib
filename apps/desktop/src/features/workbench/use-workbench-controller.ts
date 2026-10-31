@@ -63,7 +63,6 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     restore,
     restoreVersion,
     readCurrentDraft,
-    openLibrary,
     resourceVersion,
   } = state;
   const [positioning, setPositioning] = useState<{ selected: string | null } | null>(null);
@@ -265,12 +264,6 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
       ).catch((cause: unknown) => setError(cause));
     });
 
-  const guardedLibrary = (target: Parameters<typeof openLibrary>[0]) =>
-    guard(() => {
-      openLibrary(target);
-      setPage("library");
-    });
-
   const focusField = (field: string) => {
     focusOutputField(field, readCurrentDraft(), resources, resolved);
   };
@@ -373,7 +366,6 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     model,
     editorCapabilities,
     estimate,
-    guardedLibrary,
     focusField,
     openPositions,
     outputIssues,

@@ -10,6 +10,7 @@ import { jobFeedbackText, type FeedbackSample } from "../jobs/feedback-state";
 import { ResultCanvas, type ResultCanvasProps } from "./result-gallery";
 import { errorMessage } from "@/shared/host/error";
 import { resultsApi } from "./api";
+import { ImageContextActions } from "@/features/media/image-context-actions";
 
 export function PreviewImage({ sample }: { sample: FeedbackSample }) {
   useTranslation();
@@ -64,18 +65,24 @@ function SampleCell({
       aria-label={t("generation.sampleNumber", { value0: index + 1 })}
     >
       {!decoded && sample?.bytes && <PreviewImage sample={sample} />}
-      {image.url && (
-        <img
-          className="generation-live-image"
-          src={image.url}
-          alt={t("generation.sampleNumber", { value0: index + 1 })}
-          style={{ opacity: decoded ? 1 : 0 }}
-          onError={image.failed}
-          onLoad={() => {
-            setDecodedUrl(image.url);
-            releasePreview(job.id, index);
-          }}
-        />
+      {image.url && result && (
+        <ImageContextActions
+          id={result.assetId}
+          mimeType={result.mimeType}
+          available={result.available}
+        >
+          <img
+            className="generation-live-image"
+            src={image.url}
+            alt={t("generation.sampleNumber", { value0: index + 1 })}
+            style={{ opacity: decoded ? 1 : 0 }}
+            onError={image.failed}
+            onLoad={() => {
+              setDecodedUrl(image.url);
+              releasePreview(job.id, index);
+            }}
+          />
+        </ImageContextActions>
       )}
       {!decoded && !sample?.bytes && (
         <output className="request-sample-status">

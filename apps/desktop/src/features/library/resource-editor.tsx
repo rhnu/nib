@@ -1,7 +1,7 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
-import type { Resource } from "@/bindings/workbench";
+import type { Resource, ResourceFolder } from "@/bindings/workbench";
 import { ActionsMenu, Button, Field, HelpMarker } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { SettingsEditor } from "@/features/prompt/settings-editor";
@@ -10,6 +10,7 @@ import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { CharacterListEditor, CharacterPositionPolicy } from "@/features/characters";
 import { PreciseReferenceEditor } from "@/features/references";
+import { ResourceMetadata } from "./resource-metadata";
 import { VibeReferenceEditor } from "@/features/vibes";
 
 export function ResourceEditor({
@@ -18,7 +19,10 @@ export function ResourceEditor({
   busy,
   models,
   resources,
+  folders,
+  tags,
   change,
+  changeCover,
   leave,
   dismiss,
   remove,
@@ -30,7 +34,10 @@ export function ResourceEditor({
   busy: boolean;
   models: string[];
   resources: Map<string, Resource>;
+  folders: ResourceFolder[];
+  tags: string[];
   change: (resource: Resource) => void;
+  changeCover: (assetId: string, pending: boolean) => void;
   leave: (action: () => void) => void;
   dismiss: () => void;
   remove: () => void;
@@ -100,6 +107,15 @@ export function ResourceEditor({
             onChange={(event) => update((current) => ({ ...current, name: event.target.value }))}
           />
         </Field>
+        <ResourceMetadata
+          resource={editor}
+          models={models}
+          folders={folders}
+          tags={tags}
+          onChange={(next) => update(() => next)}
+          onCoverChange={changeCover}
+          onError={setError}
+        />
         {editor.content.kind === "chunk" ? (
           <div className="resource-text">
             <PromptTextEditor
@@ -120,6 +136,7 @@ export function ResourceEditor({
         ) : (
           <>
             <CompositionEditor
+              contextLabel={editor.name}
               key={`composition:${editor.id}`}
               compact
               value={editor.content.composition}
@@ -175,6 +192,7 @@ export function ResourceEditor({
               />
             )}
             <CharacterListEditor
+              contextLabel={editor.name}
               key={`characters:${editor.id}`}
               value={editor.content.characters}
               onChange={(characters) => updatePreset({ characters })}

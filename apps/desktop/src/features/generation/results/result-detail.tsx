@@ -10,6 +10,8 @@ import { ResultResubmitDialog } from "./result-resubmit-dialog";
 import { SubmissionSummary } from "../submission/submission-summary";
 import { useMediaContent } from "@/features/media/use-media-content";
 import type { ImageOperationAction } from "@/features/inputs/image-operation";
+import { ImageContextActions } from "@/features/media/image-context-actions";
+import { resultFilename } from "./result-file";
 
 function ResultDetailContent({
   result,
@@ -79,15 +81,22 @@ function ResultDetailContent({
               {image.error}
             </Notice>
           ) : image.url ? (
-            <img
-              src={image.url}
-              alt={
-                result.seed === null
-                  ? t("generation.resultSeedMissing")
-                  : t("generation.resultSeedLabel", { value0: result.seed })
-              }
-              onError={image.failed}
-            />
+            <ImageContextActions
+              id={result.assetId}
+              mimeType={result.mimeType}
+              available={result.available}
+              filename={resultFilename(result)}
+            >
+              <img
+                src={image.url}
+                alt={
+                  result.seed === null
+                    ? t("generation.resultSeedMissing")
+                    : t("generation.resultSeedLabel", { value0: result.seed })
+                }
+                onError={image.failed}
+              />
+            </ImageContextActions>
           ) : (
             <output>{t("generation.loadingResultImage")}</output>
           )}

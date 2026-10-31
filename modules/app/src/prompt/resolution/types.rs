@@ -23,6 +23,7 @@ pub enum ResolutionIssueKind {
     MissingResource,
     TypeMismatch,
     StaleOverride,
+    ModelMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

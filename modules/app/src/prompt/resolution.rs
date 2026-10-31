@@ -26,6 +26,15 @@ struct Context<'a> {
     resource: Option<&'a Resource>,
     expanded: bool,
     character_id: Option<&'a str>,
+    uses: Option<&'a std::cell::RefCell<Vec<ResourceUsage>>>,
+}
+
+struct ResourceUsage {
+    resource: Resource,
+    scope: Option<PromptScope>,
+    node_id: Option<String>,
+    preset_instance_id: Option<String>,
+    character_id: Option<String>,
 }
 
 fn issue(
@@ -84,6 +93,15 @@ fn lookup(
             },
         ));
         return Ok(None);
+    }
+    if let Some(uses) = context.uses {
+        uses.borrow_mut().push(ResourceUsage {
+            resource: resource.clone(),
+            scope,
+            node_id: node_id.map(str::to_owned),
+            preset_instance_id: context.instance_id.map(str::to_owned),
+            character_id: context.character_id.map(str::to_owned),
+        });
     }
     Ok(Some(resource))
 }
@@ -288,16 +306,23 @@ pub fn resolve_draft(
     draft: &Draft,
     reader: &(impl ResourceReader + ?Sized),
 ) -> Result<ResolvedDraft, PersistenceError> {
+    // Lookup records active usage before empty text is discarded. Resolve the final
+    // model first, including every preset and draft override, then check each location.
+    let uses = std::cell::RefCell::new(Vec::new());
+    let context = Context {
+        uses: Some(&uses),
+        ..Context::default()
+    };
     let mut state = ResolutionState::default();
     for instance in draft.presets.iter().filter(|instance| instance.enabled) {
-        state.resolve_preset(instance, reader)?;
+        state.resolve_preset(instance, reader, &uses)?;
     }
     resolve_outputs(
         &draft.characters,
         &draft.inputs.references,
         &PresetOutputOverrides::default(),
         &[],
-        Context::default(),
+        context,
         reader,
         &mut state.characters,
         &mut state.references,
@@ -307,7 +332,7 @@ pub fn resolve_draft(
     resolve_composition(
         &draft.composition,
         &[],
-        Context::default(),
+        context,
         reader,
         &mut state.fragments,
         &mut state.issues,
@@ -329,6 +354,29 @@ pub fn resolve_draft(
         ..draft.inputs.clone()
     };
     resolved.input_sources = state.input_sources;
+    for usage in uses.into_inner() {
+        let resource = usage.resource;
+        if !resource.models.is_empty()
+            && !resource
+                .models
+                .iter()
+                .any(|model| model == resolved.settings.model.as_str())
+        {
+            resolved.issues.push(ResolutionIssue {
+                kind: ResolutionIssueKind::ModelMismatch,
+                scope: usage.scope,
+                node_id: usage.node_id,
+                preset_instance_id: usage.preset_instance_id,
+                character_id: usage.character_id,
+                resource_id: Some(resource.id.clone()),
+                message: UserMessage::ResourceModelMismatch {
+                    id: resource.id,
+                    name: resource.name,
+                    model: resolved.settings.model.as_str().to_owned(),
+                },
+            });
+        }
+    }
     resolved.compile_sources();
     Ok(resolved)
 }

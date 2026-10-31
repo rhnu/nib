@@ -13,7 +13,7 @@ mod tokens;
 pub use overrides::*;
 pub use settings::*;
 pub use tokens::{TokenInspection, inspect_tokens};
-mod sqlite;
+pub(crate) mod sqlite;
 pub use sqlite::ResourceSnapshot;
 pub(crate) mod validation;
 
@@ -94,6 +94,16 @@ pub struct Resource {
     pub id: String,
     pub revision: u32,
     pub name: String,
+    pub description: String,
+    pub aliases: Vec<String>,
+    pub tags: Vec<String>,
+    pub models: Vec<String>,
+    pub folder_id: Option<String>,
+    pub cover_asset_id: Option<String>,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub created_at: i64,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub updated_at: i64,
     pub content: ResourceContent,
 }
 

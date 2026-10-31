@@ -4,7 +4,7 @@ use super::{
     CharacterComposition, Composition, Context, GenerationSettings, InputProvenance,
     InstanceOverride, PersistenceError, PresetBinding, PresetInstance, PresetOutputOverrides,
     ReferenceInputs, ResolutionIssue, ResolvedCharacter, ResolvedFragment, ResourceContent,
-    ResourceReader, SettingSource, SettingsProvenance, lookup, resolve_composition,
+    ResourceReader, ResourceUsage, SettingSource, SettingsProvenance, lookup, resolve_composition,
     resolve_outputs, stale_output_overrides,
 };
 
@@ -35,9 +35,11 @@ impl ResolutionState {
         &mut self,
         instance: &PresetInstance,
         reader: &(impl ResourceReader + ?Sized),
+        uses: &std::cell::RefCell<Vec<ResourceUsage>>,
     ) -> Result<(), PersistenceError> {
         let context = Context {
             instance_id: Some(&instance.id),
+            uses: Some(uses),
             ..Context::default()
         };
         match &instance.binding {

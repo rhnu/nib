@@ -128,7 +128,15 @@ fn streaming_queue(
         Arc::<MemoryJobs>::clone(&jobs),
         Arc::new(Resources {
             resource: Resource {
-                id: "chunk".to_owned(),
+                description: String::new(),
+                aliases: Vec::new(),
+                tags: Vec::new(),
+                models: Vec::new(),
+                folder_id: None,
+                cover_asset_id: None,
+                created_at: 0,
+                updated_at: 0,
+                id: CHUNK_ID.to_owned(),
                 revision: 1,
                 name: "chunk".to_owned(),
                 content: ResourceContent::Chunk {

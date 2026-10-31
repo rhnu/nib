@@ -2,12 +2,12 @@
 
 use nib_app::{
     api::{ApiError, DraftAnalysis, ErrorCode, UserMessage, WorkspaceSnapshot},
-    library::{ResourceQuery, ResourceSearch as _, ResourceSummary},
-    persistence::{PersistenceError, SqliteDatabase},
-    prompt::{
-        self, ExpansionError, PresetInstance, PromptNode, Resource, ResourceReader as _,
-        ResourceWriter as _,
+    library::{
+        ResourceBatchAction, ResourceFolder, ResourceImpact, ResourcePage, ResourceQuery,
+        ResourceSearch as _, ResourceSelection, ResourceVersion,
     },
+    persistence::{PersistenceError, SqliteDatabase},
+    prompt::{self, ExpansionError, PresetInstance, PromptNode, Resource, ResourceReader as _},
     session::{Draft, DraftStore as _},
 };
 
@@ -162,7 +162,7 @@ pub(crate) async fn get_resource_definitions(
 pub(crate) async fn search_resources(
     state: tauri::State<'_, DesktopState>,
     query: ResourceQuery,
-) -> Result<Vec<ResourceSummary>, ApiError> {
+) -> Result<ResourcePage, ApiError> {
     with_database(state, move |database| {
         database.search_resources(&query).map_err(persistence_error)
     })
@@ -193,8 +193,10 @@ pub(crate) async fn save_resource(
     state: tauri::State<'_, DesktopState>,
     resource: Resource,
 ) -> Result<Resource, ApiError> {
-    with_database_write(state, move |database| {
-        database.save_resource(&resource).map_err(persistence_error)
+    crate::media::with_media_write(state, move |media| {
+        media
+            .save_resource_with_cover(&resource)
+            .map_err(persistence_error)
     })
     .await
 }
@@ -205,9 +207,16 @@ pub(crate) async fn delete_resource(
     id: String,
     revision: u32,
 ) -> Result<(), ApiError> {
-    with_database_write(state, move |database| {
-        database
-            .delete_resource(&id, revision)
+    crate::media::with_media_write(state, move |media| {
+        media
+            .batch_resources(
+                &ResourceSelection {
+                    resources: vec![ResourceVersion { id, revision }],
+                    folders: Vec::new(),
+                },
+                &ResourceBatchAction::Delete,
+            )
+            .map(|_| ())
             .map_err(persistence_error)
     })
     .await
@@ -294,6 +303,93 @@ pub(crate) async fn expand_preset(
         database
             .read_resources(|reader| prompt::expand_preset(&instance, reader))
             .map_err(expansion_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn list_resource_folders(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<ResourceFolder>, ApiError> {
+    with_database(state, |database| {
+        database.list_resource_folders().map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn save_resource_folder(
+    state: tauri::State<'_, DesktopState>,
+    folder: ResourceFolder,
+) -> Result<ResourceFolder, ApiError> {
+    with_database_write(state, move |database| {
+        database
+            .save_resource_folder(&folder)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn list_resource_tags(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<String>, ApiError> {
+    with_database(state, |database| {
+        database.list_resource_tags().map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn resource_selection_impact(
+    state: tauri::State<'_, DesktopState>,
+    selection: ResourceSelection,
+) -> Result<ResourceImpact, ApiError> {
+    with_database(state, move |database| {
+        database
+            .resource_selection_impact(&selection)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn batch_resources(
+    state: tauri::State<'_, DesktopState>,
+    selection: ResourceSelection,
+    action: ResourceBatchAction,
+) -> Result<ResourceImpact, ApiError> {
+    crate::media::with_media_write(state, move |media| {
+        media
+            .batch_resources(&selection, &action)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn rename_resource_tag(
+    state: tauri::State<'_, DesktopState>,
+    old_name: String,
+    new_name: String,
+) -> Result<Vec<nib_app::library::ResourceSummary>, ApiError> {
+    with_database_write(state, move |database| {
+        database
+            .rename_resource_tag(&old_name, &new_name)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn delete_resource_tag(
+    state: tauri::State<'_, DesktopState>,
+    name: String,
+) -> Result<Vec<nib_app::library::ResourceSummary>, ApiError> {
+    with_database_write(state, move |database| {
+        database
+            .delete_resource_tag(&name)
+            .map_err(persistence_error)
     })
     .await
 }

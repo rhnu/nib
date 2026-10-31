@@ -48,6 +48,14 @@ fn character(resource_id: &str) -> CharacterComposition {
 
 fn resource(id: &str, content: ResourceContent) -> Resource {
     Resource {
+        description: String::new(),
+        aliases: Vec::new(),
+        tags: Vec::new(),
+        models: Vec::new(),
+        folder_id: None,
+        cover_asset_id: None,
+        created_at: 0,
+        updated_at: 0,
         id: id.into(),
         revision: 1,
         name: id.into(),
@@ -58,25 +66,28 @@ fn resource(id: &str, content: ResourceContent) -> Resource {
 #[test]
 fn batch_reads_include_disabled_outputs_and_visit_repeated_or_missing_ids_once() {
     let recipe = resource(
-        "recipe",
+        RECIPE_ID,
         ResourceContent::Preset {
             composition: Composition {
-                positive: vec![reference("base", "shared"), reference("absent", "missing")],
-                negative: vec![reference("duplicate", "shared")],
+                positive: vec![
+                    reference("base", SHARED_ID),
+                    reference(ABSENT_ID, MISSING_ID),
+                ],
+                negative: vec![reference("duplicate", SHARED_ID)],
             },
             defaults: GenerationSettings::default(),
-            characters: vec![character("role")],
+            characters: vec![character(ROLE_ID)],
             references: crate::session::ReferenceInputs::default(),
         },
     );
     let shared = resource(
-        "shared",
+        SHARED_ID,
         ResourceContent::Chunk {
             text: "base text".into(),
         },
     );
     let role = resource(
-        "role",
+        ROLE_ID,
         ResourceContent::Chunk {
             text: "role text".into(),
         },
@@ -89,13 +100,13 @@ fn batch_reads_include_disabled_outputs_and_visit_repeated_or_missing_ids_once()
         ..Resources::default()
     };
     let definitions = resource_definitions(
-        &["recipe".into(), "recipe".into(), "missing".into()],
+        &[RECIPE_ID.into(), RECIPE_ID.into(), MISSING_ID.into()],
         &reader,
     )
     .unwrap();
     let ids: HashSet<_> = definitions.iter().map(|value| value.id.as_str()).collect();
-    assert_eq!(ids, HashSet::from(["recipe", "shared", "role"]));
-    for id in ["recipe", "shared", "role", "missing"] {
+    assert_eq!(ids, HashSet::from([RECIPE_ID, SHARED_ID, ROLE_ID]));
+    for id in [RECIPE_ID, SHARED_ID, ROLE_ID, MISSING_ID] {
         assert_eq!(
             reader
                 .reads
@@ -111,7 +122,7 @@ fn batch_reads_include_disabled_outputs_and_visit_repeated_or_missing_ids_once()
 #[test]
 fn dependency_failures_preserve_the_backend_cause_instead_of_returning_a_partial_batch() {
     let recipe = resource(
-        "recipe",
+        RECIPE_ID,
         ResourceContent::Preset {
             composition: Composition {
                 positive: vec![reference("denied-node", "denied")],
@@ -127,7 +138,7 @@ fn dependency_failures_preserve_the_backend_cause_instead_of_returning_a_partial
         denied: Some("denied".into()),
         ..Resources::default()
     };
-    let error = resource_definitions(&["recipe".into()], &reader).unwrap_err();
+    let error = resource_definitions(&[RECIPE_ID.into()], &reader).unwrap_err();
     let PersistenceError::Failure { source, .. } = error else {
         panic!("a read failure must retain its backend error")
     };
@@ -150,7 +161,7 @@ fn draft_roots_include_disabled_instances_characters_and_expanded_outputs() {
                 id: "linked".into(),
                 enabled: false,
                 binding: PresetBinding::Linked {
-                    resource_id: "recipe".into(),
+                    resource_id: RECIPE_ID.into(),
                     overrides: Vec::new(),
                     settings_overrides: GenerationSettings::default(),
                     output_overrides: PresetOutputOverrides::default(),
@@ -180,9 +191,15 @@ fn draft_roots_include_disabled_instances_characters_and_expanded_outputs() {
         HashSet::from([
             "direct".into(),
             "direct-role".into(),
-            "recipe".into(),
+            RECIPE_ID.into(),
             "expanded-source".into(),
             "expanded-role".into(),
         ])
     );
 }
+
+const ABSENT_ID: &str = "fb3a7893-4671-5a1f-a1a1-13bf8d7a3383";
+const MISSING_ID: &str = "f81d93ad-3c35-5062-8c67-6ff06539f46f";
+const RECIPE_ID: &str = "bf4d3461-5ac4-5380-81c8-bf6a9629afb8";
+const ROLE_ID: &str = "d03ded75-edab-5ae5-896f-4033cd8d20b3";
+const SHARED_ID: &str = "12daa933-e0e5-52c8-8996-565f56f2e553";

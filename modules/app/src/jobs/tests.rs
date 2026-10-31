@@ -24,7 +24,15 @@ impl SubmissionResolver for Resources {
 pub(crate) fn submission() -> FrozenSubmission {
     let reader = Resources {
         resource: Resource {
-            id: "chunk".to_owned(),
+            description: String::new(),
+            aliases: Vec::new(),
+            tags: Vec::new(),
+            models: Vec::new(),
+            folder_id: None,
+            cover_asset_id: None,
+            created_at: 0,
+            updated_at: 0,
+            id: CHUNK_ID.to_owned(),
             revision: 1,
             name: "Original".to_owned(),
             content: ResourceContent::Chunk {
@@ -37,7 +45,7 @@ pub(crate) fn submission() -> FrozenSubmission {
             positive: vec![PromptNode::Chunk {
                 id: "instance".to_owned(),
                 enabled: true,
-                resource_id: "chunk".to_owned(),
+                resource_id: CHUNK_ID.to_owned(),
                 override_text: None,
             }],
             negative: vec![PromptNode::Text {
@@ -79,7 +87,7 @@ fn stored_input_roundtrip_keeps_seed_text_settings_and_sources() {
             position: novelai_bridge::CharacterPosition { x: 0.2, y: 0.8 },
             fragments: resolved.fragments.clone(),
             preset_instance_id: Some("recipe-instance".to_owned()),
-            resource_id: Some("recipe".to_owned()),
+            resource_id: Some(RECIPE_ID.to_owned()),
             expanded: false,
             overridden: true,
         },
@@ -111,7 +119,7 @@ fn stored_input_roundtrip_keeps_seed_text_settings_and_sources() {
         reopened.resolved().unwrap().fragments[0]
             .resource_id
             .as_deref(),
-        Some("chunk")
+        Some(CHUNK_ID)
     );
     assert_eq!(
         reopened.resolved().unwrap().fragments[0]
@@ -440,7 +448,15 @@ fn memory_queue(store: Arc<MemoryJobs>, configured: bool) -> (Arc<JobQueue>, Arc
         store,
         Arc::new(Resources {
             resource: Resource {
-                id: "chunk".to_owned(),
+                description: String::new(),
+                aliases: Vec::new(),
+                tags: Vec::new(),
+                models: Vec::new(),
+                folder_id: None,
+                cover_asset_id: None,
+                created_at: 0,
+                updated_at: 0,
+                id: CHUNK_ID.to_owned(),
                 revision: 2,
                 name: "Changed".to_owned(),
                 content: ResourceContent::Chunk {
@@ -600,3 +616,7 @@ mod policy;
 
 mod preparation;
 mod submission;
+
+const ABSENT_ID: &str = "fb3a7893-4671-5a1f-a1a1-13bf8d7a3383";
+const CHUNK_ID: &str = "f09e3fea-eb8d-51bb-b867-db7c7266f7ae";
+const RECIPE_ID: &str = "bf4d3461-5ac4-5380-81c8-bf6a9629afb8";

@@ -3,6 +3,7 @@ import type { MediaAsset } from "@/bindings/media";
 import { Button, Notice } from "@/shared/ui";
 import { useMediaContent } from "./use-media-content";
 import { imageUnavailableReason } from "./model";
+import { ImageContextActions } from "./image-context-actions";
 import "./media.css";
 
 /** Immutable original content is shared with other mounted viewers. */
@@ -38,6 +39,18 @@ export function AssetImage({
     );
   if (!image.url) return <output className="media-loading">{t("media.loadingImage")}</output>;
   return (
-    <img className={className ?? "media-image"} src={image.url} alt={alt} onError={image.failed} />
+    <ImageContextActions
+      id={asset.id}
+      mimeType={asset.mimeType}
+      available={asset.available}
+      deferToAncestor
+    >
+      <img
+        className={className ?? "media-image"}
+        src={image.url}
+        alt={alt}
+        onError={image.failed}
+      />
+    </ImageContextActions>
   );
 }

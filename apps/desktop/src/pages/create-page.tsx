@@ -1,4 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
+import { useState } from "react";
 import { Button, Field, Notice, Select } from "@/shared/ui";
 import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
 import { PromptWorkspace } from "@/features/workbench/prompt-workspace";
@@ -12,10 +13,12 @@ import { operationSourceId } from "@/features/inputs/image-operation";
 import { GenerationActions, StreamModeSelect } from "@/features/generation";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { PromptEditorStateProvider } from "@/features/prompt/prompt-editor-state";
+import { ResourcePicker } from "@/features/library/resource-picker";
 import { ResultPanel } from "./result-panel";
 
 export function CreatePage() {
   useTranslation();
+  const [presetPickerOpen, setPresetPickerOpen] = useState(false);
 
   const {
     state,
@@ -23,7 +26,6 @@ export function CreatePage() {
     model,
     editorCapabilities,
     estimate,
-    guardedLibrary,
     focusField,
     openPositions,
     outputIssues,
@@ -71,6 +73,23 @@ export function CreatePage() {
         })
       }
     >
+      {presetPickerOpen && (
+        <ResourcePicker
+          kind="preset"
+          model={
+            model.capabilities?.model ??
+            resolved?.settings.model ??
+            draft.settings.model ??
+            undefined
+          }
+          contextLabel={`${t("prompt.currentCreation")} · ${t("workbench.presets")}`}
+          onClose={() => setPresetPickerOpen(false)}
+          onChoose={(resource) => {
+            state.insertPreset(resource);
+            setPresetPickerOpen(false);
+          }}
+        />
+      )}
       <div className="workspace-body">
         <aside className="generation-sidebar" aria-label={t("workbench.generationSidebar")}>
           <div className="generation-sidebar-scroll">
@@ -88,7 +107,7 @@ export function CreatePage() {
                 resolved={resolved}
                 resolving={resolving}
                 resolveError={resolveError}
-                openLibrary={guardedLibrary}
+                readCurrentDraft={readCurrentDraft}
                 edit={edit}
                 setError={setError}
                 onFocusField={focusField}
@@ -129,7 +148,7 @@ export function CreatePage() {
               errorFields={estimate.fields}
               readCurrentDraft={readCurrentDraft}
               edit={edit}
-              onAddPreset={() => guardedLibrary("preset")}
+              onAddPreset={() => setPresetPickerOpen(true)}
               setError={setError}
               estimate={estimate.quote}
               onRestore={guardedRestore}

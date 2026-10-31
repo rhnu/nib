@@ -11,7 +11,7 @@ import { useWorkspaceStartup } from "./use-workspace-startup";
 import { SettingsPage, type SettingsSection } from "./settings-page";
 import { useApplicationSettings } from "./use-application-settings";
 import { useCloseGuard } from "@/shared/host/use-close-guard";
-import { Button, Notice, Notifications } from "@/shared/ui";
+import { Button, Notice } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { NavigationIcon } from "./navigation-icon";
 
@@ -66,7 +66,6 @@ export default function App() {
   return (
     <AccountProvider executionVersion={settings.executionVersion}>
       <div className="application">
-        <Notifications />
         {!workspace ? (
           <>
             <TitleBar

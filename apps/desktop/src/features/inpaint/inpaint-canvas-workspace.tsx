@@ -15,6 +15,8 @@ import {
 } from "./model";
 import { drawMask } from "./raster";
 import { useMaskBitmaps } from "./use-mask-bitmaps";
+import { ImageContextActions } from "@/features/media/image-context-actions";
+import { useMediaAsset } from "@/features/media/use-media-asset";
 import "./inpaint.css";
 
 type Tool = "paint" | "erase" | "pan";
@@ -51,6 +53,7 @@ export function InpaintCanvasWorkspace({
   const [pointer, setPointer] = useState<MaskPoint | null>(null);
   const [renderError, setRenderError] = useMessageState();
   const images = useMaskBitmaps(value.sourceAssetId, value.baseMaskAssetId);
+  const source = useMediaAsset(value.sourceAssetId);
   const { width, height, commands, cursor } = value;
   const raster = useRef<{
     width: number;
@@ -437,19 +440,41 @@ export function InpaintCanvasWorkspace({
         {images.loading && (
           <output className="inpaint-loading">{t("inpaint.loadingSourceMask")}</output>
         )}
-        <canvas
-          ref={canvas}
-          aria-label={
-            preview === "original" ? t("inpaint.originalPreview") : t("inpaint.inpaintMask")
-          }
-          style={{
-            width: value.width * transform.scale,
-            height: value.height * transform.scale,
-            left: transform.x,
-            top: transform.y,
-            visibility: images.source ? "visible" : "hidden",
-          }}
-        />
+        <ImageContextActions
+          id={value.sourceAssetId}
+          mimeType={source.asset?.mimeType ?? "image/png"}
+          available={Boolean(images.source)}
+          extraItems={[
+            { separator: true },
+            {
+              label: t("inpaint.undo"),
+              shortcut: "Ctrl+Z",
+              disabled: pending || value.cursor === 0,
+              action: () => runHistory(undoMask),
+            },
+            {
+              label: t("inpaint.redo"),
+              shortcut: "Ctrl+Shift+Z",
+              disabled: pending || value.cursor === value.commands.length,
+              action: () => runHistory(redoMask),
+            },
+          ]}
+        >
+          <canvas
+            ref={canvas}
+            aria-label={
+              preview === "original" ? t("inpaint.originalPreview") : t("inpaint.inpaintMask")
+            }
+            tabIndex={0}
+            style={{
+              width: value.width * transform.scale,
+              height: value.height * transform.scale,
+              left: transform.x,
+              top: transform.y,
+              visibility: images.source ? "visible" : "hidden",
+            }}
+          />
+        </ImageContextActions>
         {ready && pointer && tool !== "pan" && preview !== "original" && (
           <span
             className="inpaint-brush-cursor"

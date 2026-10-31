@@ -16,6 +16,7 @@ import { useMediaContent } from "@/features/media/use-media-content";
 import type { ImageOperationAction } from "@/features/inputs/image-operation";
 import { imageName } from "@/features/media/model";
 import { directorOutputLabel, directorToolLabels } from "./model";
+import { ImageContextActions } from "@/features/media/image-context-actions";
 
 function SourceFrame({ id, title }: { id: string | null; title: string }) {
   useTranslation();
@@ -58,26 +59,32 @@ function OutputThumbnail({
   const image = useMediaContent(result.assetId, "image/png", result.available, "thumbnail");
   const label = directorOutputLabel(result);
   return (
-    <Button
-      className={`director-thumbnail ${selected ? "is-selected" : ""}`}
-      aria-pressed={selected}
-      aria-label={label}
-      title={label}
-      onClick={onSelect}
+    <ImageContextActions
+      id={result.assetId}
+      mimeType={result.mimeType}
+      available={result.available}
     >
-      {image.url ? (
-        <img src={image.url} alt="" onError={image.failed} />
-      ) : (
-        <span>
-          {!result.available
-            ? t("director.fileUnavailable")
-            : image.error
-              ? t("director.loadFailed")
-              : t("director.loading")}
-        </span>
-      )}
-      <span>{label}</span>
-    </Button>
+      <Button
+        className={`director-thumbnail ${selected ? "is-selected" : ""}`}
+        aria-pressed={selected}
+        aria-label={label}
+        title={label}
+        onClick={onSelect}
+      >
+        {image.url ? (
+          <img src={image.url} alt="" onError={image.failed} />
+        ) : (
+          <span>
+            {!result.available
+              ? t("director.fileUnavailable")
+              : image.error
+                ? t("director.loadFailed")
+                : t("director.loading")}
+          </span>
+        )}
+        <span>{label}</span>
+      </Button>
+    </ImageContextActions>
   );
 }
 

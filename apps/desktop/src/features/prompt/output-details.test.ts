@@ -88,6 +88,14 @@ describe("resolved output details", () => {
     ];
     const resource: Resource = {
       id: "preset",
+      description: "",
+      aliases: [],
+      tags: [],
+      models: [],
+      folderId: null,
+      coverAssetId: null,
+      createdAt: 0,
+      updatedAt: 0,
       name: "Source preset",
       revision: 1,
       content: {

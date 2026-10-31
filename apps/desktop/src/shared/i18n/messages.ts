@@ -107,6 +107,24 @@ export function formatUserMessage(message: UserMessage): string {
       return t("messages.missingResource", message);
     case "resourceTypeMismatch":
       return t("messages.resourceTypeMismatch", message);
+    case "invalidResourceId":
+      return t("messages.invalidResourceId");
+    case "invalidResourceMetadata":
+      return t("messages.invalidResourceMetadata");
+    case "unknownResourceModel":
+      return t("messages.unknownResourceModel");
+    case "resourceFolderCycle":
+      return t("messages.resourceFolderCycle");
+    case "resourceFolderNameConflict":
+      return t("messages.resourceFolderNameConflict");
+    case "resourceCoverOwnership":
+      return t("messages.resourceCoverOwnership");
+    case "resourcePageLimit":
+      return t("messages.resourcePageLimit");
+    case "resourceFolderNameRequired":
+      return t("messages.resourceFolderNameRequired");
+    case "resourceModelMismatch":
+      return t("messages.resourceModelMismatch", message);
     case "staleNodeOverride":
       return t("messages.staleNodeOverride", message);
     case "staleOutputOverride":
@@ -249,6 +267,15 @@ const messageKinds = new Set<string>([
   "vibeDocumentContentMissing",
   "missingResource",
   "resourceTypeMismatch",
+  "invalidResourceId",
+  "invalidResourceMetadata",
+  "unknownResourceModel",
+  "resourceFolderCycle",
+  "resourceFolderNameConflict",
+  "resourceCoverOwnership",
+  "resourcePageLimit",
+  "resourceFolderNameRequired",
+  "resourceModelMismatch",
   "staleNodeOverride",
   "staleOutputOverride",
   "numericAdjusted",

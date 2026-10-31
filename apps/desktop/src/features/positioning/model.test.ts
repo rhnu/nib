@@ -27,6 +27,14 @@ const character = (id: string): CharacterComposition => ({
 const resource: Resource = {
   id: "resource",
   revision: 1,
+  description: "",
+  aliases: [],
+  tags: [],
+  models: [],
+  folderId: null,
+  coverAssetId: null,
+  createdAt: 0,
+  updatedAt: 0,
   name: "recipe",
   content: {
     kind: "preset",

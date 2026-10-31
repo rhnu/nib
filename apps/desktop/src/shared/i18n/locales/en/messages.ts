@@ -123,6 +123,17 @@ export const messages = {
   vibeDocumentContentMissing: "Vibe document {{id}}, entry {{entry}} has no {{content}}.",
   missingResource: "Resource {{id}} is missing.",
   resourceTypeMismatch: "Resource {{id}} must be of type {{expected}}.",
+  invalidResourceId: "The resource identity must be a canonical UUID.",
+  invalidResourceMetadata:
+    "Names, aliases and tags must be nonempty, trimmed and unique within their lists.",
+  unknownResourceModel: "The resource contains an unknown model.",
+  resourceFolderCycle: "A folder cannot be moved into itself or one of its descendants.",
+  resourceFolderNameConflict: "A folder with this name already exists here.",
+  resourceCoverOwnership: "The cover cannot be shared with another resource. Copy the image first.",
+  resourcePageLimit: "The resource page size must be between 1 and 200.",
+  resourceFolderNameRequired: "Enter a folder name.",
+  resourceModelMismatch:
+    "{{name}} does not support {{model}}. Change the model or disable the resource.",
   staleNodeOverride: "The fragment override {{id}} no longer has a matching target.",
   staleOutputOverride: "The output override {{id}} no longer has a matching target.",
   numericAdjusted: "Adjusted from {{from}} to {{to}}.",

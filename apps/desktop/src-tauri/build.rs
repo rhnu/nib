@@ -1,6 +1,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let attributes =
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "edit_text",
             "search_lexicon",
             "get_lexicon_status",
             "get_download_status",
@@ -13,6 +14,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "set_data_directory",
             "get_workspace",
             "search_resources",
+            "rename_resource_tag",
+            "delete_resource_tag",
+            "list_resource_folders",
+            "save_resource_folder",
+            "list_resource_tags",
+            "resource_selection_impact",
+            "batch_resources",
             "get_resource",
             "get_resource_definitions",
             "save_resource",
@@ -46,6 +54,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "list_media_assets",
             "get_media_asset",
             "import_image_asset",
+            "import_resource_cover",
+            "discard_resource_cover",
             "read_media_asset",
             "inspect_image_metadata",
             "restore_image_metadata",

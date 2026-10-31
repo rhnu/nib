@@ -228,7 +228,7 @@ fn upscale_freezes_only_its_source_and_options_and_reports_unknown_cost() {
     draft.composition.positive.push(PromptNode::Chunk {
         id: "missing".to_owned(),
         enabled: true,
-        resource_id: "absent".to_owned(),
+        resource_id: ABSENT_ID.to_owned(),
         override_text: None,
     });
     let frozen = queue.freeze(&draft).unwrap();
@@ -539,7 +539,7 @@ fn collection_coordinate_modes_freeze_effective_positions_and_restore_without_ol
             position: novelai_bridge::CharacterPosition { x: 0.32, y: 0.68 },
             fragments: Vec::new(),
             preset_instance_id: Some("recipe-use".into()),
-            resource_id: Some("recipe".into()),
+            resource_id: Some(RECIPE_ID.into()),
             expanded: false,
             overridden: true,
         });

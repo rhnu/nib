@@ -27,6 +27,7 @@ type EditorProps = {
   title?: string;
   issues?: CharacterIssues;
   tokenIndicator?: (characterId: string, index: number) => ReactNode;
+  contextLabel?: string;
 };
 
 function CharacterRow({
@@ -41,6 +42,7 @@ function CharacterRow({
   actions,
   fieldIssues,
   tokenIndicator,
+  contextLabel,
 }: Omit<EditorProps, "value" | "onChange" | "title" | "issues"> & {
   character: CharacterComposition;
   index: number;
@@ -125,6 +127,9 @@ function CharacterRow({
           <PromptEditorScope path={["character", character.id]}>
             <CompositionEditor
               compact
+              contextLabel={[contextLabel, t("prompt.namedCharacter", { value0: index + 1 })]
+                .filter(Boolean)
+                .join(" · ")}
               value={character.composition}
               resources={resources}
               model={capabilities?.model}
@@ -166,6 +171,7 @@ export function CharacterListEditor({
   title = t("characters.characters"),
   issues = {},
   tokenIndicator,
+  contextLabel,
 }: EditorProps) {
   useTranslation();
 
@@ -228,6 +234,7 @@ export function CharacterListEditor({
           allowChunk={allowChunk}
           fieldIssues={issues[character.id] ?? []}
           tokenIndicator={tokenIndicator}
+          contextLabel={contextLabel}
           update={(patch) => emit(patchCharacter(latest.current.value, character.id, patch))}
           actions={{
             canUp: index > 0,

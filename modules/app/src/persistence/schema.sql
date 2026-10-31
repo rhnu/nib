@@ -1,11 +1,44 @@
+CREATE TABLE resource_folders (
+    id TEXT PRIMARY KEY NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    name TEXT NOT NULL,
+    parent_id TEXT REFERENCES resource_folders(id),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX resource_folder_names ON resource_folders(COALESCE(parent_id, ''), name COLLATE NOCASE);
+
 CREATE TABLE resources (
     id TEXT PRIMARY KEY NOT NULL,
     revision INTEGER NOT NULL CHECK (revision > 0),
     name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    folder_id TEXT REFERENCES resource_folders(id),
+    cover_asset_id TEXT UNIQUE REFERENCES media_assets(id),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
     content TEXT NOT NULL CHECK (json_valid(content)),
-    kind TEXT GENERATED ALWAYS AS (json_extract(content, '$.kind')) VIRTUAL
+    kind TEXT GENERATED ALWAYS AS (json_extract(content, '$.kind')) STORED
 );
 CREATE INDEX resources_kind_name ON resources(kind, name COLLATE NOCASE);
+CREATE INDEX resources_folder ON resources(folder_id);
+CREATE TABLE resource_aliases (
+    resource_id TEXT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    value TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY(resource_id, value)
+);
+CREATE TABLE resource_tags (
+    resource_id TEXT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    value TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY(resource_id, value)
+);
+CREATE INDEX resource_tag_values ON resource_tags(value);
+CREATE TABLE resource_models (
+    resource_id TEXT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    value TEXT NOT NULL,
+    PRIMARY KEY(resource_id, value)
+);
+CREATE INDEX resource_model_values ON resource_models(value);
 
 CREATE TABLE current_creation (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -64,4 +97,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 13;
+PRAGMA user_version = 14;

@@ -200,6 +200,7 @@ export function PresetEditor({
       )
     ) : (
       <CharacterListEditor
+        contextLabel={name}
         value={binding.characters}
         onChange={(characters) => updateExpanded({ characters })}
         resources={resources}
@@ -294,6 +295,7 @@ export function PresetEditor({
                 <>
                   <CompositionEditor
                     compact
+                    contextLabel={name}
                     allowChunk={false}
                     value={binding.composition}
                     resources={resources}

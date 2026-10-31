@@ -1,64 +1,85 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { Button } from "@/shared/ui";
-import { FileText, Link2, Plus } from "lucide-react";
+import { ActionsMenu, Button, ContextActions, type ActionMenuItem } from "@/shared/ui";
+import type { MouseEvent } from "react";
 import type { ResourceSummary } from "@/bindings/workbench";
+import { ResourceCardContent, ResourceColumns, ResourceResults } from "./resource-browser";
 
+export const resourceDragType = "application/x-nib-resource-selection";
+
+/** Grid and detail views share selection, drag payload and the same resource actions. */
 export function ResourceList({
   loading,
   queryError,
   items,
   filtered,
-  selectedId,
+  selectedIds,
+  view,
   onSelect,
-  onInsert,
-  target,
+  onActivate,
+  actions,
+  onContextSelect,
 }: {
   loading: boolean;
   queryError: string;
   items: ResourceSummary[];
   filtered: boolean;
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  onInsert: (resource: ResourceSummary) => void;
-  target: "positive" | "negative" | "preset";
+  selectedIds: string[];
+  view: "grid" | "list";
+  onSelect: (id: string, event: MouseEvent) => void;
+  onActivate: (id: string) => void;
+  actions: (resource: ResourceSummary) => ActionMenuItem[];
+  onContextSelect: (id: string) => void;
 }) {
   useTranslation();
-
   return (
-    <div className="resource-list" aria-busy={loading}>
-      {loading ? (
-        <p className="empty-note">{t("library.querying")}</p>
-      ) : queryError ? (
-        <p className="empty-note">{t("library.queryIncomplete")}</p>
-      ) : items.length === 0 ? (
-        <p className="empty-note">{filtered ? t("library.noMatches") : t("library.noResources")}</p>
-      ) : (
-        items.map((item) => (
-          <div className={`resource-row ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
-            <Button className="resource-select" onClick={() => onSelect(item.id)}>
-              {item.kind === "chunk" ? <Link2 size={17} /> : <FileText size={17} />}
-              <span>
-                {item.name}
-                <small>{item.kind === "chunk" ? t("library.chunk") : t("library.preset")}</small>
-              </span>
-            </Button>
+    <ResourceResults
+      loading={loading}
+      queryError={!!queryError}
+      empty={!items.length}
+      filtered={filtered}
+      view={view}
+    >
+      {view === "list" && <ResourceColumns />}
+      {items.map((item) => (
+        <ContextActions key={item.id} items={actions(item)} onOpen={() => onContextSelect(item.id)}>
+          <div
+            className={`resource-row ${selectedIds.includes(item.id) ? "selected" : ""}`}
+            draggable
+            onDragStart={(event) => {
+              const selected = selectedIds.includes(item.id)
+                ? items.filter((value) => selectedIds.includes(value.id))
+                : [item];
+              onContextSelect(item.id);
+              event.dataTransfer.setData(
+                resourceDragType,
+                JSON.stringify({
+                  resources: selected.map(({ id, revision }) => ({ id, revision })),
+                  folders: [],
+                }),
+              );
+              event.dataTransfer.effectAllowed = "copyMove";
+            }}
+          >
             <Button
-              className="icon-button"
-              aria-label={t("library.addNamedResource", { value0: item.name })}
-              title={
-                item.kind === "preset"
-                  ? t("library.addAppliedPreset")
-                  : t("library.addToPrompt", {
-                      value0: target === "negative" ? t("library.negative") : t("library.base"),
-                    })
-              }
-              onClick={() => onInsert(item)}
+              className="resource-card-select"
+              aria-pressed={selectedIds.includes(item.id)}
+              onClick={(event) => onSelect(item.id, event)}
+              onDoubleClick={() => onActivate(item.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onActivate(item.id);
+                }
+              }}
             >
-              <Plus size={16} />
+              <ResourceCardContent item={item} view={view} />
             </Button>
+            <div className="resource-row-actions">
+              <ActionsMenu label={t("library.manageResource")} items={actions(item)} />
+            </div>
           </div>
-        ))
-      )}
-    </div>
+        </ContextActions>
+      ))}
+    </ResourceResults>
   );
 }

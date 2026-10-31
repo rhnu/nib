@@ -5,6 +5,7 @@ use crate::api::UserMessage;
 mod assets;
 mod metadata;
 mod query;
+mod resource_covers;
 mod sqlite;
 mod vibe;
 use std::{
@@ -187,6 +188,9 @@ impl MediaLibrary {
     ) -> Result<Self, PersistenceError> {
         fs::create_dir_all(&directory)
             .map_err(|error| PersistenceError::failure("create the media directory", error))?;
+        fs::create_dir_all(directory.join("resource-covers")).map_err(|error| {
+            PersistenceError::failure("create the resource cover directory", error)
+        })?;
         Ok(Self {
             database,
             directory,

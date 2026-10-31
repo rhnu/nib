@@ -11,8 +11,6 @@ export function LibraryPage() {
       onChanged={state.refreshResources}
       ensureResources={state.ensureResources}
       resourceVersion={state.resourceVersion}
-      onInsert={state.insert}
-      target={state.insertTarget}
     />
   );
 }

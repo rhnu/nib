@@ -1,42 +1,50 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import { Link2, Plus } from "lucide-react";
 import type { Composition, PromptNode, Resource } from "@/bindings/workbench";
-import { Button, IconButton } from "@/shared/ui";
+import { Button, IconButton, notify } from "@/shared/ui";
+import { ResourcePicker } from "@/features/library/resource-picker";
 import { moveItem, textNode } from "./model";
 import { NodeEditor } from "./node-editor";
-import { ChunkPicker } from "./chunk-picker";
 import { PromptEditorScope } from "./prompt-editor-state";
 
 export function CompositionEditor({
   value,
   onChange,
   resources,
-  addChunk,
   expandChunk,
   compact = false,
   allowChunk = true,
   toolbarActions,
   model,
+  contextLabel,
 }: {
   value: Composition;
   onChange: (value: Composition) => void;
   resources: Map<string, Resource>;
-  addChunk?: (scope: "positive" | "negative") => void;
   expandChunk: (node: PromptNode) => Promise<PromptNode>;
   compact?: boolean;
   allowChunk?: boolean;
   toolbarActions?: ReactNode;
   model?: string;
+  contextLabel?: string;
 }) {
   useTranslation();
 
   const [pickerScope, setPickerScope] = useState<"positive" | "negative" | null>(null);
   const [activeScope, setActiveScope] = useState<"positive" | "negative">("positive");
+  // A picker or an async node expansion must merge into the latest composition.
+  const latest = useRef({ value, onChange });
+  useLayoutEffect(() => {
+    latest.current = { value, onChange };
+  }, [value, onChange]);
 
-  const update = (scope: "positive" | "negative", nodes: PromptNode[]) =>
-    onChange({ ...value, [scope]: nodes });
+  const update = (scope: "positive" | "negative", nodes: PromptNode[]) => {
+    const next = { ...latest.current.value, [scope]: nodes };
+    latest.current.value = next;
+    latest.current.onChange(next);
+  };
 
   return (
     <Tabs.Root
@@ -57,16 +65,13 @@ export function CompositionEditor({
         </Tabs.List>
         <div className="button-group">
           {allowChunk && (
-            <IconButton
-              label={t("prompt.addChunk")}
-              onClick={() => (addChunk ? addChunk(activeScope) : setPickerScope(activeScope))}
-            >
+            <IconButton label={t("prompt.addChunk")} onClick={() => setPickerScope(activeScope)}>
               <Link2 size={14} />
             </IconButton>
           )}
           <IconButton
             label={t("prompt.addTextSegment")}
-            onClick={() => update(activeScope, [...value[activeScope], textNode()])}
+            onClick={() => update(activeScope, [...latest.current.value[activeScope], textNode()])}
           >
             <Plus size={14} />
           </IconButton>
@@ -101,17 +106,37 @@ export function CompositionEditor({
                 onChange={(next) =>
                   update(
                     scope,
-                    value[scope].map((item) => (item.id === node.id ? next : item)),
+                    latest.current.value[scope].map((item) => (item.id === node.id ? next : item)),
                   )
                 }
-                up={() => update(scope, moveItem(value[scope], index, -1))}
-                down={() => update(scope, moveItem(value[scope], index, 1))}
+                up={() => {
+                  const nodes = latest.current.value[scope];
+                  update(
+                    scope,
+                    moveItem(
+                      nodes,
+                      nodes.findIndex((item) => item.id === node.id),
+                      -1,
+                    ),
+                  );
+                }}
+                down={() => {
+                  const nodes = latest.current.value[scope];
+                  update(
+                    scope,
+                    moveItem(
+                      nodes,
+                      nodes.findIndex((item) => item.id === node.id),
+                      1,
+                    ),
+                  );
+                }}
                 canUp={index > 0}
                 canDown={index < value[scope].length - 1}
                 remove={() =>
                   update(
                     scope,
-                    value[scope].filter((item) => item.id !== node.id),
+                    latest.current.value[scope].filter((item) => item.id !== node.id),
                   )
                 }
                 expand={expandChunk}
@@ -121,19 +146,25 @@ export function CompositionEditor({
         </Tabs.Panel>
       ))}
       {pickerScope && (
-        <ChunkPicker
+        <ResourcePicker
+          kind="chunk"
+          model={model}
+          contextLabel={`${contextLabel ?? t("prompt.mainPrompt")} · ${
+            pickerScope === "positive" ? t("prompt.positive") : t("prompt.negative")
+          }`}
           onClose={() => setPickerScope(null)}
-          onChoose={(resourceId) => {
+          onChoose={(resource) => {
             update(pickerScope, [
-              ...value[pickerScope],
+              ...latest.current.value[pickerScope],
               {
                 kind: "chunk",
                 id: crypto.randomUUID(),
                 enabled: true,
-                resourceId,
+                resourceId: resource.id,
                 overrideText: null,
               },
             ]);
+            notify(() => t("library.resourceInserted", { name: resource.name }));
             setPickerScope(null);
           }}
         />

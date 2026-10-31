@@ -30,6 +30,9 @@ pub enum AssetKind {
 )]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub enum AssetSource {
+    ResourceCover {
+        resource_id: String,
+    },
     Import {
         name: Option<String>,
     },
@@ -165,6 +168,7 @@ impl MediaLibrary {
         self.database
             .read_assets(None)?
             .into_iter()
+            .filter(|asset| !matches!(asset.source, AssetSource::ResourceCover { .. }))
             .map(|mut asset| {
                 asset.available = self.asset_available(&asset)?;
                 Ok(asset)
@@ -300,7 +304,11 @@ impl MediaLibrary {
         dimensions: Option<(u32, u32)>,
         source: AssetSource,
     ) -> Result<MediaAsset, PersistenceError> {
-        let id = next_asset_id()?;
+        let id = if matches!(source, AssetSource::ResourceCover { .. }) {
+            next_asset_id()?.replacen("asset-", "asset-cover-", 1)
+        } else {
+            next_asset_id()?
+        };
         let asset = MediaAsset {
             id,
             kind,
@@ -343,17 +351,8 @@ impl MediaLibrary {
         })
     }
 
-    fn asset_path(&self, id: &str) -> Result<std::path::PathBuf, PersistenceError> {
-        if !id.starts_with("asset-")
-            || !id
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || byte == b'-' || byte.is_ascii_lowercase())
-        {
-            return Err(PersistenceError::InvalidData {
-                message: UserMessage::InvalidMediaId,
-            });
-        }
-        Ok(self.directory.join(id))
+    pub(super) fn asset_path(&self, id: &str) -> Result<std::path::PathBuf, PersistenceError> {
+        retained_asset_path(&self.directory, id)
     }
 
     pub(super) fn asset_available(&self, asset: &MediaAsset) -> Result<bool, PersistenceError> {
@@ -372,6 +371,7 @@ impl MediaLibrary {
 
     pub(super) fn validate_source(&self, source: &AssetSource) -> Result<(), PersistenceError> {
         match source {
+            AssetSource::ResourceCover { resource_id } => crate::library::validate_id(resource_id)?,
             AssetSource::Asset { asset_id }
             | AssetSource::EmbeddedVibe { asset_id, .. }
             | AssetSource::VibeDocumentEntry { asset_id, .. } => {
@@ -413,6 +413,11 @@ mod tests;
 impl AssetReader for MediaLibrary {
     fn image(&self, id: &str) -> Result<EncodedImage, PersistenceError> {
         let asset = self.asset(id)?;
+        if matches!(asset.source, AssetSource::ResourceCover { .. }) {
+            return Err(PersistenceError::InvalidData {
+                message: UserMessage::ResourceCoverOwnership,
+            });
+        }
         self.image_content(&asset)
     }
 
@@ -512,4 +517,24 @@ pub(super) fn embedded_vibe_encodings(
         }
     }
     Ok(encodings)
+}
+
+fn retained_asset_path(
+    directory: &std::path::Path,
+    id: &str,
+) -> Result<std::path::PathBuf, PersistenceError> {
+    if !id.starts_with("asset-")
+        || !id
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'-' || byte.is_ascii_lowercase())
+    {
+        return Err(PersistenceError::InvalidData {
+            message: UserMessage::InvalidMediaId,
+        });
+    }
+    Ok(if id.starts_with("asset-cover-") {
+        directory.join("resource-covers").join(id)
+    } else {
+        directory.join(id)
+    })
 }

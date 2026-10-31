@@ -47,7 +47,8 @@ fn composition(value: &Composition, expanded: bool) -> Result<(), ValidationErro
             if expanded {
                 return Err(invalid("composition", UserMessage::ExpandedRequiresText));
             }
-            nonempty(resource_id, "composition.node.resourceId")?;
+            crate::library::validate_id(resource_id)
+                .map_err(|error| invalid("composition.node.resourceId", error.user_message()))?;
         }
     }
     Ok(())
@@ -113,8 +114,34 @@ pub(crate) fn outputs(
 /// # Errors
 /// Returns the field and reason for the first structural violation.
 pub fn validate_resource(resource: &Resource) -> Result<(), ValidationError> {
-    nonempty(&resource.id, "id")?;
+    crate::library::validate_id(&resource.id)
+        .map_err(|error| invalid("id", error.user_message()))?;
     nonempty(&resource.name, "name")?;
+    if let Some(id) = &resource.folder_id {
+        crate::library::validate_id(id)
+            .map_err(|error| invalid("folderId", error.user_message()))?;
+    }
+    for (field, values) in [
+        ("aliases", &resource.aliases),
+        ("tags", &resource.tags),
+        ("models", &resource.models),
+    ] {
+        let mut unique = HashSet::new();
+        for value in values {
+            nonempty(value, field)?;
+            if value.trim() != value || !unique.insert(value.to_lowercase()) {
+                return Err(invalid(field, UserMessage::InvalidResourceMetadata));
+            }
+        }
+    }
+    for model in &resource.models {
+        if !novelai_bridge::Model::ALL
+            .iter()
+            .any(|candidate| candidate.as_str() == model)
+        {
+            return Err(invalid("models", UserMessage::UnknownResourceModel));
+        }
+    }
     if let ResourceContent::Preset {
         composition: nodes,
         characters,
@@ -141,7 +168,8 @@ pub(crate) fn validate_presets(presets: &[PresetInstance]) -> Result<(), Validat
                 output_overrides,
                 ..
             } => {
-                nonempty(resource_id, "presets.resourceId")?;
+                crate::library::validate_id(resource_id)
+                    .map_err(|error| invalid("presets.resourceId", error.user_message()))?;
                 let mut targets = HashSet::new();
                 for edit in overrides {
                     nonempty(&edit.node_id, "presets.overrides.nodeId")?;

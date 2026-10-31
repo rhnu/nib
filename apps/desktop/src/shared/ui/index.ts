@@ -2,6 +2,8 @@ export { Button, IconButton } from "./button";
 export { Field, FormField, FormGrid } from "./field";
 export { Modal } from "./modal";
 export { ActionsMenu } from "./actions-menu";
+export type { ActionMenuItem } from "./actions-menu";
+export { ContextActions } from "./context-actions";
 export { Toggle } from "./toggle";
 export { IconCheckbox } from "./icon-checkbox";
 export { Notice } from "./notice";

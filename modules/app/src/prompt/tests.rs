@@ -52,6 +52,14 @@ fn chunk_node(id: &str, resource_id: &str) -> PromptNode {
 
 fn chunk(id: &str, value: &str) -> Resource {
     Resource {
+        description: String::new(),
+        aliases: Vec::new(),
+        tags: Vec::new(),
+        models: Vec::new(),
+        folder_id: None,
+        cover_asset_id: None,
+        created_at: 0,
+        updated_at: 0,
         id: id.into(),
         revision: 1,
         name: format!("Name {id}"),
@@ -66,6 +74,14 @@ fn preset(
     defaults: GenerationSettings,
 ) -> Resource {
     Resource {
+        description: String::new(),
+        aliases: Vec::new(),
+        tags: Vec::new(),
+        models: Vec::new(),
+        folder_id: None,
+        cover_asset_id: None,
+        created_at: 0,
+        updated_at: 0,
         id: id.into(),
         revision: 1,
         name: format!("Name {id}"),
@@ -97,14 +113,14 @@ fn stable_resource_identity_survives_rename_and_reports_current_source() {
     draft
         .composition
         .positive
-        .push(chunk_node("entry", "chunk"));
-    let mut resource = chunk("chunk", " {cat},  [soft light] ");
+        .push(chunk_node("entry", CHUNK_ID));
+    let mut resource = chunk(CHUNK_ID, " {cat},  [soft light] ");
     resource.name = "Renamed light".into();
     let resources = Resources::new(vec![resource]);
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "{cat},  [soft light]");
     assert_eq!(result.fragments[0].node_id, "entry");
-    assert_eq!(result.fragments[0].resource_id.as_deref(), Some("chunk"));
+    assert_eq!(result.fragments[0].resource_id.as_deref(), Some(CHUNK_ID));
     assert_eq!(
         result.fragments[0].resource_name.as_deref(),
         Some("Renamed light")
@@ -115,17 +131,17 @@ fn stable_resource_identity_survives_rename_and_reports_current_source() {
 #[test]
 fn instance_edits_are_local_and_empty_text_suppresses_a_definition() {
     let definition = preset(
-        "recipe",
-        vec![text("base", "original"), chunk_node("linked", "chunk")],
+        RECIPE_ID,
+        vec![text("base", "original"), chunk_node("linked", CHUNK_ID)],
         vec![],
         GenerationSettings::default(),
     );
-    let resources = Resources::new(vec![definition.clone(), chunk("chunk", "shared")]);
+    let resources = Resources::new(vec![definition.clone(), chunk(CHUNK_ID, "shared")]);
     let draft = Draft {
         presets: vec![
             instance(
                 "edited",
-                "recipe",
+                RECIPE_ID,
                 vec![
                     InstanceOverride {
                         node_id: "base".into(),
@@ -139,7 +155,7 @@ fn instance_edits_are_local_and_empty_text_suppresses_a_definition() {
                     },
                 ],
             ),
-            instance("original", "recipe", vec![]),
+            instance("original", RECIPE_ID, vec![]),
         ],
         ..Draft::default()
     };
@@ -150,22 +166,22 @@ fn instance_edits_are_local_and_empty_text_suppresses_a_definition() {
         result.fragments[0].preset_instance_id.as_deref(),
         Some("edited")
     );
-    assert_eq!(result.fragments[0].resource_id.as_deref(), Some("chunk"));
-    assert_eq!(result.fragments[1].resource_id.as_deref(), Some("recipe"));
-    assert_eq!(resources.values["recipe"], definition);
+    assert_eq!(result.fragments[0].resource_id.as_deref(), Some(CHUNK_ID));
+    assert_eq!(result.fragments[1].resource_id.as_deref(), Some(RECIPE_ID));
+    assert_eq!(resources.values[RECIPE_ID], definition);
 }
 
 #[test]
 fn both_scopes_follow_preset_order_then_draft_order() {
     let resources = Resources::new(vec![
         preset(
-            "one",
+            ONE_ID,
             vec![text("p", "p1")],
             vec![text("n", "n1")],
             GenerationSettings::default(),
         ),
         preset(
-            "two",
+            TWO_ID,
             vec![text("p", "p2")],
             vec![text("n", "n2")],
             GenerationSettings::default(),
@@ -173,8 +189,8 @@ fn both_scopes_follow_preset_order_then_draft_order() {
     ]);
     let draft = Draft {
         presets: vec![
-            instance("one-instance", "one", vec![]),
-            instance("two-instance", "two", vec![]),
+            instance("one-instance", ONE_ID, vec![]),
+            instance("two-instance", TWO_ID, vec![]),
         ],
         composition: Composition {
             positive: vec![text("local-p", "p3")],
@@ -199,22 +215,22 @@ fn both_scopes_follow_preset_order_then_draft_order() {
 #[test]
 fn missing_and_wrong_kind_dependencies_preserve_other_content_and_locations() {
     let resources = Resources::new(vec![
-        chunk("not-preset", "chunk"),
+        chunk(NOT_PRESET_ID, "chunk"),
         preset(
-            "recipe",
+            RECIPE_ID,
             vec![],
-            vec![chunk_node("missing-entry", "missing")],
+            vec![chunk_node("missing-entry", MISSING_ID)],
             GenerationSettings::default(),
         ),
     ]);
     let mut draft = Draft {
         presets: vec![
-            instance("wrong-kind", "not-preset", vec![]),
-            instance("recipe-instance", "recipe", vec![]),
+            instance("wrong-kind", NOT_PRESET_ID, vec![]),
+            instance("recipe-instance", RECIPE_ID, vec![]),
         ],
         ..Draft::default()
     };
-    draft.composition.positive = vec![text("intact", "keep"), chunk_node("wrong-chunk", "recipe")];
+    draft.composition.positive = vec![text("intact", "keep"), chunk_node("wrong-chunk", RECIPE_ID)];
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "keep");
     assert_eq!(result.issues.len(), 3);
@@ -227,7 +243,7 @@ fn missing_and_wrong_kind_dependencies_preserve_other_content_and_locations() {
     assert_eq!(missing.kind, ResolutionIssueKind::MissingResource);
     assert_eq!(missing.scope, Some(PromptScope::Negative));
     assert_eq!(missing.node_id.as_deref(), Some("missing-entry"));
-    assert_eq!(missing.resource_id.as_deref(), Some("missing"));
+    assert_eq!(missing.resource_id.as_deref(), Some(MISSING_ID));
     assert_eq!(
         missing.preset_instance_id.as_deref(),
         Some("recipe-instance")
@@ -237,7 +253,7 @@ fn missing_and_wrong_kind_dependencies_preserve_other_content_and_locations() {
 #[test]
 fn disabled_references_do_not_read_or_report_missing_resources() {
     let mut draft = Draft::default();
-    let mut disabled_node = chunk_node("entry", "missing");
+    let mut disabled_node = chunk_node("entry", MISSING_ID);
     if let PromptNode::Chunk { enabled, .. } = &mut disabled_node {
         *enabled = false;
     }
@@ -255,15 +271,15 @@ fn disabled_references_do_not_read_or_report_missing_resources() {
 #[test]
 fn disabled_instance_override_skips_a_missing_chunk() {
     let resources = Resources::new(vec![preset(
-        "recipe",
-        vec![chunk_node("entry", "missing")],
+        RECIPE_ID,
+        vec![chunk_node("entry", MISSING_ID)],
         vec![],
         GenerationSettings::default(),
     )]);
     let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
-        "recipe",
+        RECIPE_ID,
         vec![InstanceOverride {
             node_id: "entry".into(),
             enabled: Some(false),
@@ -289,13 +305,13 @@ fn parameter_layers_keep_sparse_values_and_use_final_models_sdk_defaults() {
         ..GenerationSettings::default()
     };
     let resources = Resources::new(vec![
-        preset("one", vec![], vec![], first),
-        preset("two", vec![], vec![], second),
+        preset(ONE_ID, vec![], vec![], first),
+        preset(TWO_ID, vec![], vec![], second),
     ]);
     let mut draft = Draft {
         presets: vec![
-            instance("first", "one", vec![]),
-            instance("second", "two", vec![]),
+            instance(FIRST_ID, ONE_ID, vec![]),
+            instance(SECOND_ID, TWO_ID, vec![]),
         ],
         ..Draft::default()
     };
@@ -314,10 +330,10 @@ fn parameter_layers_keep_sparse_values_and_use_final_models_sdk_defaults() {
     assert_eq!(result.provenance.steps, SettingSource::Draft);
     assert_eq!(result.provenance.size, SettingSource::SdkDefault);
     assert!(
-        matches!(&result.provenance.scale, SettingSource::Preset { preset_instance_id, .. } if preset_instance_id == "first")
+        matches!(&result.provenance.scale, SettingSource::Preset { preset_instance_id, .. } if preset_instance_id == FIRST_ID)
     );
     assert!(
-        matches!(&result.provenance.sampler, SettingSource::Preset { preset_instance_id, .. } if preset_instance_id == "second")
+        matches!(&result.provenance.sampler, SettingSource::Preset { preset_instance_id, .. } if preset_instance_id == SECOND_ID)
     );
 }
 
@@ -336,10 +352,10 @@ fn empty_draft_uses_sdk_default_model_and_all_its_defaults() {
 #[test]
 fn expansion_keeps_text_settings_identity_and_group_but_detaches_all_dependencies() {
     let resources = Resources::new(vec![
-        chunk("chunk", "shared"),
+        chunk(CHUNK_ID, "shared"),
         preset(
-            "recipe",
-            vec![text("plain", " base "), chunk_node("linked", "chunk")],
+            RECIPE_ID,
+            vec![text("plain", " base "), chunk_node("linked", CHUNK_ID)],
             vec![text("negative", "blur")],
             GenerationSettings {
                 size: Some(ImageSize::square()),
@@ -349,7 +365,7 @@ fn expansion_keeps_text_settings_identity_and_group_but_detaches_all_dependencie
     ]);
     let linked = instance(
         "instance",
-        "recipe",
+        RECIPE_ID,
         vec![InstanceOverride {
             node_id: "linked".into(),
             enabled: None,
@@ -371,7 +387,7 @@ fn expansion_keeps_text_settings_identity_and_group_but_detaches_all_dependencie
     else {
         panic!("must detach recipe")
     };
-    assert_eq!(name, "Name recipe");
+    assert_eq!(name, "Name bf4d3461-5ac4-5380-81c8-bf6a9629afb8");
     assert_eq!(defaults.size, Some(ImageSize::square()));
     assert!(
         composition
@@ -400,10 +416,10 @@ fn single_chunk_expansion_keeps_explicit_empty_override_and_enabled_state() {
     let node = PromptNode::Chunk {
         id: "stable".into(),
         enabled: false,
-        resource_id: "chunk".into(),
+        resource_id: CHUNK_ID.into(),
         override_text: Some(String::new()),
     };
-    let result = expand_chunk(&node, &Resources::new(vec![chunk("chunk", "original")])).unwrap();
+    let result = expand_chunk(&node, &Resources::new(vec![chunk(CHUNK_ID, "original")])).unwrap();
     assert_eq!(
         result,
         PromptNode::Text {
@@ -421,12 +437,12 @@ fn empty_chunk_override_does_not_fall_back_to_shared_text() {
         PromptNode::Chunk {
             id: "empty".into(),
             enabled: true,
-            resource_id: "chunk".into(),
+            resource_id: CHUNK_ID.into(),
             override_text: Some(String::new()),
         },
-        chunk_node("inherited", "chunk"),
+        chunk_node("inherited", CHUNK_ID),
     ];
-    let result = resolve_draft(&draft, &Resources::new(vec![chunk("chunk", "shared")])).unwrap();
+    let result = resolve_draft(&draft, &Resources::new(vec![chunk(CHUNK_ID, "shared")])).unwrap();
     assert_eq!(result.positive, "shared");
     assert_eq!(result.fragments.len(), 1);
     assert_eq!(result.fragments[0].node_id, "inherited");
@@ -440,7 +456,7 @@ fn instance_can_enable_a_disabled_entry_without_changing_the_preset() {
         text: "optional".into(),
     };
     let definition = preset(
-        "recipe",
+        RECIPE_ID,
         vec![disabled],
         vec![],
         GenerationSettings::default(),
@@ -449,7 +465,7 @@ fn instance_can_enable_a_disabled_entry_without_changing_the_preset() {
     let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
-        "recipe",
+        RECIPE_ID,
         vec![InstanceOverride {
             node_id: "entry".into(),
             enabled: Some(true),
@@ -459,7 +475,7 @@ fn instance_can_enable_a_disabled_entry_without_changing_the_preset() {
     let result = resolve_draft(&draft, &resources).unwrap();
     assert_eq!(result.positive, "optional");
     assert!(result.fragments[0].overridden);
-    assert_eq!(resources.values["recipe"], definition);
+    assert_eq!(resources.values[RECIPE_ID], definition);
 }
 
 #[test]
@@ -467,23 +483,23 @@ fn failed_expansion_reports_missing_disabled_dependency_without_mutation() {
     let disabled = PromptNode::Chunk {
         id: "disabled".into(),
         enabled: false,
-        resource_id: "missing".into(),
+        resource_id: MISSING_ID.into(),
         override_text: None,
     };
     let resources = Resources::new(vec![preset(
-        "recipe",
+        RECIPE_ID,
         vec![text("present", "keep"), disabled],
         vec![],
         GenerationSettings::default(),
     )]);
-    let linked = instance("instance", "recipe", vec![]);
+    let linked = instance("instance", RECIPE_ID, vec![]);
     let original = linked.clone();
     let error = expand_preset(&linked, &resources).unwrap_err();
     let ExpansionError::Unresolved { issues } = error else {
         panic!("dependency error expected")
     };
     assert_eq!(issues.len(), 1);
-    assert_eq!(issues[0].resource_id.as_deref(), Some("missing"));
+    assert_eq!(issues[0].resource_id.as_deref(), Some(MISSING_ID));
     assert_eq!(issues[0].node_id.as_deref(), Some("disabled"));
     assert_eq!(linked, original);
 }
@@ -491,7 +507,7 @@ fn failed_expansion_reports_missing_disabled_dependency_without_mutation() {
 #[test]
 fn stale_override_is_visible_and_blocks_lossy_expansion() {
     let resources = Resources::new(vec![preset(
-        "recipe",
+        RECIPE_ID,
         vec![text("current", "keep")],
         vec![],
         GenerationSettings::default(),
@@ -499,7 +515,7 @@ fn stale_override_is_visible_and_blocks_lossy_expansion() {
     let mut draft = Draft::default();
     draft.presets.push(instance(
         "instance",
-        "recipe",
+        RECIPE_ID,
         vec![InstanceOverride {
             node_id: "removed".into(),
             enabled: None,
@@ -516,103 +532,13 @@ fn stale_override_is_visible_and_blocks_lossy_expansion() {
     ));
 }
 
-#[test]
-fn save_validation_rejects_ambiguous_identities() {
-    let resource = preset(
-        "recipe",
-        vec![text("duplicate", "positive")],
-        vec![text("duplicate", "negative")],
-        GenerationSettings::default(),
-    );
-    assert_eq!(
-        validate_resource(&resource).unwrap_err().field,
-        "composition.node.id"
-    );
-    let draft = Draft {
-        presets: vec![
-            instance("same", "one", vec![]),
-            instance("same", "two", vec![]),
-        ],
-        ..Draft::default()
-    };
-    assert_eq!(validate_draft(&draft).unwrap_err().field, "presets.id");
-}
-
-#[test]
-fn malformed_expanded_groups_and_duplicate_overrides_cannot_be_saved() {
-    let mut draft = Draft::default();
-    draft.presets.push(PresetInstance {
-        id: "instance".into(),
-        enabled: true,
-        binding: PresetBinding::Expanded {
-            name: "Recipe".into(),
-            composition: Composition {
-                positive: vec![chunk_node("entry", "chunk")],
-                negative: vec![],
-            },
-            defaults: GenerationSettings::default(),
-            characters: Vec::new(),
-            references: ReferenceInputs::default(),
-        },
-    });
-    assert_eq!(validate_draft(&draft).unwrap_err().field, "composition");
-    let edit = InstanceOverride {
-        node_id: "entry".into(),
-        enabled: Some(true),
-        text: None,
-    };
-    draft.presets[0] = instance("instance", "recipe", vec![edit.clone(), edit]);
-    assert_eq!(
-        validate_draft(&draft).unwrap_err().field,
-        "presets.overrides.nodeId"
-    );
-}
-
-#[test]
-fn wire_roundtrip_keeps_tagged_camel_case_and_empty_overrides() {
-    let node = PromptNode::Chunk {
-        id: "node".into(),
-        enabled: true,
-        resource_id: "resource".into(),
-        override_text: Some(String::new()),
-    };
-    let value = serde_json::to_value(&node).unwrap();
-    assert_eq!(value["kind"], "chunk");
-    assert_eq!(value["resourceId"], "resource");
-    assert_eq!(value["overrideText"], "");
-    assert_eq!(serde_json::from_value::<PromptNode>(value).unwrap(), node);
-}
-
-#[test]
-fn backend_failures_remain_errors_in_resolution_and_expansion() {
-    struct Broken;
-    impl ResourceReader for Broken {
-        fn get_resource(&self, _id: &str) -> Result<Option<Resource>, PersistenceError> {
-            Err(PersistenceError::Locked)
-        }
-    }
-    let mut draft = Draft::default();
-    draft
-        .composition
-        .positive
-        .push(chunk_node("entry", "resource"));
-    assert!(matches!(
-        resolve_draft(&draft, &Broken),
-        Err(PersistenceError::Locked)
-    ));
-    assert!(matches!(
-        expand_chunk(&draft.composition.positive[0], &Broken),
-        Err(ExpansionError::Persistence(PersistenceError::Locked))
-    ));
-}
-
 mod outputs;
 mod source;
 
 #[test]
 fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {
     let resources = Resources::new(vec![preset(
-        "recipe",
+        RECIPE_ID,
         vec![text("base", "cat")],
         vec![],
         GenerationSettings {
@@ -622,7 +548,7 @@ fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {
             ..GenerationSettings::default()
         },
     )]);
-    let mut linked = instance("instance", "recipe", vec![]);
+    let mut linked = instance("instance", RECIPE_ID, vec![]);
     let PresetBinding::Linked {
         settings_overrides, ..
     } = &mut linked.binding
@@ -645,7 +571,7 @@ fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {
     assert!(!resolved.settings.furry_mode);
     assert_eq!(resolved.settings.steps, 20);
     assert!(
-        matches!(&resolved.provenance.seed, SettingSource::PresetOverride { instance_id, resource_id } if instance_id == "instance" && resource_id == "recipe")
+        matches!(&resolved.provenance.seed, SettingSource::PresetOverride { instance_id, resource_id } if instance_id == "instance" && resource_id == RECIPE_ID)
     );
     let expanded = expand_preset(&linked, &resources).unwrap();
     let expanded_resolved = resolve_draft(
@@ -674,3 +600,19 @@ fn sparse_instance_settings_preserve_false_zero_inheritance_and_detachment() {
         SettingSource::Preset { .. }
     ));
 }
+
+mod models;
+
+mod validation;
+
+const CHUNK_ID: &str = "f09e3fea-eb8d-51bb-b867-db7c7266f7ae";
+const FIRST_ID: &str = "1918230f-f304-5226-a9e9-df18020e6c91";
+const MISSING_ID: &str = "f81d93ad-3c35-5062-8c67-6ff06539f46f";
+const NOT_PRESET_ID: &str = "13d34d19-201f-50b5-8262-f248e13b7dee";
+const ONE_ID: &str = "ed0d0d65-5e87-5bb5-965c-b7b45908ac8a";
+const RECIPE_ID: &str = "bf4d3461-5ac4-5380-81c8-bf6a9629afb8";
+const RESOURCE_ID: &str = "7710f62a-ebef-5954-b5ab-d4f94975a1c8";
+const SECOND_ID: &str = "0e7b4c73-bfa2-58c6-9015-e840f2634f66";
+const SHARED_ID: &str = "12daa933-e0e5-52c8-8996-565f56f2e553";
+const TWO_ID: &str = "8ba3a83e-d3aa-5817-90e0-9b67a9097615";
+const UNUSED_ID: &str = "163aea03-1057-5533-8155-cf8987d73a94";

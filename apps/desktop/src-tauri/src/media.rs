@@ -43,7 +43,7 @@ async fn with_media<T: Send + 'static>(
     run_media(state.inner().clone(), access, action).await
 }
 
-async fn with_media_write<T: Send + 'static>(
+pub(crate) async fn with_media_write<T: Send + 'static>(
     state: tauri::State<'_, DesktopState>,
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
@@ -74,7 +74,8 @@ pub(crate) async fn create_vibe_encoding_input(
     id: String,
     model: novelai_bridge::Model,
 ) -> Result<VibeEncodingInput, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
         nib_app::session::create_vibe_encoding_input(media.as_ref(), id, model)
             .map_err(persistence_error)
     })
@@ -88,7 +89,8 @@ pub(crate) async fn create_vibe_reference(
     reference_id: String,
     strength: f32,
 ) -> Result<VibeReferenceInput, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
         nib_app::session::create_vibe_reference(media.as_ref(), id, reference_id, strength)
             .map_err(persistence_error)
     })
@@ -128,7 +130,8 @@ pub(crate) async fn create_image_operation(
     id: String,
     kind: ImageOperationKind,
 ) -> Result<CreationOperation, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
         nib_app::session::create_image_operation(media.as_ref(), id, kind)
             .map_err(persistence_error)
     })
@@ -141,7 +144,11 @@ pub(crate) async fn create_inpaint_operation(
     id: String,
     mask_asset_id: String,
 ) -> Result<CreationOperation, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
+        let mask_asset_id = media
+            .independent_input_id(&mask_asset_id)
+            .map_err(persistence_error)?;
         nib_app::session::create_inpaint_operation(media.as_ref(), id, mask_asset_id)
             .map_err(persistence_error)
     })
@@ -155,7 +162,8 @@ pub(crate) async fn create_precise_reference(
     reference_id: String,
     reference_type: novelai_bridge::CharacterReferenceType,
 ) -> Result<PreciseReferenceInput, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
         nib_app::session::create_precise_reference(media.as_ref(), id, reference_id, reference_type)
             .map_err(persistence_error)
     })
@@ -223,6 +231,9 @@ pub(crate) async fn create_image_vibe_document(
     image_id: String,
 ) -> Result<MediaAsset, ApiError> {
     with_media_write(state, move |media| {
+        let image_id = media
+            .independent_input_id(&image_id)
+            .map_err(persistence_error)?;
         media
             .create_image_vibe_document(&image_id)
             .map_err(persistence_error)
@@ -417,7 +428,8 @@ pub(crate) async fn restore_image_metadata(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<MetadataRestore, ApiError> {
-    with_media(state, move |media| {
+    with_media_write(state, move |media| {
+        let id = media.independent_input_id(&id).map_err(persistence_error)?;
         media.restore_metadata(&id).map_err(persistence_error)
     })
     .await
@@ -471,3 +483,31 @@ pub(crate) async fn restore_result(
 
 #[cfg(test)]
 mod tests;
+
+#[tauri::command]
+pub(crate) async fn import_resource_cover(
+    state: tauri::State<'_, DesktopState>,
+    resource_id: String,
+    bytes: Vec<u8>,
+) -> Result<MediaAsset, ApiError> {
+    with_media_write(state, move |media| {
+        media
+            .import_resource_cover(&resource_id, bytes)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn discard_resource_cover(
+    state: tauri::State<'_, DesktopState>,
+    resource_id: String,
+    asset_id: String,
+) -> Result<(), ApiError> {
+    with_media_write(state, move |media| {
+        media
+            .discard_resource_cover(&resource_id, &asset_id)
+            .map_err(persistence_error)
+    })
+    .await
+}

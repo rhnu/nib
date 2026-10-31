@@ -5,8 +5,8 @@ fn source_comments_preserve_saved_text_and_cross_fragment_native_weight() {
     let draft = Draft {
         composition: Composition {
             positive: vec![
-                text("first", "  2::猫 /* explanation */"),
-                text("second", "犬:: // ignored"),
+                text(FIRST_ID, "  2::猫 /* explanation */"),
+                text(SECOND_ID, "犬:: // ignored"),
             ],
             negative: vec![text("negative", "blur /* annotation */")],
         },

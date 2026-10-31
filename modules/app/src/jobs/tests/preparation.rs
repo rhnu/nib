@@ -59,7 +59,7 @@ fn director_ignores_unrelated_prompt_dependencies_and_keeps_sdk_adjustments() {
     draft.composition.positive.push(PromptNode::Chunk {
         id: "unrelated".to_owned(),
         enabled: true,
-        resource_id: "absent".to_owned(),
+        resource_id: ABSENT_ID.to_owned(),
         override_text: None,
     });
     draft.inputs.operation = crate::session::CreationOperation::Director {
@@ -294,7 +294,7 @@ fn upscale_quote_ignores_unrelated_prompt_dependencies() {
     draft.composition.positive.push(PromptNode::Chunk {
         id: "unrelated".to_owned(),
         enabled: true,
-        resource_id: "absent".to_owned(),
+        resource_id: ABSENT_ID.to_owned(),
         override_text: None,
     });
     draft.inputs.operation = crate::session::CreationOperation::Upscale {
@@ -347,4 +347,49 @@ fn vibe_encoding_freezes_only_applicable_sdk_effective_input() {
     assert_eq!(crop_to_mask, Some(true));
     assert_eq!(focus_seed, Some(123));
     assert_eq!(info_extract_seed, Some(456));
+}
+
+#[test]
+fn model_restrictions_reject_both_quote_and_submission_before_media_or_credentials() {
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, unexpected_call) = memory_queue(store, false);
+    let reader = Resources {
+        resource: Resource {
+            id: CHUNK_ID.into(),
+            revision: 1,
+            name: "Restricted".into(),
+            description: String::new(),
+            aliases: vec![],
+            tags: vec![],
+            models: vec![novelai_bridge::Model::NaiDiffusion3.as_str().into()],
+            folder_id: None,
+            cover_asset_id: None,
+            created_at: 0,
+            updated_at: 0,
+            content: ResourceContent::Chunk {
+                text: String::new(),
+            },
+        },
+    };
+    let mut draft = Draft::default();
+    draft.settings.model = Some(novelai_bridge::Model::NaiDiffusion45Full);
+    draft.composition.positive.push(PromptNode::Chunk {
+        id: "use".into(),
+        enabled: true,
+        resource_id: CHUNK_ID.into(),
+        override_text: None,
+    });
+    let resolved = reader.resolve(&draft).unwrap();
+    Arc::get_mut(&mut queue).unwrap().resolver = Arc::new(reader);
+    assert!(matches!(queue.quote(&draft), Err(JobError::Unresolved)));
+    assert!(matches!(
+        queue.quote_resolved(resolved.clone()),
+        Err(JobError::Unresolved)
+    ));
+    assert!(matches!(
+        prepare_submission(resolved, &NoAssets),
+        Err(JobError::Unresolved)
+    ));
+    assert!(matches!(queue.freeze(&draft), Err(JobError::Unresolved)));
+    assert!(!unexpected_call.load(Ordering::Acquire));
 }

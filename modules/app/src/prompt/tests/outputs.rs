@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn full_sparse_settings_preserve_explicit_false_and_zero_seed() {
     let mut definition = preset(
-        "recipe",
+        RECIPE_ID,
         vec![],
         vec![],
         GenerationSettings {
@@ -17,7 +17,7 @@ fn full_sparse_settings_preserve_explicit_false_and_zero_seed() {
     );
     definition.name = "Full defaults".into();
     let draft = Draft {
-        presets: vec![instance("use", "recipe", vec![])],
+        presets: vec![instance("use", RECIPE_ID, vec![])],
         settings: GenerationSettings {
             seed: Some(0),
             furry_mode: Some(false),
@@ -45,7 +45,7 @@ fn output_settings_and_legacy_uc_keep_precedence_sources_and_standalone_values()
     use novelai_bridge::{AlphaMode, ImageResponseFormat};
 
     let definition = preset(
-        "recipe",
+        RECIPE_ID,
         vec![],
         vec![],
         GenerationSettings {
@@ -57,7 +57,7 @@ fn output_settings_and_legacy_uc_keep_precedence_sources_and_standalone_values()
         },
     );
     let draft = Draft {
-        presets: vec![instance("use", "recipe", vec![])],
+        presets: vec![instance("use", RECIPE_ID, vec![])],
         settings: GenerationSettings {
             legacy_uc: Some(false),
             alpha_mode: Some(AlphaMode::Straight),
@@ -151,7 +151,7 @@ fn new_model_capabilities_project_sdk_controls_and_reference_paths() {
 
 #[test]
 fn character_overrides_and_sources_survive_preset_expansion() {
-    let mut definition = preset("recipe", vec![], vec![], GenerationSettings::default());
+    let mut definition = preset(RECIPE_ID, vec![], vec![], GenerationSettings::default());
     let ResourceContent::Preset { characters, .. } = &mut definition.content else {
         unreachable!()
     };
@@ -160,14 +160,14 @@ fn character_overrides_and_sources_survive_preset_expansion() {
         enabled: true,
         position: novelai_bridge::CharacterPosition { x: 0.2, y: 0.8 },
         composition: Composition {
-            positive: vec![chunk_node("hero-prompt", "shared")],
+            positive: vec![chunk_node("hero-prompt", SHARED_ID)],
             negative: vec![text("hero-negative", "blur")],
         },
     });
-    let resources = Resources::new(vec![definition, chunk("shared", "original")]);
+    let resources = Resources::new(vec![definition, chunk(SHARED_ID, "original")]);
     let linked = instance(
         "use",
-        "recipe",
+        RECIPE_ID,
         vec![InstanceOverride {
             node_id: "hero-prompt".into(),
             enabled: None,
@@ -198,7 +198,7 @@ fn character_overrides_and_sources_survive_preset_expansion() {
 
 #[test]
 fn disabled_character_dependency_is_required_for_lossless_expansion() {
-    let mut definition = preset("recipe", vec![], vec![], GenerationSettings::default());
+    let mut definition = preset(RECIPE_ID, vec![], vec![], GenerationSettings::default());
     let ResourceContent::Preset { characters, .. } = &mut definition.content else {
         unreachable!()
     };
@@ -207,12 +207,12 @@ fn disabled_character_dependency_is_required_for_lossless_expansion() {
         enabled: false,
         position: novelai_bridge::CharacterPosition::default(),
         composition: Composition {
-            positive: vec![chunk_node("hero-node", "missing")],
+            positive: vec![chunk_node("hero-node", MISSING_ID)],
             negative: vec![],
         },
     });
     let resources = Resources::new(vec![definition]);
-    let linked = instance("use", "recipe", vec![]);
+    let linked = instance("use", RECIPE_ID, vec![]);
     let resolved = resolve_draft(
         &Draft {
             presets: vec![linked.clone()],
@@ -231,7 +231,7 @@ fn disabled_character_dependency_is_required_for_lossless_expansion() {
 
 #[test]
 fn repeated_preset_reference_outputs_keep_independent_ids_and_sources() {
-    let mut definition = preset("recipe", vec![], vec![], GenerationSettings::default());
+    let mut definition = preset(RECIPE_ID, vec![], vec![], GenerationSettings::default());
     let ResourceContent::Preset { references, .. } = &mut definition.content else {
         unreachable!()
     };
@@ -246,8 +246,8 @@ fn repeated_preset_reference_outputs_keep_independent_ids_and_sources() {
     let resolved = resolve_draft(
         &Draft {
             presets: vec![
-                instance("one", "recipe", vec![]),
-                instance("two", "recipe", vec![]),
+                instance(ONE_ID, RECIPE_ID, vec![]),
+                instance(TWO_ID, RECIPE_ID, vec![]),
             ],
             ..Draft::default()
         },
@@ -260,11 +260,11 @@ fn repeated_preset_reference_outputs_keep_independent_ids_and_sources() {
     );
     assert_eq!(
         resolved.input_sources[0].preset_instance_id.as_deref(),
-        Some("one")
+        Some(ONE_ID)
     );
     assert_eq!(
         resolved.input_sources[1].resource_id.as_deref(),
-        Some("recipe")
+        Some(RECIPE_ID)
     );
 }
 
@@ -311,13 +311,13 @@ fn identity_preset(resource_id: &str, local_id: &str) -> Resource {
 
 #[test]
 fn output_namespaces_keep_colons_and_json_shaped_direct_identities_unambiguous() {
-    let first = identity_preset("first", "b:c");
-    let second = identity_preset("second", "c");
+    let first = identity_preset(FIRST_ID, "b:c");
+    let second = identity_preset(SECOND_ID, "c");
     let ResourceContent::Preset {
         mut characters,
         mut references,
         ..
-    } = identity_preset("unused", "direct").content
+    } = identity_preset(UNUSED_ID, "direct").content
     else {
         unreachable!()
     };
@@ -326,8 +326,8 @@ fn output_namespaces_keep_colons_and_json_shaped_direct_identities_unambiguous()
     references.vibes[0].id = r#"["a","b:c:v"]"#.into();
     let draft = Draft {
         presets: vec![
-            instance("a", "first", vec![]),
-            instance("a:b", "second", vec![]),
+            instance("a", FIRST_ID, vec![]),
+            instance("a:b", SECOND_ID, vec![]),
         ],
         characters,
         inputs: crate::session::CreationInputs {
@@ -424,7 +424,7 @@ fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
 
 #[test]
 fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
-    let mut definition = preset("recipe", vec![], vec![], GenerationSettings::default());
+    let mut definition = preset(RECIPE_ID, vec![], vec![], GenerationSettings::default());
     let ResourceContent::Preset {
         characters,
         references,
@@ -462,7 +462,7 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
         strength: 0.5,
     });
     references.normalize_vibe_strength = Some(true);
-    let mut linked = instance("use", "recipe", vec![]);
+    let mut linked = instance("use", RECIPE_ID, vec![]);
     let PresetBinding::Linked {
         output_overrides, ..
     } = &mut linked.binding
@@ -528,7 +528,7 @@ fn typed_output_overrides_detach_enabled_position_and_asset_choices() {
 
 #[test]
 fn removed_output_override_targets_block_expansion() {
-    let mut linked = instance("use", "recipe", vec![]);
+    let mut linked = instance("use", RECIPE_ID, vec![]);
     let PresetBinding::Linked {
         output_overrides, ..
     } = &mut linked.binding
@@ -542,7 +542,7 @@ fn removed_output_override_targets_block_expansion() {
         strength: None,
     });
     let resources = Resources::new(vec![preset(
-        "recipe",
+        RECIPE_ID,
         vec![],
         vec![],
         GenerationSettings::default(),

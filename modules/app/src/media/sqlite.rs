@@ -59,7 +59,10 @@ impl AssetRow {
     }
 }
 
-fn insert_asset(connection: &Connection, asset: &MediaAsset) -> Result<(), PersistenceError> {
+pub(super) fn insert_asset(
+    connection: &Connection,
+    asset: &MediaAsset,
+) -> Result<(), PersistenceError> {
     let kind = match asset.kind {
         AssetKind::Image => "image",
         AssetKind::Vibe => "vibe",
@@ -69,6 +72,15 @@ fn insert_asset(connection: &Connection, asset: &MediaAsset) -> Result<(), Persi
         params![asset.id, kind, asset.mime_type, asset.byte_length, asset.width, asset.height, asset.created_at, encode(&asset.source)?])
         .map_err(|error| PersistenceError::failure("retain immutable media metadata", error))?;
     Ok(())
+}
+
+pub(super) fn read_asset_on(
+    connection: &Connection,
+    id: &str,
+) -> Result<MediaAsset, PersistenceError> {
+    connection.query_row("SELECT id,kind,mime_type,byte_length,width,height,created_at,source FROM media_assets WHERE id=?1", [id], read_asset_row)
+        .optional().map_err(|error| PersistenceError::failure("read resource cover asset", error))?
+        .ok_or_else(|| PersistenceError::NotFound { kind: "media asset", id: id.to_owned() })?.decode()
 }
 
 impl SqliteDatabase {
