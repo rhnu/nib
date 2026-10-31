@@ -276,7 +276,7 @@ impl AppState {
                             return Ok::<_, PersistenceError>(revision);
                         }
                         if !worker.settings().preferences()?.safety.auto_scan
-                            || !worker.safety().status()?.anime_available
+                            || !worker.safety().status()?.anime.available
                         {
                             return Ok(revision);
                         }
@@ -327,6 +327,22 @@ impl AppState {
         Ok(())
     }
 
+    /// Initializes tokenizers and account sampling outside the synchronous host bootstrap.
+    pub(crate) fn start_sdk(&self) {
+        let app = self.clone();
+        let runtime = self.inner.runtime.clone();
+        self.inner.runtime.spawn(async move {
+            if let Err(error) = runtime.spawn_blocking(move || {
+                if let Err(error) = app.sdk() {
+                    // Provider and credential diagnostics may contain secrets; use the public projection.
+                    tracing::warn!(message = %error.user_message(), "cannot initialize account sampling");
+                }
+            }).await {
+                tracing::error!(error = ?error, "account initialization worker failed");
+            }
+        }.in_current_span());
+    }
+
     /// Initializes shared tokenizers, clients and account sampling independently of generation.
     /// # Errors
     /// Returns tokenizer or shared-state failures.
@@ -339,6 +355,7 @@ impl AppState {
         if let Some(clients) = slot.as_ref() {
             return Ok(Arc::clone(clients));
         }
+        let started = std::time::Instant::now();
         let tokenizers = Arc::new(
             novelai_bridge::Tokenizers::bundled().map_err(novelai_bridge::BridgeError::from)?,
         );
@@ -350,6 +367,10 @@ impl AppState {
             &self.inner.runtime,
         );
         *slot = Some(Arc::clone(&clients));
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "initialized shared SDK clients and tokenizers"
+        );
         Ok(clients)
     }
 

@@ -12,4 +12,4 @@ export type LexiconQuery = { text: string, kinds: Array<LexiconKind>, semantic: 
 
 export type LexiconSearchResult = { generation: string | null, matches: Array<LexiconMatch>, semanticAvailable: boolean, };
 
-export type LexiconStatus = { generation: string | null, termCount: number, semanticAvailable: boolean, };
+export type LexiconStatus = { loading: boolean, error: string | null, generation: string | null, termCount: number, semanticAvailable: boolean, };

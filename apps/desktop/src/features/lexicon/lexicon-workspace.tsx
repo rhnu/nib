@@ -52,7 +52,9 @@ export function LexiconWorkspace({
     loading,
   } = search;
   const [busy, setBusy] = useState(false);
-  const notInstalled = status.isSuccess && !generation;
+  const restoring = status.isPending || Boolean(status.data?.loading);
+  const resourceError = status.data?.error;
+  const notInstalled = status.isSuccess && !restoring && !resourceError && !generation;
   const selected = state.generation === generation ? state.selected : [];
   const relatedRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -129,8 +131,8 @@ export function LexiconWorkspace({
               ))}
             </fieldset>
             <div className="lexicon-browse-scroll">
-              {status.isPending ? (
-                <output>{t("lexicon.loading")}</output>
+              {restoring && !generation ? (
+                <output>{t("lexicon.restoring")}</output>
               ) : status.error ? (
                 <Notice
                   actions={
@@ -141,6 +143,16 @@ export function LexiconWorkspace({
                 </Notice>
               ) : (
                 <>
+                  {resourceError && (
+                    <Notice
+                      actions={
+                        <Button onClick={onOpenDownloads}>{t("lexicon.openDownloads")}</Button>
+                      }
+                    >
+                      {resourceError}
+                    </Notice>
+                  )}
+                  {restoring && <output>{t("lexicon.restoring")}</output>}
                   {lexical.error && (
                     <Notice
                       actions={
@@ -153,7 +165,12 @@ export function LexiconWorkspace({
                   {meaningCurrent && meaning.error && (
                     <Notice
                       actions={
-                        <Button onClick={() => void meaning.refetch()}>{t("lexicon.retry")}</Button>
+                        <div className="ui-actions">
+                          <Button onClick={() => void meaning.refetch()}>
+                            {t("lexicon.retry")}
+                          </Button>
+                          <Button onClick={onOpenDownloads}>{t("lexicon.openDownloads")}</Button>
+                        </div>
                       }
                     >
                       {errorMessage(meaning.error)}
@@ -161,6 +178,7 @@ export function LexiconWorkspace({
                   )}
                   {loading && <output>{t("lexicon.loading")}</output>}
                   {!lexical.isPending &&
+                    !resourceError &&
                     !loading &&
                     matches.length === 0 &&
                     !lexical.error &&

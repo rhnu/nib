@@ -61,18 +61,18 @@ pub(crate) async fn extract_image_tags(
     blocking(move || {
         let _access = access;
         let media = app.media().map_err(persistence_error)?;
-        if !app
-            .safety()
-            .status()
-            .map_err(persistence_error)?
-            .wd_available
-        {
+        let model = app.safety().status().map_err(persistence_error)?.wd;
+        if !model.available {
             return Err(ApiError {
                 code: ErrorCode::Unavailable,
                 validation_fields: Vec::new(),
-                message: UserMessage::external(
-                    "Install the WD SwinV2 tagger resource to extract image tags.",
-                ),
+                message: match (model.error, model.loading) {
+                    (Some(error), _) => UserMessage::external(error),
+                    (None, true) => UserMessage::OperationIncomplete,
+                    (None, false) => UserMessage::external(
+                        "Install the WD SwinV2 tagger resource to extract image tags.",
+                    ),
+                },
             });
         }
         app.safety()

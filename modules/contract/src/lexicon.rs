@@ -75,6 +75,8 @@ pub struct LexiconSearchResult {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct LexiconStatus {
+    pub loading: bool,
+    pub error: Option<String>,
     pub generation: Option<String>,
     pub term_count: u32,
     pub semantic_available: bool,

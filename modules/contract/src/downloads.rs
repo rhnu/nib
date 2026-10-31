@@ -49,6 +49,8 @@ pub struct DownloadableResourceStatus {
     pub installed_version: Option<String>,
     pub components: Vec<ResourceComponentStatus>,
     pub install: Option<DownloadProgress>,
+    pub loading: bool,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

@@ -77,7 +77,7 @@ fn retained_objects_include_current_catalog_installed_selection_and_inflight_sel
     let installed = Installed {
         record: InstalledResource {
             resource: installed_resource,
-            manifest: installed_manifest,
+            manifest: installed_manifest.clone(),
             components: components.clone(),
             generation: "installed".into(),
         },
@@ -87,9 +87,11 @@ fn retained_objects_include_current_catalog_installed_selection_and_inflight_sel
             version: "1".into(),
             components,
             generation: "installed".into(),
+            manifest: installed_manifest,
             // This pure test must never remove a generation directory when its lease drops.
             retired: AtomicBool::new(false),
         }),
+        restoration: crate::Restoration::Ready,
     };
     let (task_resource, task_manifest) = resource(
         "2",
@@ -128,4 +130,13 @@ fn catalog_error_preserves_all_objects_instead_of_producing_a_cleanup_selection(
     };
     assert!(retained_objects(&state).is_none());
     assert_eq!(retained_objects(&State::default()), Some(HashSet::new()));
+}
+
+#[test]
+fn incomplete_installed_metadata_preserves_objects_after_catalog_recovery() {
+    let state = State {
+        metadata_incomplete: true,
+        ..State::default()
+    };
+    assert!(retained_objects(&state).is_none());
 }

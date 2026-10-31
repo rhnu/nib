@@ -1,6 +1,6 @@
 //! Explicit application dependencies supplied by a platform host.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use crate::{
     downloads::Downloads,
@@ -24,6 +24,7 @@ impl Bootstrap {
     /// # Errors
     /// Returns failures opening resource storage or restoring its shared state.
     pub fn start(self) -> anyhow::Result<AppState> {
+        let started = Instant::now();
         let lexicon = Arc::new(nib_lexicon::LexiconResources::default());
         let analyzer = Arc::new(nib_image_analysis::ImageAnalyzer::default());
         let safety = Arc::new(crate::safety::SafetyScanner::new(
@@ -49,12 +50,13 @@ impl Bootstrap {
         )?);
         let explore = Arc::new(crate::explore::ExploreService::new(Arc::clone(&danbooru))?);
         let app = AppState::new(self, lexicon, downloads, safety, danbooru, explore);
+        app.downloads().start_restore();
         app.start_safety_backfill();
-        if let Err(error) = app.sdk() {
-            // Provider and credential diagnostics may contain secrets; use the public projection.
-            tracing::warn!(message = %error.user_message(), "cannot initialize account sampling");
-        }
-        tracing::info!("application capabilities initialized");
+        app.start_sdk();
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis(),
+            "application capabilities initialized"
+        );
         Ok(app)
     }
 }

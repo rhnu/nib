@@ -43,6 +43,7 @@ export const safety = {
     "提供可选的安全复核与手动普通、角色标签识别。关闭自动检查后仍可手动识别标签。",
   tags: "识别标签",
   recognizing: "正在识别标签…",
+  modelLoading: "正在恢复已安装标签模型…",
   recognize: "重新识别",
   general: "普通标签",
   characters: "角色标签",

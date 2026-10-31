@@ -2,7 +2,11 @@
 
 use std::{
     fs,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex, TryLockError,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Instant,
 };
 
 use nib_resources::ResourceGeneration;
@@ -19,9 +23,16 @@ use crate::{
 };
 
 pub(crate) struct Snapshot {
-    session: Mutex<Session>,
+    session: Mutex<SessionState>,
+    initializing: AtomicBool,
     lease: Arc<ResourceGeneration>,
     wd: Option<WdMetadata>,
+}
+
+enum SessionState {
+    Unloaded,
+    Ready(Session),
+    Failed(Arc<AnalysisError>),
 }
 
 struct WdMetadata {
@@ -49,7 +60,7 @@ struct AnimeMetadata {
 }
 
 impl Snapshot {
-    pub(crate) fn load(lease: Arc<ResourceGeneration>, wd: bool) -> Result<Self, AnalysisError> {
+    pub(crate) fn open(lease: Arc<ResourceGeneration>, wd: bool) -> Result<Self, AnalysisError> {
         let expected_id = if wd {
             WD_RESOURCE_ID
         } else {
@@ -73,30 +84,88 @@ impl Snapshot {
             validate_anime_metadata(&bytes)?;
             None
         };
+        Ok(Self {
+            session: Mutex::new(SessionState::Unloaded),
+            initializing: AtomicBool::new(false),
+            lease,
+            wd: metadata,
+        })
+    }
+
+    /// Installation validates the runtime before publishing; restored models wait for first use.
+    pub(crate) fn initialize(&self) -> Result<(), AnalysisError> {
+        let mut state = self
+            .session
+            .lock()
+            .map_err(|_poisoned| AnalysisError::State)?;
+        self.initialize_locked(&mut state)
+    }
+
+    fn initialize_locked(&self, state: &mut SessionState) -> Result<(), AnalysisError> {
+        if matches!(state, SessionState::Unloaded) {
+            let started = Instant::now();
+            self.initializing.store(true, Ordering::Release);
+            let result = self.open_session();
+            *state = match result {
+                Ok(session) => {
+                    tracing::info!(
+                        resource = self.lease.id,
+                        generation = self.lease.generation,
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "initialized CPU image analysis session"
+                    );
+                    SessionState::Ready(session)
+                },
+                Err(error) => {
+                    tracing::error!(resource = self.lease.id, generation = self.lease.generation,
+                        elapsed_ms = started.elapsed().as_millis(), error = ?error,
+                        "cannot initialize image analysis session");
+                    SessionState::Failed(Arc::new(error))
+                },
+            };
+            self.initializing.store(false, Ordering::Release);
+        }
+        match state {
+            SessionState::Failed(error) => Err(AnalysisError::Initialization(Arc::clone(error))),
+            SessionState::Ready(_) => Ok(()),
+            SessionState::Unloaded => unreachable!("session initialization publishes a result"),
+        }
+    }
+
+    fn open_session(&self) -> Result<Session, AnalysisError> {
         let environment = nib_inference_runtime::environment()?;
         let session = Session::builder(&environment)?
             .with_intra_threads(4)
             .map_err(ort::Error::<()>::from)?
             .with_inter_threads(1)
             .map_err(ort::Error::<()>::from)?
-            .commit_from_file(lease.directory.join("model.onnx"))?;
-        let expected_input = if wd {
+            .commit_from_file(self.lease.directory.join("model.onnx"))?;
+        let expected_input = if self.wd.is_some() {
             [1, 448, 448, 3]
         } else {
             [1, 3, 384, 384]
         };
-        let output_count = metadata.as_ref().map_or(4, |metadata| metadata.count);
-        validate_session(&session, &expected_input, output_count)?;
-        tracing::debug!(
-            resource = lease.id,
-            version = lease.version,
-            "opened CPU image analysis session"
-        );
-        Ok(Self {
-            session: Mutex::new(session),
-            lease,
-            wd: metadata,
-        })
+        validate_session(
+            &session,
+            &expected_input,
+            self.wd.as_ref().map_or(4, |metadata| metadata.count),
+        )?;
+        Ok(session)
+    }
+
+    /// Status reads never wait for model initialization or an inference call.
+    pub(crate) fn load_status(&self) -> Result<(bool, Option<String>), AnalysisError> {
+        let error = match self.session.try_lock() {
+            Ok(state) => match &*state {
+                SessionState::Failed(error) => {
+                    Some(format!("{:#}", anyhow::Error::new(Arc::clone(error))))
+                },
+                _ => None,
+            },
+            Err(TryLockError::WouldBlock) => None,
+            Err(TryLockError::Poisoned(_)) => return Err(AnalysisError::State),
+        };
+        Ok((self.initializing.load(Ordering::Acquire), error))
     }
 
     pub(crate) fn identity(&self) -> ModelIdentity {
@@ -170,10 +239,14 @@ impl Snapshot {
     }
 
     fn run(&self, tensor: Tensor<f32>, expected: usize) -> Result<Vec<f32>, AnalysisError> {
-        let mut session = self
+        let mut state = self
             .session
             .lock()
             .map_err(|_poisoned| AnalysisError::State)?;
+        self.initialize_locked(&mut state)?;
+        let SessionState::Ready(session) = &mut *state else {
+            unreachable!("successful initialization provides a session")
+        };
         let outputs = session.run(ort::inputs![tensor])?;
         let output = outputs
             .values()

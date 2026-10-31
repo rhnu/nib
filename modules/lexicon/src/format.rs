@@ -195,16 +195,6 @@ pub struct ImportedRelation {
 
 pub(crate) use nib_resources::format::{file_hash, hex_digest, valid_hash, validate_path};
 
-pub(crate) fn verify_file(directory: &Path, file: &ResourceFile) -> Result<()> {
-    let path = directory.join(&file.path);
-    ensure!(
-        path.metadata()?.len() == file.bytes && file_hash(&path)? == file.sha256,
-        "resource integrity mismatch for {}",
-        file.path
-    );
-    Ok(())
-}
-
 pub(crate) fn model_fingerprint(graph: &Path) -> Result<String> {
     let weights = graph.with_file_name(format!(
         "{}_data",

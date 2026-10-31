@@ -5,6 +5,8 @@ export const downloads = {
   refresh: "刷新目录",
   refreshing: "正在刷新…",
   loading: "正在加载资源…",
+  restoring: "正在恢复已安装资源…",
+  restoreFailed: "资源恢复失败",
   empty: "暂无可下载的资源。",
   directory: "资源目录",
   actions: "管理{{name}}",

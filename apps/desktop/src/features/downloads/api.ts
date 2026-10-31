@@ -27,6 +27,7 @@ function acceptStatus(result: DownloadStatus) {
       const old = previous?.resources.find((item) => item.id === resource.id);
       return (
         old?.installedVersion !== resource.installedVersion ||
+        (old?.loading === true && !resource.loading) ||
         old?.components.some(
           (component) =>
             component.installed !==

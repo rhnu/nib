@@ -1,45 +1,63 @@
 //! Domain-owned vocabulary validation and query snapshots consume generic resource leases.
 
 use std::{
+    collections::HashMap,
     fs,
     path::Path,
     sync::{Arc, RwLock},
+    time::Instant,
 };
 
 use anyhow::{Result, ensure};
 use nib_contract::lexicon::{
     LexiconError, LexiconQuery, LexiconSearch, LexiconSearchResult, LexiconStatus,
 };
-use nib_resources::{PreparedResource, ResourceConsumer, ResourceGeneration};
+use nib_resources::{Preparation, PreparedResource, ResourceConsumer, ResourceGeneration};
 
 use crate::{
     encoder::QueryEncoderPool,
-    format::{ResourceManifest, verify_file},
+    format::ResourceManifest,
     search::{Snapshot, validate_query},
 };
 
 /// Query state has no knowledge of download URLs, progress or catalog operations.
 #[derive(Default)]
 pub struct LexiconResources {
-    active: Arc<RwLock<Option<Arc<Snapshot>>>>,
+    state: Arc<RwLock<QueryState>>,
+}
+
+#[derive(Default)]
+struct QueryState {
+    active: Option<Arc<Snapshot>>,
+    loading: bool,
+    error: Option<String>,
 }
 
 struct PreparedLexicon {
-    active: Arc<RwLock<Option<Arc<Snapshot>>>>,
+    state: Arc<RwLock<QueryState>>,
     snapshot: Arc<Snapshot>,
 }
 
 impl PreparedResource for PreparedLexicon {
     fn activate(self: Box<Self>) {
         *self
-            .active
+            .state
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(self.snapshot);
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = QueryState {
+            active: Some(self.snapshot),
+            loading: false,
+            error: None,
+        };
     }
 }
 
 impl ResourceConsumer for LexiconResources {
-    fn prepare(&self, generation: Arc<ResourceGeneration>) -> Result<Box<dyn PreparedResource>> {
+    fn prepare(
+        &self,
+        generation: Arc<ResourceGeneration>,
+        preparation: Preparation,
+    ) -> Result<Box<dyn PreparedResource>> {
+        let started = Instant::now();
         let manifest: ResourceManifest =
             serde_json::from_slice(&fs::read(generation.directory.join("lexicon.json"))?)?;
         ensure!(
@@ -52,9 +70,7 @@ impl ResourceConsumer for LexiconResources {
         );
         let semantic = generation.components.iter().any(|id| id == "semantic");
         manifest.validate()?;
-        for file in manifest.files(semantic) {
-            verify_file(&generation.directory, file)?;
-        }
+        validate_file_declarations(&manifest, &generation.manifest, &generation.components)?;
         let mut snapshot = Snapshot::open(
             &generation.directory,
             manifest,
@@ -62,18 +78,45 @@ impl ResourceConsumer for LexiconResources {
             semantic,
             Arc::<QueryEncoderPool>::default(),
         )?;
+        if preparation == Preparation::Install {
+            snapshot.prepare_semantic()?;
+        }
+        tracing::info!(
+            generation = generation.generation,
+            elapsed_ms = started.elapsed().as_millis(),
+            semantic,
+            "prepared vocabulary resource"
+        );
         snapshot.lease = Some(generation);
         Ok(Box::new(PreparedLexicon {
-            active: Arc::clone(&self.active),
+            state: Arc::clone(&self.state),
             snapshot: Arc::new(snapshot),
         }))
     }
 
     fn deactivate(&self) {
         *self
-            .active
+            .state
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = QueryState::default();
+    }
+
+    fn restore_started(&self) {
+        let mut state = self
+            .state
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.loading = true;
+        state.error = None;
+    }
+
+    fn restore_failed(&self, error: &str) {
+        let mut state = self
+            .state
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.loading = false;
+        state.error = Some(error.to_owned());
     }
 }
 
@@ -81,11 +124,12 @@ impl LexiconSearch for LexiconResources {
     fn search(&self, query: LexiconQuery) -> Result<LexiconSearchResult, LexiconError> {
         validate_query(&query)?;
         let snapshot = self
-            .active
+            .state
             .read()
             .map_err(|_poisoned| {
                 LexiconError::Unavailable("vocabulary state lock poisoned".into())
             })?
+            .active
             .clone();
         match snapshot {
             Some(snapshot) => snapshot
@@ -100,10 +144,13 @@ impl LexiconSearch for LexiconResources {
     }
 
     fn status(&self) -> Result<LexiconStatus, LexiconError> {
-        let active = self.active.read().map_err(|_poisoned| {
+        let state = self.state.read().map_err(|_poisoned| {
             LexiconError::Unavailable("vocabulary state lock poisoned".into())
         })?;
+        let active = &state.active;
         Ok(LexiconStatus {
+            loading: state.loading,
+            error: state.error.clone(),
             generation: active.as_ref().map(|snapshot| snapshot.generation.clone()),
             term_count: active.as_ref().map_or(0, |snapshot| snapshot.count),
             semantic_available: active
@@ -118,6 +165,11 @@ impl LexiconSearch for LexiconResources {
 /// # Errors
 /// Returns an error for missing, corrupted or incompatible resource files.
 pub fn verify_pack(directory: &Path) -> Result<ResourceManifest> {
+    Ok(verified_snapshot(directory)?.manifest)
+}
+
+/// Read and hash each downloadable file once, then validate the domain snapshot against it.
+fn verified_snapshot(directory: &Path) -> Result<Snapshot> {
     let resource: nib_resources::format::ResourceManifest =
         serde_json::from_slice(&fs::read(directory.join("resource.json"))?)?;
     resource.validate()?;
@@ -137,17 +189,20 @@ pub fn verify_pack(directory: &Path) -> Result<ResourceManifest> {
         manifest.id == resource.version,
         "vocabulary/resource version mismatch"
     );
-    for file in manifest.files(true) {
-        verify_file(directory, file)?;
-    }
-    Snapshot::open(
+    ensure!(
+        manifest.semantic.is_some() == components.iter().any(|id| id == "semantic"),
+        "vocabulary/resource semantic component mismatch"
+    );
+    validate_file_declarations(&manifest, &resource, &components)?;
+    let snapshot = Snapshot::open(
         directory,
         manifest.clone(),
         manifest.id.clone(),
         manifest.semantic.is_some(),
         Arc::default(),
     )?;
-    Ok(manifest)
+    snapshot.prepare_semantic()?;
+    Ok(snapshot)
 }
 
 /// Inspect a candidate using the same lexical and semantic search as the desktop application.
@@ -156,15 +211,46 @@ pub fn verify_pack(directory: &Path) -> Result<ResourceManifest> {
 /// Returns an error if verification, model initialization or the query fails.
 pub fn query_pack(directory: &Path, query: &LexiconQuery) -> Result<LexiconSearchResult> {
     validate_query(query)?;
-    let manifest = verify_pack(directory)?;
-    Snapshot::open(
-        directory,
-        manifest.clone(),
-        manifest.id.clone(),
-        manifest.semantic.is_some(),
-        Arc::default(),
-    )?
-    .search(query)
+    verified_snapshot(directory)?.search(query)
+}
+
+/// The downloader has checked bytes; domain declarations must describe those same files.
+fn validate_file_declarations(
+    manifest: &ResourceManifest,
+    resource: &nib_resources::format::ResourceManifest,
+    components: &[String],
+) -> Result<()> {
+    let semantic = components.iter().any(|id| id == "semantic");
+    ensure!(
+        components.iter().any(|id| id == "core"),
+        "vocabulary core component is missing"
+    );
+    ensure!(
+        !semantic || manifest.semantic.is_some(),
+        "semantic component has no vocabulary index"
+    );
+    let files: HashMap<_, _> = resource
+        .files(components)
+        .map(|file| (file.path.as_str(), file))
+        .collect();
+    ensure!(
+        files.contains_key("lexicon.json"),
+        "vocabulary manifest is not in selected resource files"
+    );
+    for file in manifest.files(semantic) {
+        let verified = files.get(file.path.as_str()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "vocabulary file {} is not in selected resource files",
+                file.path
+            )
+        })?;
+        ensure!(
+            verified.bytes == file.bytes && verified.sha256 == file.sha256,
+            "vocabulary/resource file declaration mismatch for {}",
+            file.path
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

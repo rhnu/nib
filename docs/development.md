@@ -49,7 +49,7 @@ SDK 来自 crates.io，关闭默认 features，显式开启 `reqwest-transport` 
 
 可替换能力由使用它的领域定义小 Trait，数据库、文件或远程后端实现；纯转换使用函数，明确数据使用 struct / enum。局部使用泛型或 trait object，不让后端类型参数贯穿应用。共用连接或客户端不改变领域职责，简单读取无需统一的 Service / Facade 转发。
 
-宿主向 `nib_app::bootstrap::Bootstrap` 注入运行时、系统凭据、HTTP 传输和目录 I/O。app 的 bootstrap 组合业务及资源 consumer 并启动账户采样，`AppState` 管理数据库、媒体和队列的按需初始化与共享。`StorageBackend` 归 settings，`TransportFactory` 归 SDK 使用方；宿主实现目录锁、复制、校验、路径发布及传输创建。桌面 state 只保留 app 状态与窗口订阅，app 不持有窗口或 IPC Channel，不安装全局运行时或 tracing subscriber，也不通过服务定位器查找任意依赖。
+宿主向 `nib_app::bootstrap::Bootstrap` 注入运行时、系统凭据、HTTP 传输和目录 I/O。app 的 bootstrap 组合业务及资源 consumer，读取安装元数据后返回；资源恢复、SDK Tokenizer 初始化与账户采样在后台启动，不阻塞工作台打开。文件校验、索引转换和模型加载使用阻塞工作线程；`AppState` 管理数据库、媒体和队列的按需初始化与共享。`StorageBackend` 归 settings，`TransportFactory` 归 SDK 使用方；宿主实现目录锁、复制、校验、路径发布及传输创建。桌面 state 只保留 app 状态与窗口订阅，app 不持有窗口或 IPC Channel，不安装全局运行时或 tracing subscriber，也不通过服务定位器查找任意依赖。
 
 SDK 客户端及 bundled Tokenizer 由 app 的 `sdk` 模块共享，本地计数和账户读取不初始化生成队列。客户端按不可变凭据版本与执行配置使用；全局基址映射到 `ClientConfig.image_base_url`。传输响应预算、Multipart 和服务端图像缓存直接使用 SDK 能力。
 
@@ -288,11 +288,11 @@ python tools/lexicon/lexicon.py export-cache --resource-dir ../nib-resource
 uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --version 1.0.0 --input .dev/lexicon-build/normalized.jsonl --semantic-dir .dev/lexicon-build/semantic
 ```
 
-包内 `resource.json` 描述资源身份、版本、组件依赖及文件 URL、大小和哈希，`lexicon.json` 保存词库领域格式；`build.json` 记录代码基线提交、dirty 状态、打包源码与输入哈希、来源锁和构建配方身份。基础 `core` 组件支持 SQLite 名称、别名与译名查询，`semantic` 组件依赖同版本的 `core`，另含 fp16 索引、稳定键列表、本地 CPU 查询模型与压缩 tokenizer。原生词库 consumer 核对领域契约并打开完整快照后才启用新代次；基础安装不加载模型，ONNX 编码器惰性初始化。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约。原生绑定使用 `ort 2.0.0-rc.15`，该代 API 使用固定 RC 并由锁文件记录完整依赖，CPU 运行库随原生程序链接。
+包内 `resource.json` 描述资源身份、版本、组件依赖及文件 URL、大小和哈希，`lexicon.json` 保存词库领域格式；`build.json` 记录代码基线提交、dirty 状态、打包源码与输入哈希、来源锁和构建配方身份。基础 `core` 组件支持 SQLite 名称、别名与译名查询，`semantic` 组件依赖同版本的 `core`，另含 fp16 索引、稳定键列表、本地 CPU 查询模型与压缩 tokenizer。通用资源层验证文件内容，词库 consumer 核对领域清单与已验证文件的路径、大小和哈希声明，避免重复读取文件。恢复时只打开基础 SQLite，首次语义查询初始化向量索引并批量读取词条分类；同代次共享初始化结果，语义初始化不持有词法查询的数据库锁。安装准备仍校验完整语义快照，ONNX 查询编码器在首次语义编码时初始化。索引、模型指纹、tokenizer、维度、截断、前缀和归一化属于同一契约。原生绑定使用 `ort 2.0.0-rc.15`，该代 API 使用固定 RC 并由锁文件记录完整依赖，CPU 运行库随原生程序链接。
 
 文档向量缓存以规范文档内容、模型、模板、归一化和编码环境身份为键，未变化词条复用已提交批次，新词或变化词条才重新编码；删除词条不进入新索引。`build` 优先使用本地 `.dev/lexicon-build/embeddings.sqlite3`，缺少时从资源工作树的 `lexicon/cache/embeddings.sqlite3.gz` 与 `metadata.json` 恢复。`export-cache` 将已提交缓存导出到该稳定位置，`import-cache` 可显式恢复。缓存由 LFS 维护，位于版本目录之外；客户端只下载发布的资源文件，不获取构建缓存或依赖 Git LFS。
 
-通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主将资源 ID 与目标组件集合交给 app 启动任务；任务由 app 持有，离开页面不会取消。完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。初始化、目录刷新、安装结束与卸载后，回收不再属于当前目录、安装版本或进行中任务的下载对象及续传文件；元数据恢复失败时保留缓存，待取得完整引用后清理。开发阶段不兼容旧资源布局，旧安装需重新安装。
+通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主将资源 ID 与目标组件集合交给 app 启动任务；任务由 app 持有，离开页面不会取消。启动先读取安装元数据并标记恢复中，后台逐资源校验和准备；激活时核对代次租约身份，拒绝更新或卸载后的迟到结果。恢复状态与安装进度独立，失败只影响对应可选资源。新安装的完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。资源引用恢复完整后在后台清理缓存，目录刷新、安装结束与卸载也回收不再被引用的下载对象及续传文件；元数据恢复失败时保留缓存。开发阶段不兼容旧资源布局，旧安装需重新安装。
 
 前端通用 `downloads` 组件由设置页提供，不依赖具体词库模块；安装和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询。词库状态查询声明 `lexicon`，按 generation 变化增加修订并拒绝旧补全与插入；词库查询只消费可用代次，不拥有目录地址或下载操作。未安装空状态通过工作台导航进入资源下载设置，沿用材料提交和未应用遮罩保护。管理界面的操作说明见[资源下载](features.md#资源下载)。
 
@@ -300,7 +300,7 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --v
 
 本地图像分析使用固定模型、对应预处理与 `anime-rating-cascade` v1 策略。主模型为 `deepghs/anime_dbrating` 的 `mobilenetv3_large_100_v0_ls0.2`；复核及标签模型为 `SmilingWolf/wd-swinv2-tagger-v3`。下载清单固定 revision、文件大小和 SHA-256，权威清单位于资源分支的 `anime-dbrating/versions/1.0.1/` 与 `wd-swinv2-tagger-v3/versions/1.0.0/`。
 
-模型通过资源 consumer 和代次租约使用，与词库共用应用的 CPU ONNX Runtime。原生推理依赖不进入类型生成或提示词 WASM。安全状态、证据和按媒体内容的关联归应用领域；宿主只装配与投影 IPC，前端以共用展示策略管理模糊。评分失败保留可用生成图片，存储失败仍按持久化错误处理。
+模型通过资源 consumer 和代次租约使用，与词库共用应用的 CPU ONNX Runtime。恢复资源时只读取模型元数据，首次实际评分或标签提取时初始化 ONNX 会话；同代次复用成功或失败的初始化结果，状态查询不加载模型，也不等待推理锁。新安装在切换前初始化并验证模型接口，失败继续使用旧版本。自动评分关闭且没有主动推理操作时，不初始化恢复的模型；历史待检查图片由后台补查触发加载。原生推理依赖不进入类型生成或提示词 WASM。安全状态、证据和按媒体内容的关联归应用领域；宿主只装配与投影 IPC，前端以共用展示策略管理模糊。评分失败保留可用生成图片，存储失败仍按持久化错误处理。
 
 模型权重从固定 revision 的 Hugging Face 上游下载。主模型卡只标识 OpenRAIL 许可证家族，WD 模型卡标识 Apache-2.0，具体来源说明随资源包保存。资源发布工具允许固定 40 位提交的上游模型引用，验证其完整字节后发布清单；上游权重保持外部引用。其它包内文件继续使用自身固定 Release 地址，现有词库发布流程不变。
 

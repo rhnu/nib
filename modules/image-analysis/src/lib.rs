@@ -65,13 +65,29 @@ pub enum AnalysisError {
     Runtime(#[from] nib_inference_runtime::RuntimeError),
     #[error("ONNX model operation failed")]
     Inference(#[from] ort::Error),
+    #[error("image analysis model initialization failed")]
+    Initialization(#[source] Arc<Self>),
     #[error("invalid model output: {0}")]
     InvalidOutput(String),
     #[error("image analysis state is unavailable")]
     State,
 }
 
-type Active = Arc<RwLock<Option<Arc<Snapshot>>>>;
+type Active = Arc<RwLock<ResourceState>>;
+
+#[derive(Default)]
+struct ResourceState {
+    snapshot: Option<Arc<Snapshot>>,
+    loading: bool,
+    error: Option<String>,
+}
+
+/// Resource recovery and runtime initialization remain visible without loading a model.
+pub struct ModelStatus {
+    pub identity: Option<ModelIdentity>,
+    pub loading: bool,
+    pub error: Option<String>,
+}
 
 /// Shared inference access with independently replaceable anime and WD resources.
 #[derive(Default)]
@@ -113,6 +129,16 @@ impl ImageAnalyzer {
     /// # Errors
     /// Returns a poisoned state lock failure.
     pub fn wd_identity(&self) -> Result<Option<ModelIdentity>, AnalysisError> { identity(&self.wd) }
+
+    /// Reports primary model recovery and lazy initialization without waiting for inference.
+    /// # Errors
+    /// Returns a poisoned shared-state lock failure.
+    pub fn anime_status(&self) -> Result<ModelStatus, AnalysisError> { status(&self.anime) }
+
+    /// Reports optional WD model recovery and lazy initialization without waiting for inference.
+    /// # Errors
+    /// Returns a poisoned shared-state lock failure.
+    pub fn wd_status(&self) -> Result<ModelStatus, AnalysisError> { status(&self.wd) }
 
     /// Run the primary anime classifier, keeping the model generation leased.
     ///
@@ -158,14 +184,31 @@ fn identity(active: &Active) -> Result<Option<ModelIdentity>, AnalysisError> {
     Ok(active
         .read()
         .map_err(|_poisoned| AnalysisError::State)?
+        .snapshot
         .as_ref()
         .map(|snapshot| snapshot.identity()))
+}
+
+fn status(active: &Active) -> Result<ModelStatus, AnalysisError> {
+    let state = active.read().map_err(|_poisoned| AnalysisError::State)?;
+    let (loading, error) = state
+        .snapshot
+        .as_ref()
+        .map(|snapshot| snapshot.load_status())
+        .transpose()?
+        .unwrap_or_default();
+    Ok(ModelStatus {
+        identity: state.snapshot.as_ref().map(|snapshot| snapshot.identity()),
+        loading: state.loading || loading,
+        error: state.error.clone().or(error),
+    })
 }
 
 fn snapshot(active: &Active, id: &'static str) -> Result<Arc<Snapshot>, AnalysisError> {
     active
         .read()
         .map_err(|_poisoned| AnalysisError::State)?
+        .snapshot
         .clone()
         .ok_or(AnalysisError::Unavailable(id))
 }

@@ -121,8 +121,17 @@ pub struct ImageTags {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ImageAnalysisStatus {
-    pub anime_available: bool,
-    pub wd_available: bool,
-    pub anime_version: Option<String>,
-    pub wd_version: Option<String>,
+    pub anime: ImageModelStatus,
+    pub wd: ImageModelStatus,
+}
+
+/// One model's installed capability and recovery or lazy initialization state.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct ImageModelStatus {
+    pub available: bool,
+    pub version: Option<String>,
+    pub loading: bool,
+    pub error: Option<String>,
 }

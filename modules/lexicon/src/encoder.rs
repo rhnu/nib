@@ -9,6 +9,7 @@ use std::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
+    time::Instant,
 };
 
 use anyhow::{Context as _, Result, ensure};
@@ -39,6 +40,7 @@ impl QueryEncoderPool {
     pub(crate) fn encode(
         &self,
         directory: &Path,
+        generation: &str,
         model: &ModelResource,
         text: &str,
     ) -> Result<Option<Vec<f32>>> {
@@ -59,7 +61,23 @@ impl QueryEncoderPool {
                 && old.max_tokens == new.max_tokens
         });
         if !matches {
-            *current = Some(QueryEncoder::load(directory, model)?);
+            let started = Instant::now();
+            let encoder = QueryEncoder::load(directory, model).inspect_err(|error| {
+                tracing::warn!(
+                    generation,
+                    contract = model.contract.id,
+                    elapsed_ms = started.elapsed().as_millis(),
+                    ?error,
+                    "failed to initialize CPU query encoder"
+                );
+            })?;
+            *current = Some(encoder);
+            tracing::info!(
+                generation,
+                contract = model.contract.id,
+                elapsed_ms = started.elapsed().as_millis(),
+                "initialized CPU query encoder"
+            );
         }
         Ok(Some(
             current
@@ -89,10 +107,6 @@ impl QueryEncoder {
             }))
             .map_err(anyhow::Error::from_boxed)?;
         tokenizer.with_padding(None);
-        tracing::info!(
-            contract = model.contract.id,
-            "initialized CPU query encoder"
-        );
         Ok(Self {
             session,
             tokenizer,
@@ -146,7 +160,7 @@ impl QueryEncoder {
     }
 }
 
-/// Validate the compressed tokenizer during activation, without initializing ONNX Runtime.
+/// Validate a compressed tokenizer without initializing ONNX Runtime.
 pub(crate) fn tokenizer_bytes(directory: &Path, model: &ModelResource) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     flate2::read::GzDecoder::new(File::open(directory.join(&model.tokenizer))?)

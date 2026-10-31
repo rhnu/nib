@@ -25,5 +25,5 @@ export const lexiconApi = {
 
 export function isCurrentLexicon(generation: string | null, startedRevision: number) {
   const status = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey);
-  return revision === startedRevision && (!status || status.generation === generation);
+  return revision === startedRevision && generation !== null && status?.generation === generation;
 }

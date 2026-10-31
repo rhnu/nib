@@ -44,6 +44,7 @@ export const safety = {
     "Provides optional safety review and manual general/character tag recognition. Manual recognition also works with automatic checks disabled.",
   tags: "Recognize tags",
   recognizing: "Recognizing tags…",
+  modelLoading: "Restoring installed tag model…",
   recognize: "Recognize again",
   general: "General tags",
   characters: "Character tags",

@@ -8,6 +8,7 @@ export const lexicon = {
   all: "All categories",
   search: "Search names, aliases or descriptions",
   loading: "Searching…",
+  restoring: "Restoring installed lexicon…",
   noMatches: "No matching terms.",
   nameMatch: "Name",
   aliasMatch: "Alias",
@@ -37,7 +38,7 @@ export const lexicon = {
   resourceChanged: "The lexicon changed. Select the terms again to use the current resource.",
   staleCombination: "The model or lexicon changed. Review the combination and try again.",
   semanticUnavailable:
-    "Semantic search is not installed. Name, alias and translation search are available.",
+    "Semantic search is unavailable. Name, alias and translation search are available.",
   notInstalled: "No lexicon installed",
   openDownloads: "Open resource downloads",
   retry: "Retry",

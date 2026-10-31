@@ -9,8 +9,9 @@ use std::{
 use nib_image_analysis::{ImageAnalyzer, ModelIdentity, RawRatingScores, RawTag};
 
 use super::{
-    ExtractedTag, ImageAnalysisStatus, ImageSafetyScanner, ImageTags, RatingScores,
-    SafetyAssessment, SafetyModelEvidence, SafetyReview, SafetyStatus, ScanOutcome, policy::policy,
+    ExtractedTag, ImageAnalysisStatus, ImageModelStatus, ImageSafetyScanner, ImageTags,
+    RatingScores, SafetyAssessment, SafetyModelEvidence, SafetyReview, SafetyStatus, ScanOutcome,
+    policy::policy,
 };
 use crate::{media::MediaLibrary, persistence::PersistenceError, settings::GlobalSettingsStore};
 
@@ -39,17 +40,15 @@ impl SafetyScanner {
     pub fn status(&self) -> Result<ImageAnalysisStatus, PersistenceError> {
         let anime = self
             .analyzer
-            .anime_identity()
-            .map_err(|error| PersistenceError::failure("read anime model identity", error))?;
+            .anime_status()
+            .map_err(|error| PersistenceError::failure("read anime model status", error))?;
         let wd = self
             .analyzer
-            .wd_identity()
-            .map_err(|error| PersistenceError::failure("read WD model identity", error))?;
+            .wd_status()
+            .map_err(|error| PersistenceError::failure("read WD model status", error))?;
         Ok(ImageAnalysisStatus {
-            anime_available: anime.is_some(),
-            wd_available: wd.is_some(),
-            anime_version: anime.map(|model| model.version),
-            wd_version: wd.map(|model| model.version),
+            anime: model_status(anime),
+            wd: model_status(wd),
         })
     }
 
@@ -228,6 +227,15 @@ fn evidence(
         generation: model.generation,
         ratings,
         fused_score,
+    }
+}
+
+fn model_status(status: nib_image_analysis::ModelStatus) -> ImageModelStatus {
+    ImageModelStatus {
+        available: status.identity.is_some() && status.error.is_none(),
+        version: status.identity.map(|model| model.version),
+        loading: status.loading,
+        error: status.error,
     }
 }
 

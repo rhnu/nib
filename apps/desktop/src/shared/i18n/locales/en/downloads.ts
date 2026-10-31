@@ -3,6 +3,8 @@ export const downloads = {
   refresh: "Refresh catalog",
   refreshing: "Refreshing…",
   loading: "Loading resources…",
+  restoring: "Restoring installed resources…",
+  restoreFailed: "Resource restore failed",
   empty: "No downloadable resources are available.",
   directory: "Resource directory",
   actions: "Manage {{name}}",

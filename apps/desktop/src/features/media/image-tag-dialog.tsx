@@ -14,6 +14,7 @@ import { WorkbenchContext } from "@/features/workbench/workbench-context";
 import { promptApi } from "@/features/prompt/api";
 import { formatLexiconTerms } from "@/features/prompt/format-runtime";
 import { trackPendingWork } from "@/shared/host/pending-work";
+import { queryClient } from "@/shared/query/client";
 import { safetyApi } from "./safety-api";
 import { appendRecognizedTags, tagPromptTargets } from "./tag-prompt";
 import { errorMessage } from "@/shared/host/error";
@@ -33,12 +34,29 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
     queryKey: ["image-analysis-status"],
     queryFn: safetyApi.status,
     meta: { downloadableResources: ["anime-dbrating", "wd-swinv2-tagger-v3"] },
+    refetchInterval: (query) =>
+      query.state.data?.wd.loading || queryClient.isFetching({ queryKey: ["image-tags", assetId] })
+        ? 500
+        : false,
   });
+  const modelLoading = availability.isPending || Boolean(availability.data?.wd.loading);
+  const modelMissing =
+    availability.isSuccess &&
+    !availability.data.wd.available &&
+    !modelLoading &&
+    !availability.data.wd.error;
   const tags = useQuery({
     queryKey: ["image-tags", assetId],
-    queryFn: () => safetyApi.tags(assetId),
+    queryFn: async () => {
+      try {
+        return await safetyApi.tags(assetId);
+      } finally {
+        // Include failures that finish before the next model-status poll.
+        void queryClient.invalidateQueries({ queryKey: ["image-analysis-status"] });
+      }
+    },
     staleTime: Infinity,
-    enabled: availability.data?.wdAvailable === true,
+    enabled: availability.data?.wd.available === true,
     meta: { downloadableResource: "wd-swinv2-tagger-v3" },
   });
   const groups = [
@@ -125,7 +143,9 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
   return (
     <Modal open onClose={onClose} title={t("safety.tags")} wide>
       <fieldset className="image-tag-dialog" disabled={busy} aria-busy={busy}>
-        {(availability.isPending || tags.isFetching) && <output>{t("safety.recognizing")}</output>}
+        {modelLoading && !tags.isFetching && <output>{t("safety.modelLoading")}</output>}
+        {tags.isFetching && <output>{t("safety.recognizing")}</output>}
+        {availability.data?.wd.error && <Notice>{availability.data.wd.error}</Notice>}
         {availability.error && (
           <Notice
             actions={
@@ -142,10 +162,8 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
             {errorMessage(tags.error)}
           </Notice>
         )}
-        {!availability.data?.wdAvailable && (
-          <p className="image-safety-hint">{t("safety.needsModel")}</p>
-        )}
-        {workbench && !availability.data?.wdAvailable && (
+        {modelMissing && <p className="image-safety-hint">{t("safety.needsModel")}</p>}
+        {workbench && (modelMissing || availability.data?.wd.error) && (
           <Button onClick={() => void openDownloads()}>{t("safety.downloads")}</Button>
         )}
         {tags.data && (
@@ -210,7 +228,7 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
                 {t("safety.selectNone")}
               </Button>
               <Button
-                disabled={tags.isFetching || busy || !availability.data?.wdAvailable}
+                disabled={tags.isFetching || busy || !availability.data?.wd.available}
                 onClick={() => void tags.refetch()}
               >
                 {t("safety.recognize")}

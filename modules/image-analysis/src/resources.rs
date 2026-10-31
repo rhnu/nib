@@ -1,10 +1,10 @@
-//! Activation opens models before the generic store publishes a new resource generation.
+//! Restoration publishes model metadata; installation validates inference before activation.
 
 use std::sync::Arc;
 
-use nib_resources::{PreparedResource, ResourceConsumer, ResourceGeneration};
+use nib_resources::{Preparation, PreparedResource, ResourceConsumer, ResourceGeneration};
 
-use crate::{Active, model::Snapshot};
+use crate::{Active, ResourceState, model::Snapshot};
 
 pub(crate) struct AnalysisConsumer {
     active: Active,
@@ -26,7 +26,11 @@ impl PreparedResource for PreparedAnalysis {
         *self
             .active
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(self.snapshot);
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ResourceState {
+            snapshot: Some(self.snapshot),
+            loading: false,
+            error: None,
+        };
         tracing::info!(
             version = identity.version,
             generation = identity.generation,
@@ -40,19 +44,41 @@ impl ResourceConsumer for AnalysisConsumer {
     fn prepare(
         &self,
         generation: Arc<ResourceGeneration>,
+        preparation: Preparation,
     ) -> anyhow::Result<Box<dyn PreparedResource>> {
-        let snapshot = Snapshot::load(generation, self.wd)?;
+        let snapshot = Snapshot::open(generation, self.wd)?;
+        if preparation == Preparation::Install {
+            snapshot.initialize()?;
+        }
         Ok(Box::new(PreparedAnalysis {
             active: Arc::clone(&self.active),
             snapshot: Arc::new(snapshot),
         }))
     }
 
+    fn restore_started(&self) {
+        let mut state = self
+            .active
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.loading = true;
+        state.error = None;
+    }
+
+    fn restore_failed(&self, error: &str) {
+        let mut state = self
+            .active
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.loading = false;
+        state.error = Some(error.to_owned());
+    }
+
     fn deactivate(&self) {
         *self
             .active
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = ResourceState::default();
         tracing::info!(wd = self.wd, "deactivated image analysis model");
     }
 }

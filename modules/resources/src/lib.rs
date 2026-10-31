@@ -4,6 +4,7 @@ mod cache;
 mod download;
 mod error;
 pub mod format;
+mod restore;
 
 use std::{
     collections::BTreeMap,
@@ -20,8 +21,7 @@ use std::{
 use anyhow::{Context as _, Result, ensure};
 pub use error::ResourceError;
 use format::{
-    CATALOG_URL, Catalog, CatalogResource, ResourceManifest, file_hash, hex_digest, valid_hash,
-    verify_file,
+    CATALOG_URL, Catalog, CatalogResource, ResourceManifest, file_hash, hex_digest, verify_file,
 };
 use nib_contract::downloads::{
     DownloadProgress, DownloadState, DownloadStatus, DownloadableResourceStatus,
@@ -36,13 +36,37 @@ pub trait PreparedResource: Send {
     fn activate(self: Box<Self>);
 }
 
+/// Preparation preserves complete install validation while allowing lazy domain restoration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Preparation {
+    Restore,
+    Install,
+}
+
+/// Installed resource restoration is independent of download and installation progress.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ResourceRestoreStatus {
+    loading: bool,
+    error: Option<String>,
+}
+
 /// Domain consumers validate and open resources before the store publishes a generation.
 pub trait ResourceConsumer: Send + Sync {
     /// Validate and open a generation without replacing the active domain snapshot.
     ///
     /// # Errors
     /// Returns a domain validation or opening error; the previous snapshot remains active.
-    fn prepare(&self, generation: Arc<ResourceGeneration>) -> Result<Box<dyn PreparedResource>>;
+    fn prepare(
+        &self,
+        generation: Arc<ResourceGeneration>,
+        preparation: Preparation,
+    ) -> Result<Box<dyn PreparedResource>>;
+
+    /// Publish loading before integrity verification or domain preparation begins.
+    fn restore_started(&self) {}
+
+    /// Publish a restore failure only while its generation is still current.
+    fn restore_failed(&self, _message: &str) {}
 
     fn deactivate(&self);
 }
@@ -62,6 +86,8 @@ pub struct ResourceGeneration {
     pub version: String,
     pub components: Vec<String>,
     pub generation: String,
+    /// Selected files have passed store integrity checks before consumer preparation.
+    pub manifest: ResourceManifest,
     retired: AtomicBool,
 }
 
@@ -78,12 +104,35 @@ impl Drop for ResourceGeneration {
 struct Installed {
     record: InstalledResource,
     lease: Arc<ResourceGeneration>,
+    restoration: Restoration,
+}
+
+#[derive(Default)]
+enum Restoration {
+    #[default]
+    Pending,
+    Loading,
+    Ready,
+    Failed(String),
+}
+
+impl Restoration {
+    fn status(&self) -> ResourceRestoreStatus {
+        ResourceRestoreStatus {
+            loading: matches!(self, Self::Pending | Self::Loading),
+            error: match self {
+                Self::Failed(message) => Some(message.clone()),
+                _ => None,
+            },
+        }
+    }
 }
 
 #[derive(Default)]
 struct State {
     catalog: Vec<(CatalogResource, ResourceManifest)>,
     catalog_error: Option<String>,
+    metadata_incomplete: bool,
     installed: BTreeMap<String, Installed>,
     progress: BTreeMap<String, DownloadProgress>,
     task: Option<String>,
@@ -101,7 +150,7 @@ pub struct ResourceStore {
 }
 
 impl ResourceStore {
-    /// Create the local store and restore available installed resource snapshots.
+    /// Read local metadata and retain installed leases without opening domain resources.
     ///
     /// # Errors
     /// Returns an error if the resource directories cannot be created or shared state
@@ -142,7 +191,7 @@ impl ResourceStore {
                 Ok(records) => {
                     for value in records {
                         match serde_json::from_value::<InstalledResource>(value) {
-                            Ok(record) => store.restore(record),
+                            Ok(record) => store.restore_metadata(record),
                             Err(error) => store.record_startup_error(format!(
                                 "invalid installed resource record: {error}"
                             )),
@@ -153,7 +202,6 @@ impl ResourceStore {
                     .record_startup_error(format!("cannot read installed resources: {error:#}")),
             }
         }
-        store.reclaim_cache();
         Ok(store)
     }
 
@@ -163,77 +211,11 @@ impl ResourceStore {
             "installed resource state could not be restored"
         );
         if let Ok(mut state) = self.lock() {
+            state.metadata_incomplete = true;
             state.catalog_error = Some(match state.catalog_error.take() {
                 Some(previous) => format!("{previous}; {message}"),
                 None => message,
             });
-        }
-    }
-
-    fn restore(&self, record: InstalledResource) {
-        let result = (|| -> Result<Arc<ResourceGeneration>> {
-            validate_identity(&record.resource, &record.manifest)?;
-            ensure!(
-                valid_hash(&record.generation),
-                "invalid installed generation"
-            );
-            ensure!(
-                record.manifest.selection(&record.components)? == record.components,
-                "invalid installed component selection"
-            );
-            let lease = Arc::new(ResourceGeneration {
-                directory: self.directory.join("packs").join(&record.generation),
-                id: record.manifest.id.clone(),
-                version: record.manifest.version.clone(),
-                components: record.components.clone(),
-                generation: record.generation.clone(),
-                retired: AtomicBool::new(false),
-            });
-            for file in record.manifest.files(&record.components) {
-                verify_file(&lease.directory, file)?;
-            }
-            if let Some(consumer) = self.consumers.get(&record.manifest.id) {
-                consumer.prepare(Arc::clone(&lease))?.activate();
-            }
-            Ok(lease)
-        })();
-        match result {
-            Ok(lease) => {
-                if let Ok(mut state) = self.lock() {
-                    state
-                        .installed
-                        .insert(record.manifest.id.clone(), Installed { record, lease });
-                }
-            },
-            Err(error) => {
-                self.record_startup_error(format!("{}: {error:#}", record.manifest.id));
-                // Retain valid metadata for offline repair, even when files or domain opening fail.
-                if record.manifest.validate().is_ok() && valid_hash(&record.generation) {
-                    let lease = Arc::new(ResourceGeneration {
-                        directory: self.directory.join("packs").join(&record.generation),
-                        id: record.manifest.id.clone(),
-                        version: record.manifest.version.clone(),
-                        components: record.components.clone(),
-                        generation: record.generation.clone(),
-                        retired: AtomicBool::new(false),
-                    });
-                    if let Ok(mut state) = self.lock() {
-                        state.progress.insert(
-                            record.manifest.id.clone(),
-                            DownloadProgress {
-                                components: record.components.clone(),
-                                state: DownloadState::Failed,
-                                completed_bytes: 0,
-                                total_bytes: 0,
-                                message: Some(format!("{error:#}")),
-                            },
-                        );
-                        state
-                            .installed
-                            .insert(record.manifest.id.clone(), Installed { record, lease });
-                    }
-                }
-            },
         }
     }
 
@@ -378,6 +360,9 @@ impl ResourceStore {
                         })
                         .collect(),
                     install: state.progress.get(&id).cloned(),
+                    loading: installed
+                        .is_some_and(|installed| installed.restoration.status().loading),
+                    error: installed.and_then(|installed| installed.restoration.status().error),
                 }
             })
             .collect();
@@ -531,6 +516,7 @@ impl ResourceStore {
     }
 
     fn install(&self, id: &str) -> Result<()> {
+        let started = std::time::Instant::now();
         let (resource, manifest, selected) = self
             .lock()?
             .task_manifest
@@ -553,6 +539,7 @@ impl ResourceStore {
             version: manifest.version.clone(),
             components: selected.clone(),
             generation: generation.clone(),
+            manifest: manifest.clone(),
             retired: AtomicBool::new(true),
         });
         let client = Self::client()?;
@@ -578,7 +565,7 @@ impl ResourceStore {
         let prepared = self
             .consumers
             .get(id)
-            .map(|consumer| consumer.prepare(Arc::clone(&lease)))
+            .map(|consumer| consumer.prepare(Arc::clone(&lease), Preparation::Install))
             .transpose()?;
         let record = InstalledResource {
             resource,
@@ -604,13 +591,21 @@ impl ResourceStore {
         if let Some(prepared) = prepared {
             prepared.activate();
         }
-        if let Some(previous) = state
-            .installed
-            .insert(id.to_owned(), Installed { record, lease })
-        {
+        if let Some(previous) = state.installed.insert(
+            id.to_owned(),
+            Installed {
+                record,
+                lease,
+                restoration: Restoration::Ready,
+            },
+        ) {
             previous.lease.retired.store(true, Ordering::Release);
         }
-        tracing::info!(resource = id, "activated resource generation");
+        tracing::info!(
+            resource = id,
+            elapsed_ms = started.elapsed().as_millis(),
+            "activated resource generation"
+        );
         Ok(())
     }
 

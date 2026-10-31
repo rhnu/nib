@@ -8,7 +8,7 @@ export function useLexiconStatus(enabled = true) {
     meta: { downloadableResource: "lexicon" },
     enabled,
     staleTime: 5_000,
-    refetchInterval: 5_000,
+    refetchInterval: (query) => (query.state.data?.loading ? 500 : 5_000),
     retry: false,
   });
 }

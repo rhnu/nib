@@ -244,8 +244,10 @@ class CompletionQueries {
         return;
       const session = this.session;
       const revision = lexiconRevision();
-      const generation =
-        queryClient.getQueryData<LexiconStatus>(lexiconStatusKey)?.generation ?? null;
+      const status = queryClient.getQueryData<LexiconStatus>(lexiconStatusKey);
+      const generation = status?.generation ?? null;
+      // Wait for resource status instead of guessing availability during startup.
+      if (!generation) return;
       const editorRevision = state.field(promptRevision);
       const analysis = state.field(promptAnalysis);
       const profile = state.field(promptProfile);
@@ -263,8 +265,7 @@ class CompletionQueries {
       this.cancelLookup = lookupCompletions(
         {
           text: state.sliceDoc(range.from, state.selection.main.head),
-          semantic:
-            queryClient.getQueryData<LexiconStatus>(lexiconStatusKey)?.semanticAvailable !== false,
+          semantic: status?.semanticAvailable === true,
           elapsed: Date.now() - this.lastInteraction,
         },
         (text, semantic) => lexiconApi.search(text, [], semantic),

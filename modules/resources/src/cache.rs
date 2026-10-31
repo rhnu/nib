@@ -54,7 +54,7 @@ impl ResourceStore {
 
 /// Unknown catalog state preserves all objects instead of treating them as unused.
 fn retained_objects(state: &State) -> Option<HashSet<&str>> {
-    if state.catalog_error.is_some() {
+    if state.catalog_error.is_some() || state.metadata_incomplete {
         return None;
     }
     let mut retained = HashSet::new();

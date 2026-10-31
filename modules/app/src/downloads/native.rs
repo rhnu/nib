@@ -18,6 +18,30 @@ impl Downloads {
         Self { store, runtime }
     }
 
+    /// Restores optional capabilities without delaying the host or creation snapshot.
+    pub(crate) fn start_restore(&self) {
+        let store = Arc::clone(&self.store);
+        let runtime = self.runtime.clone();
+        self.runtime.spawn(async move {
+            let worker = Arc::clone(&store);
+            match runtime.spawn_blocking(move || worker.restore_installed()).await {
+                Ok(Ok(())) => {},
+                Ok(Err(error)) => {
+                    tracing::error!(error = ?error, "resource recovery failed");
+                    if let Err(error) = store.restore_worker_failed(&error.to_string()) {
+                        tracing::error!(error = ?error, "cannot publish resource recovery failure");
+                    }
+                },
+                Err(error) => {
+                    tracing::error!(error = ?error, "resource recovery worker failed");
+                    if let Err(error) = store.restore_worker_failed(&error.to_string()) {
+                        tracing::error!(error = ?error, "cannot publish resource recovery failure");
+                    }
+                },
+            }
+        }.in_current_span());
+    }
+
     /// Reports the current catalog, installed components and task progress.
     /// # Errors
     /// Returns a shared resource-state failure.

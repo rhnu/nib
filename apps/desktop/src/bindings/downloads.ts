@@ -6,6 +6,6 @@ export type DownloadProgress = { components: Array<string>, state: DownloadState
 
 export type ResourceComponentStatus = { id: string, name: string, description: string, requires: Array<string>, bytes: number, installed: boolean, };
 
-export type DownloadableResourceStatus = { id: string, name: string, description: string, version: string, installedVersion: string | null, components: Array<ResourceComponentStatus>, install: DownloadProgress | null, };
+export type DownloadableResourceStatus = { id: string, name: string, description: string, version: string, installedVersion: string | null, components: Array<ResourceComponentStatus>, install: DownloadProgress | null, loading: boolean, error: string | null, };
 
 export type DownloadStatus = { directory: string, resources: Array<DownloadableResourceStatus>, catalogError: string | null, };

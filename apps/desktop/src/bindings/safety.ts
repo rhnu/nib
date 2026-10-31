@@ -18,4 +18,6 @@ export type ExtractedTag = { name: string, promptText: string, confidence: numbe
 
 export type ImageTags = { general: Array<ExtractedTag>, characters: Array<ExtractedTag>, modelVersion: string, };
 
-export type ImageAnalysisStatus = { animeAvailable: boolean, wdAvailable: boolean, animeVersion: string | null, wdVersion: string | null, };
+export type ImageAnalysisStatus = { anime: ImageModelStatus, wd: ImageModelStatus, };
+
+export type ImageModelStatus = { available: boolean, version: string | null, loading: boolean, error: string | null, };

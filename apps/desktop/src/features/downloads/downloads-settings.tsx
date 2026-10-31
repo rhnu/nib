@@ -27,6 +27,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
   const [confirm, setConfirm] = useState<"uninstall" | "replace" | null>(null);
   const [error, setError] = useMessageState();
   const active = isDownloadActive(resource.install?.state);
+  const unavailable = pending || active;
   const name = resourceName(resource.id, resource.name);
   const installed = Boolean(resource.installedVersion);
   const changed = resource.components.some(
@@ -105,13 +106,13 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
             items={[
               {
                 label: t("downloads.reinstall"),
-                disabled: pending || active || !selected.length,
+                disabled: unavailable || !selected.length,
                 action: () => (removed.length ? setConfirm("replace") : void install()),
               },
               {
                 label: t("downloads.uninstall"),
                 danger: true,
-                disabled: pending || active,
+                disabled: unavailable,
                 action: () => setConfirm("uninstall"),
               },
             ]}
@@ -123,11 +124,15 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
         <span>
           {resource.installedVersion
             ? t("downloads.installedVersion", { version: resource.installedVersion })
-            : t("downloads.notInstalled")}
+            : resource.loading
+              ? t("downloads.restoring")
+              : resource.error
+                ? t("downloads.restoreFailed")
+                : t("downloads.notInstalled")}
         </span>
         <span>{t("downloads.availableVersion", { version: resource.version })}</span>
       </div>
-      <fieldset className="download-components" disabled={pending || active}>
+      <fieldset className="download-components" disabled={unavailable}>
         <legend>{t("downloads.components")}</legend>
         {resource.components.map((component) => (
           <label className="download-component" key={component.id}>
@@ -184,13 +189,15 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
         ) : actionable ? (
           <Button
             className="primary"
-            disabled={pending || !selected.length}
+            disabled={unavailable || !selected.length}
             onClick={() => (removed.length ? setConfirm("replace") : void install())}
           >
             {action}
           </Button>
         ) : null}
       </div>
+      {resource.loading && <output aria-live="polite">{t("downloads.restoring")}</output>}
+      {resource.error && <Notice>{resource.error}</Notice>}
       {resource.install && (
         <output className="download-progress" aria-live="polite">
           <span>{states[resource.install.state]}</span>
@@ -244,6 +251,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           <Button onClick={() => setConfirm(null)}>{t("app.cancel")}</Button>
           <Button
             className="danger-button"
+            disabled={unavailable}
             onClick={() => {
               const operation =
                 confirm === "uninstall"
@@ -269,7 +277,9 @@ export function DownloadsSettings() {
     queryFn: downloadsApi.status,
     staleTime: 1_000,
     refetchInterval: (query) =>
-      query.state.data?.resources.some((resource) => isDownloadActive(resource.install?.state))
+      query.state.data?.resources.some(
+        (resource) => resource.loading || isDownloadActive(resource.install?.state),
+      )
         ? 500
         : false,
     retry: false,

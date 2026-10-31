@@ -104,6 +104,25 @@ describe("completion lookups", () => {
     expect(publish).toHaveBeenCalledExactlyOnceWith([]);
   });
 
+  it("discards delayed semantic results after the resource generation changes", async () => {
+    const semantic = deferred();
+    const lexical = match("blue eyes", "name");
+    const publish = vi.fn();
+    let generation = "test";
+    lookupCompletions(
+      { text: "eyes", semantic: true, elapsed: 0 },
+      (_text, useSemantic) => (useSemantic ? semantic.promise : Promise.resolve(result([lexical]))),
+      (response) => generation === "test" && (!response || response.generation === generation),
+      publish,
+    );
+    await vi.runAllTimersAsync();
+    expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
+    generation = "replacement";
+    semantic.resolve(result([match("green eyes", "semantic")]));
+    await Promise.resolve();
+    expect(publish).toHaveBeenCalledExactlyOnceWith([lexical]);
+  });
+
   it("keeps lexical ordering when semantics finishes first", async () => {
     const lexical = deferred();
     const name = match("blue eyes", "name");
