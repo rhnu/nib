@@ -181,7 +181,8 @@ struct MemoryJobs {
     records: Mutex<Vec<JobRecord>>,
     claimed: Mutex<Vec<String>>,
     changed: Notify,
-    vibes: Mutex<Vec<(FrozenSubmission, String)>>,
+    vibes: Mutex<Vec<(DerivationKey, String)>>,
+    encoding_keys: Mutex<std::collections::HashMap<String, DerivationKey>>,
 }
 
 impl MemoryJobs {
@@ -193,6 +194,7 @@ impl MemoryJobs {
         Ok(self
             .insert_jobs(
                 std::slice::from_ref(submission),
+                &[None],
                 execution,
                 "test-account",
                 None,
@@ -220,6 +222,7 @@ impl JobStore for MemoryJobs {
     fn insert_jobs(
         &self,
         submissions: &[FrozenSubmission],
+        encoding_keys: &[Option<DerivationKey>],
         execution: ExecutionPreferences,
         credential_id: &str,
         retry_of_job_id: Option<&str>,
@@ -246,6 +249,12 @@ impl JobStore for MemoryJobs {
                 observation: None,
             })
             .collect::<Vec<_>>();
+        let mut retained_keys = self.encoding_keys.lock().unwrap();
+        for (job, key) in jobs.iter().zip(encoding_keys) {
+            if let Some(key) = key {
+                retained_keys.insert(job.id.clone(), key.clone());
+            }
+        }
         records.extend(jobs.iter().cloned());
         Ok(GenerationBatch { batch_id, jobs })
     }
@@ -267,17 +276,30 @@ impl JobStore for MemoryJobs {
             .collect())
     }
 
-    fn vibe_encodings(&self) -> Result<Vec<VibeEncodingCandidate>, PersistenceError> {
+    fn vibe_encodings(&self, key: &DerivationKey) -> Result<Vec<String>, PersistenceError> {
         Ok(self
             .vibes
             .lock()
             .unwrap()
             .iter()
-            .map(|(submission, asset_id)| VibeEncodingCandidate {
-                submission: submission.clone(),
-                asset_id: asset_id.clone(),
-            })
+            .filter(|(candidate, _)| candidate == key)
+            .map(|(_, asset_id)| asset_id.clone())
             .collect())
+    }
+
+    fn unfinished_vibe_encoding(
+        &self,
+        key: &DerivationKey,
+    ) -> Result<Option<JobRecord>, PersistenceError> {
+        let records = self.records.lock().unwrap();
+        let keys = self.encoding_keys.lock().unwrap();
+        Ok(records
+            .iter()
+            .find(|record| {
+                matches!(record.status, JobStatus::Queued | JobStatus::Running)
+                    && keys.get(&record.id) == Some(key)
+            })
+            .cloned())
     }
 
     fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError> {

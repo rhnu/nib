@@ -62,6 +62,7 @@ CREATE TABLE jobs (
     request_index INTEGER NOT NULL CHECK (request_index >= 0),
     request_count INTEGER NOT NULL CHECK (request_count BETWEEN 1 AND 8),
     retry_of_job_id TEXT,
+    encoding_key TEXT,
     credential_id TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
     submitted_at INTEGER NOT NULL,
@@ -74,17 +75,34 @@ CREATE TABLE jobs (
 CREATE INDEX jobs_status_id ON jobs(status, id);
 CREATE UNIQUE INDEX jobs_batch_request ON jobs(batch_id, request_index);
 CREATE INDEX jobs_credential_status ON jobs(credential_id, status);
+CREATE INDEX jobs_encoding_key_status ON jobs(encoding_key, status, id);
+
+CREATE TABLE media_blobs (
+    id TEXT PRIMARY KEY NOT NULL,
+    byte_length INTEGER NOT NULL CHECK (byte_length > 0)
+);
 
 CREATE TABLE media_assets (
     id TEXT PRIMARY KEY NOT NULL,
+    blob_id TEXT NOT NULL REFERENCES media_blobs(id),
+    owner_resource_id TEXT,
     kind TEXT NOT NULL CHECK (kind IN ('image', 'vibe', 'vibeDocument')),
     mime_type TEXT NOT NULL,
-    byte_length INTEGER NOT NULL CHECK (byte_length > 0),
     width INTEGER,
     height INTEGER,
     created_at INTEGER NOT NULL,
     source TEXT NOT NULL CHECK (json_valid(source))
 );
+CREATE INDEX media_assets_blob ON media_assets(blob_id);
+CREATE INDEX media_assets_owner ON media_assets(owner_resource_id);
+
+CREATE TABLE media_references (
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('resource', 'creation', 'job', 'asset', 'result')),
+    owner_id TEXT NOT NULL,
+    asset_id TEXT NOT NULL REFERENCES media_assets(id) ON DELETE RESTRICT,
+    PRIMARY KEY (owner_kind, owner_id, asset_id)
+);
+CREATE INDEX media_references_asset ON media_references(asset_id);
 
 CREATE TABLE generation_results (
     id TEXT PRIMARY KEY NOT NULL,
@@ -97,4 +115,4 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 14;
+PRAGMA user_version = 15;

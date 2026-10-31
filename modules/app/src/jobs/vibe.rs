@@ -1,11 +1,77 @@
-//! Complete known encoding inputs are matched independently of official opaque cache keys.
+//! Complete known encoding inputs are indexed independently of official opaque cache keys.
 
 use serde::Serialize;
 
 use super::{Draft, FrozenSubmission, JobError, JobQueue, JobRecord};
-use crate::{api::UserMessage, persistence::PersistenceError};
+use crate::{
+    api::UserMessage,
+    media::{AssetReader, BlobId},
+    persistence::PersistenceError,
+};
 
-/// A slot can reuse a completed encoding or follow one newly queued encoding request.
+/// SHA-256 identity of the complete effective encoding input, distinct from media content.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DerivationKey(BlobId);
+
+impl DerivationKey {
+    pub fn as_str(&self) -> &str { self.0.as_str() }
+
+    /// Hashes a versioned binary representation with explicit option tags and float bits.
+    fn for_submission(
+        submission: &FrozenSubmission,
+        assets: &dyn AssetReader,
+    ) -> Result<Option<Self>, JobError> {
+        let FrozenSubmission::EncodeVibe {
+            asset_id,
+            model,
+            information_extracted,
+            mask_asset_id,
+            crop_to_mask,
+            focus_seed,
+            info_extract_seed,
+            ..
+        } = submission
+        else {
+            return Ok(None);
+        };
+        let image = assets
+            .image_identity(asset_id)
+            .map_err(|source| JobError::InputMedia { source })?;
+        let mask = mask_asset_id
+            .as_deref()
+            .map(|id| assets.image_identity(id))
+            .transpose()
+            .map_err(|source| JobError::InputMedia { source })?;
+        let mut bytes = b"nib/vibe-encoding\0".to_vec();
+        bytes.extend_from_slice(&1_u32.to_le_bytes());
+        // SHA-256 text has fixed length; the optional model key is length-prefixed.
+        bytes.extend_from_slice(image.as_str().as_bytes());
+        bytes.push(u8::from(mask.is_some()));
+        if let Some(mask) = mask {
+            bytes.extend_from_slice(mask.as_str().as_bytes());
+        }
+        bytes.push(u8::from(model.vibe_model_key().is_some()));
+        if let Some(model) = model.vibe_model_key() {
+            bytes.extend_from_slice(&(model.len() as u64).to_le_bytes());
+            bytes.extend_from_slice(model.as_bytes());
+        }
+        bytes.extend_from_slice(&information_extracted.to_bits().to_le_bytes());
+        bytes.push(match crop_to_mask {
+            None => 0,
+            Some(false) => 1,
+            Some(true) => 2,
+        });
+        for seed in [focus_seed, info_extract_seed] {
+            bytes.push(u8::from(seed.is_some()));
+            if let Some(seed) = seed {
+                bytes.extend_from_slice(&seed.to_le_bytes());
+            }
+        }
+        Ok(Some(Self(BlobId::for_bytes(&bytes))))
+    }
+}
+
+/// A slot can reuse a completed encoding or follow matching queued/running work.
 #[derive(Debug, Clone, Serialize)]
 #[serde(
     tag = "kind",
@@ -18,13 +84,8 @@ pub enum VibeEncodingOutcome {
     Queued { job: Box<JobRecord> },
 }
 
-pub struct VibeEncodingCandidate {
-    pub submission: FrozenSubmission,
-    pub asset_id: String,
-}
-
 impl JobQueue {
-    /// Reuses only encodings whose complete normalized local inputs are known.
+    /// Reuses encodings and unfinished work with the same normalized local inputs.
     /// # Errors
     /// Returns invalid input, unreadable media, missing credentials or storage failures.
     pub fn ensure_vibe_encoding(
@@ -41,29 +102,44 @@ impl JobQueue {
             ..Default::default()
         };
         let submission = self.freeze(&draft)?;
-        for candidate in self.store.vibe_encodings()? {
-            if !self.encoding_inputs_match(&submission, &candidate.submission)? {
-                continue;
-            }
-            match self.assets.vibe(&candidate.asset_id) {
+        let key = self.encoding_key(&submission)?.ok_or_else(|| {
+            PersistenceError::failure(
+                "derive a frozen Vibe encoding identity",
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "encoding draft froze to another operation",
+                ),
+            )
+        })?;
+        // This same gate protects explicit submissions and retries. Keep lookup and
+        // insertion together so concurrent clicks cannot create duplicate paid work.
+        let _gate = self
+            .submission_gate
+            .lock()
+            .map_err(|_poisoned| PersistenceError::Locked)?;
+        // Read unfinished work first: it may complete while completed assets are
+        // checked. Reading in the other order could miss it in both queries.
+        let unfinished = self.store.unfinished_vibe_encoding(&key)?;
+        for asset_id in self.store.vibe_encodings(&key)? {
+            match self.assets.vibe(&asset_id) {
                 Ok(_) => {
-                    tracing::debug!(
-                        asset_id = candidate.asset_id,
-                        "reused complete matching Vibe encoding"
-                    );
-                    return Ok(VibeEncodingOutcome::Reused {
-                        asset_id: candidate.asset_id,
-                    });
+                    tracing::debug!(asset_id, "reused complete matching Vibe encoding");
+                    return Ok(VibeEncodingOutcome::Reused { asset_id });
                 },
                 Err(error) => {
-                    tracing::warn!(asset_id = candidate.asset_id, error = %error, "matching Vibe encoding is unavailable; preparing a new encoding");
+                    tracing::warn!(asset_id, error = %error, "matching Vibe encoding is unavailable; checking remaining matches");
                 },
             }
         }
+        if let Some(job) = unfinished {
+            tracing::debug!(job_id = job.id, "joined matching unfinished Vibe encoding");
+            return Ok(VibeEncodingOutcome::Queued { job: Box::new(job) });
+        }
         let credential_id = self.clients.credential_id()?;
         self.check_credentials(&credential_id)?;
-        let batch = self.enqueue_with(
+        let batch = self.enqueue_locked(
             &[submission],
+            &[Some(key)],
             self.clients.execution_preferences()?,
             &credential_id,
             None,
@@ -78,67 +154,13 @@ impl JobQueue {
         Ok(VibeEncodingOutcome::Queued { job: Box::new(job) })
     }
 
-    fn encoding_inputs_match(
+    pub(super) fn encoding_key(
         &self,
-        left: &FrozenSubmission,
-        right: &FrozenSubmission,
-    ) -> Result<bool, JobError> {
-        match (left, right) {
-            (
-                FrozenSubmission::EncodeVibe {
-                    asset_id: a,
-                    model: am,
-                    information_extracted: ai,
-                    mask_asset_id: ak,
-                    crop_to_mask: ac,
-                    focus_seed: af,
-                    info_extract_seed: ae,
-                    ..
-                },
-                FrozenSubmission::EncodeVibe {
-                    asset_id: b,
-                    model: bm,
-                    information_extracted: bi,
-                    mask_asset_id: bk,
-                    crop_to_mask: bc,
-                    focus_seed: bf,
-                    info_extract_seed: be,
-                    ..
-                },
-            ) => {
-                if am.vibe_model_key() != bm.vibe_model_key()
-                    || ai.to_bits() != bi.to_bits()
-                    || ac != bc
-                    || af != bf
-                    || ae != be
-                {
-                    return Ok(false);
-                }
-                let masks_match = match (ak, bk) {
-                    (None, None) => true,
-                    (Some(a), Some(b)) => self.same_image(a, b)?,
-                    _ => false,
-                };
-                Ok(masks_match && self.same_image(a, b)?)
-            },
-            _ => Ok(false),
-        }
-    }
-
-    fn same_image(&self, a: &str, b: &str) -> Result<bool, JobError> {
-        if a == b {
-            return Ok(true);
-        }
-        let left = self
-            .assets
-            .image(a)
-            .map_err(|source| JobError::InputMedia { source })?;
-        match self.assets.image(b) {
-            Ok(right) => Ok(left.as_bytes() == right.as_bytes()),
-            Err(PersistenceError::NotFound { .. } | PersistenceError::InvalidData { .. }) => {
-                Ok(false)
-            },
-            Err(source) => Err(JobError::InputMedia { source }),
-        }
+        submission: &FrozenSubmission,
+    ) -> Result<Option<DerivationKey>, JobError> {
+        DerivationKey::for_submission(submission, self.assets.as_ref())
     }
 }
+
+#[cfg(test)]
+mod tests;

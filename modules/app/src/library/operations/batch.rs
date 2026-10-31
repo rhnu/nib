@@ -134,6 +134,12 @@ fn delete_selection(
         connection
             .execute("DELETE FROM resources WHERE id=?1", [&resource.id])
             .map_err(|error| PersistenceError::failure("delete selected resource", error))?;
+        crate::media::references::remove_owner_on(connection, "resource", &resource.id)?;
+    }
+    for resource in &impact.resources {
+        if let Some(id) = &resource.cover_asset_id {
+            crate::media::resource_covers::release_cover_on(connection, id, &resource.id)?;
+        }
     }
     let mut remaining = impact.folders.clone();
     while !remaining.is_empty() {

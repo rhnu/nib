@@ -7,8 +7,8 @@ pub(crate) use query::{OPERATION_SUMMARY_SQL, decode_operation_summary};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
-    FrozenSubmission, GenerationBatch, JobObservation, JobPage, JobQuery, JobRecord, JobStore,
-    ParameterDiagnostic, SubmissionResolver, VibeEncodingCandidate,
+    DerivationKey, FrozenSubmission, GenerationBatch, JobObservation, JobPage, JobQuery, JobRecord,
+    JobStore, ParameterDiagnostic, SubmissionResolver,
 };
 use crate::{
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
@@ -366,6 +366,7 @@ impl JobStore for SqliteDatabase {
     fn insert_jobs(
         &self,
         submissions: &[FrozenSubmission],
+        encoding_keys: &[Option<DerivationKey>],
         execution: ExecutionPreferences,
         credential_id: &str,
         retry_of_job_id: Option<&str>,
@@ -374,6 +375,22 @@ impl JobStore for SqliteDatabase {
             return Err(PersistenceError::InvalidData {
                 message: UserMessage::RequestCountRange,
             });
+        }
+        if encoding_keys.len() != submissions.len()
+            || submissions
+                .iter()
+                .zip(encoding_keys)
+                .any(|(submission, key)| {
+                    matches!(submission, FrozenSubmission::EncodeVibe { .. }) != key.is_some()
+                })
+        {
+            return Err(PersistenceError::failure(
+                "retain encoding identities for each submitted request",
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "only encoding submissions must have a derivation key",
+                ),
+            ));
         }
         let contents = submissions
             .iter()
@@ -399,10 +416,16 @@ impl JobStore for SqliteDatabase {
         let execution = encode(&execution)?;
         for (index, content) in contents.iter().enumerate() {
             transaction.execute(
-                "INSERT INTO jobs (status, submitted_at, submission, execution, batch_id, request_index, request_count, retry_of_job_id, credential_id) VALUES ('queued', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![now, content, execution, batch_id, u32::try_from(index).expect("batch size is bounded"), request_count, retry_of_job_id, credential_id],
+                "INSERT INTO jobs (status, submitted_at, submission, execution, batch_id, request_index, request_count, retry_of_job_id, credential_id, encoding_key) VALUES ('queued', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![now, content, execution, batch_id, u32::try_from(index).expect("batch size is bounded"), request_count, retry_of_job_id, credential_id, encoding_keys[index].as_ref().map(DerivationKey::as_str)],
             ).map_err(|error| PersistenceError::failure("retain a generation batch request", error))?;
-            jobs.push(read_job(&transaction, transaction.last_insert_rowid())?);
+            let id = transaction.last_insert_rowid();
+            crate::media::references::sync_job_on(
+                &transaction,
+                &id.to_string(),
+                &submissions[index],
+            )?;
+            jobs.push(read_job(&transaction, id)?);
         }
         transaction
             .commit()
@@ -417,24 +440,31 @@ impl JobStore for SqliteDatabase {
         self.unfinished_credential_jobs(credential_id)
     }
 
-    fn vibe_encodings(&self) -> Result<Vec<VibeEncodingCandidate>, PersistenceError> {
+    fn vibe_encodings(&self, key: &DerivationKey) -> Result<Vec<String>, PersistenceError> {
         let connection = self.connection()?;
-        let mut statement = connection.prepare("SELECT j.submission, r.asset_id FROM jobs j JOIN generation_results r ON r.job_id = j.id JOIN media_assets a ON a.id = r.asset_id WHERE j.status = 'completed' AND json_extract(j.submission, '$.kind') = 'encodeVibe' AND a.kind = 'vibe' ORDER BY j.id DESC")
+        let mut statement = connection.prepare("SELECT r.asset_id FROM jobs j JOIN generation_results r ON r.job_id = j.id JOIN media_assets a ON a.id = r.asset_id WHERE j.encoding_key = ?1 AND j.status = 'completed' AND a.kind = 'vibe' ORDER BY j.id DESC")
             .map_err(|error| PersistenceError::failure("prepare known Vibe encodings", error))?;
-        let rows = statement
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|error| PersistenceError::failure("query known Vibe encodings", error))?;
-        rows.map(|row| {
-            let (submission, asset_id) = row
-                .map_err(|error| PersistenceError::failure("read a known Vibe encoding", error))?;
-            Ok(VibeEncodingCandidate {
-                submission: decode_submission(&submission)?,
-                asset_id,
-            })
-        })
-        .collect()
+        statement
+            .query_map([key.as_str()], |row| row.get(0))
+            .map_err(|error| PersistenceError::failure("query known Vibe encodings", error))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| PersistenceError::failure("read known Vibe encodings", error))
+    }
+
+    fn unfinished_vibe_encoding(
+        &self,
+        key: &DerivationKey,
+    ) -> Result<Option<JobRecord>, PersistenceError> {
+        let connection = self.connection()?;
+        let id = connection
+            .query_row(
+                "SELECT id FROM jobs WHERE encoding_key = ?1 AND status IN ('queued', 'running') ORDER BY id LIMIT 1",
+                [key.as_str()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| PersistenceError::failure("find matching unfinished Vibe encoding", error))?;
+        id.map(|id| read_job(&connection, id)).transpose()
     }
 
     fn observe_job(&self, id: &str, observation: &JobObservation) -> Result<(), PersistenceError> {

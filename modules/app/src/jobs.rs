@@ -21,7 +21,7 @@ pub(crate) use sqlite::{
     OPERATION_SUMMARY_SQL, decode_operation_summary, decode_submission, timestamp,
 };
 use tokio::sync::{Notify, broadcast, watch};
-pub use vibe::{VibeEncodingCandidate, VibeEncodingOutcome};
+pub use vibe::{DerivationKey, VibeEncodingOutcome};
 
 use crate::{
     media::{AssetReader, FinalOutputStore},
@@ -350,6 +350,7 @@ pub trait JobStore: Send + Sync {
     fn insert_jobs(
         &self,
         submissions: &[FrozenSubmission],
+        encoding_keys: &[Option<DerivationKey>],
         execution: ExecutionPreferences,
         credential_id: &str,
         retry_of_job_id: Option<&str>,
@@ -363,10 +364,18 @@ pub trait JobStore: Send + Sync {
         credential_id: &str,
     ) -> Result<Vec<String>, PersistenceError>;
 
-    /// Reads completed local encodings with their full frozen input.
+    /// Reads completed encoding assets matching the complete frozen input key.
     /// # Errors
     /// Returns a storage query or decoding failure.
-    fn vibe_encodings(&self) -> Result<Vec<VibeEncodingCandidate>, PersistenceError>;
+    fn vibe_encodings(&self, key: &DerivationKey) -> Result<Vec<String>, PersistenceError>;
+
+    /// Finds queued or running encoding work for the same effective input.
+    /// # Errors
+    /// Returns a storage query or decoding failure.
+    fn unfinished_vibe_encoding(
+        &self,
+        key: &DerivationKey,
+    ) -> Result<Option<JobRecord>, PersistenceError>;
 
     /// Retains SDK lifecycle evidence independently from application success or cancellation.
     /// # Errors
@@ -552,12 +561,38 @@ impl JobQueue {
             .submission_gate
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)?;
+        let encoding_keys = submissions
+            .iter()
+            .map(|submission| self.encoding_key(submission))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.enqueue_locked(
+            submissions,
+            &encoding_keys,
+            execution,
+            credential_id,
+            retry_of_job_id,
+        )
+    }
+
+    /// Caller holds the submission gate through lookup and insertion.
+    fn enqueue_locked(
+        &self,
+        submissions: &[FrozenSubmission],
+        encoding_keys: &[Option<DerivationKey>],
+        execution: ExecutionPreferences,
+        credential_id: &str,
+        retry_of_job_id: Option<&str>,
+    ) -> Result<GenerationBatch, JobError> {
         if self.failed.load(Ordering::Acquire) || self.paused.load(Ordering::Acquire) {
             return Err(JobError::Unavailable);
         }
-        let batch =
-            self.store
-                .insert_jobs(submissions, execution, credential_id, retry_of_job_id)?;
+        let batch = self.store.insert_jobs(
+            submissions,
+            encoding_keys,
+            execution,
+            credential_id,
+            retry_of_job_id,
+        )?;
         tracing::info!(
             batch_id = batch.batch_id,
             request_count = batch.jobs.len(),

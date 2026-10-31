@@ -3,9 +3,11 @@
 use crate::api::UserMessage;
 
 mod assets;
+mod content;
 mod metadata;
 mod query;
-mod resource_covers;
+pub(crate) mod references;
+pub(crate) mod resource_covers;
 mod sqlite;
 mod vibe;
 use std::{
@@ -15,6 +17,7 @@ use std::{
 };
 
 pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
+pub use content::{BlobId, InvalidBlobId};
 pub use metadata::{
     ImageMetadataReport, ImageMetadataStatus, KnownCharacterMetadata, KnownImageMetadata,
     PngTextInspection,
@@ -178,24 +181,28 @@ pub struct MetadataRestore {
 }
 
 impl MediaLibrary {
-    /// Creates the immutable content directory.
+    /// Opens immutable content storage and recovers interrupted writes before sharing it.
     ///
     /// # Errors
-    /// Returns an underlying directory creation failure.
+    /// Returns directory creation, database or startup recovery failures.
     pub fn new(
         database: Arc<SqliteDatabase>,
         directory: PathBuf,
     ) -> Result<Self, PersistenceError> {
         fs::create_dir_all(&directory)
             .map_err(|error| PersistenceError::failure("create the media directory", error))?;
-        fs::create_dir_all(directory.join("resource-covers")).map_err(|error| {
-            PersistenceError::failure("create the resource cover directory", error)
-        })?;
-        Ok(Self {
+        for name in ["objects", "staging", "thumbnails"] {
+            fs::create_dir_all(directory.join(name)).map_err(|error| {
+                PersistenceError::failure("create a media content directory", error)
+            })?;
+        }
+        let library = Self {
             database,
             directory,
             thumbnails: Mutex::new(()),
-        })
+        };
+        library.recover_orphans()?;
+        Ok(library)
     }
 
     /// Lists final operation outputs and checks their immutable content availability.
@@ -243,6 +250,7 @@ impl MediaLibrary {
                 id: id.to_owned(),
             });
         }
+        self.content(&output.asset)?;
         let current = self.database.get_draft()?;
         if let FrozenSubmission::Director { asset_id, .. } = &output.result.submission {
             self.image(asset_id)?;
@@ -335,14 +343,17 @@ impl MediaLibrary {
                 .iter()
                 .map(|reference| reference.asset_id.as_str()),
         ) {
-            self.require_asset(id, AssetKind::Image)?;
+            self.image(id)?;
         }
         for reference in &inputs.references.vibes {
-            let (id, kind) = match &reference.input {
-                crate::session::VibeInput::Encoded { asset_id } => (asset_id, AssetKind::Vibe),
-                crate::session::VibeInput::Image { asset_id, .. } => (asset_id, AssetKind::Image),
-            };
-            self.require_asset(id, kind)?;
+            match &reference.input {
+                crate::session::VibeInput::Encoded { asset_id } => {
+                    self.vibe(asset_id)?;
+                },
+                crate::session::VibeInput::Image { asset_id, .. } => {
+                    self.image(asset_id)?;
+                },
+            }
         }
         Ok(())
     }

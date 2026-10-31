@@ -1,5 +1,6 @@
 //! Resumable content downloads and immutable generations shared by resource consumers.
 
+mod cache;
 mod download;
 mod error;
 pub mod format;
@@ -152,6 +153,7 @@ impl ResourceStore {
                     .record_startup_error(format!("cannot read installed resources: {error:#}")),
             }
         }
+        store.reclaim_cache();
         Ok(store)
     }
 
@@ -279,7 +281,7 @@ impl ResourceStore {
     /// Returns an error if the catalog or shared state locks cannot be accessed.
     /// Network, parsing and file failures are retained in the returned catalog status.
     pub fn refresh_catalog(&self) -> Result<DownloadStatus, ResourceError> {
-        let _refresh = self
+        let refresh_guard = self
             .refreshing
             .lock()
             .map_err(|_poisoned| anyhow::anyhow!("catalog lock poisoned"))?;
@@ -329,6 +331,8 @@ impl ResourceStore {
             },
         }
         drop(state);
+        drop(refresh_guard);
+        self.reclaim_cache();
         self.status()
     }
 
@@ -471,6 +475,7 @@ impl ResourceStore {
             state.task_manifest = None;
             state.cancelled = false;
         }
+        self.reclaim_cache();
     }
 
     pub fn worker_failed(&self, id: &str, message: String) {
@@ -643,6 +648,7 @@ impl ResourceStore {
         state.progress.remove(id);
         drop(state);
         tracing::info!(resource = id, "uninstalled resources");
+        self.reclaim_cache();
         self.status()
     }
 }

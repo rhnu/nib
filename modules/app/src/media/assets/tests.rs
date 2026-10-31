@@ -16,15 +16,41 @@ fn thumbnails_preserve_aspect_ratio_and_remain_independent_png_content() {
 }
 
 #[test]
-fn resource_cover_files_are_separate_from_regular_media_and_thumbnail_cache() {
-    let directory = std::path::Path::new("media");
-    let regular = retained_asset_path(directory, "asset-123-0").unwrap();
-    let cover = retained_asset_path(directory, "asset-cover-123-0").unwrap();
-    assert_eq!(regular.parent(), Some(directory));
+fn blob_identity_uses_exact_bytes_and_rejects_noncanonical_text() {
+    let empty = BlobId::for_bytes(b"");
     assert_eq!(
-        cover.parent(),
-        Some(directory.join("resource-covers").as_path())
+        empty.as_str(),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     );
-    assert_ne!(cover.parent(), Some(directory.join("thumbnails").as_path()));
-    assert!(retained_asset_path(directory, "asset-cover-../../outside").is_err());
+    assert_ne!(BlobId::for_bytes(b"a"), BlobId::for_bytes(b"a\n"));
+    assert_eq!(empty.as_str().parse::<BlobId>().unwrap(), empty);
+    assert!(empty.as_str().to_uppercase().parse::<BlobId>().is_err());
+    assert!("../outside".parse::<BlobId>().is_err());
+}
+
+#[test]
+fn asset_id_generation_and_validation_use_canonical_uuids() {
+    let id = AssetId::new().to_string();
+    assert_eq!(uuid::Uuid::parse_str(&id).unwrap().get_version_num(), 4);
+    assert_eq!(AssetId::parse(&id).unwrap().to_string(), id);
+    assert!(AssetId::parse("A86D53EC-9530-42BC-8335-D25E8C8ED40F").is_err());
+    assert!(AssetId::parse("invalid").is_err());
+    assert!(AssetId::parse("00000000-0000-0000-0000-000000000000").is_err());
+    assert!(AssetId::parse("../outside").is_err());
+}
+
+#[test]
+fn thumbnails_reject_modified_content_and_invalid_checksums() {
+    let image =
+        EncodedImage::from_bytes(include_bytes!("../../jobs/tests/large-source.png").to_vec())
+            .unwrap();
+    let thumbnail = prepare_thumbnail(&image).unwrap();
+    let checksum = BlobId::for_bytes(thumbnail.as_bytes());
+    assert!(
+        validated_thumbnail(thumbnail.as_bytes().to_vec(), checksum.as_str().as_bytes()).is_some()
+    );
+    let mut damaged = thumbnail.as_bytes().to_vec();
+    damaged[20] ^= 1;
+    assert!(validated_thumbnail(damaged, checksum.as_str().as_bytes()).is_none());
+    assert!(validated_thumbnail(thumbnail.as_bytes().to_vec(), &[255]).is_none());
 }

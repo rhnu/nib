@@ -64,14 +64,17 @@ impl DraftStore for SqliteDatabase {
         let png_text_editor = encode(&draft.png_text_editor)?;
         let active_page = encode(&draft.active_page)?;
         let prompt_editor = encode(&draft.prompt_editor)?;
-        let connection = self.connection()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction().map_err(|error| {
+            PersistenceError::failure("begin saving the current creation", error)
+        })?;
         let count = if draft.revision == 0 {
-            connection.execute(
+            transaction.execute(
                 "INSERT INTO current_creation(id, revision, composition, presets, settings, characters, inputs, mask_editor, vibe_encoder, director, png_text_editor, active_page, prompt_editor) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON CONFLICT(id) DO NOTHING",
                 params![revision, composition, presets, settings, characters, inputs, mask_editor, vibe_encoder, director, png_text_editor, active_page, prompt_editor],
             )
         } else {
-            connection.execute(
+            transaction.execute(
                 "UPDATE current_creation SET revision = ?1, composition = ?2, presets = ?3, settings = ?4, characters = ?5, inputs = ?6, mask_editor = ?7, vibe_encoder = ?8, director = ?9, png_text_editor = ?10, active_page = ?11, prompt_editor = ?12 WHERE id = 1 AND revision = ?13",
                 params![revision, composition, presets, settings, characters, inputs, mask_editor, vibe_encoder, director, png_text_editor, active_page, prompt_editor, draft.revision],
             )
@@ -82,6 +85,10 @@ impl DraftStore for SqliteDatabase {
                 id: "1".to_owned(),
             });
         }
+        crate::media::references::sync_creation_on(&transaction, draft)?;
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit the current creation", error))?;
         Ok(DraftSaveReceipt { revision })
     }
 }

@@ -202,11 +202,13 @@ fn slot_encoding_reuses_only_the_complete_matching_encoding_input() {
         },
         ..Default::default()
     };
-    store
-        .vibes
-        .lock()
-        .unwrap()
-        .push((queue.freeze(&draft).unwrap(), "encoding".to_owned()));
+    store.vibes.lock().unwrap().push((
+        queue
+            .encoding_key(&queue.freeze(&draft).unwrap())
+            .unwrap()
+            .unwrap(),
+        "encoding".to_owned(),
+    ));
     let reused = queue
         .ensure_vibe_encoding(input.clone(), novelai_bridge::ValidationPolicy::Normalize)
         .unwrap();
@@ -222,6 +224,135 @@ fn slot_encoding_reuses_only_the_complete_matching_encoding_input() {
             .unwrap(),
         VibeEncodingOutcome::Queued { .. }
     ));
+    assert_eq!(store.records.lock().unwrap().len(), 1);
+}
+
+fn encoding_input() -> crate::session::VibeEncodingInput {
+    crate::session::VibeEncodingInput {
+        asset_id: "source".into(),
+        model: novelai_bridge::Model::NaiDiffusion45Full,
+        information_extracted: 0.6,
+        mask_asset_id: None,
+        crop_to_mask: None,
+        focus_seed: Some(5),
+        info_extract_seed: Some(8),
+    }
+}
+
+fn encoding_draft() -> Draft {
+    Draft {
+        inputs: crate::session::CreationInputs {
+            operation: crate::session::CreationOperation::EncodeVibe(encoding_input()),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[test]
+fn concurrent_slot_encoding_requests_share_one_paid_job() {
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, _) = memory_queue(Arc::clone(&store), true);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let barrier = Arc::new(std::sync::Barrier::new(8));
+    let ids = std::thread::scope(|scope| {
+        let handles: [_; 8] = std::array::from_fn(|_| {
+            scope.spawn(|| {
+                barrier.wait();
+                let outcome = queue
+                    .ensure_vibe_encoding(
+                        encoding_input(),
+                        novelai_bridge::ValidationPolicy::Normalize,
+                    )
+                    .unwrap();
+                let VibeEncodingOutcome::Queued { job } = outcome else {
+                    panic!("no completed encoding exists")
+                };
+                job.id
+            })
+        });
+        handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>()
+    });
+    assert!(ids.iter().all(|id| id == &ids[0]));
+    assert_eq!(store.records.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn explicit_encoding_submissions_and_retries_remain_distinct_and_are_indexed() {
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, _) = memory_queue(Arc::clone(&store), true);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let first = queue.submit(&encoding_draft()).unwrap().jobs.remove(0);
+    let second = queue.submit(&encoding_draft()).unwrap().jobs.remove(0);
+    assert_ne!(first.id, second.id);
+    let VibeEncodingOutcome::Queued { job } = queue
+        .ensure_vibe_encoding(
+            encoding_input(),
+            novelai_bridge::ValidationPolicy::Normalize,
+        )
+        .unwrap()
+    else {
+        panic!("the queued explicit encoding should be reused")
+    };
+    assert_eq!(job.id, first.id);
+    assert_eq!(store.records.lock().unwrap().len(), 2);
+
+    queue.cancel(&first.id).unwrap();
+    queue.cancel(&second.id).unwrap();
+    let retry = queue.retry(&first.id).unwrap();
+    assert_eq!(retry.credential_id, first.credential_id);
+    assert_eq!(retry.submission, first.submission);
+    assert_eq!(retry.retry_of_job_id.as_deref(), Some(first.id.as_str()));
+    let VibeEncodingOutcome::Queued { job } = queue
+        .ensure_vibe_encoding(
+            encoding_input(),
+            novelai_bridge::ValidationPolicy::Normalize,
+        )
+        .unwrap()
+    else {
+        panic!("the queued retry should be reused")
+    };
+    assert_eq!(job.id, retry.id);
+
+    store.records.lock().unwrap().last_mut().unwrap().status = JobStatus::Running;
+    let VibeEncodingOutcome::Queued { job } = queue
+        .ensure_vibe_encoding(
+            encoding_input(),
+            novelai_bridge::ValidationPolicy::Normalize,
+        )
+        .unwrap()
+    else {
+        panic!("the running retry should be reused")
+    };
+    assert_eq!(job.id, retry.id);
+    assert_eq!(job.status, JobStatus::Running);
+}
+
+#[test]
+fn unreadable_completed_encoding_does_not_prevent_queue_reuse() {
+    let store = Arc::new(MemoryJobs::default());
+    let (mut queue, _) = memory_queue(Arc::clone(&store), true);
+    Arc::get_mut(&mut queue).unwrap().assets = Arc::new(ImageAssets);
+    let original = queue.submit(&encoding_draft()).unwrap().jobs.remove(0);
+    let key = queue.encoding_key(&original.submission).unwrap().unwrap();
+    store
+        .vibes
+        .lock()
+        .unwrap()
+        .push((key, "missing-encoding".into()));
+    let VibeEncodingOutcome::Queued { job } = queue
+        .ensure_vibe_encoding(
+            encoding_input(),
+            novelai_bridge::ValidationPolicy::Normalize,
+        )
+        .unwrap()
+    else {
+        panic!("unreadable encoding cannot be reused")
+    };
+    assert_eq!(job.id, original.id);
     assert_eq!(store.records.lock().unwrap().len(), 1);
 }
 

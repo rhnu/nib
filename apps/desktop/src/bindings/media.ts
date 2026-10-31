@@ -8,7 +8,9 @@ export type ResultImageSource = { "kind": "raw" } | { "kind": "archive", name: s
 
 export type AssetSource = { "kind": "resourceCover", resourceId: string, } | { "kind": "import", name: string | null, } | { "kind": "asset", assetId: string, } | { "kind": "embeddedVibe", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, displayName: string | null, strength: number | null, informationExtracted: number | null, } | { "kind": "job", jobId: string, } | { "kind": "vibeDocumentEntry", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, } | { "kind": "pngVibeDocument", imageAssetId: string, documentAssetId: string, } | { "kind": "vibeBundle", assetIds: Array<string>, };
 
-export type MediaAsset = { id: string, kind: AssetKind, mimeType: string, byteLength: number, width: number | null, height: number | null, createdAt: number, source: AssetSource, available: boolean, };
+export type BlobId = string;
+
+export type MediaAsset = { id: string, blobId: BlobId, ownerResourceId: string | null, kind: AssetKind, mimeType: string, byteLength: number, width: number | null, height: number | null, createdAt: number, source: AssetSource, available: boolean, };
 
 export type ImageMetadataStatus = "parsed" | "notPresent" | "unsupportedFormat" | "invalid";
 

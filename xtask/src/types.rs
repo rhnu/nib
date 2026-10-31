@@ -19,7 +19,7 @@ use nib_app::{
         ResourceQuery, ResourceSelection, ResourceSort, ResourceSummary, ResourceVersion,
     },
     media::{
-        AssetKind, AssetSource, GenerationResult, ImageMetadataReport, ImageMetadataStatus,
+        AssetKind, AssetSource, BlobId, GenerationResult, ImageMetadataReport, ImageMetadataStatus,
         KnownCharacterMetadata, KnownImageMetadata, MediaAsset, MetadataRestore, PngTextInspection,
         ResultImageSource, ResultPage, ResultQuery, ResultSummary, VibeAssetInspection,
         VibeCacheSummary, VibeDocumentEntry, VibeDocumentInspection, VibeSourceDocument,
@@ -212,6 +212,7 @@ fn media_types(config: &Config) -> String {
             AssetKind::decl(config),
             ResultImageSource::decl(config),
             AssetSource::decl(config),
+            BlobId::decl(config),
             MediaAsset::decl(config),
             ImageMetadataStatus::decl(config),
             KnownCharacterMetadata::decl(config),

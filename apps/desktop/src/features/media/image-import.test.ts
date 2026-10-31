@@ -15,6 +15,8 @@ function deferred<T>() {
 
 const asset: MediaAsset = {
   id: "source",
+  blobId: "0".repeat(64),
+  ownerResourceId: null,
   kind: "image",
   mimeType: "image/png",
   byteLength: 1,

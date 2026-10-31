@@ -3,9 +3,7 @@ use std::{cell::RefCell, collections::HashMap};
 use rusqlite::{Connection, OptionalExtension as _, params};
 
 use super::{Resource, ResourceReader, ResourceWriter, validate_resource};
-use crate::persistence::{
-    PersistenceError, SqliteDatabase, decode, encode, next_revision, write_miss,
-};
+use crate::persistence::{PersistenceError, SqliteDatabase, encode, next_revision, write_miss};
 
 type ResourceCache = RefCell<HashMap<String, Option<Resource>>>;
 
@@ -90,20 +88,18 @@ pub(crate) fn save_resource_on(
         },
     })?;
     crate::library::operations::require_folder(connection, resource.folder_id.as_deref())?;
+    let previous_cover =
+        get_resource(connection, &resource.id)?.and_then(|previous| previous.cover_asset_id);
     if let Some(id) = &resource.cover_asset_id {
-        let source: Option<String> = connection
+        let owner: Option<Option<String>> = connection
             .query_row(
-                "SELECT source FROM media_assets WHERE id = ?1 AND kind = 'image'",
+                "SELECT owner_resource_id FROM media_assets WHERE id = ?1 AND kind = 'image'",
                 [id],
                 |row| row.get(0),
             )
             .optional()
             .map_err(|error| PersistenceError::failure("read resource cover", error))?;
-        let owned = source
-            .map(|source| decode::<crate::media::AssetSource>(&source))
-            .transpose()?;
-        if !matches!(owned, Some(crate::media::AssetSource::ResourceCover { resource_id }) if resource_id == resource.id)
-        {
+        if owner.flatten().as_deref() != Some(resource.id.as_str()) {
             return Err(crate::library::invalid(
                 crate::api::UserMessage::ResourceCoverOwnership,
             ));
@@ -147,6 +143,12 @@ pub(crate) fn save_resource_on(
                 .map_err(|error| PersistenceError::failure("save resource metadata", error))?;
         }
     }
+    crate::media::references::sync_resource_on(connection, resource)?;
+    if let Some(id) = previous_cover.as_deref()
+        && Some(id) != resource.cover_asset_id.as_deref()
+    {
+        crate::media::resource_covers::release_cover_on(connection, id, &resource.id)?;
+    }
     get_resource(connection, &resource.id)?.ok_or_else(|| PersistenceError::NotFound {
         kind: "resource",
         id: resource.id.clone(),
@@ -181,16 +183,27 @@ impl ResourceWriter for SqliteDatabase {
 
     fn delete_resource(&self, id: &str, revision: u32) -> Result<(), PersistenceError> {
         crate::library::validate_id(id)?;
-        let connection = self.connection()?;
-        let count = connection
+        let mut connection = self.connection()?;
+        let transaction = connection
+            .transaction()
+            .map_err(|error| PersistenceError::failure("begin deleting a resource", error))?;
+        let previous = get_resource(&transaction, id)?;
+        let count = transaction
             .execute(
                 "DELETE FROM resources WHERE id=?1 AND revision=?2",
                 params![id, revision],
             )
             .map_err(|error| PersistenceError::failure("delete a resource", error))?;
         if count == 0 {
-            return Err(write_miss(&connection, "resources", "resource", id));
+            return Err(write_miss(&transaction, "resources", "resource", id));
         }
+        crate::media::references::remove_owner_on(&transaction, "resource", id)?;
+        if let Some(cover) = previous.and_then(|resource| resource.cover_asset_id) {
+            crate::media::resource_covers::release_cover_on(&transaction, &cover, id)?;
+        }
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("commit resource deletion", error))?;
         Ok(())
     }
 }

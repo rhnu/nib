@@ -1,14 +1,9 @@
-use std::{
-    fs::{self, OpenOptions},
-    io::{Read, Write},
-    sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::fs;
 
 use novelai_bridge::{EncodedImage, GeneratedImageMetadata, ImageMediaFormat, VibeEncoding};
 use serde::{Deserialize, Serialize};
 
-use super::{MediaContent, MediaLibrary};
+use super::{BlobId, MediaContent, MediaLibrary, content::AssetId};
 use crate::{api::UserMessage, persistence::PersistenceError};
 
 /// Content type is independent of its use as a source, mask or reference.
@@ -71,6 +66,8 @@ pub enum AssetSource {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct MediaAsset {
     pub id: String,
+    pub blob_id: BlobId,
+    pub owner_resource_id: Option<String>,
     pub kind: AssetKind,
     pub mime_type: String,
     #[cfg_attr(feature = "typegen", ts(type = "number"))]
@@ -88,6 +85,13 @@ pub trait AssetReader: Send + Sync {
     /// # Errors
     /// Returns an unknown identity, an incompatible kind or an unavailable/invalid image.
     fn image(&self, id: &str) -> Result<EncodedImage, PersistenceError>;
+
+    /// Resolves the exact image bytes independently from the asset's application identity.
+    /// # Errors
+    /// Returns the same validation failures as reading an image.
+    fn image_identity(&self, id: &str) -> Result<BlobId, PersistenceError> {
+        Ok(BlobId::for_bytes(self.image(id)?.as_bytes()))
+    }
 
     /// # Errors
     /// Returns an unknown identity, an incompatible kind or an unavailable/invalid encoding.
@@ -168,7 +172,7 @@ impl MediaLibrary {
         self.database
             .read_assets(None)?
             .into_iter()
-            .filter(|asset| !matches!(asset.source, AssetSource::ResourceCover { .. }))
+            .filter(|asset| asset.owner_resource_id.is_none())
             .map(|mut asset| {
                 asset.available = self.asset_available(&asset)?;
                 Ok(asset)
@@ -200,33 +204,46 @@ impl MediaLibrary {
                 message: UserMessage::ThumbnailSourceUnavailable,
             });
         }
+        // Validate the source digest even when its cached preview already exists.
+        let image = self.image_content(&asset)?;
         let directory = self.directory.join("thumbnails");
-        let path = directory.join(format!("{}.png", asset.id));
-        match fs::read(&path) {
-            Ok(bytes) => {
-                if bytes.starts_with(b"\x89PNG\r\n\x1a\n")
-                    && let Ok(image) = EncodedImage::from_bytes(bytes)
-                    && image.size().width <= 256
-                    && image.size().height <= 256
-                {
+        let filename = Self::thumbnail_filename(&asset.blob_id);
+        let path = directory.join(&filename);
+        let checksum_path = directory.join(format!("{filename}.sha256"));
+        match (fs::read(&path), fs::read(&checksum_path)) {
+            (Ok(bytes), Ok(checksum)) => {
+                if let Some(cached) = validated_thumbnail(bytes, &checksum) {
                     return Ok(MediaContent {
                         mime_type: "image/png".to_owned(),
-                        bytes: image.as_bytes().to_vec(),
+                        bytes: cached.as_bytes().to_vec(),
                     });
                 }
             },
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-            Err(error) => return Err(PersistenceError::failure("read a media thumbnail", error)),
+            (Err(error), _) | (_, Err(error)) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(PersistenceError::failure("read a media thumbnail", error));
+            },
+            _ => {},
         }
-        let image = self.image_content(&asset)?;
         let prepared = prepare_thumbnail(&image)?;
         fs::create_dir_all(&directory)
             .map_err(|error| PersistenceError::failure("create the thumbnail directory", error))?;
-        let temporary = directory.join(format!("{}.partial", asset.id));
+        let temporary = directory.join(format!("{}.partial", AssetId::new()));
         fs::write(&temporary, prepared.as_bytes())
             .map_err(|error| PersistenceError::failure("write a media thumbnail", error))?;
-        fs::rename(&temporary, &path)
-            .map_err(|error| PersistenceError::failure("publish a media thumbnail", error))?;
+        if let Err(error) = fs::rename(&temporary, &path) {
+            if let Err(cleanup) = fs::remove_file(&temporary) {
+                tracing::warn!(?cleanup, "cannot remove an unpublished thumbnail");
+            }
+            return Err(PersistenceError::failure(
+                "publish a media thumbnail",
+                error,
+            ));
+        }
+        fs::write(
+            &checksum_path,
+            BlobId::for_bytes(prepared.as_bytes()).as_str(),
+        )
+        .map_err(|error| PersistenceError::failure("write a media thumbnail checksum", error))?;
         Ok(MediaContent {
             mime_type: "image/png".to_owned(),
             bytes: prepared.as_bytes().to_vec(),
@@ -238,6 +255,7 @@ impl MediaLibrary {
     /// # Errors
     /// Returns an unknown identity or a backend failure.
     pub fn asset(&self, id: &str) -> Result<MediaAsset, PersistenceError> {
+        AssetId::parse(id)?;
         let mut asset = self
             .database
             .read_assets(Some(id))?
@@ -304,13 +322,11 @@ impl MediaLibrary {
         dimensions: Option<(u32, u32)>,
         source: AssetSource,
     ) -> Result<MediaAsset, PersistenceError> {
-        let id = if matches!(source, AssetSource::ResourceCover { .. }) {
-            next_asset_id()?.replacen("asset-", "asset-cover-", 1)
-        } else {
-            next_asset_id()?
-        };
-        let asset = MediaAsset {
-            id,
+        let blob_id = self.retain_blob(bytes)?;
+        Ok(MediaAsset {
+            id: AssetId::new().to_string(),
+            blob_id,
+            owner_resource_id: None,
             kind,
             mime_type: mime_type.to_owned(),
             byte_length: i64::try_from(bytes.len()).map_err(|error| {
@@ -321,26 +337,15 @@ impl MediaLibrary {
             created_at: crate::jobs::timestamp()?,
             source,
             available: true,
-        };
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(self.asset_path(&asset.id)?)
-            .map_err(|error| PersistenceError::failure("create immutable media content", error))?;
-        file.write_all(bytes)
-            .map_err(|error| PersistenceError::failure("write immutable media content", error))?;
-        file.sync_all()
-            .map_err(|error| PersistenceError::failure("sync immutable media content", error))?;
-        Ok(asset)
+        })
     }
 
     pub(super) fn content(&self, asset: &MediaAsset) -> Result<MediaContent, PersistenceError> {
-        let mut file = fs::File::open(self.asset_path(&asset.id)?)
-            .map_err(|error| PersistenceError::failure("open immutable media content", error))?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)
+        let bytes = fs::read(self.blob_path(&asset.blob_id))
             .map_err(|error| PersistenceError::failure("read immutable media content", error))?;
-        if i64::try_from(bytes.len()).ok() != Some(asset.byte_length) {
+        if i64::try_from(bytes.len()).ok() != Some(asset.byte_length)
+            || BlobId::for_bytes(&bytes) != asset.blob_id
+        {
             return Err(PersistenceError::InvalidData {
                 message: UserMessage::IncompleteMedia,
             });
@@ -351,12 +356,8 @@ impl MediaLibrary {
         })
     }
 
-    pub(super) fn asset_path(&self, id: &str) -> Result<std::path::PathBuf, PersistenceError> {
-        retained_asset_path(&self.directory, id)
-    }
-
     pub(super) fn asset_available(&self, asset: &MediaAsset) -> Result<bool, PersistenceError> {
-        match fs::metadata(self.asset_path(&asset.id)?) {
+        match fs::metadata(self.blob_path(&asset.blob_id)) {
             Ok(metadata) => {
                 Ok(metadata.is_file()
                     && i64::try_from(metadata.len()).ok() == Some(asset.byte_length))
@@ -399,6 +400,16 @@ impl MediaLibrary {
     }
 }
 
+/// Cache files are accepted only with an exact checksum and fully decoded PNG pixels.
+fn validated_thumbnail(bytes: Vec<u8>, checksum: &[u8]) -> Option<EncodedImage> {
+    let expected: BlobId = std::str::from_utf8(checksum).ok()?.parse().ok()?;
+    if BlobId::for_bytes(&bytes) != expected || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return None;
+    }
+    let image = EncodedImage::from_bytes(bytes).ok()?;
+    (image.size().width <= 256 && image.size().height <= 256).then_some(image)
+}
+
 fn prepare_thumbnail(
     image: &EncodedImage,
 ) -> Result<novelai_bridge::PreparedImage, PersistenceError> {
@@ -413,12 +424,30 @@ mod tests;
 impl AssetReader for MediaLibrary {
     fn image(&self, id: &str) -> Result<EncodedImage, PersistenceError> {
         let asset = self.asset(id)?;
-        if matches!(asset.source, AssetSource::ResourceCover { .. }) {
+        if asset.owner_resource_id.is_some() {
             return Err(PersistenceError::InvalidData {
                 message: UserMessage::ResourceCoverOwnership,
             });
         }
         self.image_content(&asset)
+    }
+
+    fn image_identity(&self, id: &str) -> Result<BlobId, PersistenceError> {
+        let asset = self.asset(id)?;
+        if asset.kind != AssetKind::Image {
+            return Err(wrong_kind(id, AssetKind::Image));
+        }
+        if asset.owner_resource_id.is_some() {
+            return Err(PersistenceError::InvalidData {
+                message: UserMessage::ResourceCoverOwnership,
+            });
+        }
+        if !asset.available {
+            return Err(PersistenceError::InvalidData {
+                message: UserMessage::MediaUnavailable { id: id.to_owned() },
+            });
+        }
+        Ok(asset.blob_id)
     }
 
     fn vibe(&self, id: &str) -> Result<VibeEncoding, PersistenceError> {
@@ -451,18 +480,6 @@ impl MediaLibrary {
     }
 }
 
-fn next_asset_id() -> Result<String, PersistenceError> {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| PersistenceError::failure("create a media identity", error))?
-        .as_nanos();
-    Ok(format!(
-        "asset-{nanos}-{}",
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ))
-}
-
 fn wrong_kind(id: &str, expected: AssetKind) -> PersistenceError {
     PersistenceError::InvalidData {
         message: UserMessage::MediaKindMismatch {
@@ -472,7 +489,7 @@ fn wrong_kind(id: &str, expected: AssetKind) -> PersistenceError {
     }
 }
 
-fn image_format(bytes: &[u8]) -> ImageMediaFormat {
+pub(super) fn image_format(bytes: &[u8]) -> ImageMediaFormat {
     // EncodedImage already guarantees one of the SDK-supported PNG/JPEG/WebP formats.
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         ImageMediaFormat::Png
@@ -517,24 +534,4 @@ pub(super) fn embedded_vibe_encodings(
         }
     }
     Ok(encodings)
-}
-
-fn retained_asset_path(
-    directory: &std::path::Path,
-    id: &str,
-) -> Result<std::path::PathBuf, PersistenceError> {
-    if !id.starts_with("asset-")
-        || !id
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || byte == b'-' || byte.is_ascii_lowercase())
-    {
-        return Err(PersistenceError::InvalidData {
-            message: UserMessage::InvalidMediaId,
-        });
-    }
-    Ok(if id.starts_with("asset-cover-") {
-        directory.join("resource-covers").join(id)
-    } else {
-        directory.join(id)
-    })
 }
