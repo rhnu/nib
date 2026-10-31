@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Folder, Inbox, Layers, Search } from "lucide-react";
+import { Check, Search } from "lucide-react";
 import type { ResourceKind, ResourceSummary } from "@/bindings/workbench";
 import { settingValue } from "@/features/prompt/settings";
 import { t, useTranslation } from "@/shared/i18n";
@@ -15,7 +15,9 @@ import {
   ResourceViewSwitch,
   type ResourceView,
 } from "./resource-browser";
-import { ResourceFolderControls, ResourceFolderTree } from "./resource-folder-tree";
+import { ResourceFolders } from "./resource-folders";
+import { ResourceBreadcrumb, ResourceDirectoryItems } from "./resource-directory";
+import { folderAncestry, resourceLocationQuery } from "./resource-location";
 import { folderPath } from "./resource-metadata";
 import { useResourceResults } from "./use-resource-results";
 import "./styles.css";
@@ -40,8 +42,6 @@ export function ResourcePicker({
   );
   const [text, setText] = useState("");
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [rootOnly, setRootOnly] = useState(false);
-  const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [tag, setTag] = useState("");
   const [offset, setOffset] = useState(0);
@@ -57,9 +57,7 @@ export function ResourcePicker({
   const query = resourceSearchQuery({
     text,
     kind,
-    folderId,
-    rootOnly,
-    includeSubfolders,
+    ...resourceLocationQuery(folderId, text),
     tags: tag ? [tag] : [],
     models: model ? [model] : [],
     offset,
@@ -81,9 +79,10 @@ export function ResourcePicker({
     setSelection(null);
   };
 
-  const navigate = (id: string | null, unfiled = false) => {
+  const navigate = (id: string | null) => {
     setFolderId(id);
-    setRootOnly(unfiled);
+    const path = folderAncestry(id, folders.data ?? []).map((folder) => folder.id);
+    setCollapsed((current) => current.filter((id) => !path.includes(id)));
     reset();
   };
 
@@ -91,11 +90,10 @@ export function ResourcePicker({
     if (canChoose) onChoose(resource);
   };
 
-  const location = folderId
-    ? folderPath(folderId, folders.data ?? [])
-    : rootOnly
-      ? t("library.rootFolder")
-      : t("library.allResources");
+  const searching = Boolean(text.trim());
+  const childFolders = searching
+    ? []
+    : (folders.data ?? []).filter((folder) => folder.parentId === folderId);
 
   return (
     <Modal
@@ -111,51 +109,13 @@ export function ResourcePicker({
       finalFocus={() => (returnFocus?.isConnected ? returnFocus : true)}
     >
       <div className="resource-picker-body">
-        <aside className="resource-folders" aria-label={t("library.folders")}>
-          <header>
-            <strong>{t("library.folders")}</strong>
-          </header>
-          <Button
-            className={`resource-folder-root ${!folderId && !rootOnly ? "selected" : ""}`}
-            aria-current={!folderId && !rootOnly ? "location" : undefined}
-            onClick={() => navigate(null)}
-          >
-            <Layers size={15} />
-            {t("library.allResources")}
-          </Button>
-          <Button
-            className={`resource-folder-root ${rootOnly ? "selected" : ""}`}
-            aria-current={rootOnly ? "location" : undefined}
-            onClick={() => navigate(null, true)}
-          >
-            <Inbox size={15} />
-            {t("library.rootFolder")}
-          </Button>
-          {folders.isPending ? (
-            <output className="empty-note">{t("library.querying")}</output>
-          ) : (
-            <ResourceFolderTree
-              folders={folders.data ?? []}
-              collapsed={collapsed}
-              onCollapsedChange={setCollapsed}
-              renderRow={(folder, { depth, expanded, hasChildren, toggle }) => (
-                <div
-                  className={`resource-folder-row ${folder.id === folderId ? "selected" : ""}`}
-                  style={{ paddingLeft: 8 + depth * 15 }}
-                >
-                  <ResourceFolderControls
-                    folder={folder}
-                    selected={folder.id === folderId}
-                    expanded={expanded}
-                    hasChildren={hasChildren}
-                    toggle={toggle}
-                    onSelect={() => navigate(folder.id)}
-                  />
-                </div>
-              )}
-            />
-          )}
-        </aside>
+        <ResourceFolders
+          folders={folders.data ?? []}
+          folderId={folderId}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          onSelect={navigate}
+        />
         <section className="resource-browser" aria-label={t("library.title")}>
           <div className="resource-picker-toolbar">
             <div className="library-search-field">
@@ -190,26 +150,15 @@ export function ResourcePicker({
             <ResourceViewSwitch view={view} onChange={setView} />
           </div>
           <header className="resource-browser-heading">
-            <Folder size={14} aria-hidden />
-            <span className="resource-breadcrumb" title={location}>
-              {location}
-            </span>
+            <ResourceBreadcrumb
+              folderId={folderId}
+              folders={folders.data ?? []}
+              onNavigate={navigate}
+            />
             <span className="spacer" />
-            {folderId && (
-              <label className="resource-subfolder-toggle">
-                <input
-                  type="checkbox"
-                  checked={includeSubfolders}
-                  onChange={(event) => {
-                    setIncludeSubfolders(event.target.checked);
-                    reset();
-                  }}
-                />
-                {t("library.includeSubfolders")}
-              </label>
-            )}
             <span className="muted">{t("library.resultCount", { count: total })}</span>
           </header>
+          {searching && <div className="resource-search-scope">{t("library.searchScope")}</div>}
           {catalogueError && (
             <Notice
               actions={
@@ -228,13 +177,14 @@ export function ResourcePicker({
             </Notice>
           )}
           <ResourceResults
-            loading={loading}
+            loading={loading || folders.isPending || tags.isPending}
             queryError={!!catalogueError}
-            empty={!items.length}
-            filtered={Boolean(text || tag || folderId || rootOnly || model)}
+            empty={!items.length && !childFolders.length}
+            filtered={Boolean(text || tag || model)}
             view={view}
           >
             {view === "list" && <ResourceColumns />}
+            <ResourceDirectoryItems folders={childFolders} onNavigate={navigate} />
             {items.map((item) => (
               <div
                 key={item.id}
@@ -253,6 +203,14 @@ export function ResourcePicker({
                   }}
                 >
                   <ResourceCardContent item={item} view={view} />
+                  {searching && (
+                    <span
+                      className="resource-result-path"
+                      title={folderPath(item.folderId, folders.data ?? [])}
+                    >
+                      {folderPath(item.folderId, folders.data ?? [])}
+                    </span>
+                  )}
                   {chosen?.id === item.id && (
                     <span className="resource-picker-check" aria-hidden>
                       <Check size={13} />

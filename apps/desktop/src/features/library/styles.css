@@ -133,18 +133,167 @@
   border-bottom: 1px solid var(--line-subtle);
   min-height: 44px;
 }
+.resource-location {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
 .resource-breadcrumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.resource-breadcrumb > span {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.resource-breadcrumb .ui-button {
+  flex-shrink: 0;
+  max-width: 220px;
+  padding: 0 var(--space-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.resource-subfolder-toggle {
+.resource-breadcrumb [aria-current="location"] {
+  font-weight: 600;
+}
+.resource-breadcrumb svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.resource-search-scope {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-caption);
+  color: var(--muted);
+  border-bottom: 1px solid var(--line-subtle);
+}
+.resource-directory-items {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.resource-directory-items > * {
+  min-width: 0;
+}
+.resource-directory-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  min-width: 0;
+  min-height: 52px;
+  padding: var(--space-1);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.resource-directory-item:hover {
+  border-color: var(--line);
+  background: var(--hover);
+}
+.resource-directory-open {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  border: 0;
+  background: transparent;
+  padding: var(--space-2);
+}
+.resource-directory-open svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.resource-directory-open span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resource-detail-view .resource-directory-items {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+}
+.resource-detail-view .resource-directory-item {
+  min-height: 42px;
+}
+.resource-new-folder {
+  display: flex;
+  align-items: center;
+  grid-column: 1 / -1;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  max-width: 440px;
+}
+.resource-new-folder > input {
+  min-width: 0;
+  flex: 1;
+}
+.resource-new-folder > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.resource-result-path {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: var(--font-size-caption);
+}
+.resource-grid .resource-result-path {
+  border-top: 1px solid var(--line-subtle);
+  padding: var(--space-2) 10px;
+}
+.resource-detail-view .resource-result-path {
+  grid-column: 2 / -1;
+}
+.resource-destination {
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+}
+.resource-destination > .resource-location {
+  flex: none;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line-subtle);
+}
+.resource-destination-children {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  max-height: 310px;
+  overflow: auto;
+}
+.resource-destination-children > button {
+  justify-content: flex-start;
+}
+.resource-destination-children > button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
+}
+.resource-saved-location {
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--font-size-caption);
+}
+.resource-saved-location > :last-child {
+  overflow-wrap: anywhere;
 }
 .resource-selection-toolbar {
   display: flex;
@@ -448,7 +597,7 @@
 }
 .resource-metadata-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .resource-metadata-fields textarea {
@@ -573,8 +722,8 @@
 }
 
 .modal.resource-picker-modal {
-  width: min(1440px, calc(100vw - 80px));
-  height: min(960px, calc(100dvh - var(--titlebar-height) - 64px));
+  width: min(1240px, calc(100vw - 64px));
+  height: min(840px, calc(100dvh - var(--titlebar-height) - 64px));
   max-height: calc(100dvh - var(--titlebar-height) - 64px);
   padding: 0;
   display: flex;
@@ -590,8 +739,9 @@
 }
 .resource-picker-modal .modal-header h2 {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
   min-width: 0;
 }
 .resource-picker-modal .modal-header h2 > span {
@@ -609,10 +759,11 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
 }
 .resource-picker-body > .resource-folders {
   padding: var(--space-4) 7px;
+  background: var(--surface);
 }
 .resource-picker-body > .resource-browser {
   background: var(--bg);
@@ -622,7 +773,9 @@
   flex-shrink: 0;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-subtle);
 }
 .resource-picker-toolbar > .select-trigger {
   width: 145px;
@@ -644,8 +797,8 @@
 }
 .resource-picker-modal .resource-browser-heading {
   flex-shrink: 0;
-  padding: 3px var(--space-5) var(--space-3);
-  min-height: 36px;
+  padding: var(--space-2) var(--space-4);
+  min-height: 44px;
 }
 .resource-picker-modal .resource-browser-heading > svg {
   flex-shrink: 0;
@@ -656,7 +809,7 @@
   font-size: var(--font-size-caption);
 }
 .resource-picker-modal .resource-list {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-4);
 }
 .resource-picker-modal .resource-grid {
   grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
@@ -703,6 +856,7 @@
   min-height: 60px;
   padding: 10px 18px;
   border-top: 1px solid var(--line-subtle);
+  background: var(--surface);
 }
 .resource-picker-footer .resource-pagination {
   flex-shrink: 0;

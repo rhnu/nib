@@ -67,6 +67,9 @@ pub enum UserMessage {
     InvalidResourceMetadata,
     UnknownResourceModel,
     ResourceFolderCycle,
+    ResourceFolderDepthExceeded {
+        max_depth: u32,
+    },
     ResourceFolderNameConflict,
     ResourceCoverOwnership,
     ResourcePageLimit,

@@ -1,8 +1,9 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { ActionsMenu, Button, ContextActions, type ActionMenuItem } from "@/shared/ui";
-import type { MouseEvent } from "react";
-import type { ResourceSummary } from "@/bindings/workbench";
+import type { MouseEvent, ReactNode } from "react";
+import type { ResourceSummary, ResourceFolder } from "@/bindings/workbench";
 import { ResourceCardContent, ResourceColumns, ResourceResults } from "./resource-browser";
+import { folderPath } from "./resource-metadata";
 
 export const resourceDragType = "application/x-nib-resource-selection";
 
@@ -18,6 +19,9 @@ export function ResourceList({
   onActivate,
   actions,
   onContextSelect,
+  directoryItems,
+  hasDirectories,
+  searchFolders,
 }: {
   loading: boolean;
   queryError: string;
@@ -29,17 +33,21 @@ export function ResourceList({
   onActivate: (id: string) => void;
   actions: (resource: ResourceSummary) => ActionMenuItem[];
   onContextSelect: (id: string) => void;
+  directoryItems: ReactNode;
+  hasDirectories: boolean;
+  searchFolders?: ResourceFolder[];
 }) {
   useTranslation();
   return (
     <ResourceResults
       loading={loading}
       queryError={!!queryError}
-      empty={!items.length}
+      empty={!items.length && !hasDirectories}
       filtered={filtered}
       view={view}
     >
       {view === "list" && <ResourceColumns />}
+      {directoryItems}
       {items.map((item) => (
         <ContextActions key={item.id} items={actions(item)} onOpen={() => onContextSelect(item.id)}>
           <div
@@ -73,6 +81,14 @@ export function ResourceList({
               }}
             >
               <ResourceCardContent item={item} view={view} />
+              {searchFolders && (
+                <span
+                  className="resource-result-path"
+                  title={folderPath(item.folderId, searchFolders)}
+                >
+                  {folderPath(item.folderId, searchFolders)}
+                </span>
+              )}
             </Button>
             <div className="resource-row-actions">
               <ActionsMenu label={t("library.manageResource")} items={actions(item)} />

@@ -148,6 +148,9 @@ export function useResourceEditor(
                 },
         },
         saveMode: "create",
+        folderId,
+        offset: 0,
+        selectedIds: [],
         dirty: false,
         error: "",
       });

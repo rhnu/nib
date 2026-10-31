@@ -25,6 +25,31 @@ const resource = (text: string): Resource => ({
 });
 
 describe("library session edits", () => {
+  it("returns to the original browser context on save while holding busy until refresh completes", () => {
+    const store = createLibrarySessionStore();
+    store.setState({
+      editor: resource("submitted"),
+      dirty: true,
+      busy: true,
+      folderId: "portraits",
+      query: "portrait",
+      tag: "night",
+      offset: 60,
+      operation: 4,
+    });
+    acceptLibrarySave(store, { id: "chunk", version: 0 }, resource("submitted"));
+    expect(store.getState()).toMatchObject({
+      editor: null,
+      dirty: false,
+      busy: true,
+      folderId: "portraits",
+      query: "portrait",
+      tag: "night",
+      offset: 60,
+      operation: 4,
+      selectedIds: ["chunk"],
+    });
+  });
   it("consumes only the cut buffer used by a completed paste", () => {
     const store = createLibrarySessionStore();
     const first = { resources: ["first"], folders: [] };
@@ -85,8 +110,9 @@ describe("library session edits", () => {
       resource("edited during save"),
     );
     expect(store.getState()).toMatchObject({
-      editor: resource("edited during save"),
+      editor: null,
       dirty: false,
+      selectedIds: ["chunk"],
     });
   });
 

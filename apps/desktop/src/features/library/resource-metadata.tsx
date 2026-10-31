@@ -1,7 +1,7 @@
 import { useState, useRef, useLayoutEffect } from "react";
 import type { Resource, ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
-import { Field, FilePicker, IconButton, Select } from "@/shared/ui";
+import { Field, FilePicker, IconButton } from "@/shared/ui";
 import { ClipboardPaste, Image, X } from "lucide-react";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { libraryApi } from "./api";
@@ -9,6 +9,7 @@ import { trackPendingWork } from "@/shared/host/pending-work";
 import { settingValue } from "@/features/prompt/settings";
 import { splitLabels } from "./resource-edit";
 import { ResourceCover } from "./resource-cover";
+import { folderAncestry } from "./resource-location";
 
 /** Metadata is edited with the same draft and explicit save as the prompt content. */
 export function ResourceMetadata({
@@ -180,19 +181,12 @@ export function ResourceMetadata({
               ))}
             </datalist>
           </Field>
-          <Field label={t("library.folder")}>
-            <Select
-              value={resource.folderId ?? ""}
-              onValueChange={(value) => onChange({ ...resource, folderId: value || null })}
-              options={[
-                { value: "", label: t("library.rootFolder") },
-                ...folders.map((folder) => ({
-                  value: folder.id,
-                  label: folderPath(folder.id, folders),
-                })),
-              ]}
-            />
-          </Field>
+        </div>
+        <div className="resource-saved-location">
+          <span>{t("library.folder")}</span>
+          <span title={folderPath(resource.folderId, folders)}>
+            {folderPath(resource.folderId, folders)}
+          </span>
         </div>
         <fieldset className="resource-models">
           <legend>{t("library.models")}</legend>
@@ -235,14 +229,8 @@ export function ResourceMetadata({
 
 /** Display directory ancestry without exposing internal identities. */
 export function folderPath(id: string | null, folders: ResourceFolder[]): string {
-  if (!id) return t("library.rootFolder");
-  const parts: string[] = [];
-  const visited = new Set<string>();
-  let folder = folders.find((folder) => folder.id === id);
-  while (folder && !visited.has(folder.id)) {
-    visited.add(folder.id);
-    parts.unshift(folder.name);
-    folder = folders.find((candidate) => candidate.id === folder?.parentId);
-  }
-  return parts.join(" / ");
+  return [
+    t("library.rootFolder"),
+    ...folderAncestry(id, folders).map((folder) => folder.name),
+  ].join(" / ");
 }

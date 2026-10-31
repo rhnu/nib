@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect, useState, useRef, type MouseEvent } from "react";
+import { useEffect, useState, useRef, type MouseEvent, type DragEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -30,11 +30,17 @@ import {
 } from "@/shared/ui";
 import { settingValue } from "@/features/prompt/settings";
 import { ResourceEditor } from "./resource-editor";
-import { ResourceList } from "./resource-list";
+import { ResourceList, resourceDragType } from "./resource-list";
 import { ResourcePagination, ResourceViewSwitch } from "./resource-browser";
 import { ResourceFolders } from "./resource-folders";
 import { ResourceInspector } from "./resource-inspector";
-import { folderPath } from "./resource-metadata";
+import {
+  ResourceBreadcrumb,
+  ResourceDirectoryItems,
+  ResourceDestination,
+  ResourceNewFolder,
+} from "./resource-directory";
+import { destinationFolders, folderAncestry } from "./resource-location";
 import { useResourceSearch } from "./use-resource-search";
 import { useResourceEditor } from "./use-resource-editor";
 import { useLibrarySessionStore } from "./model/library-session-context";
@@ -51,7 +57,7 @@ type OrganizeDialog =
       tags: string;
       models: string[];
     }
-  | { kind: "folder"; folder: ResourceFolder; original: ResourceFolder | null }
+  | { kind: "folder"; folder: ResourceFolder; original: ResourceFolder }
   | { kind: "rename"; resource: ResourceSummary; name: string }
   | { kind: "tag"; oldName: string; name: string };
 
@@ -73,13 +79,14 @@ export function ResourceLibrary({
   useTranslation();
   const client = useQueryClient();
   const store = useLibrarySessionStore();
-  const { selectedIds, view, inspector, clipboard } = useStore(
+  const { selectedIds, view, inspector, clipboard, collapsedFolders } = useStore(
     store,
-    useShallow(({ selectedIds, view, inspector, clipboard }) => ({
+    useShallow(({ selectedIds, view, inspector, clipboard, collapsedFolders }) => ({
       selectedIds,
       view,
       inspector,
       clipboard,
+      collapsedFolders,
     })),
   );
   const search = useResourceSearch(open);
@@ -87,8 +94,6 @@ export function ResourceLibrary({
     query,
     kind,
     folderId,
-    rootOnly,
-    includeSubfolders,
     model,
     tag,
     offset,
@@ -133,6 +138,11 @@ export function ResourceLibrary({
   const folders = folderQuery.data ?? [];
   const tags = tagQuery.data ?? [];
   const [dialog, setDialog] = useState<OrganizeDialog | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState<{
+    id: string;
+    name: string;
+    parentId: string | null;
+  } | null>(null);
   const [deletion, setDeletion] = useState<{
     selection: ResourceSelection;
     impact: ResourceImpact;
@@ -185,7 +195,7 @@ export function ResourceLibrary({
           if (result.resources.some((item) => item.id === store.getState().editor?.id)) dismiss();
           const currentFolder = store.getState().folderId;
           if (result.folders.some((folder) => folder.id === currentFolder))
-            filter({ folderId: null, rootOnly: false });
+            filter({ folderId: null });
           store.setState({ selectedIds: [] });
         }
         await refresh([
@@ -209,7 +219,19 @@ export function ResourceLibrary({
     });
 
   const organize = (kind: "move" | "copy" | "tags" | "models", selection: ResourceSelection) =>
-    manage(() => setDialog({ kind, selection, folderId: folderId ?? "", tags: "", models: [] }));
+    manage(() =>
+      setDialog({
+        kind,
+        selection,
+        folderId: destinationFolders(folders, selection.folders).some(
+          (folder) => folder.id === folderId,
+        )
+          ? (folderId ?? "")
+          : "",
+        tags: "",
+        models: [],
+      }),
+    );
 
   const paste = (destination: string | null) => {
     const value = store.getState().clipboard;
@@ -221,21 +243,49 @@ export function ResourceLibrary({
       );
   };
 
-  const createIn = (nextKind: ResourceKind, destination: string | null) =>
+  const createIn = (nextKind: ResourceKind, destination: string | null) => {
+    setCreatingFolder(null);
     create(nextKind, destination);
+  };
+
+  const navigate = (id: string | null) =>
+    manage(() => {
+      setCreatingFolder(null);
+      const path = folderAncestry(id, folders).map((folder) => folder.id);
+      store.setState({
+        collapsedFolders: store.getState().collapsedFolders.filter((id) => !path.includes(id)),
+      });
+      filter({ folderId: id });
+    });
 
   const newFolder = (parentId: string | null) =>
-    setDialog({
-      kind: "folder",
-      original: null,
-      folder: {
-        id: crypto.randomUUID(),
-        name: "",
-        parentId,
-        createdAt: 0,
-        updatedAt: 0,
-      },
+    manage(() => {
+      filter({ folderId: parentId, query: "" });
+      setCreatingFolder({ id: crypto.randomUUID(), name: "", parentId });
     });
+
+  const saveNewFolder = () => {
+    if (!creatingFolder) return;
+    const snapshot = creatingFolder;
+    void run(async () => {
+      await libraryApi.saveFolder({ kind: "create", ...snapshot, name: snapshot.name.trim() });
+      await client.invalidateQueries({ queryKey: ["resource-folders"] });
+      setCreatingFolder(null);
+    });
+  };
+
+  const dropInto = (event: DragEvent, folder: ResourceFolder) => {
+    if (!event.dataTransfer.types.includes(resourceDragType)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    let selection: ResourceSelection;
+    try {
+      selection = JSON.parse(event.dataTransfer.getData(resourceDragType)) as ResourceSelection;
+    } catch {
+      return;
+    }
+    batch(selection, { kind: event.ctrlKey ? "copy" : "move", folderId: folder.id });
+  };
 
   const resourceActions = (item?: ResourceSummary): ActionMenuItem[] => {
     const selection = selectionFor(item);
@@ -354,6 +404,12 @@ export function ResourceLibrary({
   ];
 
   const currentFolder = folders.find((folder) => folder.id === folderId) ?? null;
+  const searching = Boolean(query.trim());
+  const childFolders = searching ? [] : folders.filter((folder) => folder.parentId === folderId);
+  const availableDestinations =
+    dialog && (dialog.kind === "move" || dialog.kind === "copy")
+      ? destinationFolders(folders, dialog.selection.folders)
+      : folders;
   const blankActions: ActionMenuItem[] = [
     ...folderActions(currentFolder),
     { separator: true },
@@ -398,6 +454,9 @@ export function ResourceLibrary({
     const keydown = (event: KeyboardEvent) => {
       if (store.getState().busy) return;
       if ((event.target as Element).closest("input,textarea,[contenteditable=true]")) return;
+      const folderElement = (event.target as Element).closest<HTMLElement>("[data-folder-id]");
+      const activeFolder = folders.find((folder) => folder.id === folderElement?.dataset.folderId);
+      const activeSelection = activeFolder ? folderSelection(activeFolder) : selectionFor();
       if (event.ctrlKey || event.metaKey) {
         const key = event.key.toLowerCase();
         if (key === "a") {
@@ -405,18 +464,20 @@ export function ResourceLibrary({
           store.setState({ selectedIds: items.map((item) => item.id) });
         } else if (key === "c" || key === "x") {
           event.preventDefault();
-          if (selected.length)
-            store.setState({ clipboard: { selection: selectionFor(), cut: key === "x" } });
+          if (activeFolder || selected.length)
+            store.setState({ clipboard: { selection: activeSelection, cut: key === "x" } });
         } else if (key === "v") {
           event.preventDefault();
-          paste(folderId);
+          paste(activeFolder?.id ?? folderId);
         }
-      } else if (event.key === "F2" && selected.length === 1) {
+      } else if (event.key === "F2" && (activeFolder || selected.length === 1)) {
         event.preventDefault();
-        setDialog({ kind: "rename", resource: selected[0], name: selected[0].name });
-      } else if (event.key === "Delete" && selected.length) {
+        if (activeFolder)
+          setDialog({ kind: "folder", folder: activeFolder, original: activeFolder });
+        else setDialog({ kind: "rename", resource: selected[0], name: selected[0].name });
+      } else if (event.key === "Delete" && (activeFolder || selected.length)) {
         event.preventDefault();
-        requestDelete(selectionFor());
+        requestDelete(activeSelection);
       }
     };
 
@@ -445,7 +506,10 @@ export function ResourceLibrary({
               aria-label={t("library.searchResources")}
               placeholder={t("library.searchPlaceholder")}
               value={query}
-              onChange={(event) => filter({ query: event.target.value })}
+              onChange={(event) => {
+                setCreatingFolder(null);
+                filter({ query: event.target.value });
+              }}
             />
           </div>
           <Select
@@ -562,13 +626,9 @@ export function ResourceLibrary({
           <ResourceFolders
             folders={folders}
             folderId={folderId}
-            rootOnly={rootOnly}
-            onSelect={(id, rootOnly = false) =>
-              leave(() => {
-                dismiss();
-                filter({ folderId: id, rootOnly });
-              })
-            }
+            collapsed={collapsedFolders}
+            onCollapsedChange={(collapsedFolders) => store.setState({ collapsedFolders })}
+            onSelect={navigate}
             actions={folderActions}
             onRename={(folder) => {
               if (!busy) setDialog({ kind: "folder", folder, original: folder });
@@ -606,23 +666,11 @@ export function ResourceLibrary({
               <ContextActions items={blankActions}>
                 <div className="resource-browser" ref={browser}>
                   <header className="resource-browser-heading">
-                    <span className="resource-breadcrumb">
-                      {folderId
-                        ? folderPath(folderId, folders)
-                        : rootOnly
-                          ? t("library.rootFolder")
-                          : t("library.allResources")}
-                    </span>
-                    {folderId && (
-                      <label className="resource-subfolder-toggle">
-                        <input
-                          type="checkbox"
-                          checked={includeSubfolders}
-                          onChange={(event) => filter({ includeSubfolders: event.target.checked })}
-                        />
-                        {t("library.includeSubfolders")}
-                      </label>
-                    )}
+                    <ResourceBreadcrumb
+                      folderId={folderId}
+                      folders={folders}
+                      onNavigate={navigate}
+                    />
                     <span className="spacer" />
                     <Select
                       aria-label={t("library.sort")}
@@ -643,6 +691,9 @@ export function ResourceLibrary({
                     <span className="muted">{t("library.resultCount", { count: total })}</span>
                     <ActionsMenu label={t("library.folderActions")} items={blankActions} />
                   </header>
+                  {searching && (
+                    <div className="resource-search-scope">{t("library.searchScope")}</div>
+                  )}
                   {selected.length > 0 && (
                     <div className="resource-selection-toolbar">
                       <strong>{t("library.selectedCount", { count: selected.length })}</strong>
@@ -662,8 +713,10 @@ export function ResourceLibrary({
                     </div>
                   )}
                   <ResourceList
-                    loading={loading}
-                    queryError={queryError}
+                    loading={loading || folderQuery.isPending}
+                    queryError={
+                      queryError || (folderQuery.error ? errorMessage(folderQuery.error) : "")
+                    }
                     items={items}
                     filtered={Boolean(query || kind || model || tag)}
                     selectedIds={selectedIds}
@@ -672,6 +725,35 @@ export function ResourceLibrary({
                     onActivate={select}
                     actions={resourceActions}
                     onContextSelect={contextSelect}
+                    hasDirectories={childFolders.length > 0 || !!creatingFolder}
+                    searchFolders={searching ? folders : undefined}
+                    directoryItems={
+                      <ResourceDirectoryItems
+                        folders={childFolders}
+                        onNavigate={navigate}
+                        actions={folderActions}
+                        onFocusFolder={() => store.setState({ selectedIds: [] })}
+                        onDrop={dropInto}
+                        onDragStart={(event, folder) => {
+                          event.stopPropagation();
+                          event.dataTransfer.effectAllowed = "copyMove";
+                          event.dataTransfer.setData(
+                            resourceDragType,
+                            JSON.stringify(folderSelection(folder)),
+                          );
+                        }}
+                      >
+                        {creatingFolder && (
+                          <ResourceNewFolder
+                            name={creatingFolder.name}
+                            busy={busy}
+                            onChange={(name) => setCreatingFolder({ ...creatingFolder, name })}
+                            onSave={saveNewFolder}
+                            onCancel={() => setCreatingFolder(null)}
+                          />
+                        )}
+                      </ResourceDirectoryItems>
+                    }
                   />
                   <ResourcePagination
                     offset={offset}
@@ -722,9 +804,7 @@ export function ResourceLibrary({
         }}
         title={
           dialog?.kind === "folder"
-            ? dialog.original
-              ? t("library.renameFolder")
-              : t("library.createFolder")
+            ? t("library.renameFolder")
             : dialog?.kind === "tags"
               ? t("library.editTags")
               : dialog?.kind === "models"
@@ -791,26 +871,6 @@ export function ResourceLibrary({
                     }
                   />
                 </Field>
-                <Field label={t("library.parentFolder")}>
-                  <Select
-                    value={dialog.folder.parentId ?? ""}
-                    onValueChange={(value) =>
-                      setDialog({
-                        ...dialog,
-                        folder: { ...dialog.folder, parentId: value || null },
-                      })
-                    }
-                    options={[
-                      { value: "", label: t("library.rootFolder") },
-                      ...folders
-                        .filter((folder) => folder.id !== dialog.folder.id)
-                        .map((folder) => ({
-                          value: folder.id,
-                          label: folderPath(folder.id, folders),
-                        })),
-                    ]}
-                  />
-                </Field>
               </>
             ) : dialog.kind === "tags" ? (
               <Field label={t("library.replaceTags")}>
@@ -828,19 +888,11 @@ export function ResourceLibrary({
                 </datalist>
               </Field>
             ) : (
-              <Field label={t("library.destinationFolder")}>
-                <Select
-                  value={dialog.folderId}
-                  onValueChange={(value) => setDialog({ ...dialog, folderId: value })}
-                  options={[
-                    { value: "", label: t("library.rootFolder") },
-                    ...folders.map((folder) => ({
-                      value: folder.id,
-                      label: folderPath(folder.id, folders),
-                    })),
-                  ]}
-                />
-              </Field>
+              <ResourceDestination
+                folderId={dialog.folderId || null}
+                folders={availableDestinations}
+                onChange={(id) => setDialog({ ...dialog, folderId: id ?? "" })}
+              />
             )}
             <div className="dialog-actions">
               <Button onClick={() => setDialog(null)}>{t("library.cancel")}</Button>

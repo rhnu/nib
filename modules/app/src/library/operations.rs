@@ -80,6 +80,46 @@ pub(crate) fn validate_parent(
     Ok(())
 }
 
+/// Checks the destination against the deepest descendant, before any tree write or cover copy.
+pub(crate) fn validate_folder_depth(
+    id: &str,
+    parent: Option<&str>,
+    folders: &[ResourceFolder],
+) -> Result<(), PersistenceError> {
+    const MAX_DEPTH: u32 = 8;
+    validate_parent(id, parent, folders)?;
+    let mut depth = 1;
+    let mut ancestor = parent;
+    while let Some(id) = ancestor {
+        depth += 1;
+        ancestor = folders
+            .iter()
+            .find(|folder| folder.id == id)
+            .and_then(|folder| folder.parent_id.as_deref());
+    }
+    let mut pending = vec![(id, depth)];
+    let mut seen = HashSet::new();
+    while let Some((id, depth)) = pending.pop() {
+        if !seen.insert(id) {
+            return Err(invalid(crate::api::UserMessage::ResourceFolderCycle));
+        }
+        if depth > MAX_DEPTH {
+            return Err(invalid(
+                crate::api::UserMessage::ResourceFolderDepthExceeded {
+                    max_depth: MAX_DEPTH,
+                },
+            ));
+        }
+        pending.extend(
+            folders
+                .iter()
+                .filter(|folder| folder.parent_id.as_deref() == Some(id))
+                .map(|folder| (folder.id.as_str(), depth + 1)),
+        );
+    }
+    Ok(())
+}
+
 /// Applies only the caller's explicit changes to the latest stored folder.
 fn apply_folder_changes(folder: &mut ResourceFolder, changes: &[ResourceFolderChange]) {
     for change in changes {
@@ -108,7 +148,15 @@ fn validate_folder_relationships(
             });
         }
     }
-    validate_parent(&folder.id, folder.parent_id.as_deref(), folders)?;
+    // Existing deep trees remain readable and renameable; only new placements need the limit.
+    if folders
+        .iter()
+        .any(|existing| existing.id == folder.id && existing.parent_id == folder.parent_id)
+    {
+        validate_parent(&folder.id, folder.parent_id.as_deref(), folders)?;
+    } else {
+        validate_folder_depth(&folder.id, folder.parent_id.as_deref(), folders)?;
+    }
     if folders.iter().any(|other| {
         other.id != folder.id
             && other.parent_id == folder.parent_id

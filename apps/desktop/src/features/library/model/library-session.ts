@@ -14,8 +14,6 @@ export type LibrarySessionState = {
   query: string;
   kind: ResourceKind | "";
   folderId: string | null;
-  rootOnly: boolean;
-  includeSubfolders: boolean;
   model: string;
   tag: string;
   offset: number;
@@ -43,8 +41,6 @@ export function createLibrarySessionStore() {
     query: "",
     kind: "",
     folderId: null,
-    rootOnly: false,
-    includeSubfolders: true,
     model: "",
     tag: "",
     offset: 0,
@@ -91,7 +87,7 @@ export function editLibraryResource(store: LibrarySessionStore, resource: Resour
   });
 }
 
-/** Apply an acknowledgement to whichever edit is current when the save finishes. */
+/** Return to browsing after an acknowledged save; preserve edits made after its snapshot. */
 export function acceptLibrarySave(
   store: LibrarySessionStore,
   request: { id: string; version: number; coverAssetId?: string | null },
@@ -99,7 +95,12 @@ export function acceptLibrarySave(
 ) {
   const current = store.getState();
   const merged = mergeResourceSave(current.editor, current.version, request, saved);
-  if (merged) store.setState({ ...merged, saveMode: "update" });
+  if (!merged) return;
+  store.setState(
+    merged.dirty
+      ? { ...merged, saveMode: "update" }
+      : { editor: null, dirty: false, saveMode: "create", selectedIds: [saved.id] },
+  );
 }
 
 /** Close the editor without releasing the operation that may still be refreshing data. */
@@ -116,15 +117,7 @@ export function dismissLibraryResource(store: LibrarySessionStore) {
 
 export type LibraryFilters = Pick<
   LibrarySessionState,
-  | "query"
-  | "kind"
-  | "folderId"
-  | "rootOnly"
-  | "includeSubfolders"
-  | "model"
-  | "tag"
-  | "sort"
-  | "descending"
+  "query" | "kind" | "folderId" | "model" | "tag" | "sort" | "descending"
 >;
 
 /** A changed catalogue context starts at its first page with no stale selection. */

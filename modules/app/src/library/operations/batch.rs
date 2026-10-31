@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use rusqlite::Connection;
 
-use super::{folders_on, impact_on, require_folder, save_folder_on};
+use super::{folders_on, impact_on, require_folder, save_folder_on, validate_folder_depth};
 use crate::{
     library::{
         ResourceBatchAction, ResourceImpact, ResourceSaveMode, ResourceSelection, invalid,
@@ -45,6 +45,18 @@ pub(crate) fn batch_on(
                 .is_some_and(|id| impact.folders.iter().any(|folder| &folder.id == id))
             {
                 return Err(invalid(crate::api::UserMessage::ResourceFolderCycle));
+            }
+            let folders = folders_on(connection)?;
+            for root in impact
+                .folders
+                .iter()
+                .filter(|folder| roots.contains(&folder.id))
+            {
+                if matches!(action, ResourceBatchAction::Copy { .. })
+                    || root.parent_id != *folder_id
+                {
+                    validate_folder_depth(&root.id, folder_id.as_deref(), &folders)?;
+                }
             }
         },
         _ => {},

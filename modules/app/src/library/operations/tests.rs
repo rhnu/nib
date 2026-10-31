@@ -24,6 +24,59 @@ fn folder_moves_reject_self_and_descendant_destinations_but_allow_siblings() {
 }
 
 #[test]
+fn folder_creation_allows_eight_levels_but_rejects_a_ninth() {
+    let ids: Vec<_> = (1..=9)
+        .map(|id| uuid::Uuid::from_u128(id).to_string())
+        .collect();
+    let folders: Vec<_> = ids[..8]
+        .iter()
+        .enumerate()
+        .map(|(index, id)| folder(id, index.checked_sub(1).map(|parent| ids[parent].as_str())))
+        .collect();
+    assert!(validate_folder_depth(&ids[7], Some(&ids[6]), &folders).is_ok());
+    assert!(matches!(
+        validate_folder_depth(&ids[8], Some(&ids[7]), &folders),
+        Err(PersistenceError::InvalidData {
+            message: crate::api::UserMessage::ResourceFolderDepthExceeded { max_depth: 8 }
+        })
+    ));
+}
+
+#[test]
+fn folder_placement_checks_the_entire_subtree_for_moves_and_copies() {
+    let ids: Vec<_> = (1..=10)
+        .map(|id| uuid::Uuid::from_u128(id).to_string())
+        .collect();
+    let mut folders: Vec<_> = ids[..7]
+        .iter()
+        .enumerate()
+        .map(|(index, id)| folder(id, index.checked_sub(1).map(|parent| ids[parent].as_str())))
+        .collect();
+    folders.extend([folder(&ids[7], None), folder(&ids[8], Some(&ids[7]))]);
+    // The moved root fits at level eight, but its child would be level nine.
+    assert!(validate_folder_depth(&ids[7], Some(&ids[6]), &folders).is_err());
+    assert!(validate_folder_depth(&ids[7], Some(&ids[5]), &folders).is_ok());
+    assert!(validate_folder_depth(&ids[7], None, &folders).is_ok());
+}
+
+#[test]
+fn existing_deep_folders_can_be_renamed_and_relocated_to_a_shallower_position() {
+    let ids: Vec<_> = (1..=9)
+        .map(|id| uuid::Uuid::from_u128(id).to_string())
+        .collect();
+    let folders: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| folder(id, index.checked_sub(1).map(|parent| ids[parent].as_str())))
+        .collect();
+    let mut edited = folders[8].clone();
+    edited.name = "Renamed".into();
+    assert!(validate_folder_relationships(&edited, &folders).is_ok());
+    edited.parent_id = Some(ids[0].clone());
+    assert!(validate_folder_relationships(&edited, &folders).is_ok());
+}
+
+#[test]
 fn identity_validation_requires_canonical_non_nil_uuid() {
     assert!(validate_id("67e55044-10b1-426f-9247-bb680e5fe0c8").is_ok());
     for id in [

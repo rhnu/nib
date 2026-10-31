@@ -106,6 +106,7 @@ export const messages = {
   invalidResourceId: "资源身份必须是规范的 UUID。",
   invalidResourceMetadata: "名称、别名和标签不能留空或包含首尾空白，同一列表内不能重复。",
   unknownResourceModel: "资源包含未知的模型。",
+  resourceFolderDepthExceeded: "目录最多嵌套 {{maxDepth}} 层。",
   resourceFolderCycle: "不能将文件夹移入自身或其子文件夹。",
   resourceFolderNameConflict: "当前位置已存在同名文件夹。",
   resourceCoverOwnership: "封面不能与其他资源共用，请先复制图片。",

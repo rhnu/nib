@@ -1,18 +1,22 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useRef, useEffect, type DragEvent } from "react";
-import { Layers, Inbox } from "lucide-react";
+import { useRef, useEffect, type DragEvent, type ReactElement } from "react";
+import { FolderRoot } from "lucide-react";
 import type { ResourceFolder, ResourceSelection } from "@/bindings/workbench";
 import { ActionsMenu, Button, ContextActions, type ActionMenuItem } from "@/shared/ui";
-import { useStore } from "zustand";
-import { useLibrarySessionStore } from "./model/library-session-context";
 import { resourceDragType } from "./resource-list";
 import { ResourceFolderControls, ResourceFolderTree } from "./resource-folder-tree";
+
+/** Read-only navigation has no context-menu trigger or mutation shortcuts. */
+function FolderContext({ items, children }: { items?: ActionMenuItem[]; children: ReactElement }) {
+  return items ? <ContextActions items={items}>{children}</ContextActions> : children;
+}
 
 /** Organize folders in their own pane; ordinary actions also cover every drag operation. */
 export function ResourceFolders({
   folders,
   folderId,
-  rootOnly,
+  collapsed,
+  onCollapsedChange,
   onSelect,
   actions,
   onRename,
@@ -20,11 +24,12 @@ export function ResourceFolders({
 }: {
   folders: ResourceFolder[];
   folderId: string | null;
-  rootOnly: boolean;
-  onSelect: (id: string | null, rootOnly?: boolean) => void;
-  actions: (folder: ResourceFolder | null) => ActionMenuItem[];
-  onRename: (folder: ResourceFolder) => void;
-  onDropSelection: (selection: ResourceSelection, folderId: string | null, copy: boolean) => void;
+  collapsed: string[];
+  onCollapsedChange: (ids: string[]) => void;
+  onSelect: (id: string | null) => void;
+  actions?: (folder: ResourceFolder | null) => ActionMenuItem[];
+  onRename?: (folder: ResourceFolder) => void;
+  onDropSelection?: (selection: ResourceSelection, folderId: string | null, copy: boolean) => void;
 }) {
   useTranslation();
   const element = useRef<HTMLElement>(null);
@@ -33,7 +38,7 @@ export function ResourceFolders({
     if (!root) return;
 
     const keydown = (event: KeyboardEvent) => {
-      if (event.key !== "F2" || !(event.target instanceof Element)) return;
+      if (!onRename || event.key !== "F2" || !(event.target instanceof Element)) return;
       const row = event.target.closest<HTMLElement>("[data-folder-id]");
       const folder = folders.find((folder) => folder.id === row?.dataset.folderId);
       if (folder) {
@@ -46,13 +51,9 @@ export function ResourceFolders({
     root.addEventListener("keydown", keydown);
     return () => root.removeEventListener("keydown", keydown);
   });
-  const store = useLibrarySessionStore();
-  const collapsed = useStore(store, (state) => state.collapsedFolders);
-
-  const setCollapsed = (collapsedFolders: string[]) => store.setState({ collapsedFolders });
 
   const drop = (event: DragEvent, id: string | null) => {
-    if (!event.dataTransfer.types.includes(resourceDragType)) return;
+    if (!onDropSelection || !event.dataTransfer.types.includes(resourceDragType)) return;
     event.preventDefault();
     event.stopPropagation();
     try {
@@ -67,7 +68,7 @@ export function ResourceFolders({
   };
 
   const accepts = (event: DragEvent) => {
-    if (event.dataTransfer.types.includes(resourceDragType)) {
+    if (onDropSelection && event.dataTransfer.types.includes(resourceDragType)) {
       event.preventDefault();
       event.dataTransfer.dropEffect = event.ctrlKey ? "copy" : "move";
     }
@@ -77,39 +78,32 @@ export function ResourceFolders({
     <aside ref={element} className="resource-folders" aria-label={t("library.folders")}>
       <header className="ui-heading">
         <strong>{t("library.folders")}</strong>
-        <ActionsMenu label={t("library.manageFolder")} items={actions(null)} />
       </header>
-      <Button
-        className={`resource-folder-root ${!folderId && !rootOnly ? "selected" : ""}`}
-        onClick={() => onSelect(null, false)}
-      >
-        <Layers size={15} />
-        {t("library.allResources")}
-      </Button>
-      <ContextActions items={actions(null)}>
+      <FolderContext items={actions?.(null)}>
         <div onDragOver={accepts} onDrop={(event) => drop(event, null)}>
           <Button
-            className={`resource-folder-root ${rootOnly ? "selected" : ""}`}
-            onClick={() => onSelect(null, true)}
+            className={`resource-folder-root ${!folderId ? "selected" : ""}`}
+            aria-current={!folderId ? "location" : undefined}
+            onClick={() => onSelect(null)}
           >
-            <Inbox size={15} />
+            <FolderRoot size={15} />
             {t("library.rootFolder")}
           </Button>
         </div>
-      </ContextActions>
+      </FolderContext>
       <ResourceFolderTree
         folders={folders}
         collapsed={collapsed}
-        onCollapsedChange={setCollapsed}
+        onCollapsedChange={onCollapsedChange}
         renderRow={(folder, { depth, expanded, hasChildren, toggle }) => (
-          <ContextActions items={actions(folder)}>
+          <FolderContext items={actions?.(folder)}>
             <div
               data-folder-id={folder.id}
               className={`resource-folder-row ${folder.id === folderId ? "selected" : ""}`}
               style={{ paddingLeft: 8 + depth * 15 }}
               onDragOver={accepts}
               onDrop={(event) => drop(event, folder.id)}
-              draggable
+              draggable={!!onDropSelection}
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "copyMove";
@@ -130,9 +124,9 @@ export function ResourceFolders({
                 toggle={toggle}
                 onSelect={() => onSelect(folder.id)}
               />
-              <ActionsMenu label={t("library.manageFolder")} items={actions(folder)} />
+              {actions && <ActionsMenu label={t("library.manageFolder")} items={actions(folder)} />}
             </div>
-          </ContextActions>
+          </FolderContext>
         )}
       />
     </aside>

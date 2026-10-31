@@ -130,6 +130,7 @@ export const messages = {
   invalidResourceMetadata:
     "Names, aliases and tags must be nonempty, trimmed and unique within their lists.",
   unknownResourceModel: "The resource contains an unknown model.",
+  resourceFolderDepthExceeded: "Folders can be nested at most {{maxDepth}} levels deep.",
   resourceFolderCycle: "A folder cannot be moved into itself or one of its descendants.",
   resourceFolderNameConflict: "A folder with this name already exists here.",
   resourceCoverOwnership: "The cover cannot be shared with another resource. Copy the image first.",

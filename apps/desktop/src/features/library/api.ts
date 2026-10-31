@@ -1,5 +1,6 @@
 import type { MediaAsset } from "@/bindings/media";
 import { invokeHost } from "@/shared/host/invoke";
+import { resourceLocationQuery } from "./resource-location";
 import type {
   Resource,
   ResourceQuery,
@@ -22,9 +23,7 @@ export function resourceSearchQuery(query: Partial<ResourceQuery> = {}): Resourc
     kind: null,
     tags: [],
     models: [],
-    folderId: null,
-    includeSubfolders: true,
-    rootOnly: false,
+    ...resourceLocationQuery(query.folderId ?? null, query.text ?? ""),
     offset: 0,
     limit: 60,
     ...query,

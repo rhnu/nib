@@ -4,59 +4,32 @@ import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { filterLibraryResources, type LibraryFilters } from "./model/library-session";
 import { resourceSearchQuery } from "./api";
+import { resourceLocationQuery } from "./resource-location";
 import { useResourceResults } from "./use-resource-results";
 import { useLibrarySessionStore } from "./model/library-session-context";
 
-/** Search belongs to an exact filter and page, including the selected folder subtree. */
+/** Only a text search flattens the current folder's subtree. */
 export function useResourceSearch(open: boolean) {
   const client = useQueryClient();
   const store = useLibrarySessionStore();
   const filters = useStore(
     store,
-    useShallow(
-      ({
-        query,
-        kind,
-        folderId,
-        rootOnly,
-        includeSubfolders,
-        model,
-        tag,
-        offset,
-        sort,
-        descending,
-      }) => ({
-        query,
-        kind,
-        folderId,
-        rootOnly,
-        includeSubfolders,
-        model,
-        tag,
-        offset,
-        sort,
-        descending,
-      }),
-    ),
+    useShallow(({ query, kind, folderId, model, tag, offset, sort, descending }) => ({
+      query,
+      kind,
+      folderId,
+      model,
+      tag,
+      offset,
+      sort,
+      descending,
+    })),
   );
-  const {
-    query,
-    kind,
-    folderId,
-    rootOnly,
-    includeSubfolders,
-    model,
-    tag,
-    offset,
-    sort,
-    descending,
-  } = filters;
+  const { query, kind, folderId, model, tag, offset, sort, descending } = filters;
   const requestQuery = resourceSearchQuery({
     text: query,
     kind: kind || null,
-    folderId,
-    rootOnly,
-    includeSubfolders,
+    ...resourceLocationQuery(folderId, query),
     sort,
     descending,
     models: model ? [model] : [],

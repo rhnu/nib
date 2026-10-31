@@ -113,6 +113,8 @@ export function formatUserMessage(message: UserMessage): string {
       return t("messages.invalidResourceMetadata");
     case "unknownResourceModel":
       return t("messages.unknownResourceModel");
+    case "resourceFolderDepthExceeded":
+      return t("messages.resourceFolderDepthExceeded", message);
     case "resourceFolderCycle":
       return t("messages.resourceFolderCycle");
     case "resourceFolderNameConflict":
@@ -275,6 +277,7 @@ const messageKinds = new Set<string>([
   "invalidResourceId",
   "invalidResourceMetadata",
   "unknownResourceModel",
+  "resourceFolderDepthExceeded",
   "resourceFolderCycle",
   "resourceFolderNameConflict",
   "resourceCoverOwnership",
