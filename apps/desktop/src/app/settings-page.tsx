@@ -9,6 +9,8 @@ import { AccountSettings } from "@/features/generation";
 import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 import { Button, HelpMarker, Notice, Toggle, Select, SettingRow, SettingsGroup } from "@/shared/ui";
 import type { ApplicationSettingsState } from "./use-application-settings";
+import type { ApplicationUpdates } from "./use-application-updates";
+import { ApplicationUpdateSettings } from "./application-updates";
 
 function ExecutionSettings({ settings }: { settings: ApplicationSettingsState }) {
   useTranslation();
@@ -173,6 +175,12 @@ function StorageSettings({
 
 const sections = [
   {
+    id: "updates",
+    get name() {
+      return t("updates.title");
+    },
+  },
+  {
     id: "account",
     get name() {
       return t("app.accountConnection");
@@ -206,6 +214,7 @@ const sections = [
 export type SettingsSection = (typeof sections)[number]["id"];
 
 export function SettingsPage({
+  updates,
   settings,
   showAccount = true,
   beforeMigrate,
@@ -213,6 +222,7 @@ export function SettingsPage({
   section,
   onSectionChange,
 }: {
+  updates: ApplicationUpdates;
   settings: ApplicationSettingsState;
   showAccount?: boolean;
   beforeMigrate?: () => Promise<void>;
@@ -240,6 +250,10 @@ export function SettingsPage({
           ))}
         </nav>
         <div className="settings-page-content">
+          <section className="settings-category" hidden={section !== "updates"}>
+            <h2 className="settings-category-title">{t("updates.title")}</h2>
+            <ApplicationUpdateSettings updates={updates} />
+          </section>
           <div className="settings-category" hidden={section !== "account"}>
             {showAccount && (
               <div>

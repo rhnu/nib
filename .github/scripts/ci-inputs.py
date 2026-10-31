@@ -82,7 +82,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "changes":
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-        changed = str(software_changed(os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])).lower()
+        changed = str(os.environ.get("NIB_RELEASE_BUILD") == "true" or software_changed(os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])).lower()
         emit({"software": changed, "web": changed, "native": changed})
     else:
         emit({"fingerprint": web_fingerprint()})

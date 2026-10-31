@@ -1,5 +1,7 @@
 /target/
 /.dev/
+/.secrets/
+__pycache__/
 node_modules/
 dist/
 *.tsbuildinfo

@@ -1,8 +1,9 @@
 import { t, deferMessage } from "@/shared/i18n";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hasDesktopHost } from "./invoke";
 import { errorMessage } from "./error";
+import { ExitPreparationContext, type ExitPreparation } from "./exit-preparation";
 
 export type CloseWriter = { getSnapshot: () => { dirty: boolean }; flush: () => Promise<void> };
 
@@ -15,6 +16,7 @@ export function useCloseGuard({
   onError,
   enabled = true,
   beforeClose,
+  exitPreparation,
 }: {
   writer: CloseWriter;
   resourceDirty: boolean;
@@ -23,6 +25,7 @@ export function useCloseGuard({
   onError: (message: unknown) => void;
   enabled?: boolean;
   beforeClose?: () => Promise<boolean>;
+  exitPreparation?: ExitPreparation;
 }) {
   const latest = useRef({
     resourceDirty,
@@ -34,6 +37,37 @@ export function useCloseGuard({
   useLayoutEffect(() => {
     latest.current = { resourceDirty, getResourceDirty, onResourceBlocked, onError, beforeClose };
   });
+  const contextPreparation = useContext(ExitPreparationContext);
+  const preparation = exitPreparation ?? contextPreparation;
+
+  const prepare = useCallback(async () => {
+    const isResourceDirty = () =>
+      latest.current.getResourceDirty?.() ?? latest.current.resourceDirty;
+
+    if (isResourceDirty()) {
+      latest.current.onResourceBlocked();
+      return false;
+    }
+    try {
+      if (latest.current.beforeClose && !(await latest.current.beforeClose())) return false;
+      await writer.flush();
+      if (isResourceDirty()) {
+        latest.current.onResourceBlocked();
+        return false;
+      }
+      return true;
+    } catch (cause) {
+      latest.current.onError(
+        deferMessage(() => t("common.closeBlocked", { value0: errorMessage(cause) })),
+      );
+      return false;
+    }
+  }, [writer]);
+
+  useLayoutEffect(() => {
+    if (!enabled || !preparation) return;
+    return preparation.register(prepare);
+  }, [enabled, preparation, prepare]);
   useEffect(() => {
     if (!enabled) return;
 
@@ -53,18 +87,9 @@ export function useCloseGuard({
       .onCloseRequested(async (event) => {
         event.preventDefault();
         if (closing) return;
-        if (isResourceDirty()) {
-          latest.current.onResourceBlocked();
-          return;
-        }
         closing = true;
         try {
-          if (latest.current.beforeClose && !(await latest.current.beforeClose())) return;
-          await writer.flush();
-          if (isResourceDirty()) {
-            latest.current.onResourceBlocked();
-            return;
-          }
+          if (!(await prepare())) return;
           await getCurrentWindow().destroy();
         } catch (cause) {
           latest.current.onError(
@@ -86,5 +111,5 @@ export function useCloseGuard({
       unlisten?.();
       window.removeEventListener("beforeunload", beforeUnload);
     };
-  }, [writer, enabled]);
+  }, [writer, enabled, prepare]);
 }

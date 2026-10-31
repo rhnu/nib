@@ -1,6 +1,9 @@
 import type { messages as source } from "../en/messages";
 
 export const messages = {
+  updateBusy: "请先完成或取消助手运行及排队中的生成任务，再安装更新。",
+  updateInProgress: "正在准备应用更新，请稍候。",
+  updateUnavailable: "请先检查并下载更新，再安装。",
   contentEntry: "条目",
   missingCredentials: "请先配置 NovelAI API Key。",
   unresolvedResources: "当前创作有未解决的资源引用，请在解析面板中处理后再生成。",

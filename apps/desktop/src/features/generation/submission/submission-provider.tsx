@@ -5,6 +5,7 @@ import { submissionApi } from "./api";
 import { useJobData } from "../jobs/job-context";
 import { originForOperation, workStatus, type SubmissionOrigin } from "./work-state";
 import { SubmissionContext } from "./submission-context";
+import { trackPendingWork } from "@/shared/host/pending-work";
 
 export function SubmissionProvider({
   beforeSubmit,
@@ -33,10 +34,14 @@ export function SubmissionProvider({
       gates.current.add(origin);
       setPending((value) => ({ ...value, [origin]: true }));
       try {
-        await latest.current?.();
-        const batch = await submissionApi.submit(draft);
-        acceptBatch(batch, true);
-        return batch;
+        return await trackPendingWork(
+          (async () => {
+            await latest.current?.();
+            const batch = await submissionApi.submit(draft);
+            acceptBatch(batch, true);
+            return batch;
+          })(),
+        );
       } finally {
         gates.current.delete(origin);
         setPending((value) => ({ ...value, [origin]: false }));

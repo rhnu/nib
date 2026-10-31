@@ -19,6 +19,7 @@ pub mod session;
 pub mod settings;
 #[cfg(feature = "native")]
 pub mod state;
+pub mod updates;
 
 /// Reports the application identity and the bridge's current default model.
 pub fn app_info() -> api::AppInfo {

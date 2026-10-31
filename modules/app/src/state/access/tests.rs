@@ -6,6 +6,32 @@ use super::DataAccess;
 use crate::{api::UserMessage, persistence::PersistenceError};
 
 #[tokio::test]
+async fn update_excludes_writes_and_relocation_until_released() {
+    let access = DataAccess::default();
+    let writer = access.write().await.unwrap();
+    access.begin_update().unwrap();
+    assert!(matches!(
+        access.begin_relocation(),
+        Err(PersistenceError::InvalidData {
+            message: UserMessage::UpdateInProgress
+        })
+    ));
+    let mut exclusive = pin!(access.exclusive());
+    assert!(poll!(exclusive.as_mut()).is_pending());
+    drop(writer);
+    let guard = exclusive.await;
+    drop(guard);
+    assert!(matches!(
+        access.write().await,
+        Err(PersistenceError::InvalidData {
+            message: UserMessage::UpdateInProgress
+        })
+    ));
+    access.finish_update();
+    drop(access.write().await.unwrap());
+}
+
+#[tokio::test]
 async fn initial_state_admits_data_and_credential_writes() {
     let access = DataAccess::default();
     assert!(access.is_writable());

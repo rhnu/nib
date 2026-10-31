@@ -1,4 +1,8 @@
 export const messages = {
+  updateBusy:
+    "Finish or cancel the assistant run and queued generation jobs before installing an update.",
+  updateInProgress: "An application update is being prepared. Please wait.",
+  updateUnavailable: "Check for an update and download it before installing.",
   contentEntry: "entry",
   missingCredentials: "Configure a NovelAI API key first.",
   unresolvedResources:

@@ -7,6 +7,7 @@
     "dev:web": "pnpm --filter @nib/desktop dev",
     "build:web": "pnpm prompt:wasm && pnpm --filter @nib/desktop build",
     "build:desktop": "pnpm --filter @nib/desktop exec tauri build --no-bundle -- --locked",
+    "build:installer": "pnpm build:desktop && pnpm --filter @nib/desktop exec tauri bundle --bundles nsis --config src-tauri/tauri.installer.conf.json",
     "types": "cargo xtask types",
     "types:check": "cargo xtask types --check",
     "prompt:wasm": "cargo xtask prompt-wasm",

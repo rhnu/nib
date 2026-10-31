@@ -145,6 +145,9 @@ export function formatUserMessage(message: UserMessage): string {
 }
 
 const staticMessages = {
+  updateBusy: "messages.updateBusy",
+  updateInProgress: "messages.updateInProgress",
+  updateUnavailable: "messages.updateUnavailable",
   storageLocked: "messages.storageLocked",
   invalidApiKey: "messages.invalidApiKey",
   credentialUnavailable: "messages.credentialUnavailable",
@@ -250,6 +253,9 @@ export function errorMessage(error: unknown): string {
 }
 
 const messageKinds = new Set<string>([
+  "updateBusy",
+  "updateInProgress",
+  "updateUnavailable",
   "external",
   "messages",
   "validation",

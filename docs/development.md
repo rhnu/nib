@@ -223,6 +223,7 @@ rumdl --version
 | `pnpm dev:web`                                | 仅启动前端，缺少宿主时显示提示。               |
 | `pnpm build:web`                              | 构建提示词 WASM，检查 TypeScript 并构建前端。  |
 | `pnpm build:desktop`                          | 构建 Windows 可执行程序，不生成安装包。        |
+| `pnpm build:installer`                        | 构建并签名 Windows x64 NSIS 安装包。           |
 | `pnpm types` / `pnpm types:check`             | 写入 / 只读检查通信类型。                      |
 | `pnpm prompt:wasm`                            | 构建共用提示词 WASM。                          |
 | `pnpm fmt` / `pnpm fmt:check`                 | 修复 / 只读检查 Rust、前端和 Markdown 格式。   |
@@ -305,11 +306,28 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --v
 
 ## 持续检查
 
-[CI](../.github/workflows/ci.yml) 按职责拆分：Linux quality 检查前端与配置格式、Markdown、前端 lint 和不含模型依赖的 Python 单元；Linux web 运行前端单元、准备 WASM 与 Web 产物；Windows native 完成 Rust 编译、格式、lint、单元与类型一致性；Windows desktop 复用已检查的 Web 产物构建桌面程序，并收集可执行产物。当前 Windows CPU 版 ONNX Runtime 静态链接到程序。Changes 作业按事件基线识别仅文档修改，这类修改仍运行 quality，web、native 与 desktop 按预期跳过；最终 CI 作业同时核对需要运行的成功项与允许跳过的分项。构建上传短期产物，不生成安装包、签名或自动更新。
+[CI](../.github/workflows/ci.yml) 按职责拆分：Linux quality 检查前端与配置格式、Markdown、前端 lint 和不含模型依赖的 Python 单元；Linux web 运行前端单元、准备 WASM 与 Web 产物；Windows native 完成 Rust 编译、格式、lint、单元与类型一致性；Windows desktop 复用已检查的 Web 产物构建桌面程序，并收集可执行产物。当前 Windows ONNX 内核静态链接到程序，预编译库仍依赖 `DirectML.dll` 和 Visual C++ 运行库。Changes 作业按事件基线识别仅文档修改，这类修改仍运行 quality，web、native 与 desktop 按预期跳过；最终 CI 作业同时核对需要运行的成功项与允许跳过的分项。日常构建上传短期产物；应用 tag 发布通过同一可复用工作流执行完整检查与签名打包。
 
 Web 产物缓存使用实际构建输入的内容指纹，包含前端、提示词 WASM、工具及相关配置。指纹未变化时复用可信 main 保存的已检查产物，仍运行前端单元测试；未命中时才安装 WASM 工具并完成 WASM、类型检查与 Web 构建。仅原生实现变化可复用相同指纹的 Web 产物，桌面 CI 不重复构建前端。
 
 Node、Rust 与 wasm-bindgen 安装逻辑集中在 `.github/actions/`。pnpm store、Rust 的平台 / profile / target、ONNX 下载与 wasm-bindgen CLI 使用各自缓存键；只有可信 main 运行写入共享缓存，PR 可以读取。GitHub Actions 使用发布 tag，Rusteward 按项目约定调用 `rhnu/rusteward@main`，不再每次从 Git 源码安装。
+
+## 应用发布与更新
+
+[Windows 发布](../.github/workflows/release.yml) 由推送 `vMAJOR.MINOR.PATCH` tag 触发，tag 必须与根 `Cargo.toml` 的版本完全一致，且不含预发布或构建后缀。工作流调用 CI 的 `release` 模式，强制执行所有检查；desktop 作业使用已检查的 Web 产物，先编译主程序，再用 `tauri bundle` 构建当前用户安装的 Windows x64 NSIS 包并生成 Tauri 更新签名。安装包配置在编译完成后加入已生成的 `DirectML.dll`，Tauri 的 `bundleVCRuntime` 同时打包 Visual C++ 运行库。普通 main / PR CI 不读取签名秘密；签名秘密只注入打包步骤。`pnpm build:installer` 是本地打包入口，签名环境变量与发布作业一致。
+
+发布作业只在整个 CI 成功后运行，先创建草稿 Release，上传 `*-setup.exe`、对应 `.sig` 和 `latest.json`，核对文件大小后再公开。更新清单采用 `windows-x86_64`，安装包地址固定到具体 tag；发布说明排除独立资源发布的 tag。公开版本不覆盖资产，失败的草稿可重新上传；补发旧版本不替换应用 Latest。应用发布按仓库串行排队，使用 GitHub 支持的 [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) 保留等待中的发布。资源发布继续使用 `--latest=false`。
+
+更新入口是 `https://github.com/rhnu/nib/releases/latest/download/latest.json`。`tauri-plugin-updater` 在宿主完成检查、下载、签名验证和安装；更新包只由宿主持有，前端查询状态与进度。检查超时 20 秒，下载最多等待 30 分钟；开发模式禁用更新。前端关闭与安装共用退出准备，后端在独占数据访问前检查 Agent 状态，排空已有写入后检查全部未完成生成任务；有任务时拒绝安装。安装准备通过独立写入阶段与队列暂停阻止新工作，保护由安装阻塞任务持有，失败或取消时释放；数据库升级仍在重启后的业务 bootstrap 前执行。用户操作见[应用更新](features.md#应用更新)。
+
+Tauri 更新签名公钥保存在宿主配置中。私钥、密码及公钥备份放在已忽略的仓库根 `.secrets/`；后续版本沿用同一对密钥。私钥和密码只提供给构建进程，不写入仓库、构建产物或日志。首次发布前，在仓库 **Settings → Secrets and variables → Actions → New repository secret** 配置：
+
+| Repository secret                    | 本地内容来源                           |
+| ------------------------------------ | -------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | `.secrets/updater.key` 的完整内容      |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | `.secrets/updater-password.txt` 的内容 |
+
+发布权限使用工作流的 `GITHUB_TOKEN`，仅发布作业声明 `contents: write`。Tauri 签名用于更新包验证；Windows Authenticode 发布者证书独立配置。
 
 ## 资源发布
 

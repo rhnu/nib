@@ -1,5 +1,9 @@
 // Explicit command permissions shared with the desktop capability manifest.
 const COMMANDS: &[&str] = &[
+    "get_update_status",
+    "check_for_update",
+    "download_update",
+    "install_update",
     "get_agent_connection",
     "list_agent_models",
     "save_agent_permission",

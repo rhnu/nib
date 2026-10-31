@@ -21,6 +21,7 @@ mod sdk;
 mod settings;
 mod state;
 mod storage;
+mod updates;
 
 /// Initializes host diagnostics and runs the native desktop event loop.
 ///
@@ -32,6 +33,8 @@ pub fn run() -> anyhow::Result<()> {
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(std::sync::Arc::new(updates::Updates::new()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -98,6 +101,10 @@ fn application_base(
 )]
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        updates::get_update_status,
+        updates::check_for_update,
+        updates::download_update,
+        updates::install_update,
         agent::get_agent_connection,
         agent::list_agent_models,
         agent::save_agent_permission,

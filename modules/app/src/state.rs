@@ -4,9 +4,10 @@ use std::sync::{Arc, Mutex};
 
 mod access;
 mod relocation;
-
+mod update;
 use access::DataAccess;
 use tracing::Instrument as _;
+pub use update::UpdateGuard;
 
 use crate::{
     api::UserMessage,

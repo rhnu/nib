@@ -35,6 +35,9 @@ pub enum UserMessage {
         detail: String,
     },
     StorageLocked,
+    UpdateBusy,
+    UpdateInProgress,
+    UpdateUnavailable,
     InvalidApiKey,
     CredentialUnavailable,
     InputMedia {

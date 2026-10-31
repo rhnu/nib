@@ -1,4 +1,5 @@
 import { app } from "./en/app";
+import { updates } from "./en/updates";
 import { agent } from "./en/agent";
 import { characters } from "./en/characters";
 import { director } from "./en/director";
@@ -24,6 +25,7 @@ import { safety } from "./en/safety";
 import { explore } from "./en/explore";
 
 export const en = {
+  updates,
   agent,
   explore,
   app: app,

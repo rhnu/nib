@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 permissions:
   contents: read
@@ -27,6 +37,8 @@ jobs:
           fetch-depth: 0
       - name: Classify changes against the event base
         id: changes
+        env:
+          NIB_RELEASE_BUILD: ${{ inputs.release }}
         run: python .github/scripts/ci-inputs.py changes
 
   quality:
@@ -48,6 +60,8 @@ jobs:
         run: pnpm lint:web
       - name: Run resource tool unit tests without model dependencies
         run: pnpm test:lexicon
+      - name: Run release metadata unit tests
+        run: python -m unittest discover -s .github/scripts -p test_*.py
       - name: Verify tracked files
         run: git diff --exit-code
 
@@ -141,6 +155,28 @@ jobs:
           path: apps/desktop/dist
       - name: Build desktop executable with checked Web assets
         run: pnpm --filter @nib/desktop exec tauri build --no-bundle --config src-tauri/tauri.ci.conf.json -- --locked
+      - name: Bundle and sign the Windows installer
+        if: inputs.release == true
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY -or -not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+            throw "Configure the updater signing key and password repository secrets before releasing."
+          }
+          pnpm --filter @nib/desktop exec tauri bundle --bundles nsis --config src-tauri/tauri.installer.conf.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload signed Windows installer
+        if: inputs.release == true
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-x64-installer
+          path: |
+            target/release/bundle/nsis/*-setup.exe
+            target/release/bundle/nsis/*-setup.exe.sig
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify tracked files
         run: git diff --exit-code
       - name: Upload Windows desktop build
@@ -149,6 +185,7 @@ jobs:
           name: windows-x64-desktop
           path: |
             target/release/nib-desktop.exe
+            target/release/DirectML.dll
             target/release/onnxruntime*.dll
           if-no-files-found: error
           retention-days: 7

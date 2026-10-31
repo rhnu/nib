@@ -14,6 +14,7 @@ enum Phase {
     Writable,
     Relocating,
     RestartRequired,
+    Updating,
 }
 
 /// A read lease admits an operation; the exclusive lease waits for every admitted writer.
@@ -42,6 +43,8 @@ impl DataAccess {
             phase => Err(PersistenceError::InvalidData {
                 message: if phase == Phase::RestartRequired as u8 {
                     UserMessage::RestartRequired
+                } else if phase == Phase::Updating as u8 {
+                    UserMessage::UpdateInProgress
                 } else {
                     UserMessage::MigrationInProgress
                 },
@@ -72,10 +75,22 @@ impl DataAccess {
     }
 
     pub(super) fn begin_relocation(&self) -> Result<(), PersistenceError> {
+        self.begin_transition(Phase::Relocating)
+    }
+
+    pub(super) fn begin_update(&self) -> Result<(), PersistenceError> {
+        self.begin_transition(Phase::Updating)
+    }
+
+    pub(super) fn finish_update(&self) {
+        self.phase.store(Phase::Writable as u8, Ordering::Release);
+    }
+
+    fn begin_transition(&self, next: Phase) -> Result<(), PersistenceError> {
         self.phase
             .compare_exchange(
                 Phase::Writable as u8,
-                Phase::Relocating as u8,
+                next as u8,
                 Ordering::AcqRel,
                 Ordering::Acquire,
             )
@@ -83,6 +98,8 @@ impl DataAccess {
             .map_err(|phase| PersistenceError::InvalidData {
                 message: if phase == Phase::RestartRequired as u8 {
                     UserMessage::RestartRequired
+                } else if phase == Phase::Updating as u8 {
+                    UserMessage::UpdateInProgress
                 } else {
                     UserMessage::MigrationInProgress
                 },

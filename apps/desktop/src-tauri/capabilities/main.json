@@ -4,6 +4,10 @@
   "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
+    "allow-get-update-status",
+    "allow-check-for-update",
+    "allow-download-update",
+    "allow-install-update",
     "allow-get-agent-connection",
     "allow-list-agent-models",
     "allow-save-agent-permission",

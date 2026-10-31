@@ -1,0 +1,50 @@
+name: Release Windows
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Validate application tag against the workspace version
+        run: python .github/scripts/release.py validate
+
+  checks:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    with:
+      release: true
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: application-release-publication
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: windows-x64-installer
+          path: release-assets
+      - name: Upload verified assets and publish the application release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/scripts/release.py publish --assets release-assets

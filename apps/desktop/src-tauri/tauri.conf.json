@@ -27,7 +27,24 @@
     }
   },
   "bundle": {
-    "active": false,
-    "icon": ["icons/icon.ico"]
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "bundleVCRuntime": true,
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "SimpChinese"],
+        "displayLanguageSelector": true
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBCQ0UyNzMzNDgyOUZEMTQKUldRVS9TbElNeWZPQzhaMGhsMGo1cmZsUVp2V1hoYll5REY4amJXWktra0hyTU1PM0FzRGZIQ3MK",
+      "endpoints": ["https://github.com/rhnu/nib/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
   }
 }

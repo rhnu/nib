@@ -12,6 +12,7 @@ custom-protocol = ["tauri/custom-protocol"]
 tauri-plugin-dialog.workspace = true
 tauri-plugin-opener.workspace = true
 tauri-plugin-notification.workspace = true
+tauri-plugin-updater.workspace = true
 sys-locale.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
