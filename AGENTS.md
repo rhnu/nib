@@ -1,6 +1,6 @@
 # nib 工作区指导
 
-开始修改前阅读 [README](README.md) 与[开发说明](docs/development.md)，涉及领域行为时再读[设计说明](docs/design.md)。
+开始修改前阅读 [README](README.md) 与[开发说明](docs/development.md)，涉及领域行为时再读[功能说明](docs/features.md)与[设计说明](docs/design.md)。
 
 - 当前项目处于开发阶段，数据库 schema、缓存等各种版本化设计不要进行前版本兼容，**直接破坏性变更即可**。
 - 未实现的业务模块仅有职责说明，不以占位类型、空服务或模拟成功响应填充功能。
