@@ -15,7 +15,7 @@ import { t, useTranslation, MessageError, deferMessage } from "@/shared/i18n";
 /** Full-page combinations append a new text fragment, leaving existing prompt content intact. */
 export function LexiconPage() {
   useTranslation();
-  const { state, workspace, options } = useWorkbenchContext();
+  const { state, workspace, options, openDownloads } = useWorkbenchContext();
   const { lexiconSession: store } = state;
   const target = useStore(store, (value) => value.target);
   const model =
@@ -69,6 +69,7 @@ export function LexiconPage() {
         store={store}
         profile={syntax.data}
         onInsert={insert}
+        onOpenDownloads={() => void openDownloads()}
         targetSelector={
           <label className="lexicon-target">
             {t("lexicon.target")}

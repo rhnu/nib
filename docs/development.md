@@ -243,7 +243,7 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --v
 
 通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主将资源 ID 与目标组件集合交给 app 启动任务；任务由 app 持有，离开页面不会取消。完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。开发阶段不兼容旧资源布局，旧安装需重新安装。
 
-前端通用 `downloads` 组件不依赖具体词库模块；安装和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询。词库状态查询声明 `lexicon`，按 generation 变化增加修订并拒绝旧补全与插入；词库查询只消费可用代次，不拥有目录地址或下载操作。管理界面的操作说明见[资源下载](features.md#资源下载)。
+前端通用 `downloads` 组件由设置页提供，不依赖具体词库模块；安装和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询。词库状态查询声明 `lexicon`，按 generation 变化增加修订并拒绝旧补全与插入；词库查询只消费可用代次，不拥有目录地址或下载操作。未安装空状态通过工作台导航进入资源下载设置，沿用材料提交和未应用遮罩保护。管理界面的操作说明见[资源下载](features.md#资源下载)。
 
 ## 持续检查
 

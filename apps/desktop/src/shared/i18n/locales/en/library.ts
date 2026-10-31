@@ -29,9 +29,6 @@ export const library = {
   createChunk: "Create Chunk",
   createPreset: "Create Preset",
   create: "Create",
-  usageHelp: "Using resources",
-  usageDescription:
-    "Chunks are added to the current prompt scope; Presets are added to the preset list. Save changes to original resources. Editing linked content in a creation affects only the current instance.",
   dismissNotice: "Dismiss notice",
   retryQuery: "Retry query",
   confirmAction: "Confirm action",

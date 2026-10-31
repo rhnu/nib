@@ -52,6 +52,20 @@
   flex: 1;
   min-height: 0;
 }
+.lexicon-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 240px;
+  padding: 32px 20px;
+  text-align: center;
+}
+.lexicon-empty > svg {
+  color: var(--muted);
+}
 .lexicon-browse {
   min-height: 0;
   min-width: 0;
@@ -75,9 +89,6 @@
 }
 .lexicon-browse-scroll > .empty-note {
   padding: 20px 0;
-}
-.lexicon-status-note {
-  margin: 8px 0;
 }
 .lexicon-results {
   list-style: none;

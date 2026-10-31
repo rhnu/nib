@@ -4,7 +4,7 @@ import { errorMessage } from "@/shared/host/error";
 import { resourceDependencies } from "./resource-dependencies";
 import { Plus, Search } from "lucide-react";
 import type { Resource, ResourceKind, ResourceSummary } from "@/bindings/workbench";
-import { ActionsMenu, Button, HelpMarker, Modal, Notice } from "@/shared/ui";
+import { ActionsMenu, Button, Modal, Notice } from "@/shared/ui";
 import { ResourceEditor } from "./resource-editor";
 import { ResourceList } from "./resource-list";
 import { useResourceSearch } from "./use-resource-search";
@@ -21,7 +21,6 @@ export function ResourceLibrary({
   target,
   ensureResources,
   resourceVersion,
-  onOpenLexicon,
 }: {
   open: boolean;
   resources: Map<string, Resource>;
@@ -29,7 +28,6 @@ export function ResourceLibrary({
   onChanged: (id: string) => Promise<void>;
   ensureResources: (ids: string[]) => Promise<void>;
   resourceVersion: number;
-  onOpenLexicon: () => void;
   onInsert: (resource: ResourceSummary) => void;
   target: InsertTarget;
 }) {
@@ -91,8 +89,6 @@ export function ResourceLibrary({
             <Plus size={14} />
             {t("library.create")}
           </ActionsMenu>
-          <HelpMarker label={t("library.usageHelp")}>{t("library.usageDescription")}</HelpMarker>
-          <Button onClick={onOpenLexicon}>{t("lexicon.title")}</Button>
         </div>
         {error && (
           <Notice

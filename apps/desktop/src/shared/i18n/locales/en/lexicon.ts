@@ -38,9 +38,8 @@ export const lexicon = {
   staleCombination: "The model or lexicon changed. Review the combination and try again.",
   semanticUnavailable:
     "Semantic search is not installed. Name, alias and translation search are available.",
-  notInstalled:
-    "No lexicon installed. Install an optional local resource pack to enable suggestions.",
-  manage: "Manage resources",
+  notInstalled: "No lexicon installed",
+  openDownloads: "Open resource downloads",
   retry: "Retry",
   source: "Source",
   aliases: "Aliases",

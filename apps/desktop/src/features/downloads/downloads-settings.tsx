@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DownloadableResourceStatus } from "@/bindings/downloads";
-import { ActionsMenu, Button, Modal, Notice } from "@/shared/ui";
+import { ActionsMenu, Button, HelpMarker, Modal, Notice } from "@/shared/ui";
 import { t, useMessageState, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { downloadsApi, downloadStatusKey, isDownloadActive } from "./api";
@@ -62,6 +62,13 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
 
   const install = () => run(() => downloadsApi.install(resource.id, selected));
 
+  const actionable =
+    !installed ||
+    changed ||
+    resource.installedVersion !== resource.version ||
+    resource.install?.state === "failed" ||
+    resource.install?.state === "cancelled";
+
   const action =
     resource.install?.state === "failed" || resource.install?.state === "cancelled"
       ? t("downloads.retry")
@@ -83,11 +90,21 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
   return (
     <section className="download-resource" aria-label={name}>
       <div className="section-heading">
-        <h3>{name}</h3>
+        <h3>
+          {name}
+          <HelpMarker label={name}>
+            {resourceDescription(resource.id, resource.description)}
+          </HelpMarker>
+        </h3>
         {installed && (
           <ActionsMenu
             label={t("downloads.actions", { name })}
             items={[
+              {
+                label: t("downloads.reinstall"),
+                disabled: pending || active || !selected.length,
+                action: () => (removed.length ? setConfirm("replace") : void install()),
+              },
               {
                 label: t("downloads.uninstall"),
                 danger: true,
@@ -98,7 +115,6 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           />
         )}
       </div>
-      <p>{resourceDescription(resource.id, resource.description)}</p>
       <div className="download-versions">
         <span>
           {resource.installedVersion
@@ -110,38 +126,50 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
       <fieldset className="download-components" disabled={pending || active}>
         <legend>{t("downloads.components")}</legend>
         {resource.components.map((component) => (
-          <div className="download-component" key={component.id}>
-            <label>
-              <input
-                type="checkbox"
-                checked={selected.includes(component.id)}
-                onChange={(event) =>
-                  setSelected(
-                    selectComponents(
-                      resource.components,
-                      selected,
-                      component.id,
-                      event.target.checked,
-                    ),
-                  )
-                }
-              />
-              <strong>{componentLabel(component.id)}</strong>
-              <span className="download-component-size">{formatBytes(component.bytes)}</span>
-              {component.installed && <span className="tag">{t("downloads.installed")}</span>}
-            </label>
-            <p>{componentDescription(resource.id, component.id, component.description)}</p>
-            <span className="download-dependencies">
-              {component.requires.length
-                ? t("downloads.requires", {
+          <label className="download-component" key={component.id}>
+            <input
+              type="checkbox"
+              checked={selected.includes(component.id)}
+              onChange={(event) =>
+                setSelected(
+                  selectComponents(
+                    resource.components,
+                    selected,
+                    component.id,
+                    event.target.checked,
+                  ),
+                )
+              }
+            />
+            <span className="download-component-body">
+              <span className="download-component-heading">
+                <strong>{componentLabel(component.id)}</strong>
+                {component.installed && <span className="tag">{t("downloads.installed")}</span>}
+              </span>
+              <span className="download-component-description">
+                {componentDescription(resource.id, component.id, component.description)}
+              </span>
+              {component.requires.length > 0 && (
+                <span className="download-dependencies">
+                  {t("downloads.requires", {
                     names: component.requires.map(componentLabel).join(", "),
-                  })
-                : t("downloads.noDependencies")}
+                  })}
+                </span>
+              )}
             </span>
-          </div>
+            <span className="download-component-size">{formatBytes(component.bytes)}</span>
+          </label>
         ))}
       </fieldset>
-      <div className="settings-actions">
+      <div className="download-actions">
+        {!active && (
+          <span className="download-selection-size">
+            {t("downloads.selectedSize", {
+              count: selected.length,
+              size: formatBytes(selectedBytes),
+            })}
+          </span>
+        )}
         {active ? (
           <Button
             disabled={pending}
@@ -149,19 +177,15 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           >
             {t("downloads.cancel")}
           </Button>
-        ) : (
+        ) : actionable ? (
           <Button
+            className="primary"
             disabled={pending || !selected.length}
             onClick={() => (removed.length ? setConfirm("replace") : void install())}
           >
             {action}
           </Button>
-        )}
-        {!active && (
-          <span className="download-selection-size">
-            {t("downloads.selectedSize", { size: formatBytes(selectedBytes) })}
-          </span>
-        )}
+        ) : null}
       </div>
       {resource.install && (
         <output className="download-progress" aria-live="polite">
@@ -233,7 +257,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
   );
 }
 
-/** One resource manager is shared by settings and contextual resource-management entry points. */
+/** Settings owns resource management; installation tasks continue outside this page. */
 export function DownloadsSettings() {
   useTranslation();
   const status = useQuery({
@@ -255,7 +279,7 @@ export function DownloadsSettings() {
   });
 
   return (
-    <section className="preference-section downloads-settings">
+    <section className="downloads-settings">
       <div className="section-heading">
         <h2>{t("downloads.title")}</h2>
         <Button disabled={catalog.isFetching} onClick={() => void catalog.refetch()}>
@@ -272,12 +296,6 @@ export function DownloadsSettings() {
       )}
       {status.data?.catalogError && <Notice>{status.data.catalogError}</Notice>}
       {catalog.error && <Notice>{errorMessage(catalog.error)}</Notice>}
-      {status.data?.directory && (
-        <div className="settings-path">
-          <span>{t("downloads.directory")}</span>
-          <code>{status.data.directory}</code>
-        </div>
-      )}
       {status.data &&
         !catalog.isFetching &&
         !status.data.resources.length &&
@@ -288,6 +306,12 @@ export function DownloadsSettings() {
           resource={resource}
         />
       ))}
+      {status.data?.directory && (
+        <div className="download-directory">
+          <span>{t("downloads.directory")}</span>
+          <code>{status.data.directory}</code>
+        </div>
+      )}
     </section>
   );
 }

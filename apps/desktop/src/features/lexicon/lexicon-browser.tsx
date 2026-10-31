@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { PromptSyntaxProfile } from "@/bindings/prompt";
 import { Modal } from "@/shared/ui";
 import { t, useTranslation } from "@/shared/i18n";
+import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { createLexiconSessionStore } from "./lexicon-session";
 import { LexiconWorkspace, type LexiconInsert } from "./lexicon-workspace";
 
@@ -22,6 +23,7 @@ export function LexiconBrowser({
   returnFocus?: () => HTMLElement | null;
 }) {
   useTranslation();
+  const { openDownloads } = useWorkbenchContext();
   const [store] = useState(createLexiconSessionStore);
   const [busy, setBusy] = useState(false);
   return (
@@ -43,6 +45,11 @@ export function LexiconBrowser({
         onInsert={onInsert}
         onInserted={onClose}
         onBusy={setBusy}
+        onOpenDownloads={() => {
+          void openDownloads().then((opened) => {
+            if (opened) onClose();
+          });
+        }}
       />
     </Modal>
   );

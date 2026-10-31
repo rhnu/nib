@@ -30,9 +30,6 @@ export const library = {
   createChunk: "新建 Chunk",
   createPreset: "新建 Preset",
   create: "新建",
-  usageHelp: "资源使用说明",
-  usageDescription:
-    "Chunk 添加到当前提示词作用域，Preset 添加到配方列表。编辑资源原件后需保存；在创作中修改链接只影响本次实例。",
   dismissNotice: "关闭提示",
   retryQuery: "重试查询",
   confirmAction: "确认操作",

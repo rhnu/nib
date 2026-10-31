@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LexiconFormatTerm, PromptSyntaxProfile } from "@/bindings/prompt";
-import { Search, Settings2, X } from "lucide-react";
-import { Button, IconButton, Modal, Notice } from "@/shared/ui";
+import { BookOpen, Search, X } from "lucide-react";
+import { Button, HelpMarker, IconButton, Notice } from "@/shared/ui";
 import { t, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
-import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 import { kindLabel, lexiconKinds } from "./labels";
 import { toggleLexiconTerm, type LexiconSessionStore } from "./lexicon-session";
 import { LexiconTermRow } from "./lexicon-term-row";
@@ -26,6 +25,7 @@ export function LexiconWorkspace({
   onInserted,
   onBusy,
   targetSelector,
+  onOpenDownloads,
 }: {
   store: LexiconSessionStore;
   profile?: PromptSyntaxProfile;
@@ -34,6 +34,7 @@ export function LexiconWorkspace({
   onInserted?: () => void;
   onBusy?: (busy: boolean) => void;
   targetSelector?: ReactNode;
+  onOpenDownloads: () => void;
 }) {
   useTranslation();
   const search = useLexiconSearch(store);
@@ -50,8 +51,8 @@ export function LexiconWorkspace({
     relatedMatches,
     loading,
   } = search;
-  const [manager, setManager] = useState(false);
   const [busy, setBusy] = useState(false);
+  const notInstalled = status.isSuccess && !generation;
   const selected = state.generation === generation ? state.selected : [];
   const relatedRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -70,40 +71,47 @@ export function LexiconWorkspace({
     ));
 
   return (
-    <>
-      <fieldset className="lexicon-workspace" disabled={busy} aria-label={t("lexicon.title")}>
-        <div className="lexicon-toolbar">
-          <div className="lexicon-search-field">
-            <Search size={15} aria-hidden />
-            <input
-              aria-label={t("lexicon.search")}
-              placeholder={t("lexicon.search")}
-              value={state.text}
-              onChange={(event) => store.setState({ text: event.target.value })}
-              spellCheck={false}
-            />
-          </div>
-          <fieldset className="lexicon-modes" aria-label={t("lexicon.searchMode")}>
-            <Button
-              aria-pressed={state.mode === "lexical"}
-              onClick={() => store.setState({ mode: "lexical" })}
-            >
-              {t("lexicon.lexical")}
-            </Button>
-            <Button
-              aria-pressed={state.mode === "semantic"}
-              disabled={!status.data?.semanticAvailable}
-              title={!status.data?.semanticAvailable ? t("lexicon.semanticUnavailable") : undefined}
-              onClick={() => store.setState({ mode: "semantic" })}
-            >
-              {t("lexicon.semantic")}
-            </Button>
-          </fieldset>
-          <Button onClick={() => setManager(true)}>
-            <Settings2 size={14} aria-hidden />
-            {t("lexicon.manage")}
-          </Button>
+    <fieldset className="lexicon-workspace" disabled={busy} aria-label={t("lexicon.title")}>
+      <div className="lexicon-toolbar">
+        <div className="lexicon-search-field">
+          <Search size={15} aria-hidden />
+          <input
+            aria-label={t("lexicon.search")}
+            placeholder={t("lexicon.search")}
+            value={state.text}
+            onChange={(event) => store.setState({ text: event.target.value })}
+            spellCheck={false}
+          />
         </div>
+        <fieldset className="lexicon-modes" aria-label={t("lexicon.searchMode")}>
+          <Button
+            aria-pressed={state.mode === "lexical"}
+            onClick={() => store.setState({ mode: "lexical" })}
+          >
+            {t("lexicon.lexical")}
+          </Button>
+          <Button
+            aria-pressed={state.mode === "semantic"}
+            disabled={!status.data?.semanticAvailable}
+            title={!status.data?.semanticAvailable ? t("lexicon.semanticUnavailable") : undefined}
+            onClick={() => store.setState({ mode: "semantic" })}
+          >
+            {t("lexicon.semantic")}
+          </Button>
+        </fieldset>
+        {generation && !status.data?.semanticAvailable && (
+          <HelpMarker label={t("lexicon.semantic")}>{t("lexicon.semanticUnavailable")}</HelpMarker>
+        )}
+      </div>
+      {notInstalled ? (
+        <section className="lexicon-empty" aria-label={t("lexicon.results")}>
+          <BookOpen size={32} aria-hidden />
+          <h2>{t("lexicon.notInstalled")}</h2>
+          <Button className="primary" onClick={onOpenDownloads}>
+            {t("lexicon.openDownloads")}
+          </Button>
+        </section>
+      ) : (
         <div className="lexicon-body">
           <section className="lexicon-browse" aria-label={t("lexicon.results")}>
             <fieldset className="lexicon-kinds" aria-label={t("lexicon.all")}>
@@ -131,15 +139,8 @@ export function LexiconWorkspace({
                 >
                   {errorMessage(status.error)}
                 </Notice>
-              ) : !generation ? (
-                <p className="empty-note">{t("lexicon.notInstalled")}</p>
               ) : (
                 <>
-                  {!status.data?.semanticAvailable && (
-                    <p className="help-note lexicon-status-note">
-                      {t("lexicon.semanticUnavailable")}
-                    </p>
-                  )}
                   {lexical.error && (
                     <Notice
                       actions={
@@ -229,16 +230,7 @@ export function LexiconWorkspace({
             }}
           />
         </div>
-      </fieldset>
-      <Modal
-        open={manager}
-        onClose={() => setManager(false)}
-        title={t("downloads.title")}
-        wide
-        className="resource-manager-modal"
-      >
-        <DownloadsSettings />
-      </Modal>
-    </>
+      )}
+    </fieldset>
   );
 }

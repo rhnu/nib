@@ -35,6 +35,7 @@ export type WorkbenchControllerOptions = {
   navigate: (page: Draft["activePage"], alreadyGuarded?: boolean) => Promise<void>;
   readOnly: boolean;
   recentImageLimit: number;
+  onSelectDownloadSettings: () => void;
   renderSettings: (context: {
     beforeMigrate: () => Promise<void>;
     onOpenTasks: () => void;
@@ -351,6 +352,13 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     }
   };
 
+  const openDownloads = async () => {
+    if (!(await guardNavigation())) return false;
+    options.onSelectDownloadSettings();
+    await navigate("settings", true);
+    return true;
+  };
+
   return {
     options,
     workspace,
@@ -369,6 +377,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     prepareImportedOperation,
     guard,
     guardNavigation,
+    openDownloads,
     imageOperation,
     editMask,
     extension,

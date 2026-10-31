@@ -2,7 +2,7 @@ import { ResourceLibrary } from "@/features/library/resource-library";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
 export function LibraryPage() {
-  const { workspace, state, options } = useWorkbenchContext();
+  const { workspace, state } = useWorkbenchContext();
   return (
     <ResourceLibrary
       open
@@ -13,7 +13,6 @@ export function LibraryPage() {
       resourceVersion={state.resourceVersion}
       onInsert={state.insert}
       target={state.insertTarget}
-      onOpenLexicon={() => void options.navigate("lexicon")}
     />
   );
 }

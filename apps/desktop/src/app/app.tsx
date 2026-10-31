@@ -133,6 +133,7 @@ export default function App() {
               startupSettings={startupPage === "settings"}
               recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
               settingsWriter={settings.closeWriter}
+              onSelectDownloadSettings={() => setSettingsSection("downloads")}
               renderHeader={(navigation) => (
                 <>
                   <TitleBar navigation={navigation} />
