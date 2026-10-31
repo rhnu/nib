@@ -150,7 +150,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--muted);
-  background: var(--input);
+  background: var(--bg);
 }
 .prompt-node {
   margin-top: 8px;

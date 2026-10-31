@@ -218,9 +218,6 @@ export function SettingsPage({
   const theme = preferences.value?.theme;
   return (
     <main className="settings-page" aria-label={t("app.settings")}>
-      <header className="page-toolbar">
-        <h1>{t("app.settings")}</h1>
-      </header>
       <div className="settings-layout">
         <nav className="settings-navigation" aria-label={t("app.settingsCategories")}>
           {sections.map((item) => (

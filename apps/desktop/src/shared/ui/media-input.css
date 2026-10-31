@@ -15,7 +15,7 @@
   min-height: 144px;
   flex-shrink: 0;
   color: var(--muted);
-  background: var(--input);
+  background: var(--bg);
   border-radius: var(--radius);
 }
 .media-input-preview img {

@@ -12,7 +12,7 @@
   --radius-overlay: 4px;
   --font-mono: "Maple Mono CN", ui-monospace, monospace;
   --sidebar-width: clamp(340px, 27vw, 390px);
-  --bg: #191b1e;
+  --bg: #1b1d21;
   --surface: #202226;
   --raised: #282b30;
   --input: #1b1d21;
@@ -33,7 +33,7 @@
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f1f2f4;
+  --bg: #fff;
   --surface: #fafafa;
   --raised: #fff;
   --input: #fff;

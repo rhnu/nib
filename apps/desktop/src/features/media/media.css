@@ -14,7 +14,7 @@
   padding: 5px;
   border: 1px dashed var(--line);
   border-radius: var(--radius);
-  background: var(--input);
+  background: var(--bg);
 }
 .image-drop-target.is-dragging {
   border-color: var(--accent);
@@ -137,7 +137,7 @@
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
   padding: 9px;
-  background: var(--input);
+  background: var(--bg);
 }
 .media-literal-content h3,
 .media-literal-content h4 {

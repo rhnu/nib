@@ -61,7 +61,7 @@ export function ResourceLibrary({
     <>
       <section className="library-page" hidden={!open} aria-label={t("library.title")}>
         <div className="library-toolbar">
-          <div className="search-field">
+          <div className="library-search-field">
             <Search size={15} />
             <input
               aria-label={t("library.searchResources")}

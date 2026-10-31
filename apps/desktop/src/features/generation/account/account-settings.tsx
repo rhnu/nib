@@ -50,7 +50,7 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
       ) : !account?.credentials.length ? (
         <p className="generation-muted">{t("generation.addKeyHint")}</p>
       ) : (
-        <div className="credential-list">
+        <div className="generation-account-list">
           {account.credentials.map((profile) => (
             <div className="generation-account-row" key={profile.id}>
               <span>
@@ -59,7 +59,7 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
                   <span className="tag">{t("generation.activeAccount")}</span>
                 )}
               </span>
-              <div className="settings-actions">
+              <div className="generation-account-actions">
                 {account.activeId !== profile.id && (
                   <Button disabled={pending} onClick={() => void activate(profile.id)}>
                     {t("generation.useAccount")}

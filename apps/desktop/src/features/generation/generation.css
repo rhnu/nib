@@ -74,6 +74,19 @@
   display: grid;
   gap: 10px;
 }
+.generation-account-list {
+  display: grid;
+  gap: 8px;
+}
+.generation-account-list .tag {
+  margin-left: 8px;
+}
+.generation-account-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .generation-account-row {
   display: flex;
   align-items: center;
@@ -148,7 +161,7 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--input);
+  background: var(--bg);
 }
 .generation-results-content {
   display: flex;
@@ -223,7 +236,7 @@
   padding: 6px 8px;
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
-  background: var(--input);
+  background: var(--bg);
 }
 .generation-job-running,
 .generation-job-queued {
@@ -309,7 +322,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--input);
+  background: var(--bg);
 }
 .generation-result-preview > span {
   display: flex;
@@ -336,7 +349,7 @@
   justify-content: center;
   min-height: 250px;
   padding: 16px;
-  background: var(--input);
+  background: var(--bg);
 }
 .generation-detail-image img {
   width: 100%;
@@ -407,7 +420,7 @@
   padding: 2px 8px 4px;
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
-  background: var(--input);
+  background: var(--bg);
 }
 .generation-source-details h4 {
   margin: 12px 0 8px;
@@ -593,7 +606,7 @@
   position: relative;
   min-width: 0;
   min-height: 0;
-  background: var(--input);
+  background: var(--bg);
   border: 1px solid var(--line-subtle);
   overflow: hidden;
 }

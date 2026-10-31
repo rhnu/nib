@@ -4,7 +4,7 @@
   min-height: 0;
   overflow: hidden;
   flex-direction: column;
-  background: var(--surface);
+  background: var(--bg);
 }
 .lexicon-workspace {
   display: flex;
@@ -241,7 +241,7 @@
   font-size: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--input);
+  background: var(--bg);
 }
 .lexicon-composer-footer {
   display: grid;

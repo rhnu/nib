@@ -37,7 +37,7 @@
   padding: 9px;
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius);
-  background: var(--input);
+  background: var(--bg);
 }
 .png-text-editor {
   display: grid;

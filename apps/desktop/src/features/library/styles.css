@@ -6,19 +6,19 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--line-subtle);
 }
-.search-field {
+.library-search-field {
   position: relative;
   display: flex;
   align-items: center;
   flex: 1;
   min-width: 140px;
 }
-.search-field > svg {
+.library-search-field > svg {
   position: absolute;
   left: 9px;
   color: var(--muted);
 }
-.search-field > input {
+.library-search-field > input {
   padding-left: 31px;
 }
 .library-toolbar > select {
@@ -106,7 +106,7 @@
   margin-top: 14px;
   position: sticky;
   bottom: 0;
-  background: var(--surface);
+  background: var(--bg);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -138,4 +138,5 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  background: var(--bg);
 }
