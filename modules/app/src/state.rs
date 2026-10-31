@@ -45,6 +45,9 @@ struct State {
     safety: Arc<crate::safety::SafetyScanner>,
     danbooru: Arc<crate::settings::DanbooruConnection>,
     explore: Arc<crate::explore::ExploreService>,
+    drafts: Arc<crate::session::DraftCoordinator>,
+    agent: Mutex<Option<Arc<crate::agent::AgentRuntime>>>,
+    agent_transition: Mutex<()>,
 }
 
 impl AppState {
@@ -73,6 +76,9 @@ impl AppState {
                 safety,
                 danbooru,
                 explore,
+                drafts: Arc::default(),
+                agent: Mutex::new(None),
+                agent_transition: Mutex::new(()),
             }),
         }
     }
@@ -88,6 +94,42 @@ impl AppState {
 
     /// Discovery shares source revisions with the optional Danbooru connection.
     pub fn explore(&self) -> &Arc<crate::explore::ExploreService> { &self.inner.explore }
+
+    /// A single owner serializes retained creation changes from UI and assistant tools.
+    pub fn drafts(&self) -> Arc<crate::session::DraftCoordinator> { Arc::clone(&self.inner.drafts) }
+
+    /// Opens the retained assistant conversation without starting a model request.
+    /// # Errors
+    /// Returns local storage or shared-state failures.
+    pub fn agent(&self) -> Result<Arc<crate::agent::AgentRuntime>, PersistenceError> {
+        let mut slot = self
+            .inner
+            .agent
+            .lock()
+            .map_err(|_error| PersistenceError::Locked)?;
+        if let Some(agent) = slot.as_ref() {
+            return Ok(Arc::clone(agent));
+        }
+        let agent = Arc::new(crate::agent::AgentRuntime::new(
+            self.database()?,
+            Arc::clone(&self.inner.settings),
+            Arc::clone(&self.inner.credentials),
+        )?);
+        *slot = Some(Arc::clone(&agent));
+        Ok(agent)
+    }
+
+    pub(crate) fn agent_start_access(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, ()>, PersistenceError> {
+        let guard = self
+            .inner
+            .agent_transition
+            .lock()
+            .map_err(|_error| PersistenceError::Locked)?;
+        self.inner.access.check_writable()?;
+        Ok(guard)
+    }
 
     /// Reads preferences and storage locations without starting generation.
     /// # Errors

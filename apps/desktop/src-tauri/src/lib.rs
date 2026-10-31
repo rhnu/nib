@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use tauri::Manager as _;
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
+mod agent;
 mod bootstrap;
 mod commands;
 mod credentials;
@@ -91,8 +92,19 @@ fn application_base(
 }
 
 /// Registers the explicit desktop command surface in one place.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one explicit registration list keeps the desktop command surface reviewable"
+)]
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        agent::get_agent_connection,
+        agent::save_agent_connection,
+        agent::get_agent_state,
+        agent::start_agent_run,
+        agent::cancel_agent_run,
+        agent::clear_agent_conversation,
+        agent::undo_agent_resources,
         explore::search_explore,
         explore::get_explore_detail,
         explore::read_explore_media,
@@ -131,6 +143,8 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         commands::save_resource,
         commands::delete_resource,
         commands::save_draft,
+        commands::get_draft_snapshot,
+        commands::undo_agent_edit,
         commands::resolve_draft,
         commands::get_model_defaults_capabilities,
         commands::get_prompt_syntax,

@@ -119,4 +119,11 @@ CREATE TABLE image_safety (
     assessment TEXT CHECK (assessment IS NULL OR json_valid(assessment))
 );
 
-PRAGMA user_version = 18;
+CREATE TABLE agent_chat (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json)),
+    history_json TEXT NOT NULL CHECK (json_valid(history_json)),
+    resource_edits_json TEXT NOT NULL CHECK (json_valid(resource_edits_json))
+);
+
+PRAGMA user_version = 19;

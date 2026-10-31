@@ -8,7 +8,7 @@ use nib_app::{
     },
     persistence::{PersistenceError, SqliteDatabase},
     prompt::{self, ExpansionError, PresetInstance, PromptNode, Resource, ResourceReader as _},
-    session::{Draft, DraftStore as _},
+    session::{Draft, DraftSnapshot},
 };
 
 use crate::state::DesktopState;
@@ -65,7 +65,12 @@ async fn with_database_write<T: Send + 'static>(
     action: impl FnOnce(&SqliteDatabase) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     let access = state.app.write_access().await.map_err(persistence_error)?;
-    run_database(state.inner().clone(), access, action).await
+    let drafts = state.app.drafts();
+    run_database(state.inner().clone(), access, move |database| {
+        let _guard = drafts.guard_ui_write().map_err(persistence_error)?;
+        action(database)
+    })
+    .await
 }
 
 async fn run_database<T: Send + 'static>(
@@ -123,8 +128,10 @@ pub(crate) fn get_model_defaults_capabilities(
 pub(crate) async fn get_workspace(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<WorkspaceSnapshot, ApiError> {
-    with_database(state, |database| {
-        let draft = database.get_draft().map_err(persistence_error)?;
+    let drafts = state.app.drafts();
+    with_database(state, move |database| {
+        let snapshot = drafts.snapshot(database).map_err(persistence_error)?;
+        let draft = snapshot.draft;
         Ok(WorkspaceSnapshot {
             info: nib_app::app_info(),
             resources: database
@@ -136,6 +143,9 @@ pub(crate) async fn get_workspace(
                 })
                 .map_err(persistence_error)?,
             draft,
+            draft_epoch: snapshot.epoch,
+            draft_owner: snapshot.owner,
+            draft_undo_available: snapshot.undo_available,
             models: novelai_bridge::Model::ALL
                 .into_iter()
                 .map(|model| model.as_str().to_owned())
@@ -226,9 +236,40 @@ pub(crate) async fn delete_resource(
 pub(crate) async fn save_draft(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
-) -> Result<(), ApiError> {
-    with_database_write(state, move |database| {
-        database.save_draft(&draft).map_err(persistence_error)
+    epoch: String,
+) -> Result<DraftSnapshot, ApiError> {
+    let access = state.app.write_access().await.map_err(persistence_error)?;
+    let drafts = state.app.drafts();
+    run_database(state.inner().clone(), access, move |database| {
+        drafts
+            .save_user(database, &epoch, &draft)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn get_draft_snapshot(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<DraftSnapshot, ApiError> {
+    let drafts = state.app.drafts();
+    with_database(state, move |database| {
+        drafts.snapshot(database).map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn undo_agent_edit(
+    state: tauri::State<'_, DesktopState>,
+    expected_epoch: String,
+) -> Result<DraftSnapshot, ApiError> {
+    let access = state.app.write_access().await.map_err(persistence_error)?;
+    let drafts = state.app.drafts();
+    run_database(state.inner().clone(), access, move |database| {
+        drafts
+            .undo_agent_edit(database, &expected_epoch)
+            .map_err(persistence_error)
     })
     .await
 }

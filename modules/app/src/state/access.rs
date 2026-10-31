@@ -36,7 +36,7 @@ impl DataAccess {
         self.phase.load(Ordering::Acquire) == Phase::Writable as u8
     }
 
-    fn check_writable(&self) -> Result<(), PersistenceError> {
+    pub(super) fn check_writable(&self) -> Result<(), PersistenceError> {
         match self.phase.load(Ordering::Acquire) {
             phase if phase == Phase::Writable as u8 => Ok(()),
             phase => Err(PersistenceError::InvalidData {

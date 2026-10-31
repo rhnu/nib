@@ -1,6 +1,7 @@
 CREATE TABLE global_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     preferences_json TEXT NOT NULL CHECK (json_valid(preferences_json)),
+    agent_connection_json TEXT CHECK (agent_connection_json IS NULL OR json_valid(agent_connection_json)),
     current_directory_json TEXT CHECK (current_directory_json IS NULL OR json_valid(current_directory_json))
 );
 
@@ -23,4 +24,4 @@ CREATE TABLE danbooru_connection (
     CHECK ((username IS NULL) = (user_id IS NULL))
 );
 INSERT INTO danbooru_connection (id) VALUES (1);
-PRAGMA user_version = 6;
+PRAGMA user_version = 7;

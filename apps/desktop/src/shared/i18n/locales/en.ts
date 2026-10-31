@@ -1,4 +1,5 @@
 import { app } from "./en/app";
+import { agent } from "./en/agent";
 import { characters } from "./en/characters";
 import { director } from "./en/director";
 import { generation } from "./en/generation";
@@ -23,6 +24,7 @@ import { safety } from "./en/safety";
 import { explore } from "./en/explore";
 
 export const en = {
+  agent,
   explore,
   app: app,
   characters: characters,

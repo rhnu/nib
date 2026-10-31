@@ -67,7 +67,7 @@ impl GlobalSettingsStore {
             .map_err(|error| {
                 PersistenceError::failure("read the settings schema version", error)
             })?;
-        if version != 0 && version != 6 {
+        if version != 0 && version != 7 {
             return Err(PersistenceError::UnsupportedSchema { found: version });
         }
         if version == 0 {
@@ -100,6 +100,35 @@ impl GlobalSettingsStore {
         self.connection
             .lock()
             .map_err(|_poisoned| PersistenceError::Locked)
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn agent_connection(
+        &self,
+    ) -> Result<Option<crate::agent::storage::ConnectionMetadata>, PersistenceError> {
+        let value: Option<String> = self
+            .connection()?
+            .query_row(
+                "SELECT agent_connection_json FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| PersistenceError::failure("read assistant connection", error))?;
+        value.as_deref().map(decode).transpose()
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn save_agent_connection(
+        &self,
+        metadata: &crate::agent::storage::ConnectionMetadata,
+    ) -> Result<(), PersistenceError> {
+        self.connection()?
+            .execute(
+                "UPDATE global_settings SET agent_connection_json=?1 WHERE id=1",
+                [encode(metadata)?],
+            )
+            .map_err(|error| PersistenceError::failure("save assistant connection", error))?;
+        Ok(())
     }
 
     /// Lists names and the active account without loading any secret.

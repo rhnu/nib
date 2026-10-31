@@ -21,6 +21,8 @@ export class DraftWriter<T> {
 
   private timer: ReturnType<typeof setTimeout> | null = null;
 
+  private editingLocked = false;
+
   private write: (value: T) => Promise<void>;
 
   constructor(write: (value: T) => Promise<void>) {
@@ -44,6 +46,7 @@ export class DraftWriter<T> {
   }
 
   edit(value: T) {
+    if (this.editingLocked) throw new MessageError(deferMessage(() => t("agent.editingLocked")));
     const state = this.getSnapshot();
     if (!state.value) throw new MessageError(deferMessage(() => t("workbench.draftNotLoaded")));
     this.version++;
@@ -58,6 +61,13 @@ export class DraftWriter<T> {
       void this.flush().catch(() => {});
     }, 250);
   }
+
+  /** Stop delayed UI callbacks from creating edits while an external writer owns the draft. */
+  setEditingLocked(locked: boolean) {
+    this.editingLocked = locked;
+  }
+
+  canEdit = () => !this.editingLocked;
 
   /** Apply a domain edit to the current draft while preserving unchanged branches. */
   update(recipe: (draft: Draft<T>) => void) {

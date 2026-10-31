@@ -1,5 +1,6 @@
 //! Application data and behavior, independent of the desktop host.
 
+pub mod agent;
 pub mod api;
 #[cfg(feature = "native")]
 pub mod bootstrap;

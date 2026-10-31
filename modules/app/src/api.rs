@@ -28,6 +28,9 @@ pub struct WorkspaceSnapshot {
     pub info: AppInfo,
     pub resources: Vec<crate::prompt::Resource>,
     pub draft: crate::session::Draft,
+    pub draft_epoch: String,
+    pub draft_owner: Option<String>,
+    pub draft_undo_available: bool,
     pub models: Vec<String>,
 }
 

@@ -1,6 +1,7 @@
 import { t, useTranslation } from "@/shared/i18n";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { RouterProvider } from "@tanstack/react-router";
+import { Bot } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import {
   useWorkbenchController,
@@ -9,17 +10,20 @@ import {
 import { WorkbenchContext } from "@/features/workbench/workbench-context";
 import { LibrarySessionProvider } from "@/features/library/model/library-session-context";
 import { MediaToolsContext } from "@/features/media/media-tools-context";
-import { Button, Notice } from "@/shared/ui";
+import { Button, IconButton, Notice } from "@/shared/ui";
 import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
 import { errorMessage } from "@/shared/host/error";
+import { WriteAccessContext } from "@/shared/host/write-access";
 import { WorkspaceDialogs } from "./workspace-dialogs";
 import { createWorkspaceRouter } from "./router";
 import { pageAtPath, pagePaths } from "./navigation";
 import { NavigationIcon } from "./navigation-icon";
+import { AgentPanel } from "@/features/agent/agent-panel";
+import { useAgent } from "@/features/agent/use-agent";
 
 type WorkspaceShellProps = Omit<WorkbenchControllerOptions, "page" | "navigate"> & {
   startupSettings: boolean;
-  renderHeader: (navigation: ReactNode) => ReactNode;
+  renderHeader: (navigation: ReactNode, actions: ReactNode) => ReactNode;
 };
 
 const navigationLabels = {
@@ -69,11 +73,31 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
     [router],
   );
 
-  const controller = useWorkbenchController({ ...props, page, navigate });
+  const [agentLocked, setAgentLocked] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(false);
+
+  const closeAgent = useCallback(() => {
+    setAgentOpen(false);
+    document.getElementById("agent-toggle")?.focus();
+  }, []);
+
+  const controller = useWorkbenchController({
+    ...props,
+    page,
+    navigate,
+    readOnly: props.readOnly || agentLocked,
+  });
+  const agent = useAgent({
+    controller,
+    onLock: setAgentLocked,
+    onRunning: () => setAgentOpen(true),
+    readOnly: props.readOnly,
+  });
   const { state } = controller;
   const { writer, written, error, setError, resourceError, retryResources } = state;
   useEffect(() => {
     const persistPage = () => {
+      if (agentLocked) return;
       const activePage = pageAtPath(router.state.location.pathname);
       if (activePage && writer.getSnapshot().value?.activePage !== activePage)
         writer.update((draft) => {
@@ -85,72 +109,107 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
     // A recovered shell may subscribe after the initial route has already resolved.
     if (router.state.status === "idle" && router.state.resolvedLocation) persistPage();
     return unsubscribe;
-  }, [router, writer]);
+  }, [router, writer, agentLocked]);
   return (
     <RecoveryBoundary label={t("app.workspace")}>
       <WorkbenchContext value={controller}>
-        <LibrarySessionProvider store={state.librarySession}>
-          <MediaToolsContext
-            value={{
-              onDirector: controller.sendToDirector,
-              onPngText: (asset) => controller.afterInputs(() => controller.setPngAsset(asset)),
-              onImageOperation: controller.requestOperation,
-              onRestore: controller.guardedRestore,
-              canMaxEnhance: controller.extension.canMaxEnhance,
-              canInpaint: controller.extension.canInpaint,
-            }}
-          >
-            <div className="workbench">
-              {props.renderHeader(
-                <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
-                  {(Object.keys(navigationLabels) as Draft["activePage"][]).map((target) => (
-                    <Button
-                      key={target}
-                      disabled={props.readOnly}
-                      aria-current={target === page ? "page" : undefined}
-                      onClick={() => void navigate(target)}
-                    >
-                      <NavigationIcon page={target} />
-                      {navigationLabels[target]}
-                    </Button>
-                  ))}
-                </nav>,
-              )}
-              <div inert={props.readOnly} style={{ display: "contents" }}>
-                {error && (
-                  <Notice
-                    actions={<Button onClick={() => setError("")}>{t("app.dismissNotice")}</Button>}
-                  >
-                    {error}
-                  </Notice>
-                )}
-                {resourceError && (
-                  <Notice
-                    actions={<Button onClick={retryResources}>{t("app.retryResources")}</Button>}
-                  >
-                    {resourceError}
-                  </Notice>
-                )}
-                {Boolean(written.error) && (
-                  <Notice
-                    actions={
-                      <Button onClick={() => void writer.flush().catch(() => {})}>
-                        {t("app.retrySave")}
+        <WriteAccessContext
+          value={{
+            allowed: !props.readOnly && (agent.phase === "ready" || agent.phase === "preparing"),
+            canCommit: writer.canEdit,
+          }}
+        >
+          <LibrarySessionProvider store={state.librarySession}>
+            <MediaToolsContext
+              value={{
+                onDirector: controller.sendToDirector,
+                onPngText: (asset) => controller.afterInputs(() => controller.setPngAsset(asset)),
+                onImageOperation: controller.requestOperation,
+                onRestore: controller.guardedRestore,
+                canMaxEnhance: controller.extension.canMaxEnhance,
+                canInpaint: controller.extension.canInpaint,
+              }}
+            >
+              <div className="workbench">
+                {props.renderHeader(
+                  <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
+                    {(Object.keys(navigationLabels) as Draft["activePage"][]).map((target) => (
+                      <Button
+                        key={target}
+                        disabled={props.readOnly || agentLocked}
+                        aria-current={target === page ? "page" : undefined}
+                        onClick={() => void navigate(target)}
+                      >
+                        <NavigationIcon page={target} />
+                        {navigationLabels[target]}
                       </Button>
-                    }
+                    ))}
+                  </nav>,
+                  <IconButton
+                    id="agent-toggle"
+                    className="window-control"
+                    label={t("agent.title")}
+                    aria-expanded={agentOpen}
+                    aria-controls="agent-panel"
+                    onClick={() => setAgentOpen((value) => !value)}
                   >
-                    {t("app.creationUnsaved")}
-                    {errorMessage(written.error)}
-                  </Notice>
+                    <Bot size={17} aria-hidden />
+                  </IconButton>,
                 )}
-                <RouterProvider router={router} />
-                <RecoveryBoundary label={t("app.operationPanel")}>
-                  <WorkspaceDialogs />
-                </RecoveryBoundary>
+                {agentLocked && !agentOpen && (
+                  <output className="agent-state">
+                    {t(`agent.${agent.phase === "ready" ? "idle" : agent.phase}`)}
+                    <Button onClick={() => setAgentOpen(true)}>{t("agent.open")}</Button>
+                  </output>
+                )}
+                <div className="workspace-with-agent">
+                  <div inert={props.readOnly || agentLocked} className="workspace-editing-area">
+                    {error && (
+                      <Notice
+                        actions={
+                          <Button onClick={() => setError("")}>{t("app.dismissNotice")}</Button>
+                        }
+                      >
+                        {error}
+                      </Notice>
+                    )}
+                    {resourceError && (
+                      <Notice
+                        actions={
+                          <Button onClick={retryResources}>{t("app.retryResources")}</Button>
+                        }
+                      >
+                        {resourceError}
+                      </Notice>
+                    )}
+                    {Boolean(written.error) && (
+                      <Notice
+                        actions={
+                          <Button onClick={() => void writer.flush().catch(() => {})}>
+                            {t("app.retrySave")}
+                          </Button>
+                        }
+                      >
+                        {t("app.creationUnsaved")}
+                        {errorMessage(written.error)}
+                      </Notice>
+                    )}
+                    <RouterProvider router={router} />
+                    <RecoveryBoundary label={t("app.operationPanel")}>
+                      <WorkspaceDialogs />
+                    </RecoveryBoundary>
+                  </div>
+                  <AgentPanel
+                    agent={agent}
+                    open={agentOpen}
+                    readOnly={props.readOnly}
+                    onClose={closeAgent}
+                  />
+                </div>
               </div>
-            </div>
-          </MediaToolsContext>
-        </LibrarySessionProvider>
+            </MediaToolsContext>
+          </LibrarySessionProvider>
+        </WriteAccessContext>
       </WorkbenchContext>
     </RecoveryBoundary>
   );

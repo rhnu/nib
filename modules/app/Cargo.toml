@@ -7,7 +7,7 @@ publish.workspace = true
 
 [features]
 typegen = ["dep:ts-rs", "nib-prompt/typegen", "nib-contract/typegen"]
-native = ["dep:nib-lexicon", "dep:nib-resources", "dep:nib-image-analysis"]
+native = ["dep:nib-lexicon", "dep:nib-resources", "dep:nib-image-analysis", "dep:rig-core", "dep:rig-agent"]
 
 [dependencies]
 anyhow.workspace = true
@@ -19,6 +19,8 @@ nib-image-analysis = { workspace = true, optional = true }
 novelai-bridge.workspace = true
 nib-prompt.workspace = true
 futures-util.workspace = true
+rig-core = { workspace = true, optional = true }
+rig-agent = { workspace = true, optional = true }
 reqwest.workspace = true
 image.workspace = true
 rusqlite.workspace = true

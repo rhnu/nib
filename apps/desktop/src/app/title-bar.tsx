@@ -6,7 +6,7 @@ import appIcon from "@/assets/app-icon.svg";
 import { useWindowControls } from "./use-window-controls";
 
 /** Application chrome stays available during workspace startup and failures. */
-export function TitleBar({ navigation }: { navigation?: ReactNode }) {
+export function TitleBar({ navigation, actions }: { navigation?: ReactNode; actions?: ReactNode }) {
   useTranslation();
 
   const controls = useWindowControls();
@@ -22,6 +22,7 @@ export function TitleBar({ navigation }: { navigation?: ReactNode }) {
           className="titlebar-drag-region"
           data-tauri-drag-region={controls.desktop || undefined}
         ></div>
+        {actions}
         {controls.desktop && (
           <fieldset className="window-controls" aria-label={t("app.windowControls")}>
             <IconButton

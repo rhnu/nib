@@ -148,9 +148,9 @@ export default function App() {
                 recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
                 settingsWriter={settings.closeWriter}
                 onSelectDownloadSettings={() => setSettingsSection("downloads")}
-                renderHeader={(navigation) => (
+                renderHeader={(navigation, actions) => (
                   <>
-                    <TitleBar navigation={navigation} />
+                    <TitleBar navigation={navigation} actions={actions} />
                     {settingsNotice}
                   </>
                 )}

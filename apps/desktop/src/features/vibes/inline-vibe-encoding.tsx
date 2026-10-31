@@ -1,5 +1,5 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Binary, LoaderCircle } from "lucide-react";
 import type {
@@ -9,6 +9,7 @@ import type {
 } from "@/bindings/workbench";
 import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork, trackPendingWork } from "@/shared/host/pending-work";
+import { WriteAccessContext } from "@/shared/host/write-access";
 import { useDebouncedValue } from "@/shared/query/use-debounced-value";
 import { Button, IconButton, Notice } from "@/shared/ui";
 import { useAccount } from "@/features/generation/account/account-context";
@@ -39,6 +40,7 @@ export function InlineVibeEncoding({
   useTranslation();
 
   const { accountVersion, accountSummaryLoading } = useAccount();
+  const writeAccess = useContext(WriteAccessContext);
   const { submissionBlocked } = useSubmission();
   const { acceptJob } = useJobData();
   const source = value.input;
@@ -46,11 +48,11 @@ export function InlineVibeEncoding({
   const key = JSON.stringify([value.id, source, model]);
   const settledKey = useDebouncedValue(key, 180);
   const ready = key === settledKey;
-  const latest = useRef({ active: true, key, onChange });
+  const latest = useRef({ active: true, key, onChange, writeAccess });
   const applied = useRef<string | null>(null);
   useLayoutEffect(() => {
-    Object.assign(latest.current, { key, onChange });
-  }, [key, onChange]);
+    Object.assign(latest.current, { key, onChange, writeAccess });
+  }, [key, onChange, writeAccess]);
   useEffect(() => {
     const current = latest.current;
     current.active = true;
@@ -78,7 +80,7 @@ export function InlineVibeEncoding({
 
   const commit = (assetId: string, snapshot: EncodingSnapshot) => {
     const current = latest.current;
-    if (!current.active || current.key !== snapshot.key) return;
+    if (!current.active || current.key !== snapshot.key || !current.writeAccess.canCommit()) return;
     current.onChange({ input: { kind: "encoded", assetId } });
   };
 
@@ -113,18 +115,26 @@ export function InlineVibeEncoding({
   });
   const encodedAsset = result.data?.items.find((item) => item.available && item.kind === "vibe");
   useEffect(() => {
-    if (!encodedAsset || !encode.variables || !queued || applied.current === queued.id) return;
+    if (
+      !writeAccess.allowed ||
+      !encodedAsset ||
+      !encode.variables ||
+      !queued ||
+      applied.current === queued.id
+    )
+      return;
     const snapshot = encode.variables;
     if (latest.current.key !== snapshot.key || !latest.current.active) return;
-    applied.current = queued.id;
     void trackPendingWork(
       Promise.resolve().then(() => {
         const current = latest.current;
-        if (current.active && current.key === snapshot.key)
+        if (current.active && current.key === snapshot.key && current.writeAccess.canCommit()) {
           current.onChange({ input: { kind: "encoded", assetId: encodedAsset.assetId } });
+          applied.current = queued.id;
+        }
       }),
     );
-  }, [encodedAsset, encode.variables, queued]);
+  }, [encodedAsset, encode.variables, queued, writeAccess.allowed]);
   const working =
     encode.isPending || Boolean(queued && activeStatuses.has(job.data?.status ?? queued.status));
   const cost = ready && !accountSummaryLoading ? quote.data?.estimatedAnlas : undefined;

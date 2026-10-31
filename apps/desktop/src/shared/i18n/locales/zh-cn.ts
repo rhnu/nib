@@ -1,4 +1,5 @@
 import { app } from "./zh-cn/app";
+import { agent } from "./zh-cn/agent";
 import { characters } from "./zh-cn/characters";
 import { director } from "./zh-cn/director";
 import { generation } from "./zh-cn/generation";
@@ -23,6 +24,7 @@ import { safety } from "./zh-cn/safety";
 import { explore } from "./zh-cn/explore";
 
 export const zhCN = {
+  agent,
   explore,
   app: app,
   characters: characters,

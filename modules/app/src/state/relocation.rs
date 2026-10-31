@@ -30,7 +30,29 @@ impl AppState {
         directory: Option<std::path::PathBuf>,
     ) -> Result<crate::settings::StorageLocations, JobError> {
         let database = self.database()?;
-        self.inner.access.begin_relocation()?;
+        {
+            // Serialize only the start transition, never the model's network wait.
+            let _transition = self
+                .inner
+                .agent_transition
+                .lock()
+                .map_err(|_error| PersistenceError::Locked)?;
+            let agent = self
+                .inner
+                .agent
+                .lock()
+                .map_err(|_error| PersistenceError::Locked)?;
+            if let Some(agent) = agent.as_ref()
+                && agent.is_running()?
+            {
+                return Err(PersistenceError::Conflict {
+                    kind: "active assistant run",
+                    id: "current creation".into(),
+                }
+                .into());
+            }
+            self.inner.access.begin_relocation()?;
+        }
         let queue = if let Ok(slot) = self.inner.generation.lock() {
             slot.as_ref().map(Arc::clone)
         } else {

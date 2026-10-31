@@ -1,5 +1,7 @@
 //! Resource queries, independent from resource write capabilities.
 
+#[cfg(feature = "native")]
+mod agent_edits;
 mod definitions;
 pub(crate) mod operations;
 mod sqlite;

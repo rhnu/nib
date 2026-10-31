@@ -147,4 +147,23 @@ describe("DraftWriter", () => {
       error: null,
     });
   });
+
+  it("rejects late UI edits while another writer owns the draft and resumes from its snapshot", async () => {
+    const write = vi.fn<(value: Document) => Promise<void>>().mockResolvedValue(undefined);
+    const writer = new DraftWriter(write);
+    writer.replace(initial);
+    writer.edit({ text: "before takeover" });
+    await writer.flush();
+    writer.setEditingLocked(true);
+    expect(() => writer.edit({ text: "stale callback" })).toThrow();
+    writer.replace({ text: "agent edit" });
+    expect(writer.getSnapshot()).toMatchObject({ value: { text: "agent edit" }, dirty: false });
+    writer.setEditingLocked(false);
+    writer.update((draft) => {
+      draft.text += " and UI edit";
+    });
+    await writer.flush();
+    expect(write).toHaveBeenLastCalledWith({ text: "agent edit and UI edit" });
+    expect(write).toHaveBeenCalledTimes(2);
+  });
 });

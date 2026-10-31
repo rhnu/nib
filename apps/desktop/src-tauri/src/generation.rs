@@ -251,7 +251,12 @@ pub(crate) async fn submit_generation(
     state: tauri::State<'_, DesktopState>,
     draft: Draft,
 ) -> Result<GenerationBatch, ApiError> {
+    let app = state.app.clone();
     with_generation_write(state, move |runtime| {
+        let drafts = app.drafts();
+        let _edit = drafts
+            .guard_ui_write()
+            .map_err(crate::commands::persistence_error)?;
         runtime.submit(&draft).map_err(generation_error)
     })
     .await
@@ -263,7 +268,12 @@ pub(crate) async fn ensure_vibe_encoding(
     input: nib_app::session::VibeEncodingInput,
     policy: novelai_bridge::ValidationPolicy,
 ) -> Result<nib_app::jobs::VibeEncodingOutcome, ApiError> {
+    let app = state.app.clone();
     with_generation_write(state, move |runtime| {
+        let drafts = app.drafts();
+        let _edit = drafts
+            .guard_ui_write()
+            .map_err(crate::commands::persistence_error)?;
         runtime
             .ensure_vibe_encoding(input, policy)
             .map_err(generation_error)
@@ -309,7 +319,12 @@ pub(crate) async fn retry_job(
     state: tauri::State<'_, DesktopState>,
     id: String,
 ) -> Result<JobRecord, ApiError> {
+    let app = state.app.clone();
     with_generation_write(state, move |runtime| {
+        let drafts = app.drafts();
+        let _edit = drafts
+            .guard_ui_write()
+            .map_err(crate::commands::persistence_error)?;
         runtime.retry(&id).map_err(generation_error)
     })
     .await

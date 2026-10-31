@@ -48,7 +48,13 @@ pub(crate) async fn with_media_write<T: Send + 'static>(
     action: impl FnOnce(Arc<MediaLibrary>) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     let access = state.app.write_access().await.map_err(persistence_error)?;
-    run_media(state.inner().clone(), access, action).await
+    let app = state.app.clone();
+    run_media(state.inner().clone(), access, move |media| {
+        let drafts = app.drafts();
+        let _edit = drafts.guard_ui_write().map_err(persistence_error)?;
+        action(media)
+    })
+    .await
 }
 
 async fn run_media<T: Send + 'static>(

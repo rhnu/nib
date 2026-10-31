@@ -7,6 +7,12 @@ import type { PromptDocument } from "./prompt";
 
 export type ResourceKind = "chunk" | "preset";
 
+export type DraftSnapshot = { draft: Draft, epoch: string,
+/**
+ * The owning Agent run, or no owner while the user may edit.
+ */
+owner: string | null, undoAvailable: boolean, };
+
 export type ResourceSort = "name" | "createdAt" | "updatedAt";
 
 export type ResourceSummary = { id: string, name: string, kind: ResourceKind, description: string, aliases: Array<string>, tags: Array<string>, models: Array<string>, folderId: string | null, coverAssetId: string | null, createdAt: number, updatedAt: number, };
@@ -129,7 +135,7 @@ export type PromptSourceLocation = { from: number, to: number, fragmentIndex: nu
 
 export type ResolvedPromptAnalysis = { scope: PromptScope, characterId: string | null, document: PromptDocument, sources: Array<PromptSourceLocation>, };
 
-export type WorkspaceSnapshot = { info: AppInfo, resources: Array<Resource>, draft: Draft, models: Array<string>, };
+export type WorkspaceSnapshot = { info: AppInfo, resources: Array<Resource>, draft: Draft, draftEpoch: string, draftOwner: string | null, draftUndoAvailable: boolean, models: Array<string>, };
 
 export type ErrorCode = "unavailable" | "notFound" | "conflict" | "invalid" | "unresolved";
 

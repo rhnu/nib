@@ -1,7 +1,8 @@
-//! Automatically retained current creation. The frontend owns high-frequency edits.
+//! Automatically retained current creation and exclusive application editing ownership.
 
 use std::collections::BTreeMap;
 
+mod coordinator;
 mod director;
 mod inputs;
 mod mask_editor;
@@ -9,6 +10,7 @@ mod png_text;
 mod restore;
 mod sqlite;
 mod validation;
+pub use coordinator::*;
 pub use director::*;
 pub use inputs::*;
 pub use mask_editor::*;

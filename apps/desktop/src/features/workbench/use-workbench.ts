@@ -1,7 +1,13 @@
 import { useMessageState, deferMessage, t, MessageError } from "@/shared/i18n";
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
-import type { Draft, Resource, ResourceSummary, WorkspaceSnapshot } from "@/bindings/workbench";
+import type {
+  Draft,
+  DraftSnapshot,
+  Resource,
+  ResourceSummary,
+  WorkspaceSnapshot,
+} from "@/bindings/workbench";
 import { useCloseGuard, type CloseWriter } from "@/shared/host/use-close-guard";
 import { hasPendingWork, waitForPendingWork } from "@/shared/host/pending-work";
 import { notify } from "@/shared/ui";
@@ -9,7 +15,7 @@ import { useResourceCache } from "@/features/library/use-resource-cache";
 import { useResolution, type ResolutionEvaluation } from "@/features/prompt/use-resolution";
 import { emptySettings } from "@/features/prompt/model";
 import { DraftWriter } from "./draft-writer";
-import { workbenchApi } from "./api";
+import { DraftPersistence } from "./api";
 import { useGenerationDraft } from "@/features/inputs/use-generation-draft";
 import { createLibrarySessionStore } from "@/features/library/model/library-session";
 import { createLexiconSessionStore } from "@/features/lexicon/lexicon-session";
@@ -21,9 +27,11 @@ export function useWorkbench(
   navigate: (page: Draft["activePage"]) => void,
   evaluation: ResolutionEvaluation,
 ) {
+  const [draftAuthority] = useState(() => new DraftPersistence(workspace.draftEpoch));
   const [writer] = useState(() => {
-    const value = new DraftWriter<Draft>(workbenchApi.saveDraft);
+    const value = new DraftWriter<Draft>(draftAuthority.save);
     value.replace(workspace.draft);
+    value.setEditingLocked(true);
     return value;
   });
   const written = useStore(writer.store);
@@ -47,6 +55,13 @@ export function useWorkbench(
   const getResourceDirty = () => librarySession.getState().dirty || librarySession.getState().busy;
 
   const [restoreVersion, setRestoreVersion] = useState(0);
+
+  const acceptDraftSnapshot = (snapshot: DraftSnapshot) => {
+    writer.replace(snapshot.draft);
+    draftAuthority.accept(snapshot);
+    setRestoreVersion((version) => version + 1);
+  };
+
   const beforeClose = useRef<() => Promise<boolean>>(async () => true);
 
   const setBeforeClose = (callback: () => Promise<boolean>) => {
@@ -144,6 +159,8 @@ export function useWorkbench(
 
   return {
     writer,
+    acceptDraftSnapshot,
+    readDraftEpoch: () => draftAuthority.readEpoch(),
     prepareMigration,
     setBeforeClose,
     written,
