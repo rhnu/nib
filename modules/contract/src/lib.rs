@@ -2,3 +2,4 @@
 
 pub mod downloads;
 pub mod lexicon;
+pub mod safety;

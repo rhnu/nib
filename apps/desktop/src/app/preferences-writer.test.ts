@@ -8,6 +8,7 @@ function preferences(theme: ApplicationPreferences["theme"]): ApplicationPrefere
     theme,
     language: "system",
     recentImageLimit: 20,
+    safety: { autoScan: true, useWdReview: true, blurNsfw: true, blurDetails: false },
     execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
   };
 }
@@ -39,6 +40,7 @@ describe("PreferencesWriter", () => {
       theme: "light",
       language: "system",
       recentImageLimit: 20,
+      safety: { autoScan: true, useWdReview: true, blurNsfw: true, blurDetails: false },
       execution: { imageBaseUrl: null, imageRequestEncoding: "multipart", serverImageCache: true },
     };
     writer.edit(latest);

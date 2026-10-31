@@ -12,8 +12,10 @@ export function isDownloadActive(state: string | undefined) {
 function invalidateResources(ids: string[]) {
   return queryClient.invalidateQueries({
     predicate: (query) =>
-      typeof query.meta?.downloadableResource === "string" &&
-      ids.includes(query.meta.downloadableResource),
+      (typeof query.meta?.downloadableResource === "string" &&
+        ids.includes(query.meta.downloadableResource)) ||
+      (Array.isArray(query.meta?.downloadableResources) &&
+        query.meta.downloadableResources.some((id) => typeof id === "string" && ids.includes(id))),
   });
 }
 

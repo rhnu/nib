@@ -1,6 +1,10 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let attributes =
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "get_image_analysis_status",
+            "get_image_safety",
+            "rescan_image_safety",
+            "extract_image_tags",
             "edit_text",
             "search_lexicon",
             "get_lexicon_status",

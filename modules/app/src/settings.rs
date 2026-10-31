@@ -65,6 +65,7 @@ pub struct ApplicationPreferences {
     pub language: Language,
     pub recent_image_limit: u32,
     pub execution: ExecutionPreferences,
+    pub safety: crate::safety::SafetyPreferences,
 }
 
 impl Default for ApplicationPreferences {
@@ -73,6 +74,7 @@ impl Default for ApplicationPreferences {
             theme: Theme::default(),
             language: Language::default(),
             execution: ExecutionPreferences::default(),
+            safety: crate::safety::SafetyPreferences::default(),
             recent_image_limit: 20,
         }
     }

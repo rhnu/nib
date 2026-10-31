@@ -11,6 +11,7 @@ clap.workspace = true
 flate2.workspace = true
 half.workspace = true
 nib-contract.workspace = true
+nib-inference-runtime.workspace = true
 ort.workspace = true
 nib-resources.workspace = true
 rusqlite.workspace = true

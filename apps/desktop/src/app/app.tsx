@@ -14,6 +14,7 @@ import { useCloseGuard } from "@/shared/host/use-close-guard";
 import { Button, Notice } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { NavigationIcon } from "./navigation-icon";
+import { SafetyPreferencesContext } from "@/features/media/safety-image";
 
 /** Composition root: application startup and theme, then domain-owned surfaces. */
 export default function App() {
@@ -65,98 +66,109 @@ export default function App() {
   );
   return (
     <AccountProvider executionVersion={settings.executionVersion}>
-      <div className="application">
-        {!workspace ? (
-          <>
-            <TitleBar
-              navigation={
-                settings.ready && (
-                  <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
-                    <Button
-                      aria-current={startupPage === "create" ? "page" : undefined}
-                      onClick={() => setStartupPage("create")}
-                    >
-                      <NavigationIcon page="create" />
-                      {t("app.create")}
-                    </Button>
-                    <Button
-                      aria-current={startupPage === "settings" ? "page" : undefined}
-                      onClick={() => setStartupPage("settings")}
-                    >
-                      <NavigationIcon page="settings" />
-                      {t("app.settings")}
-                    </Button>
-                  </nav>
+      <SafetyPreferencesContext
+        value={
+          settings.preferences.value?.safety ?? {
+            autoScan: true,
+            useWdReview: true,
+            blurNsfw: true,
+            blurDetails: false,
+          }
+        }
+      >
+        <div className="application">
+          {!workspace ? (
+            <>
+              <TitleBar
+                navigation={
+                  settings.ready && (
+                    <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
+                      <Button
+                        aria-current={startupPage === "create" ? "page" : undefined}
+                        onClick={() => setStartupPage("create")}
+                      >
+                        <NavigationIcon page="create" />
+                        {t("app.create")}
+                      </Button>
+                      <Button
+                        aria-current={startupPage === "settings" ? "page" : undefined}
+                        onClick={() => setStartupPage("settings")}
+                      >
+                        <NavigationIcon page="settings" />
+                        {t("app.settings")}
+                      </Button>
+                    </nav>
+                  )
+                }
+              />
+              {settingsNotice}
+              {settings.ready ? (
+                startupPage === "settings" ? (
+                  <div inert={readOnly} style={{ display: "contents" }}>
+                    <SettingsPage
+                      settings={settings}
+                      section={settingsSection}
+                      onSectionChange={setSettingsSection}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    {error && (
+                      <Notice
+                        actions={
+                          <Button onClick={() => setStartupPage("settings")}>
+                            {t("app.changeStorage")}
+                          </Button>
+                        }
+                      >
+                        {t("app.dataUnavailable")}
+                      </Notice>
+                    )}
+                    <StartupScreen loading={loading} error={error} retry={retry} />
+                  </>
                 )
-              }
-            />
-            {settingsNotice}
-            {settings.ready ? (
-              startupPage === "settings" ? (
-                <div inert={readOnly} style={{ display: "contents" }}>
+              ) : (
+                <StartupScreen
+                  loading={settings.loading}
+                  error={settings.error}
+                  retry={settings.retry}
+                  loadingLabel={t("app.syncingPreferences")}
+                />
+              )}
+            </>
+          ) : (
+            <GenerationProvider
+              beforeSubmit={settings.prepareSubmission}
+              submissionBlocked={settings.submissionBlocked}
+            >
+              <WorkspaceShell
+                workspace={workspace.snapshot}
+                initialResources={workspace.resources}
+                startupSettings={startupPage === "settings"}
+                recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
+                settingsWriter={settings.closeWriter}
+                onSelectDownloadSettings={() => setSettingsSection("downloads")}
+                renderHeader={(navigation) => (
+                  <>
+                    <TitleBar navigation={navigation} />
+                    {settingsNotice}
+                  </>
+                )}
+                readOnly={readOnly}
+                renderSettings={({ beforeMigrate, onOpenTasks }) => (
                   <SettingsPage
                     settings={settings}
                     section={settingsSection}
                     onSectionChange={setSettingsSection}
+                    beforeMigrate={beforeMigrate}
+                    onOpenTasks={onOpenTasks}
                   />
-                </div>
-              ) : (
-                <>
-                  {error && (
-                    <Notice
-                      actions={
-                        <Button onClick={() => setStartupPage("settings")}>
-                          {t("app.changeStorage")}
-                        </Button>
-                      }
-                    >
-                      {t("app.dataUnavailable")}
-                    </Notice>
-                  )}
-                  <StartupScreen loading={loading} error={error} retry={retry} />
-                </>
-              )
-            ) : (
-              <StartupScreen
-                loading={settings.loading}
-                error={settings.error}
-                retry={settings.retry}
-                loadingLabel={t("app.syncingPreferences")}
+                )}
               />
-            )}
-          </>
-        ) : (
-          <GenerationProvider
-            beforeSubmit={settings.prepareSubmission}
-            submissionBlocked={settings.submissionBlocked}
-          >
-            <WorkspaceShell
-              workspace={workspace.snapshot}
-              initialResources={workspace.resources}
-              startupSettings={startupPage === "settings"}
-              recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
-              settingsWriter={settings.closeWriter}
-              onSelectDownloadSettings={() => setSettingsSection("downloads")}
-              renderHeader={(navigation) => (
-                <>
-                  <TitleBar navigation={navigation} />
-                  {settingsNotice}
-                </>
-              )}
-              readOnly={readOnly}
-              renderSettings={({ beforeMigrate, onOpenTasks }) => (
-                <SettingsPage
-                  settings={settings}
-                  section={settingsSection}
-                  onSectionChange={setSettingsSection}
-                  beforeMigrate={beforeMigrate}
-                  onOpenTasks={onOpenTasks}
-                />
-              )}
-            />
-          </GenerationProvider>
-        )}
-      </div>
+            </GenerationProvider>
+          )}
+        </div>
+      </SafetyPreferencesContext>
     </AccountProvider>
   );
 }

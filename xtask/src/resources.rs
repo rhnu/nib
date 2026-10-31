@@ -3,7 +3,7 @@
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
-    io::Write as _,
+    io::{Read as _, Write as _},
     path::{Path, PathBuf},
     process::{Command, Output},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -51,6 +51,7 @@ struct Package {
     tag: String,
     assets: Vec<ResourceFile>,
     manifest: ResourceFile,
+    external_files: Vec<ResourceFile>,
 }
 
 pub fn run(task: Task) -> Result<()> {
@@ -122,12 +123,54 @@ fn publication_files(
         .collect();
     for file in &files {
         ensure!(
-            file.url == format!("{base}/{}", file.path),
+            file.url == format!("{base}/{}", file.path) || is_pinned_model(&file.url),
             "resource URL differs from fixed release target: {}",
             file.path
         );
     }
     Ok(files)
+}
+
+/// External models retain an immutable upstream revision and are never uploaded as release assets.
+fn is_pinned_model(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value) else {
+        return false;
+    };
+    let parts: Vec<_> = url
+        .path()
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
+    url.scheme() == "https"
+        && url.host_str() == Some("huggingface.co")
+        && url.username().is_empty()
+        && url.password().is_none()
+        && parts.len() >= 5
+        && parts[2] == "resolve"
+        && parts[3].len() == 40
+        && parts[3].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+/// Validate upstream bytes before publishing metadata that points to them.
+fn verify_external_file(file: &ResourceFile) -> Result<()> {
+    let temporary = TemporaryFile::new("upstream")?;
+    let client = Client::builder()
+        .https_only(true)
+        .timeout(Duration::from_mins(30))
+        .build()?;
+    let response = client.get(&file.url).send()?.error_for_status()?;
+    let mut output = File::create(&temporary.path)?;
+    let bytes = std::io::copy(
+        &mut response.take(file.bytes.saturating_add(1)),
+        &mut output,
+    )?;
+    output.flush()?;
+    ensure!(
+        bytes == file.bytes && file_hash(&temporary.path)? == file.sha256,
+        "upstream resource content differs: {}",
+        file.path
+    );
+    Ok(())
 }
 
 fn verify(directory: &Path, identity: &Identity) -> Result<Package> {
@@ -137,8 +180,19 @@ fn verify(directory: &Path, identity: &Identity) -> Result<Package> {
         .join(&identity.version);
     let manifest: ResourceManifest =
         serde_json::from_slice(&fs::read(package.join("resource.json"))?)?;
+    let mut external_files = Vec::new();
     for file in publication_files(&manifest, &identity.id, &identity.version)? {
-        verify_file(&package, &file)?;
+        if is_pinned_model(&file.url) {
+            ensure!(
+                !package.join(&file.path).exists(),
+                "upstream model must remain external: {}",
+                file.path
+            );
+            verify_external_file(&file)?;
+            external_files.push(file);
+        } else {
+            verify_file(&package, &file)?;
+        }
     }
     let tag = release_tag(&identity.id, &identity.version);
     let mut assets = Vec::new();
@@ -172,6 +226,7 @@ fn verify(directory: &Path, identity: &Identity) -> Result<Package> {
         tag,
         assets,
         manifest,
+        external_files,
     })
 }
 
@@ -421,6 +476,7 @@ fn publish(
     }
     println!("Verifying public asset URLs");
     verify_public_urls(&package.assets)?;
+    verify_public_urls(&package.external_files)?;
     println!("Updating resource catalog");
     update_catalog(directory, identity, package, name, description)?;
     println!("Published {}; resource/catalog.json updated", package.tag);

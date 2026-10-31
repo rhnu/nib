@@ -25,16 +25,26 @@ impl Bootstrap {
     /// Returns failures opening resource storage or restoring its shared state.
     pub fn start(self) -> anyhow::Result<AppState> {
         let lexicon = Arc::new(nib_lexicon::LexiconResources::default());
-        let consumers = std::collections::BTreeMap::from([(
-            "lexicon".to_owned(),
-            Arc::clone(&lexicon) as Arc<dyn nib_resources::ResourceConsumer>,
-        )]);
+        let analyzer = Arc::new(nib_image_analysis::ImageAnalyzer::default());
+        let safety = Arc::new(crate::safety::SafetyScanner::new(
+            Arc::clone(&analyzer),
+            Arc::clone(&self.settings),
+        ));
+        let consumers = std::collections::BTreeMap::from([
+            (
+                "lexicon".to_owned(),
+                Arc::clone(&lexicon) as Arc<dyn nib_resources::ResourceConsumer>,
+            ),
+            ("anime-dbrating".to_owned(), analyzer.anime_consumer()),
+            ("wd-swinv2-tagger-v3".to_owned(), analyzer.wd_consumer()),
+        ]);
         let store = Arc::new(nib_resources::ResourceStore::open(
             &self.resources_directory,
             consumers,
         )?);
         let downloads = Downloads::new(store, self.runtime.clone());
-        let app = AppState::new(self, lexicon, downloads);
+        let app = AppState::new(self, lexicon, downloads, safety);
+        app.start_safety_backfill();
         if let Err(error) = app.sdk() {
             // Provider and credential diagnostics may contain secrets; use the public projection.
             tracing::warn!(message = %error.user_message(), "cannot initialize account sampling");

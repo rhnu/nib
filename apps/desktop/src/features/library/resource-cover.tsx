@@ -1,3 +1,4 @@
+import { SafetyImage } from "@/features/media/safety-image";
 import { ImageOff, Layers, Link2 } from "lucide-react";
 import { useMediaContent } from "@/features/media/use-media-content";
 
@@ -15,7 +16,7 @@ export function ResourceCover({
   return (
     <div className="resource-cover">
       {image.url ? (
-        <img src={image.url} alt={name} onError={image.failed} />
+        <SafetyImage assetId={assetId} src={image.url} alt={name} onError={image.failed} />
       ) : image.error ? (
         <ImageOff aria-label={image.error} size={25} />
       ) : kind === "chunk" ? (

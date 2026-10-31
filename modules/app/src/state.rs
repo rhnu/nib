@@ -42,6 +42,7 @@ struct State {
     generation: Mutex<Option<Arc<JobQueue>>>,
     lexicon: Arc<dyn LexiconSearch>,
     downloads: Downloads,
+    safety: Arc<crate::safety::SafetyScanner>,
 }
 
 impl AppState {
@@ -49,6 +50,7 @@ impl AppState {
         bootstrap: Bootstrap,
         lexicon: Arc<dyn LexiconSearch>,
         downloads: Downloads,
+        safety: Arc<crate::safety::SafetyScanner>,
     ) -> Self {
         Self {
             inner: Arc::new(State {
@@ -64,6 +66,7 @@ impl AppState {
                 generation: Mutex::new(None),
                 lexicon,
                 downloads,
+                safety,
             }),
         }
     }
@@ -103,6 +106,9 @@ impl AppState {
                 "SDK execution preferences changed; clients and account snapshots invalidated"
             );
         }
+        if previous.safety != saved.safety {
+            self.inner.safety.preferences_changed();
+        }
         Ok(saved)
     }
 
@@ -111,6 +117,9 @@ impl AppState {
 
     /// Installation tasks are held for the lifetime of the application.
     pub fn downloads(&self) -> &Downloads { &self.inner.downloads }
+
+    /// Local image analysis is independent of SDK credentials and generation startup.
+    pub fn safety(&self) -> &Arc<crate::safety::SafetyScanner> { &self.inner.safety }
 
     /// Reads wait for relocation I/O while existing data remains available after publication.
     pub async fn read_access(&self) -> tokio::sync::OwnedRwLockReadGuard<()> {
@@ -177,12 +186,74 @@ impl AppState {
             });
         }
         let database = self.database()?;
-        let media = Arc::new(MediaLibrary::new(
-            database,
-            self.inner.storage.data_directory()?.join("media"),
-        )?);
+        let media = Arc::new(
+            MediaLibrary::new(database, self.inner.storage.data_directory()?.join("media"))?
+                .with_safety_scanner(
+                    Arc::clone(&self.inner.safety) as Arc<dyn crate::safety::ImageSafetyScanner>
+                ),
+        );
         *slot = Some(Arc::clone(&media));
         Ok(media)
+    }
+
+    /// Revisits unknown retained images after an installed model or automatic preference changes.
+    pub(crate) fn start_safety_backfill(&self) {
+        let state = Arc::downgrade(&self.inner);
+        self.inner.runtime.spawn(
+            async move {
+                let mut previous = None;
+                loop {
+                    let Some(inner) = state.upgrade() else {
+                        break;
+                    };
+                    let app = Self { inner };
+                    let Ok(access) = app.write_access().await else {
+                        drop(app);
+                        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                        continue;
+                    };
+                    let worker = app.clone();
+                    let known = previous.clone();
+                    let result = tokio::task::spawn_blocking(move || {
+                        let _access = access;
+                        let revision = worker.safety().automatic_revision()?;
+                        if known.as_ref() == Some(&revision) {
+                            return Ok::<_, PersistenceError>(revision);
+                        }
+                        if !worker.settings().preferences()?.safety.auto_scan
+                            || !worker.safety().status()?.anime_available
+                        {
+                            return Ok(revision);
+                        }
+                        let ids = worker.database()?.unknown_image_ids()?;
+                        if !ids.is_empty() {
+                            let media = worker.media()?;
+                            tracing::info!(
+                                images = ids.len(),
+                                "checking unknown retained image safety"
+                            );
+                            for id in ids {
+                                media.scan_image_safety(&id, false)?;
+                            }
+                        }
+                        Ok(revision)
+                    })
+                    .await;
+                    match result {
+                        Ok(Ok(revision)) => previous = Some(revision),
+                        Ok(Err(error)) => {
+                            tracing::error!(error=?error, "image safety history scan failed");
+                        },
+                        Err(error) => {
+                            tracing::error!(error=?error, "image safety history worker failed");
+                        },
+                    }
+                    drop(app);
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                }
+            }
+            .in_current_span(),
+        );
     }
 
     /// Invalidates initialized clients after an account or execution setting change.

@@ -320,7 +320,7 @@ impl SqliteDatabase {
         &self,
         job_id: &str,
         outputs: &[RetainedOutput],
-    ) -> Result<(), PersistenceError> {
+    ) -> Result<bool, PersistenceError> {
         let mut connection = self.connection()?;
         let transaction = connection.transaction().map_err(|error| {
             PersistenceError::failure("begin retaining operation outputs", error)
@@ -336,7 +336,7 @@ impl SqliteDatabase {
                 PersistenceError::failure("check task state before retaining outputs", error)
             })?;
         if running != Some(true) {
-            return Ok(());
+            return Ok(false);
         }
         for output in outputs {
             insert_asset(&transaction, &output.asset)?;
@@ -349,6 +349,7 @@ impl SqliteDatabase {
             .map_err(|error| PersistenceError::failure("complete an operation task", error))?;
         transaction
             .commit()
+            .map(|()| true)
             .map_err(|error| PersistenceError::failure("commit final operation outputs", error))
     }
 }

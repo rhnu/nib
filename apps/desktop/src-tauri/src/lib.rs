@@ -13,6 +13,7 @@ mod lexicon;
 mod media;
 mod native_edit;
 mod notifications;
+mod safety;
 mod sdk;
 mod settings;
 mod state;
@@ -90,6 +91,10 @@ fn application_base(
 /// Registers the explicit desktop command surface in one place.
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        safety::get_image_analysis_status,
+        safety::get_image_safety,
+        safety::rescan_image_safety,
+        safety::extract_image_tags,
         native_edit::edit_text,
         lexicon::search_lexicon,
         lexicon::get_lexicon_status,

@@ -258,6 +258,31 @@ export function SettingsPage({
                 />
               </Field>
             )}
+            {preferences.value && (
+              <>
+                <h3>{t("safety.title")}</h3>
+                <p className="image-safety-hint">{t("safety.help")}</p>
+                {(["autoScan", "useWdReview"] as const).map((key) => (
+                  <div className="preference-row" key={key}>
+                    <span>{t(`safety.${key}`)}</span>
+                    <Toggle
+                      label={t(`safety.${key}`)}
+                      checked={preferences.value!.safety[key]}
+                      onChange={(checked) => {
+                        if (preferences.value)
+                          writer.edit({
+                            ...preferences.value,
+                            safety: { ...preferences.value.safety, [key]: checked },
+                          });
+                      }}
+                    />
+                  </div>
+                ))}
+                <Button onClick={() => onSectionChange("downloads")}>
+                  {t("safety.downloads")}
+                </Button>
+              </>
+            )}
           </section>
           <section
             className="preference-section appearance-settings"
@@ -294,6 +319,23 @@ export function SettingsPage({
                 {theme === "dark" ? t("app.switchToLight") : t("app.switchToDark")}
               </Button>
             </div>
+            {preferences.value &&
+              (["blurNsfw", "blurDetails"] as const).map((key) => (
+                <div className="preference-row" key={key}>
+                  <span>{t(`safety.${key}`)}</span>
+                  <Toggle
+                    label={t(`safety.${key}`)}
+                    checked={preferences.value!.safety[key]}
+                    onChange={(checked) => {
+                      if (preferences.value)
+                        writer.edit({
+                          ...preferences.value,
+                          safety: { ...preferences.value.safety, [key]: checked },
+                        });
+                    }}
+                  />
+                </div>
+              ))}
           </section>
           <div hidden={section !== "storage"}>
             <StorageSettings settings={settings} beforeMigrate={beforeMigrate} />

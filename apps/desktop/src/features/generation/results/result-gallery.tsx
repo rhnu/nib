@@ -1,3 +1,4 @@
+import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useState, type ReactNode } from "react";
 import { Copy, Download, Focus, ImageOff, Info, Minus, Plus, ArrowDownToLine } from "lucide-react";
@@ -48,7 +49,13 @@ export function ResultTile({
           ) : image.error ? (
             <span>{t("generation.loadFailed")}</span>
           ) : image.url ? (
-            <img src={image.url} alt="" loading="lazy" onError={image.failed} />
+            <SafetyImage
+              assetId={result.assetId}
+              src={image.url}
+              alt=""
+              loading="lazy"
+              onError={image.failed}
+            />
           ) : (
             <span>{t("generation.loading")}</span>
           )}
@@ -168,7 +175,8 @@ export function ResultCanvas({
                 }}
               >
                 {!decoded && fallback}
-                <img
+                <SafetyImage
+                  assetId={result.assetId}
                   style={{
                     width: Math.min(1, zoom) * 100 + "%",
                     height: Math.min(1, zoom) * 100 + "%",

@@ -7,6 +7,7 @@ import { useMediaAsset } from "@/features/media/use-media-asset";
 import { CharacterPositionPolicy } from "@/features/characters";
 import { characterKey, normalizePosition, type Position } from "./model";
 import "./positioning.css";
+import { useSafetyDisplay } from "@/features/media/safety-image";
 
 export function CharacterPositionWorkspace({
   characters,
@@ -44,6 +45,7 @@ export function CharacterPositionWorkspace({
     moved: boolean;
   } | null>(null);
   const media = useMediaAsset(sourceId);
+  const safety = useSafetyDisplay(sourceId);
   const selected =
     characters.find((item) => characterKey(item) === selectedKey) ??
     characters.find((item) => item.enabled) ??
@@ -137,6 +139,8 @@ export function CharacterPositionWorkspace({
           role="application"
           aria-label={t("positioning.characterPositions")}
           tabIndex={0}
+          onPointerDownCapture={safety.intercept}
+          onClickCapture={safety.reveal}
           style={{
             aspectRatio: `${size.width} / ${size.height}`,
             width: `min(100%, calc((100vh - 230px) * ${size.width / size.height}))`,
@@ -178,6 +182,11 @@ export function CharacterPositionWorkspace({
           onPointerCancel={stop}
           onLostPointerCapture={stop}
           onKeyDown={(event) => {
+            if (safety.blurred) {
+              if (event.key === "Enter" || event.key === " ") safety.reveal(event);
+              else safety.intercept(event);
+              return;
+            }
             if (!selected || !options || !supported || !event.key.startsWith("Arrow")) return;
             event.preventDefault();
             const span = options.range.max - options.range.min;
@@ -203,8 +212,9 @@ export function CharacterPositionWorkspace({
           {media.asset && (
             <AssetImage
               asset={media.asset}
+              safetyDisabled
               alt={t("positioning.backgroundImage")}
-              className="character-position-underlay"
+              className={`character-position-underlay${safety.blurred ? " image-safety-blurred" : ""}`}
             />
           )}
           {grid && (

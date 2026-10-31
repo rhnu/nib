@@ -115,4 +115,11 @@ CREATE TABLE generation_results (
     UNIQUE (job_id, sample_index)
 );
 
-PRAGMA user_version = 15;
+CREATE TABLE image_safety (
+    blob_id TEXT PRIMARY KEY NOT NULL REFERENCES media_blobs(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (json_valid(status)),
+    reason TEXT,
+    assessment TEXT CHECK (assessment IS NULL OR json_valid(assessment))
+);
+
+PRAGMA user_version = 16;

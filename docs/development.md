@@ -4,21 +4,23 @@
 
 ## 工程边界
 
-| 包              | 职责                                                            |
-| --------------- | --------------------------------------------------------------- |
-| `nib-app`       | 不依赖 Tauri 的应用库，组合业务、SDK 和资源后端，管理生命周期。 |
-| `nib-contract`  | 按领域组织的轻量共享契约。                                      |
-| `nib-prompt`    | 原生与 WASM 共用的提示词源处理及插入格式化。                    |
-| `nib-resources` | 下载目录、组件依赖、校验、安装和资源代次。                      |
-| `nib-lexicon`   | 原生词库检索、语义查询和资源打包。                              |
-| `nib-desktop`   | 桌面宿主，负责平台适配、IPC 和 I/O 装配。                       |
-| `xtask`         | 类型生成、提示词 WASM 构建与资源校验发布工具。                  |
+| 包                      | 职责                                                            |
+| ----------------------- | --------------------------------------------------------------- |
+| `nib-app`               | 不依赖 Tauri 的应用库，组合业务、SDK 和资源后端，管理生命周期。 |
+| `nib-contract`          | 按领域组织的轻量共享契约。                                      |
+| `nib-prompt`            | 原生与 WASM 共用的提示词源处理及插入格式化。                    |
+| `nib-resources`         | 下载目录、组件依赖、校验、安装和资源代次。                      |
+| `nib-lexicon`           | 原生词库检索、语义查询和资源打包。                              |
+| `nib-image-analysis`    | 图像预处理、模型资源与本地评分及标签推理。                      |
+| `nib-inference-runtime` | 词库与图像分析共用的 ONNX 进程环境。                            |
+| `nib-desktop`           | 桌面宿主，负责平台适配、IPC 和 I/O 装配。                       |
+| `xtask`                 | 类型生成、提示词 WASM 构建与资源校验发布工具。                  |
 
 React 前端与宿主位于 `apps/desktop/`，由 pnpm 和 Cargo workspace 分别管理。Rust 成员依赖统一从 workspace 继承，锁文件纳入版本管理。
 
 宿主在 nib 业务包中只直接依赖 `nib-app` 并启用 `native`；app 组合 SDK、词库和资源后端。词库和资源后端依赖 `nib-contract`，不依赖 app。词库契约位于 `nib-contract::lexicon`，下载状态位于 `nib-contract::downloads`，app 按领域重导出。具体资源后端错误归 `nib-resources`，安装任务和对宿主的分类错误归 app。
 
-`nib-prompt` 只直接使用 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入网络、图像或 Tokenizer。下载依赖留在 `nib-resources`，ONNX、语义 Tokenizer 与向量索引留在 `nib-lexicon`。app 的 `native` 默认关闭；xtask 仅启用 `typegen`，类型生成与提示词 WASM 不引入原生推理后端。
+`nib-prompt` 只直接使用 SDK 的独立 `novelai-bridge-prompt` 语法库，不引入网络、图像或 Tokenizer。下载依赖留在 `nib-resources`，原生图像推理留在 `nib-image-analysis`，语义 Tokenizer 与向量索引留在 `nib-lexicon`，ONNX 进程环境归 `nib-inference-runtime`。app 的 `native` 默认关闭；xtask 仅启用 `typegen`，类型生成与提示词 WASM 不引入原生推理后端。
 
 应用库按领域拥有类型、查询与实现：
 
@@ -32,6 +34,7 @@ React 前端与宿主位于 `apps/desktop/`，由 pnpm 和 Cargo workspace 分�
 | `settings`  | 账户、应用偏好与数据位置语义。                   |
 | `lexicon`   | 词库查询契约、分类、结果与可用状态。             |
 | `downloads` | 通用资源通信类型和应用持有的安装任务。           |
+| `safety`    | 图像评分策略、证据持久化、历史补查及标签投影。   |
 
 查询保留所属领域和来源，不统一成任意 JSON 接口；可查询不表示可写入。模块默认是源码组织单位，只有真实编译依赖或复用需求才增加 crate。Rust 使用同名文件与子目录，避免 `mod.rs`，纯逻辑单元测试放在被测模块的独立 `tests.rs`。
 
@@ -258,6 +261,14 @@ uv run --project tools/lexicon --locked python tools/lexicon/lexicon.py pack --v
 通用下载目录固定为 [resource 分支的 catalog.json](https://raw.githubusercontent.com/rhnu/nib/refs/heads/resource/catalog.json)，界面不接受下载地址。`nib-resources` 负责目录刷新、组件依赖闭包、按内容身份复用文件、大小与 SHA-256 校验，以及有效强 ETag 和 Range 响应下的续传。宿主将资源 ID 与目标组件集合交给 app 启动任务；任务由 app 持有，离开页面不会取消。完整资源组校验并经 consumer 准备成功后，才原子切换活动记录；失败或取消保留旧版本。资源代次租约保留仍被查询使用的文件，卸载停用 consumer。初始化、目录刷新、安装结束与卸载后，回收不再属于当前目录、安装版本或进行中任务的下载对象及续传文件；元数据恢复失败时保留缓存，待取得完整引用后清理。开发阶段不兼容旧资源布局，旧安装需重新安装。
 
 前端通用 `downloads` 组件由设置页提供，不依赖具体词库模块；安装和卸载按资源 ID 失效声明了 `meta.downloadableResource` 的消费者查询。词库状态查询声明 `lexicon`，按 generation 变化增加修订并拒绝旧补全与插入；词库查询只消费可用代次，不拥有目录地址或下载操作。未安装空状态通过工作台导航进入资源下载设置，沿用材料提交和未应用遮罩保护。管理界面的操作说明见[资源下载](features.md#资源下载)。
+
+## 图像分析资源
+
+本地图像分析沿用 Atelier 的固定模型、预处理与 `anime-rating-cascade` v1 策略。主模型为 `deepghs/anime_dbrating` 的 `mobilenetv3_large_100_v0_ls0.2`；复核及标签模型为 `SmilingWolf/wd-swinv2-tagger-v3`。下载清单固定 revision、文件大小和 SHA-256，权威清单位于资源分支的 `anime-dbrating/versions/1.0.0/` 与 `wd-swinv2-tagger-v3/versions/1.0.0/`。
+
+模型通过资源 consumer 和代次租约使用，与词库共用应用的 CPU ONNX Runtime。原生推理依赖不进入类型生成或提示词 WASM。安全状态、证据和按媒体内容的关联归应用领域；宿主只装配与投影 IPC，前端以共用展示策略管理模糊。评分失败保留可用生成图片，存储失败仍按持久化错误处理。
+
+模型权重从固定 revision 的 Hugging Face 上游下载。主模型卡只标识 OpenRAIL 许可证家族，WD 模型卡标识 Apache-2.0，具体来源说明随资源包保存。资源发布工具允许固定 40 位提交的上游模型引用，验证其完整字节后发布清单；上游权重保持外部引用。其它包内文件继续使用自身固定 Release 地址，现有词库发布流程不变。
 
 ## 持续检查
 

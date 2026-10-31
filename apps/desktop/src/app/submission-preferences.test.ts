@@ -8,6 +8,7 @@ const initial: ApplicationPreferences = {
   theme: "dark",
   language: "system",
   recentImageLimit: 20,
+  safety: { autoScan: true, useWdReview: true, blurNsfw: true, blurDetails: false },
   execution: { imageBaseUrl: null, imageRequestEncoding: "json", serverImageCache: false },
 };
 

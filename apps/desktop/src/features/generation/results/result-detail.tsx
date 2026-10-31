@@ -1,3 +1,4 @@
+import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { resultsApi } from "./api";
@@ -87,7 +88,9 @@ function ResultDetailContent({
               available={result.available}
               filename={resultFilename(result)}
             >
-              <img
+              <SafetyImage
+                assetId={result.assetId}
+                details
                 src={image.url}
                 alt={
                   result.seed === null

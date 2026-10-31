@@ -10,6 +10,7 @@ pub mod library;
 pub mod media;
 pub mod persistence;
 pub mod prompt;
+pub mod safety;
 pub mod sdk;
 pub mod session;
 pub mod settings;

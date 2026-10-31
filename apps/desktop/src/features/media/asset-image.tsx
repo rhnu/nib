@@ -5,6 +5,7 @@ import { useMediaContent } from "./use-media-content";
 import { imageUnavailableReason } from "./model";
 import { ImageContextActions } from "./image-context-actions";
 import "./media.css";
+import { SafetyImage } from "./safety-image";
 
 /** Immutable original content is shared with other mounted viewers. */
 export function useAssetImage(asset: MediaAsset) {
@@ -17,10 +18,12 @@ export function AssetImage({
   asset,
   alt,
   className,
+  safetyDisabled = false,
 }: {
   asset: MediaAsset;
   alt: string;
   className?: string;
+  safetyDisabled?: boolean;
 }) {
   useTranslation();
 
@@ -45,7 +48,9 @@ export function AssetImage({
       available={asset.available}
       deferToAncestor
     >
-      <img
+      <SafetyImage
+        assetId={asset.id}
+        safetyDisabled={safetyDisabled}
         className={className ?? "media-image"}
         src={image.url}
         alt={alt}

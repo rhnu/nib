@@ -1,3 +1,4 @@
+import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { resultsApi } from "@/features/generation/results/api";
@@ -72,7 +73,7 @@ function OutputThumbnail({
         onClick={onSelect}
       >
         {image.url ? (
-          <img src={image.url} alt="" onError={image.failed} />
+          <SafetyImage assetId={result.assetId} src={image.url} alt="" onError={image.failed} />
         ) : (
           <span>
             {!result.available

@@ -8,6 +8,7 @@ mod metadata;
 mod query;
 pub(crate) mod references;
 pub(crate) mod resource_covers;
+mod safety;
 mod sqlite;
 mod vibe;
 use std::{
@@ -169,6 +170,7 @@ pub struct MediaLibrary {
     database: Arc<SqliteDatabase>,
     directory: PathBuf,
     thumbnails: Mutex<()>,
+    pub(crate) safety_scanner: Option<Arc<dyn crate::safety::ImageSafetyScanner>>,
 }
 
 /// Metadata import reports its partial nature alongside the usable editing fields.
@@ -200,9 +202,20 @@ impl MediaLibrary {
             database,
             directory,
             thumbnails: Mutex::new(()),
+            safety_scanner: None,
         };
         library.recover_orphans()?;
         Ok(library)
+    }
+
+    /// Attaches application-owned local analysis before media is shared with writers.
+    #[must_use]
+    pub fn with_safety_scanner(
+        mut self,
+        scanner: Arc<dyn crate::safety::ImageSafetyScanner>,
+    ) -> Self {
+        self.safety_scanner = Some(scanner);
+        self
     }
 
     /// Lists final operation outputs and checks their immutable content availability.
@@ -466,7 +479,23 @@ impl FinalOutputStore for MediaLibrary {
         };
         // Every staged file has been completely written and synchronized. The single
         // transaction keeps both assets and outputs invisible if cancellation won.
-        self.database.commit_results(&job.id, &retained)
+        if !self.database.commit_results(&job.id, &retained)? {
+            return Ok(());
+        }
+        // Results are durable before optional inference starts. Every final image is assessed;
+        // model failures become Unknown and cannot discard a completed paid operation.
+        let mut failure = None;
+        for output in retained
+            .iter()
+            .filter(|output| output.asset.kind == AssetKind::Image)
+        {
+            if let Err(error) = self.scan_image_safety(&output.asset.id, false)
+                && failure.is_none()
+            {
+                failure = Some(error);
+            }
+        }
+        failure.map_or(Ok(()), Err)
     }
 }
 

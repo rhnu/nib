@@ -50,4 +50,20 @@ fn publication_targets_one_immutable_resource_release() {
     assert!(publication_files(&manifest, "other", "2.3.4").is_err());
     manifest.components[0].files[0].url = "https://example.com/colors.json".into();
     assert!(publication_files(&manifest, "palettes", "2.3.4").is_err());
+    manifest.components[0].files[0].url = "https://huggingface.co/owner/model/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx".into();
+    assert!(publication_files(&manifest, "palettes", "2.3.4").is_ok());
+}
+
+#[test]
+fn upstream_models_require_an_immutable_revision() {
+    use super::is_pinned_model;
+    assert!(is_pinned_model(
+        "https://huggingface.co/owner/model/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx"
+    ));
+    assert!(!is_pinned_model(
+        "https://huggingface.co/owner/model/resolve/main/model.onnx"
+    ));
+    assert!(!is_pinned_model(
+        "https://example.com/owner/model/resolve/0123456789abcdef0123456789abcdef01234567/model.onnx"
+    ));
 }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["modules/app", "modules/contract", "modules/prompt", "modules/lexicon", "modules/resources", "apps/desktop/src-tauri", "xtask"]
+members = ["modules/app", "modules/contract", "modules/prompt", "modules/lexicon", "modules/resources", "modules/image-analysis", "modules/inference-runtime", "apps/desktop/src-tauri", "xtask"]
 resolver = "3"
 
 [workspace.package]
@@ -14,6 +14,10 @@ nib-contract = { path = "modules/contract" }
 nib-prompt = { path = "modules/prompt" }
 nib-lexicon = { path = "modules/lexicon" }
 nib-resources = { path = "modules/resources" }
+nib-image-analysis = { path = "modules/image-analysis" }
+nib-inference-runtime = { path = "modules/inference-runtime" }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+csv = "1.4.0"
 flate2 = "1.1.10"
 half = "2.7.1"
 sha2 = "0.11.1"

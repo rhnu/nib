@@ -18,6 +18,7 @@ import { language } from "./zh-cn/language";
 import { presets } from "./zh-cn/presets";
 import { lexicon } from "./zh-cn/lexicon";
 import { downloads } from "./zh-cn/downloads";
+import { safety } from "./zh-cn/safety";
 
 export const zhCN = {
   app: app,
@@ -40,4 +41,5 @@ export const zhCN = {
   presets: presets,
   lexicon,
   downloads,
+  safety,
 };

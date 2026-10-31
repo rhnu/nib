@@ -18,6 +18,7 @@ import { language } from "./en/language";
 import { presets } from "./en/presets";
 import { lexicon } from "./en/lexicon";
 import { downloads } from "./en/downloads";
+import { safety } from "./en/safety";
 
 export const en = {
   app: app,
@@ -40,4 +41,5 @@ export const en = {
   presets: presets,
   lexicon,
   downloads,
+  safety,
 };

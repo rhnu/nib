@@ -18,6 +18,7 @@ import { useMaskBitmaps } from "./use-mask-bitmaps";
 import { ImageContextActions } from "@/features/media/image-context-actions";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import "./inpaint.css";
+import { useSafetyDisplay } from "@/features/media/safety-image";
 
 type Tool = "paint" | "erase" | "pan";
 type Preview = "overlay" | "original" | "mask";
@@ -53,6 +54,7 @@ export function InpaintCanvasWorkspace({
   const [pointer, setPointer] = useState<MaskPoint | null>(null);
   const [renderError, setRenderError] = useMessageState();
   const images = useMaskBitmaps(value.sourceAssetId, value.baseMaskAssetId);
+  const safety = useSafetyDisplay(value.sourceAssetId);
   const source = useMediaAsset(value.sourceAssetId);
   const { width, height, commands, cursor } = value;
   const raster = useRef<{
@@ -402,6 +404,8 @@ export function InpaintCanvasWorkspace({
         aria-label={t("inpaint.canvasLabel")}
         tabIndex={0}
         onPointerDown={start}
+        onPointerDownCapture={safety.intercept}
+        onClickCapture={safety.reveal}
         onPointerMove={move}
         onPointerUp={(event) => {
           move(event);
@@ -413,6 +417,11 @@ export function InpaintCanvasWorkspace({
           if (!gesture.current) setPointer(null);
         }}
         onKeyDown={(event) => {
+          if (safety.blurred) {
+            if (event.key === "Enter" || event.key === " ") safety.reveal(event);
+            else safety.intercept(event);
+            return;
+          }
           if (pending) return;
           const current = latest.current.value;
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
@@ -461,6 +470,8 @@ export function InpaintCanvasWorkspace({
           ]}
         >
           <canvas
+            className={safety.blurred ? "image-safety-blurred" : undefined}
+            title={safety.blurred ? t("safety.reveal") : undefined}
             ref={canvas}
             aria-label={
               preview === "original" ? t("inpaint.originalPreview") : t("inpaint.inpaintMask")

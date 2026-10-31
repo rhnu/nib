@@ -7,7 +7,7 @@ publish.workspace = true
 
 [features]
 typegen = ["dep:ts-rs", "nib-prompt/typegen", "nib-contract/typegen"]
-native = ["dep:nib-lexicon", "dep:nib-resources"]
+native = ["dep:nib-lexicon", "dep:nib-resources", "dep:nib-image-analysis"]
 
 [dependencies]
 anyhow.workspace = true
@@ -15,6 +15,7 @@ async-trait.workspace = true
 nib-contract.workspace = true
 nib-lexicon = { workspace = true, optional = true }
 nib-resources = { workspace = true, optional = true }
+nib-image-analysis = { workspace = true, optional = true }
 novelai-bridge.workspace = true
 nib-prompt.workspace = true
 futures-util.workspace = true

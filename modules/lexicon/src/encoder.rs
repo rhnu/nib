@@ -72,7 +72,7 @@ impl QueryEncoderPool {
 
 impl QueryEncoder {
     pub(crate) fn load(directory: &Path, model: &ModelResource) -> Result<Self> {
-        let environment = environment()?;
+        let environment = nib_inference_runtime::environment()?;
         let session = Session::builder(&environment)?
             .with_intra_threads(4)
             .map_err(ort::Error::<()>::from)?
@@ -144,20 +144,6 @@ impl QueryEncoder {
         self.cache.push_back((text.to_owned(), vector.clone()));
         Ok(vector)
     }
-}
-
-/// ort permits one process environment; resource replacement creates sessions within it.
-fn environment() -> Result<ort::environment::Environment> {
-    static ENVIRONMENT: Mutex<Option<ort::environment::Environment>> = Mutex::new(None);
-    let mut environment = ENVIRONMENT
-        .lock()
-        .map_err(|_state| anyhow::anyhow!("ONNX environment lock poisoned"))?;
-    if let Some(environment) = environment.as_ref() {
-        return Ok(environment.clone());
-    }
-    let initialized = ort::init().build()?;
-    *environment = Some(initialized.clone());
-    Ok(initialized)
 }
 
 /// Validate the compressed tokenizer during activation, without initializing ONNX Runtime.

@@ -1,3 +1,4 @@
+import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +28,8 @@ export function PreviewImage({ sample }: { sample: FeedbackSample }) {
   }, [sample.bytes, sample.mimeType]);
   const url = frame?.url ?? null;
   return url && url !== failed ? (
-    <img
+    <SafetyImage
+      assetId={null}
       className="generation-live-image"
       src={url}
       alt={t("generation.samplePreview", { value0: sample.sampleIndex + 1 })}
@@ -71,7 +73,8 @@ function SampleCell({
           mimeType={result.mimeType}
           available={result.available}
         >
-          <img
+          <SafetyImage
+            assetId={result.assetId}
             className="generation-live-image"
             src={image.url}
             alt={t("generation.sampleNumber", { value0: index + 1 })}

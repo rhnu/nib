@@ -8,6 +8,8 @@ import { useMediaAsset } from "./use-media-asset";
 import { ImageMetadataDialog } from "./image-metadata-dialog";
 import type { ImageOperationAction } from "@/features/inputs/image-operation";
 import type { Draft } from "@/bindings/workbench";
+import { ImageSafetyDialog } from "./image-safety-dialog";
+import { ImageTagDialog } from "./image-tag-dialog";
 
 /** Clipboard receives decoded image pixels, never a URL or encoded text. */
 async function pngContent(id: string, mimeType: string) {
@@ -84,6 +86,8 @@ export function useImageContextActions({
   const tools = useMediaTools();
   const operate = onImageOperation ?? tools?.onImageOperation;
   const [metadataOpen, setMetadataOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const media = useMediaAsset(metadataOpen ? id : null);
   const items: ActionMenuItem[] = [
     {
@@ -101,6 +105,8 @@ export function useImageContextActions({
       disabled: !available,
       action: () => setMetadataOpen(true),
     },
+    { label: t("safety.info"), action: () => setSafetyOpen(true) },
+    { label: t("safety.tags"), disabled: !available, action: () => setTagsOpen(true) },
     ...(operate
       ? [
           { separator: true } as const,
@@ -137,7 +143,7 @@ export function useImageContextActions({
       : []),
     ...extraItems,
   ];
-  const dialogs =
+  const metadataDialog =
     metadataOpen &&
     (media.asset ? (
       <ImageMetadataDialog
@@ -156,6 +162,13 @@ export function useImageContextActions({
         )}
       </Modal>
     ));
+  const dialogs = (
+    <>
+      {metadataDialog}
+      {safetyOpen && <ImageSafetyDialog assetId={id} onClose={() => setSafetyOpen(false)} />}
+      {tagsOpen && <ImageTagDialog key={id} assetId={id} onClose={() => setTagsOpen(false)} />}
+    </>
+  );
   return { items, dialogs };
 }
 

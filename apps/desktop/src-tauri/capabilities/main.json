@@ -4,6 +4,10 @@
   "description": "Allows the local main window to edit creations, configure the native credential store, submit generation, and read retained results.",
   "windows": ["main"],
   "permissions": [
+    "allow-get-image-analysis-status",
+    "allow-get-image-safety",
+    "allow-rescan-image-safety",
+    "allow-extract-image-tags",
     "allow-edit-text",
     "allow-search-lexicon",
     "allow-get-lexicon-status",
