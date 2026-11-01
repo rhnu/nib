@@ -1,7 +1,26 @@
 import { history, isolateHistory, undo } from "@codemirror/commands";
 import { EditorState, Transaction } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { completionInsertion } from "./editor-completion";
+import { completionInsertion, completionTerm } from "./editor-completion";
+
+describe("completion term formatting", () => {
+  it("prefixes an artist's supplied prompt text without adding emphasis", () => {
+    expect(completionTerm({ kind: "artist", promptText: "画師 name" })).toEqual({
+      name: "artist:画師 name",
+      weight: null,
+    });
+  });
+
+  it.each(["general", "copyright", "character", "meta"] as const)(
+    "preserves %s prompt text",
+    (kind) => {
+      expect(completionTerm({ kind, promptText: "supplied tag" })).toEqual({
+        name: "supplied tag",
+        weight: null,
+      });
+    },
+  );
+});
 
 describe("completion insertion", () => {
   it.each([

@@ -10,8 +10,8 @@ import {
 import { isolateHistory } from "@codemirror/commands";
 import { EditorState, Prec, StateEffect, StateField, Transaction } from "@codemirror/state";
 import { EditorView, ViewPlugin, keymap, type ViewUpdate } from "@codemirror/view";
-import type { LexiconMatch, LexiconStatus } from "@/bindings/lexicon";
-import type { TextRange } from "@/bindings/prompt";
+import type { LexiconMatch, LexiconStatus, LexiconTerm } from "@/bindings/lexicon";
+import type { LexiconFormatTerm, TextRange } from "@/bindings/prompt";
 import {
   lexiconApi,
   lexiconRevision,
@@ -84,6 +84,14 @@ export function completionInsertion(state: EditorState, range: TextRange, text: 
   };
 }
 
+/** Artist completions add their prefix before the shared formatter protects literal tag text. */
+export function completionTerm(term: Pick<LexiconTerm, "kind" | "promptText">): LexiconFormatTerm {
+  return {
+    name: term.kind === "artist" ? `artist:${term.promptText}` : term.promptText,
+    weight: null,
+  };
+}
+
 function completionResult(
   view: EditorView,
   range: TextRange,
@@ -112,7 +120,7 @@ function completionResult(
         .join("\n"),
       apply(target, completion) {
         if (target !== view || !current(target.state)) return;
-        void formatLexiconTerms([{ name: match.term.promptText, weight: null }], profile)
+        void formatLexiconTerms([completionTerm(match.term)], profile)
           .then((insert) => {
             if (!current(target.state)) return;
             target.dispatch({
