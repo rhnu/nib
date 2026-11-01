@@ -20,6 +20,7 @@ import { RequestCanvas } from "./request-canvas";
 import { SourceImageView } from "./source-image-view";
 import { ImageResultActions } from "./image-result-actions";
 import { useMediaAsset } from "@/features/media/use-media-asset";
+import { nextPreviewJob } from "./preview-follow";
 
 export function GenerationResults({
   onRestore,
@@ -55,17 +56,17 @@ export function GenerationResults({
     loadingMoreResults,
     loadMoreResults,
   } = useJobData();
-  const { feedbackError, reconnectFeedback } = useFeedback();
+  const { feedback, feedbackError, reconnectFeedback } = useFeedback();
   const view = useResultViewStore(gallery);
   const selection = useStore(view, (state) => state.selection);
   const seenBatch = useStore(view, (state) => state.seenBatch);
-  const seenRunningJob = useStore(view, (state) => state.seenRunningJob);
-  const runningJobId = jobs?.find(
-    (job) =>
-      job.status === "running" &&
-      job.operation.kind !== "encodeVibe" &&
-      (!lastSubmission || job.batchId === lastSubmission.batchId),
-  )?.id;
+  const followedJobId = useStore(view, (state) => state.followedJobId);
+  const previewBatchId =
+    lastSubmission?.batchId ??
+    jobs?.find((job) => job.status === "running" && job.operation.kind !== "encodeVibe")?.batchId ??
+    jobs?.find((job) => job.id === followedJobId)?.batchId ??
+    null;
+  const readyJobId = nextPreviewJob(jobs ?? [], feedback, previewBatchId, followedJobId);
 
   const setSelection = useCallback(
     (selection: Selection | null) => view.setState({ selection }),
@@ -80,20 +81,20 @@ export function GenerationResults({
       const first = lastSubmission.jobs[0];
       view.setState({
         seenBatch: lastSubmission.batchId,
-        seenRunningJob: first?.id ?? null,
+        followedJobId: first?.id ?? null,
         ...(first && first.submission.kind !== "encodeVibe"
           ? { selection: { kind: "job", id: first.id } as const }
           : {}),
       });
       return;
     }
-    // Follow each request once; subsequent refreshes preserve manual image selection.
-    if (runningJobId && runningJobId !== seenRunningJob)
+    // Keep the previous image visible until the later request has image content.
+    if (readyJobId)
       view.setState({
-        seenRunningJob: runningJobId,
-        selection: { kind: "job", id: runningJobId },
+        followedJobId: readyJobId,
+        selection: { kind: "job", id: readyJobId },
       });
-  }, [gallery, lastSubmission, seenBatch, runningJobId, seenRunningJob, view]);
+  }, [gallery, lastSubmission, seenBatch, readyJobId, view]);
   const activeJobs =
     jobs?.filter(
       (job) =>

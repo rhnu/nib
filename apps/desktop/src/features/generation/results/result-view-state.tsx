@@ -12,7 +12,7 @@ type ResultViewState = {
   selection: ResultSelection | null;
   sourceReturn: ResultSelection | null;
   seenBatch: string | null;
-  seenRunningJob: string | null;
+  followedJobId: string | null;
 };
 
 /** Selection belongs to the generation session, independently for preview and gallery. */
@@ -21,7 +21,7 @@ function createResultView() {
     selection: null,
     sourceReturn: null,
     seenBatch: null,
-    seenRunningJob: null,
+    followedJobId: null,
   }));
 }
 
