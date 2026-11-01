@@ -1,4 +1,27 @@
+body {
+  margin: 0;
+  min-width: 360px;
+}
+.application {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+.startup-splash {
+  box-sizing: border-box;
+  padding-top: var(--titlebar-height);
+}
+.app-icon {
+  display: block;
+  flex-shrink: 0;
+  filter: invert(1);
+}
+:root[data-theme="light"] .app-icon {
+  filter: none;
+}
 .startup {
+  box-sizing: border-box;
   display: grid;
   flex: 1;
   min-height: 0;
@@ -7,6 +30,7 @@
   place-items: center;
 }
 .startup-panel {
+  box-sizing: border-box;
   width: min(430px, 100%);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -18,6 +42,9 @@
 }
 .startup-panel h1 {
   font-size: 27px;
+  font-weight: 580;
+  letter-spacing: -0.5px;
+  margin-top: 0;
   margin-bottom: 4px;
 }
 .startup-message {
@@ -35,4 +62,20 @@
 }
 .startup-panel code {
   color: var(--text);
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

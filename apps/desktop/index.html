@@ -3,12 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <script>
+      document.documentElement.dataset.theme = window.__NIB_STARTUP_THEME__ ?? "dark";
+    </script>
     <link rel="icon" type="image/svg+xml" href="/src/assets/app-icon.svg" />
     <title>nib</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="application startup-splash">
+        <main class="startup">
+          <section class="startup-panel">
+            <img
+              class="app-icon brand-mark"
+              src="/src/assets/app-icon.svg"
+              width="48"
+              height="48"
+              alt=""
+              aria-hidden="true"
+            />
+            <h1>nib</h1>
+            <div class="startup-message" role="progressbar" aria-label="nib">
+              <svg
+                class="spin"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M12 2a10 10 0 1 0 10 10" />
+              </svg>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

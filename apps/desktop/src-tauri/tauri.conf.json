@@ -12,6 +12,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "nib",
         "width": 1280,
         "height": 760,

@@ -36,10 +36,6 @@
 [hidden] {
   display: none !important;
 }
-body {
-  margin: 0;
-  min-width: 360px;
-}
 fieldset {
   margin: 0;
   padding: 0;
@@ -114,20 +110,4 @@ details > summary {
   color: var(--muted);
   font-size: var(--font-size-label);
   padding: 10px 0;
-}
-.spin {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
-  }
 }

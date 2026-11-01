@@ -23,6 +23,7 @@ mod settings;
 mod state;
 mod storage;
 mod updates;
+mod window;
 
 /// Initializes host diagnostics and runs the native desktop event loop.
 ///
@@ -43,7 +44,9 @@ pub fn run() -> anyhow::Result<()> {
             let development = tauri::is_dev();
             let base = application_base(app.handle(), development)?;
             let desktop = bootstrap::start(&base, development, app.handle().clone())?;
+            let theme = desktop.app.settings().preferences()?.theme;
             app.manage(desktop);
+            window::create(app.handle(), theme)?;
             Ok(())
         })
         .invoke_handler(invocation_handler())

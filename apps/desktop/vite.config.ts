@@ -1,10 +1,29 @@
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: "startup-styles",
+      // Use the same tokens and layout before the application modules or fonts load.
+      transformIndexHtml() {
+        return [
+          {
+            tag: "style",
+            children: ["./src/shared/styles/tokens.css", "./src/app/startup.css"]
+              .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+              .join("\n"),
+            injectTo: "head",
+          },
+        ];
+      },
+    },
+  ],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
