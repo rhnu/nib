@@ -14,6 +14,40 @@ import { ContentSources } from "./resolution-sources";
 import "./resolved-outputs.css";
 import { ResolvedVibes } from "@/features/vibes";
 
+/** Base and character prompts share labels, column sizing and read-only behavior. */
+export function ResolvedPromptPair({
+  positive,
+  negative,
+  model,
+}: {
+  positive: string;
+  negative: string;
+  model: string;
+}) {
+  useTranslation();
+
+  return (
+    <div className="resolved-prompt-pair">
+      {(["positive", "negative"] as const).map((scope) => {
+        const label = t(scope === "positive" ? "prompt.positivePrompt" : "prompt.negativePrompt");
+        return (
+          <div className="resolved-prompt-column" key={scope}>
+            <span className="resolved-prompt-label">{label}</span>
+            <PromptTextEditor
+              label={label}
+              value={scope === "positive" ? positive : negative}
+              model={model}
+              context="native"
+              readOnly
+              placeholder={t("prompt.empty")}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OutputSource({ source }: { source: InputProvenance | ResolvedCharacter | undefined }) {
   useTranslation();
 
@@ -55,37 +89,16 @@ function ResolvedCharacterDetails({
         <span className="tag">
           {character.enabled ? t("prompt.enabled") : t("prompt.disabled")}
         </span>
+        <span className="resolved-character-position muted">
+          {useCoords === true ? t("prompt.customCoordinates") : t("prompt.retainedCoordinates")}
+          {" · "}
+          {character.position.x}, {character.position.y}
+        </span>
       </header>
-      <dl className="resolved-output-metadata">
-        <div>
-          <dt>
-            {useCoords === true ? t("prompt.customCoordinates") : t("prompt.retainedCoordinates")}
-          </dt>
-          <dd>
-            {t("prompt.xCoordinate")}
-            {character.position.x}
-            {t("prompt.yCoordinate")}
-            {character.position.y}
-          </dd>
-        </div>
-      </dl>
-      <h5>{t("prompt.positivePrompt")}</h5>
-      <PromptTextEditor
-        label={t("prompt.characterPositivePrompt")}
-        value={character.positive}
+      <ResolvedPromptPair
+        positive={character.positive}
+        negative={character.negative}
         model={model}
-        context="native"
-        readOnly
-        placeholder={t("prompt.empty")}
-      />
-      <h5>{t("prompt.negativePrompt")}</h5>
-      <PromptTextEditor
-        label={t("prompt.characterNegativePrompt")}
-        value={character.negative}
-        model={model}
-        context="native"
-        readOnly
-        placeholder={t("prompt.empty")}
       />
       <details>
         <summary>{t("prompt.characterContentSources")}</summary>

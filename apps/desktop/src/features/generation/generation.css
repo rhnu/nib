@@ -132,24 +132,37 @@
 .generation-submit-label > svg {
   flex-shrink: 0;
 }
-.generation-submit-row > .primary[data-error],
-.generation-submit-row > .primary[data-error]:hover {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: var(--bg);
-  opacity: 1;
-}
-.generation-submit-error {
+.generation-error-banner {
   display: flex;
+  flex: 1;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--bg);
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: left;
 }
-.generation-submit-error > svg {
+.generation-error-banner > svg {
   flex-shrink: 0;
+}
+.generation-error-banner > span {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.generation-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.generation-error-actions > button {
+  color: inherit;
 }
 .generation-submit-cost {
   padding: 2px var(--space-2);
@@ -196,17 +209,6 @@
 }
 .generation-danger {
   color: var(--danger);
-}
-.generation-action-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-  color: var(--danger);
-  overflow-wrap: anywhere;
-  font-size: var(--font-size-caption);
-  flex-wrap: wrap;
 }
 .generation-dialog-body {
   display: flex;

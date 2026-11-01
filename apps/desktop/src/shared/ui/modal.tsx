@@ -13,6 +13,7 @@ export function Modal({
   className = "",
   finalFocus,
   initialFocus,
+  actions,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,7 @@ export function Modal({
   className?: string;
   finalFocus?: ComponentProps<typeof Dialog.Popup>["finalFocus"];
   initialFocus?: ComponentProps<typeof Dialog.Popup>["initialFocus"];
+  actions?: ReactNode;
 }) {
   useTranslation();
 
@@ -42,6 +44,7 @@ export function Modal({
         >
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>
+            {actions}
             {showClose && (
               <Dialog.Close
                 className="icon-button"

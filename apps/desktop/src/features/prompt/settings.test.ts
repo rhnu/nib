@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { i18n } from "@/shared/i18n";
-import { diagnosticSetting, settingsWithDefaults, settingValue } from "./settings";
+import {
+  diagnosticSetting,
+  settingDiagnosticMessage,
+  settingsWithDefaults,
+  settingValue,
+} from "./settings";
 import { emptySettings } from "./model";
 import type { ResolvedSettings } from "@/bindings/workbench";
 
@@ -16,6 +21,49 @@ describe("setting diagnostics", () => {
     expect(diagnosticSetting("guidance.dynamic_thresholding")).toBe("decrisp");
     expect(diagnosticSetting("guidance.smea_dyn")).toBe("smeaDyn");
     expect(diagnosticSetting("references.precise[0].strength")).toBeNull();
+  });
+
+  it("uses readable models and setting names in semantic adjustments", () => {
+    expect(
+      settingDiagnosticMessage("core.model", {
+        kind: "modelFallback",
+        model: "nai-diffusion-4-5-full",
+      }),
+    ).toContain("NAI Diffusion 4.5 Full");
+    expect(
+      settingDiagnosticMessage("guidance.smea_dyn", {
+        kind: "parameterConflict",
+        retainedField: "guidance.dynamic_thresholding",
+      }),
+    ).toContain("Decrisp");
+  });
+
+  it("formats nested diagnostic values while preserving unknown fields and external details", () => {
+    expect(
+      settingDiagnosticMessage("sampling.steps", {
+        kind: "messages",
+        messages: [
+          { kind: "numericAdjusted", from: "-3", to: "4" },
+          {
+            kind: "validation",
+            field: "core.model",
+            message: { kind: "modelFallback", model: "nai-diffusion-4-5-full" },
+          },
+        ],
+      }),
+    ).toContain("NAI Diffusion 4.5 Full");
+    expect(
+      settingDiagnosticMessage("future.control", {
+        kind: "parameterConflict",
+        retainedField: "future.other",
+      }),
+    ).toContain("future.other");
+    expect(
+      settingDiagnosticMessage("core.model", {
+        kind: "external",
+        detail: "keep nai-diffusion-4-5-full unchanged",
+      }),
+    ).toBe("keep nai-diffusion-4-5-full unchanged");
   });
 });
 

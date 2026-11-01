@@ -1,6 +1,11 @@
-import { t, useTranslation, errorMessage } from "@/shared/i18n";
+import { t, useTranslation } from "@/shared/i18n";
 import type { ParameterDiagnostic } from "@/bindings/generation";
 import { Button } from "@/shared/ui";
+import {
+  diagnosticSetting,
+  settingLabels,
+  settingDiagnosticMessage,
+} from "@/features/prompt/settings";
 
 export function ParameterDiagnostics({
   diagnostics,
@@ -16,16 +21,20 @@ export function ParameterDiagnostics({
     <details>
       <summary>{t("generation.sdkAdjustmentCount", { count: diagnostics.length })}</summary>
       <ul>
-        {diagnostics.map((diagnostic, index) => (
-          <li key={`${diagnostic.field}-${index}`}>
-            {diagnostic.field}: {errorMessage(diagnostic.change)}
-            {onLocate && (
-              <Button className="quiet" onClick={() => onLocate(diagnostic.field)}>
-                {t("generation.locate")}
-              </Button>
-            )}
-          </li>
-        ))}
+        {diagnostics.map((diagnostic, index) => {
+          const key = diagnosticSetting(diagnostic.field);
+          return (
+            <li key={`${diagnostic.field}-${index}`}>
+              {key ? settingLabels[key] : diagnostic.field}:{" "}
+              {settingDiagnosticMessage(diagnostic.field, diagnostic.change)}
+              {onLocate && (
+                <Button className="quiet" onClick={() => onLocate(diagnostic.field)}>
+                  {t("generation.locate")}
+                </Button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </details>
   );

@@ -7,6 +7,7 @@ import type {
 } from "@/bindings/workbench";
 import { settingKeys, settingLabels, settingValue } from "./settings";
 import { PromptTextEditor } from "./prompt-text-editor";
+import { Pencil } from "lucide-react";
 
 function sourceLabel(source: SettingSource): string {
   if (source.kind === "draft") return t("prompt.creationOverride");
@@ -65,8 +66,11 @@ export function SettingsSources({
   return (
     <dl className="provenance-list">
       {settingKeys.map((key) => (
-        <div key={key}>
-          <dt>{settingLabels[key]}</dt>
+        <div key={key} data-custom={provenance[key].kind !== "sdkDefault" ? "" : undefined}>
+          <dt>
+            {settingLabels[key]}
+            {provenance[key].kind !== "sdkDefault" && <Pencil size={11} aria-hidden />}
+          </dt>
           <dd>
             <strong>{settingValue(key, settings[key])}</strong>
             <small>{sourceLabel(provenance[key])}</small>

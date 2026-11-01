@@ -14,8 +14,35 @@
 }
 .resolved-output-item header {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+.resolved-character-position {
+  margin-left: auto;
+  font-size: 11px;
+}
+.resolved-prompt-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.resolved-prompt-column {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+}
+.resolved-prompt-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .resolved-prompt-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .resolved-output-item :is(h4, h5, p),
 .resolved-outputs > section > p {

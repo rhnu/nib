@@ -1,5 +1,5 @@
-import { t } from "@/shared/i18n";
-import type { GenerationSettings, ResolvedSettings } from "@/bindings/workbench";
+import { t, errorMessage } from "@/shared/i18n";
+import type { GenerationSettings, ResolvedSettings, UserMessage } from "@/bindings/workbench";
 import { focusPromptEditor } from "./editor-focus";
 
 export const settingLabels = {
@@ -166,6 +166,37 @@ export function settingValue(
     }
   }
   return String(value);
+}
+
+/** Format semantic adjustments with the same names as the setting controls; keep external details intact. */
+export function settingDiagnosticMessage(field: string, message: UserMessage): string {
+  const key = diagnosticSetting(field);
+  switch (message.kind) {
+    case "messages":
+      return message.messages.map((item) => settingDiagnosticMessage(field, item)).join("\n");
+    case "validation": {
+      const nestedKey = diagnosticSetting(message.field);
+      return t("messages.validation", {
+        field: nestedKey ? settingLabels[nestedKey] : message.field,
+        detail: settingDiagnosticMessage(message.field, message.message),
+      });
+    }
+    case "modelFallback":
+      return t("messages.modelFallback", { model: settingValue("model", message.model) });
+    case "parameterConflict": {
+      const retained = diagnosticSetting(message.retainedField);
+      return t("messages.parameterConflict", {
+        retainedField: retained ? settingLabels[retained] : message.retainedField,
+      });
+    }
+    case "numericAdjusted":
+      return t("messages.numericAdjusted", {
+        from: key ? settingValue(key, message.from) : message.from,
+        to: key ? settingValue(key, message.to) : message.to,
+      });
+    default:
+      return errorMessage(message);
+  }
 }
 
 // Labels describe SDK identifiers without defining supported choices or validation rules.

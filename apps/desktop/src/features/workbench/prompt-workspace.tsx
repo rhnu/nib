@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { ParameterDiagnostic, TokenFieldUsage } from "@/bindings/generation";
-import { ScanText, Settings2, X } from "lucide-react";
+import { ScanText, Settings2, ListChecks, X } from "lucide-react";
 import { IconButton, Modal } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { SettingsEditor, focusSetting } from "@/features/prompt/settings-editor";
@@ -51,6 +51,7 @@ export function PromptWorkspace({
   useTranslation();
 
   const [inspector, setInspector] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const issueCount = resolved
     ? resolved.issues.length +
       resolved.promptAnalysis.reduce(
@@ -183,9 +184,27 @@ export function PromptWorkspace({
       )}
       <Modal
         open={inspector}
-        onClose={() => setInspector(false)}
+        onClose={() => {
+          setInspector(false);
+          setDiagnosticsOpen(false);
+        }}
         title={t("workbench.resolutionSources")}
         wide
+        className="resolution-modal"
+        actions={
+          diagnostics.length > 0 && (
+            <IconButton
+              className="resolution-diagnostics-toggle"
+              label={t("generation.sdkAdjustmentCount", { count: diagnostics.length })}
+              aria-expanded={diagnosticsOpen}
+              aria-controls="resolution-diagnostics"
+              onClick={() => setDiagnosticsOpen((open) => !open)}
+            >
+              <ListChecks size={16} aria-hidden />
+              <span>{diagnostics.length}</span>
+            </IconButton>
+          )
+        }
       >
         <ResolutionInspector
           resolved={resolved}
@@ -195,8 +214,10 @@ export function PromptWorkspace({
           resources={resources}
           tokenModel={capabilities?.model}
           diagnostics={diagnostics}
+          diagnosticsOpen={diagnosticsOpen}
           onFocusField={(field) => {
             setInspector(false);
+            setDiagnosticsOpen(false);
             requestAnimationFrame(() => (onFocusField ?? focusSetting)(field));
           }}
         />

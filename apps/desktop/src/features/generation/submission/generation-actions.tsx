@@ -123,34 +123,59 @@ export function GenerationActions({
       <AccountSnapshot compact />
       {parameters}
       <div className="generation-submit-row">
-        <Button
-          className="primary"
-          data-error={actionError ? "" : undefined}
-          title={actionError ?? undefined}
-          aria-busy={working !== "idle"}
-          disabled={
-            accountLoading ||
-            working !== "idle" ||
-            (Boolean(account?.configured) &&
-              (submissionBlocked ||
-                operationPending ||
-                accountSummaryLoading ||
-                !effectiveOperation ||
-                !estimate.quote ||
-                estimate.quote.tooExpensive ||
-                estimate.quote.tokens.some((token) => token.overLimit)))
-          }
-          onClick={() => {
-            if (!account?.configured) setAccountOpen(true);
-            else void submit();
-          }}
-        >
-          {actionError ? (
-            <span className="generation-submit-error" role="alert">
-              <AlertCircle size={16} aria-hidden />
-              <span>{actionError}</span>
-            </span>
-          ) : (
+        {actionError ? (
+          <div className="generation-error-banner" role="alert">
+            <AlertCircle size={16} aria-hidden />
+            <span>{actionError}</span>
+            {error && (
+              <div className="generation-error-actions">
+                {!account?.configured && (
+                  <Button className="quiet" onClick={() => setAccountOpen(true)}>
+                    <KeyRound size={13} aria-hidden />
+                    {t("generation.configureAccount")}
+                  </Button>
+                )}
+                {[...new Set(currentSubmitError ? submitFields : estimate.fields)].map((field) => (
+                  <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
+                    {t("generation.locateParameter")}
+                  </Button>
+                ))}
+                <Button
+                  className="quiet"
+                  onClick={() => {
+                    setSubmitError(null);
+                    estimate.retry();
+                    void refreshAccount();
+                    void refreshAccountSummary();
+                  }}
+                >
+                  <RotateCw size={13} aria-hidden />
+                  {t("generation.retryQuery")}
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Button
+            className="primary"
+            aria-busy={working !== "idle"}
+            disabled={
+              accountLoading ||
+              working !== "idle" ||
+              (Boolean(account?.configured) &&
+                (submissionBlocked ||
+                  operationPending ||
+                  accountSummaryLoading ||
+                  !effectiveOperation ||
+                  !estimate.quote ||
+                  estimate.quote.tooExpensive ||
+                  estimate.quote.tokens.some((token) => token.overLimit)))
+            }
+            onClick={() => {
+              if (!account?.configured) setAccountOpen(true);
+              else void submit();
+            }}
+          >
             <span className="generation-submit-label">
               {account?.configured ? (
                 <WandSparkles size={16} aria-hidden />
@@ -180,27 +205,28 @@ export function GenerationActions({
                             ? t("generation.savingSettings")
                             : actionLabel}
             </span>
-          )}
-          {!actionError &&
-            account?.configured &&
-            (estimate.quote && !effectiveOperation ? (
-              <span className="generation-submit-cost">{t("generation.operationNotApplied")}</span>
-            ) : displayQuote ? (
-              <span
-                className="generation-submit-cost"
-                aria-busy={estimate.refreshing}
-                title={estimate.refreshing ? t("generation.estimating") : undefined}
-              >
-                {displayQuote.estimatedAnlas === null
-                  ? t("generation.costUnknown")
-                  : `${displayQuote.estimatedAnlas} Anlas`}
-              </span>
-            ) : estimate.loading ? (
-              <span className="generation-submit-cost">{t("generation.estimating")}</span>
-            ) : (
-              <span className="generation-submit-cost">{t("generation.costUnknown")}</span>
-            ))}
-        </Button>
+            {account?.configured &&
+              (estimate.quote && !effectiveOperation ? (
+                <span className="generation-submit-cost">
+                  {t("generation.operationNotApplied")}
+                </span>
+              ) : displayQuote ? (
+                <span
+                  className="generation-submit-cost"
+                  aria-busy={estimate.refreshing}
+                  title={estimate.refreshing ? t("generation.estimating") : undefined}
+                >
+                  {displayQuote.estimatedAnlas === null
+                    ? t("generation.costUnknown")
+                    : `${displayQuote.estimatedAnlas} Anlas`}
+                </span>
+              ) : estimate.loading ? (
+                <span className="generation-submit-cost">{t("generation.estimating")}</span>
+              ) : (
+                <span className="generation-submit-cost">{t("generation.costUnknown")}</span>
+              ))}
+          </Button>
+        )}
         {working !== "submitting" && batch && batch.queued > 0 && (
           <IconButton
             label={
@@ -223,27 +249,6 @@ export function GenerationActions({
       {stopError !== null && <Notice>{errorMessage(stopError)}</Notice>}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
-      )}
-      {actionError && error && (
-        <div className="generation-action-error">
-          {(currentSubmitError ? submitFields : estimate.fields).map((field) => (
-            <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
-              {t("generation.locateParameter")}
-            </Button>
-          ))}
-          <Button
-            className="quiet"
-            onClick={() => {
-              setSubmitError(null);
-              estimate.retry();
-              void refreshAccount();
-              void refreshAccountSummary();
-            }}
-          >
-            <RotateCw size={13} />
-            {t("generation.retryQuery")}
-          </Button>
-        </div>
       )}
       {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} />}
     </div>

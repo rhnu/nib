@@ -1,5 +1,4 @@
 import { t, useTranslation, formatNumber } from "@/shared/i18n";
-import { errorMessage } from "@/shared/host/error";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftRight, LockKeyhole, RotateCcw } from "lucide-react";
 import type { GenerationSettings, ModelCapabilities, ResolvedSettings } from "@/bindings/workbench";
@@ -15,6 +14,7 @@ import {
 import {
   advancedSettingKeys,
   diagnosticSetting,
+  settingDiagnosticMessage,
   settingLabels,
   settingValue,
   type SettingKey,
@@ -149,7 +149,7 @@ export function SettingsEditor({
         {messages.length > 0 && (
           <output id={`${prefix}-${key}-diagnostic`} className="setting-message">
             {messages.map((item, index) => (
-              <p key={index}>{errorMessage(item.change)}</p>
+              <p key={index}>{settingDiagnosticMessage(item.field, item.change)}</p>
             ))}
           </output>
         )}
