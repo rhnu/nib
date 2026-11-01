@@ -3,6 +3,109 @@
   gap: var(--space-3);
   min-width: 0;
 }
+.image-drop-page {
+  position: relative;
+}
+.page-image-drop {
+  position: absolute;
+  inset: 8px;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  pointer-events: none;
+}
+.page-image-drop-error {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 21;
+  max-width: 420px;
+}
+.modal.media-import-modal {
+  width: min(1120px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+  height: min(760px, calc(100dvh - var(--titlebar-height) - 48px));
+  max-height: calc(100dvh - var(--titlebar-height) - 48px);
+}
+.media-import-dialog {
+  overflow: auto;
+  padding: 20px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.media-import-top {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.media-import-image {
+  position: relative;
+  min-width: 0;
+}
+.media-import-image .media-image {
+  max-height: 220px;
+  width: 100%;
+}
+.media-import-actions {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+.metadata-import-options {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.metadata-import-options > h3 {
+  margin: 0;
+  font-size: var(--font-size-section);
+}
+.metadata-import-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+.metadata-import-fields label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.metadata-import-submit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.metadata-import-submit > .select-trigger {
+  width: 120px;
+}
+.media-prompt-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.media-prompt-value {
+  min-width: 0;
+}
+.media-prompt-value .section-heading h3 {
+  margin: 0;
+}
 .image-importer .help-note {
   margin: 0;
 }
@@ -130,6 +233,12 @@
 .media-literal-content h3,
 .media-literal-content h4 {
   margin: 15px 0 7px;
+}
+.media-import-dialog .media-character-content > h3 {
+  margin-top: 0;
+}
+.media-import-dialog .media-character-content > div > h4 {
+  margin-top: var(--space-3);
 }
 .media-notices {
   padding-left: 20px;

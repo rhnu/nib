@@ -227,7 +227,7 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
       checkIdentity(item);
       const content = await exploreApi.exportImage(item.key, format);
       checkIdentity(item);
-      if (active.current) saveExportedImage(content, `${source}-${item.key.id}`);
+      if (active.current) await saveExportedImage(content, `${source}-${item.key.id}`);
     });
 
   const copyImage = (item: ExploreSummary, format: ImageExportFormat) =>

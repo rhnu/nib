@@ -7,6 +7,8 @@ mod content;
 mod export;
 mod metadata;
 mod query;
+pub(crate) mod remote;
+pub use remote::{RemoteImageError, download_image};
 pub(crate) mod references;
 pub(crate) mod resource_covers;
 mod safety;

@@ -17,6 +17,28 @@ use nib_app::{
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
 
+/// Remote retrieval precedes the same guarded media commit used by local image imports.
+#[tauri::command]
+pub(crate) async fn import_remote_image(
+    state: tauri::State<'_, DesktopState>,
+    url: String,
+) -> Result<MediaAsset, ApiError> {
+    let content = nib_app::media::download_image(&url)
+        .await
+        .map_err(|error| {
+            persistence_error(nib_app::persistence::PersistenceError::failure(
+                "download the dropped image",
+                error,
+            ))
+        })?;
+    with_media_write(state, move |media| {
+        media
+            .import_image(content.bytes, AssetSource::Import { name: None })
+            .map_err(persistence_error)
+    })
+    .await
+}
+
 /// Clipboard failures retain diagnostic context at the same boundary as image export failures.
 pub(crate) fn copy_exported_image(
     content: &nib_app::media::MediaContent,

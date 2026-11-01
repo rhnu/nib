@@ -3,7 +3,8 @@ import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { KnownImageMetadata, MediaAsset, MetadataRestore } from "@/bindings/media";
 import type { Draft } from "@/bindings/workbench";
-import { ActionsMenu, Button, Modal, Notice } from "@/shared/ui";
+import { Copy } from "lucide-react";
+import { ActionsMenu, Button, IconButton, Modal, Notice, notify } from "@/shared/ui";
 import { useMediaTools } from "./media-tools-context";
 import { mediaApi } from "./api";
 import { imageName, imageUnavailableReason } from "./model";
@@ -12,7 +13,7 @@ import "./media.css";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { settingLabels, settingValue, type SettingKey } from "@/features/prompt/settings";
 
-const statusLabels = {
+const metadataStatusLabels = {
   get parsed() {
     return t("media.metadataParsed");
   },
@@ -38,6 +39,27 @@ const origins = {
   },
 };
 
+/** Copy the recorded value exactly, without the editable prompt conversion. */
+function MetadataPromptHeading({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="section-heading">
+      <h3>{label}</h3>
+      <IconButton
+        label={`${t("common.copy")} · ${label}`}
+        disabled={value === null}
+        onClick={() => {
+          void navigator.clipboard
+            .writeText(value ?? "")
+            .then(() => notify(() => t("media.promptCopied")))
+            .catch((cause: unknown) => notify(() => errorMessage(cause), "copy-metadata", true));
+        }}
+      >
+        <Copy size={15} aria-hidden />
+      </IconButton>
+    </div>
+  );
+}
+
 function MetadataField({ label, value }: { label: string; value: ReactNode }) {
   useTranslation();
 
@@ -49,92 +71,105 @@ function MetadataField({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function KnownFields({ metadata }: { metadata: KnownImageMetadata }) {
-  useTranslation();
+/** Recorded positive and negative prompts share one row and preserve independent copy actions. */
+function MetadataPromptPair({
+  positive,
+  negative,
+  positiveLabel,
+  negativeLabel,
+  model,
+  context = "native",
+}: {
+  positive: string | null;
+  negative: string | null;
+  positiveLabel: string;
+  negativeLabel: string;
+  model?: string;
+  context?: "native" | "editable";
+}) {
+  return (
+    <div className="media-prompt-pair">
+      {[
+        { label: positiveLabel, value: positive },
+        { label: negativeLabel, value: negative },
+      ].map(({ label, value }) => (
+        <div className="media-prompt-value" key={label}>
+          <MetadataPromptHeading label={label} value={value} />
+          <PromptTextEditor
+            value={value ?? ""}
+            label={label}
+            placeholder={t("media.notRecorded")}
+            model={model}
+            context={context}
+            readOnly
+            tokenUnavailableLabel={t("media.modelNotRecorded")}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
+export function ImageMetadataFields({ metadata }: { metadata: KnownImageMetadata }) {
+  useTranslation();
   return (
     <>
-      <dl className="media-metadata-fields">
-        <MetadataField
-          label={t("media.metadataCarrier")}
-          value={
-            metadata.origin === null ? null : `${origins[metadata.origin]} (${metadata.origin})`
-          }
-        />
-        <MetadataField label={t("media.model")} value={metadata.model} />
-        <MetadataField label={t("media.seed")} value={metadata.seed} />
-        <MetadataField
-          label={t("media.dimensions")}
-          value={metadata.size && `${metadata.size.width} × ${metadata.size.height}`}
-        />
-        <MetadataField label={t("media.steps")} value={metadata.steps} />
-        <MetadataField label={t("media.sampler")} value={metadata.sampler} />
-        <MetadataField label={t("media.guidance")} value={metadata.scale} />
-        <MetadataField label={t("media.noiseSchedule")} value={metadata.noiseSchedule} />
-        <MetadataField label={t("media.cfgRescale")} value={metadata.cfgRescale} />
-        <MetadataField label={t("media.legacyUcIndex")} value={metadata.ucPreset} />
-        <MetadataField
-          label={t("media.qualityTagsToggle")}
-          value={metadata.qualityToggle === null ? null : String(metadata.qualityToggle)}
-        />
-        <MetadataField label={t("media.source")} value={metadata.source} />
-        <MetadataField label={t("media.software")} value={metadata.software} />
-        <MetadataField label={t("media.embeddedVibeCount")} value={metadata.embeddedVibeCount} />
-      </dl>
       <section className="media-literal-content">
-        <h3>{t("media.recordedPositivePrompt")}</h3>
-        <PromptTextEditor
-          value={metadata.prompt ?? ""}
-          label={t("media.recordedPositivePrompt")}
-          placeholder={t("media.notRecorded")}
+        <MetadataPromptPair
+          positive={metadata.prompt}
+          negative={metadata.negativePrompt}
+          positiveLabel={t("media.recordedPositivePrompt")}
+          negativeLabel={t("media.recordedNegativePrompt")}
           model={metadata.model ?? undefined}
-          context="native"
-          readOnly
-          tokenUnavailableLabel={t("media.modelNotRecorded")}
-        />
-        <h3>{t("media.recordedNegativePrompt")}</h3>
-        <PromptTextEditor
-          value={metadata.negativePrompt ?? ""}
-          label={t("media.recordedNegativePrompt")}
-          placeholder={t("media.notRecorded")}
-          model={metadata.model ?? undefined}
-          context="native"
-          readOnly
-          tokenUnavailableLabel={t("media.modelNotRecorded")}
         />
       </section>
       {metadata.characters.length > 0 && (
-        <section className="media-literal-content">
+        <section className="media-literal-content media-character-content">
           <h3>{t("media.characterText")}</h3>
-          <p className="muted">{t("media.characterTextDescription")}</p>
-          {metadata.characters.map((character, index) => (
-            <div key={index}>
-              <h4>
-                {t("media.sourceCharacterIndex")}
-                {character.sourceIndex}
-              </h4>
-              <span className="muted">{t("media.positive")}</span>
-              <PromptTextEditor
-                value={character.prompt ?? ""}
-                label={t("media.characterPositivePrompt", { value0: character.sourceIndex + 1 })}
+          {metadata.characters.map((character) => (
+            <div key={character.sourceIndex}>
+              <h4>{t("media.characterLabel", { index: character.sourceIndex + 1 })}</h4>
+              <MetadataPromptPair
+                positive={character.prompt}
+                negative={character.negativePrompt}
+                positiveLabel={t("media.positive")}
+                negativeLabel={t("media.negative")}
                 model={metadata.model ?? undefined}
-                context="native"
-                readOnly
-                tokenUnavailableLabel={t("media.modelNotRecorded")}
-              />
-              <span className="muted">{t("media.negative")}</span>
-              <PromptTextEditor
-                value={character.negativePrompt ?? ""}
-                label={t("media.characterNegativePrompt", { value0: character.sourceIndex + 1 })}
-                model={metadata.model ?? undefined}
-                context="native"
-                readOnly
-                tokenUnavailableLabel={t("media.modelNotRecorded")}
               />
             </div>
           ))}
         </section>
       )}
+      <details>
+        <summary>{t("media.knownSettings")}</summary>
+        <dl className="media-metadata-fields">
+          <MetadataField
+            label={t("media.metadataCarrier")}
+            value={
+              metadata.origin === null ? null : `${origins[metadata.origin]} (${metadata.origin})`
+            }
+          />
+          <MetadataField label={t("media.model")} value={metadata.model} />
+          <MetadataField label={t("media.seed")} value={metadata.seed} />
+          <MetadataField
+            label={t("media.dimensions")}
+            value={metadata.size && `${metadata.size.width} × ${metadata.size.height}`}
+          />
+          <MetadataField label={t("media.steps")} value={metadata.steps} />
+          <MetadataField label={t("media.sampler")} value={metadata.sampler} />
+          <MetadataField label={t("media.guidance")} value={metadata.scale} />
+          <MetadataField label={t("media.noiseSchedule")} value={metadata.noiseSchedule} />
+          <MetadataField label={t("media.cfgRescale")} value={metadata.cfgRescale} />
+          <MetadataField label={t("media.legacyUcIndex")} value={metadata.ucPreset} />
+          <MetadataField
+            label={t("media.qualityTagsToggle")}
+            value={metadata.qualityToggle === null ? null : String(metadata.qualityToggle)}
+          />
+          <MetadataField label={t("media.source")} value={metadata.source} />
+          <MetadataField label={t("media.software")} value={metadata.software} />
+          <MetadataField label={t("media.embeddedVibeCount")} value={metadata.embeddedVibeCount} />
+        </dl>
+      </details>
     </>
   );
 }
@@ -162,29 +197,21 @@ function RestorePreview({
       </ul>
       <details open className="media-literal-content">
         <summary>{t("media.contentToUse")}</summary>
-        <h4>{t("media.positivePrompt")}</h4>
-        <PromptTextEditor
-          value={draft.composition.positive
+        <MetadataPromptPair
+          positive={draft.composition.positive
             .map((node) =>
               node.kind === "text" ? node.text : (node.overrideText ?? t("media.chunkReferences")),
             )
             .join("\n")}
-          label={t("media.restorePositivePrompt")}
-          model={draft.settings.model ?? undefined}
-          readOnly
-          tokenUnavailableLabel={t("media.modelNotRecorded")}
-        />
-        <h4>{t("media.negativePrompt")}</h4>
-        <PromptTextEditor
-          value={draft.composition.negative
+          negative={draft.composition.negative
             .map((node) =>
               node.kind === "text" ? node.text : (node.overrideText ?? t("media.chunkReferences")),
             )
             .join("\n")}
-          label={t("media.restoreNegativePrompt")}
+          positiveLabel={t("media.positivePrompt")}
+          negativeLabel={t("media.negativePrompt")}
           model={draft.settings.model ?? undefined}
-          readOnly
-          tokenUnavailableLabel={t("media.modelNotRecorded")}
+          context="editable"
         />
         <h4>{t("media.knownSettings")}</h4>
         <dl className="media-metadata-fields">
@@ -298,7 +325,7 @@ function MetadataDialogContent({
         )}
         {report.value && (
           <>
-            <output>{statusLabels[report.value.status]}</output>
+            <output>{metadataStatusLabels[report.value.status]}</output>
             {report.value.warnings.length > 0 && (
               <ul className="media-notices" aria-label={t("media.metadataNotice")}>
                 {report.value.warnings.map((warning, index) => (
@@ -306,7 +333,7 @@ function MetadataDialogContent({
                 ))}
               </ul>
             )}
-            {report.value.generation && <KnownFields metadata={report.value.generation} />}
+            {report.value.generation && <ImageMetadataFields metadata={report.value.generation} />}
             {onRestore && report.value.status === "parsed" && !restore && (
               <Button disabled={restoring || !!unavailable} onClick={() => void prepareRestore()}>
                 {restoring

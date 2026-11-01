@@ -10,6 +10,7 @@ import type { VibeReferenceInput } from "@/bindings/workbench";
 import { invokeHost } from "@/shared/host/invoke";
 
 export const mediaApi = {
+  importRemoteImage: (url: string) => invokeHost<MediaAsset>("import_remote_image", { url }),
   exportImage: (id: string, format: ImageExportFormat) =>
     invokeHost<ArrayBuffer>("export_image_asset", { id, format }),
   copyImage: (id: string, format: ImageExportFormat) =>

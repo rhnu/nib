@@ -18,11 +18,17 @@ import { promptBlockKey } from "@/features/prompt/prompt-editor-collapse";
 import { PromptEditorStateProvider } from "@/features/prompt/prompt-editor-state";
 import { PromptFormattingProvider } from "@/features/prompt/format-context";
 import { ResourcePicker } from "@/features/library/resource-picker";
+import { useImageDrop } from "@/features/media/use-image-drop";
+import { ImageImportDialog } from "@/features/media/image-import-dialog";
+import type { MediaAsset } from "@/bindings/media";
 import { ResultPanel } from "./result-panel";
 
 export function CreatePage() {
   useTranslation();
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
+  const [droppedImage, setDroppedImage] = useState<{ asset: MediaAsset; version: number } | null>(
+    null,
+  );
 
   const {
     state,
@@ -36,6 +42,9 @@ export function CreatePage() {
     guardedRestore,
     requestOperation,
     prepareImportedOperation,
+    addImageReference,
+    encodeImage,
+    importMetadata,
     guard,
     imageOperation,
     editMask,
@@ -60,6 +69,16 @@ export function CreatePage() {
     readCurrentDraft,
     restoreVersion,
   } = state;
+  const dropped = droppedImage?.version === restoreVersion ? droppedImage.asset : null;
+  const drop = useImageDrop({
+    onImported: (asset) => setDroppedImage({ asset, version: restoreVersion }),
+    contextKey: JSON.stringify([
+      restoreVersion,
+      draft.inputs.operation.kind,
+      operationSourceId(draft.inputs.operation),
+      draft.settings.model ?? resolved?.settings.model,
+    ]),
+  });
   const tokenStatus =
     resolveError ||
     estimate.error ||
@@ -113,7 +132,48 @@ export function CreatePage() {
               }}
             />
           )}
-          <div className="workspace-body">
+          <div className="workspace-body image-drop-page" {...drop.bindings}>
+            {(drop.dragging || drop.busy) && (
+              <output className="page-image-drop">
+                {t(drop.busy ? "media.importing" : "media.dropHere")}
+              </output>
+            )}
+            {drop.error && (
+              <div className="page-image-drop-error">
+                <Notice actions={<Button onClick={drop.clearError}>{t("common.close")}</Button>}>
+                  {drop.error}
+                </Notice>
+              </div>
+            )}
+            {dropped && (
+              <ImageImportDialog
+                key={dropped.id}
+                asset={dropped}
+                capabilities={editorCapabilities}
+                onClose={() => setDroppedImage(null)}
+                onSource={() => requestOperation(dropped.id, "imageToImage")}
+                onReference={(kind) => addImageReference(dropped.id, kind)}
+                onEncode={() => encodeImage(dropped.id)}
+                onImportMetadata={importMetadata}
+                onVibes={(values, mode) => {
+                  const current = readCurrentDraft();
+                  edit({
+                    ...current,
+                    inputs: {
+                      ...current.inputs,
+                      references: {
+                        ...current.inputs.references,
+                        vibes:
+                          mode === "replace"
+                            ? values
+                            : [...current.inputs.references.vibes, ...values],
+                      },
+                    },
+                  });
+                }}
+              />
+            )}
+
             <aside className="generation-sidebar" aria-label={t("workbench.generationSidebar")}>
               <div className="generation-sidebar-scroll">
                 {draft.inputs.operation.kind !== "upscale" && (

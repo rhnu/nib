@@ -65,7 +65,7 @@ export const messages = {
   restoreKnownFieldsOnly:
     "Only known fields in the image are restored. Missing settings, references, and masks cannot be recovered.",
   restoreCharactersUnavailable:
-    "Character text is available in the metadata details. Characters and positions were not restored because complete position data is missing.",
+    "Complete character positions are unavailable. Imported character text uses default positions.",
   restoreEmbeddedVibesSeparately:
     "Embedded Vibe materials can be imported separately. Generation metadata does not contain the complete reference setup.",
   restoreUnknownFields:

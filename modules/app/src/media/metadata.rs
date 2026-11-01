@@ -72,6 +72,7 @@ pub struct KnownCharacterMetadata {
 pub struct ImageMetadataReport {
     pub status: ImageMetadataStatus,
     pub generation: Option<KnownImageMetadata>,
+    pub has_vibe_document: bool,
     pub warnings: Vec<UserMessage>,
 }
 
@@ -92,7 +93,26 @@ impl MediaLibrary {
     /// # Errors
     /// Returns an unavailable asset, an incompatible kind or a file read failure.
     pub fn inspect_metadata(&self, id: &str) -> Result<ImageMetadataReport, PersistenceError> {
-        Ok(metadata_report(&self.inspect_sdk_metadata(id)?))
+        let asset = self.asset(id)?;
+        if asset.kind != super::AssetKind::Image {
+            return Err(PersistenceError::InvalidData {
+                message: UserMessage::VibeIsNotImage,
+            });
+        }
+        let content = self.content(&asset)?;
+        let mut report = metadata_report(&novelai_bridge::inspect_generated_image_metadata(
+            &content.bytes,
+            Some(&content.mime_type),
+        ));
+        if content.mime_type == "image/png" {
+            match novelai_bridge::VibeDocument::from_png(&content.bytes) {
+                Ok(document) => report.has_vibe_document = document.is_some(),
+                Err(error) => report
+                    .warnings
+                    .push(UserMessage::external(error.to_string())),
+            }
+        }
+        Ok(report)
     }
 }
 
@@ -125,6 +145,7 @@ pub(super) fn png_text_inspection(metadata: novelai_bridge::ImageMetadata) -> Pn
 pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetadataReport {
     match inspection {
         GeneratedImageMetadata::Parsed(metadata) => ImageMetadataReport {
+            has_vibe_document: false,
             status: ImageMetadataStatus::Parsed,
             generation: Some(KnownImageMetadata {
                 origin: metadata.origin,
@@ -163,16 +184,19 @@ pub(super) fn metadata_report(inspection: &GeneratedImageMetadata) -> ImageMetad
                 .collect(),
         },
         GeneratedImageMetadata::NotPresent => ImageMetadataReport {
+            has_vibe_document: false,
             status: ImageMetadataStatus::NotPresent,
             generation: None,
             warnings: Vec::new(),
         },
         GeneratedImageMetadata::UnsupportedFormat => ImageMetadataReport {
+            has_vibe_document: false,
             status: ImageMetadataStatus::UnsupportedFormat,
             generation: None,
             warnings: Vec::new(),
         },
         GeneratedImageMetadata::Invalid { message } => ImageMetadataReport {
+            has_vibe_document: false,
             status: ImageMetadataStatus::Invalid,
             generation: None,
             warnings: vec![UserMessage::external(message.clone())],

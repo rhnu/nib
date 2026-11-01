@@ -229,7 +229,13 @@ fn restore_uses_existing_literal_prompt_rules_and_reports_missing_materials() {
         restored.draft.settings.uc_preset,
         Some(novelai_bridge::UcPreset::None)
     );
-    assert_eq!(restored.draft.characters.len(), 0);
+    assert_eq!(restored.draft.characters.len(), 1);
+    let crate::prompt::PromptNode::Text { text, .. } =
+        &restored.draft.characters[0].composition.positive[0]
+    else {
+        panic!("expected recovered character text");
+    };
+    assert_eq!(text, "actor");
     assert!(matches!(
         restored.draft.inputs.operation,
         crate::session::CreationOperation::TextToImage

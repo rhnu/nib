@@ -8,7 +8,8 @@ import { mediaApi } from "@/features/media/api";
 import { ImageExportActions } from "@/features/media/image-export";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { VibeAssetInformation } from "./vibe-asset-details";
-import { downloadBytes, vibeMaterialName } from "./model";
+import { vibeMaterialName } from "./model";
+import { saveExportFile } from "@/shared/host/file-export";
 import { useVibeAction } from "./use-vibe-action";
 import "./vibes.css";
 
@@ -80,7 +81,10 @@ function Materials({
     if (!active()) return;
     const bytes = await mediaApi.exportVibeDocument(id);
     if (active())
-      downloadBytes(bytes, `${name}.${inspection.isBundle ? "naiv4vibeBundle" : "naiv4vibe"}`);
+      await saveExportFile(
+        bytes,
+        `${name}.${inspection.isBundle ? "naiv4vibeBundle" : "naiv4vibe"}`,
+      );
   };
 
   const choose = (mode: "append" | "replace") =>
@@ -368,8 +372,7 @@ function Materials({
                       onClick={() =>
                         void action.run(async (active) => {
                           const bytes = await mediaApi.content(selected.id);
-                          if (active())
-                            downloadBytes(bytes, "nib-vibe.bin", "application/octet-stream");
+                          if (active()) await saveExportFile(bytes, "nib-vibe.bin");
                         })
                       }
                     >

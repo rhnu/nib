@@ -67,16 +67,3 @@ export function patchVibeOverride(
 export function referenceMode(value: string): boolean | null {
   return value === "inherit" ? null : value === "true";
 }
-
-export function downloadBytes(
-  bytes: ArrayBuffer,
-  filename: string,
-  mimeType = "application/json",
-): void {
-  const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}

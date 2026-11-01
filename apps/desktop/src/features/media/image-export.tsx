@@ -4,6 +4,7 @@ import type { ImageExportFormat } from "@/bindings/media";
 import { t, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { ActionsMenu, notify, type ActionMenuItem } from "@/shared/ui";
+import { saveExportFile } from "@/shared/host/file-export";
 import { mediaApi } from "./api";
 
 /** All entry points use the same format names and ordering. */
@@ -32,16 +33,7 @@ export function exportedImageFile(bytes: ArrayBuffer, filename: string) {
 }
 
 export function saveExportedImage(bytes: ArrayBuffer, filename: string) {
-  const file = exportedImageFile(bytes, filename);
-  const url = URL.createObjectURL(new Blob([bytes], { type: file.mimeType }));
-  try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = file.filename;
-    link.click();
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  return saveExportFile(bytes, exportedImageFile(bytes, filename).filename);
 }
 
 /** Copy and save share encoding while each surface retains its own error presentation. */
@@ -67,7 +59,7 @@ export function useImageExport({
         await mediaApi.copyImage(id, format);
         notify(() => t("common.imageCopied"), "copy-image");
       } else {
-        saveExportedImage(await mediaApi.exportImage(id, format), filename);
+        await saveExportedImage(await mediaApi.exportImage(id, format), filename);
       }
     } catch (cause) {
       notify(

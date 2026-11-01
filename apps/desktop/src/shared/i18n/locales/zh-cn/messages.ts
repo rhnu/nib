@@ -50,7 +50,7 @@ export const messages = {
   vibeIsNotImage: "Vibe 编码不是可读取生成信息的图片。",
   noRestorableMetadata: "图片没有可恢复的生成信息。",
   restoreKnownFieldsOnly: "仅恢复图片中已知的字段；未包含的设置、参考材料和遮罩无法还原。",
-  restoreCharactersUnavailable: "角色文字可在元信息详情查看；缺少完整位置，角色与位置均未恢复。",
+  restoreCharactersUnavailable: "图片缺少完整角色位置；导入角色文字时使用默认位置。",
   restoreEmbeddedVibesSeparately: "嵌入 Vibe 材料可单独导入；生成信息不代表完整参考配置。",
   restoreUnknownFields: "SDK 在元信息中发现无法解释的字段，请检查导入内容。",
   restoreLegacyUcUnknown: "图片仅记录了旧版负面预设索引，无法确定当前预设，请重新选择。",

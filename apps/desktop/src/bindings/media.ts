@@ -21,7 +21,7 @@ export type KnownCharacterMetadata = { sourceIndex: number, prompt: string | nul
 
 export type KnownImageMetadata = { origin: "png_text" | "exif_user_comment" | "stealth_png_comp" | null, prompt: string | null, negativePrompt: string | null, model: string | null, seed: number | null, size: { width: number; height: number } | null, steps: number | null, sampler: string | null, scale: number | null, noiseSchedule: string | null, cfgRescale: number | null, ucPreset: number | null, qualityToggle: boolean | null, source: string | null, software: string | null, characters: Array<KnownCharacterMetadata>, embeddedVibeCount: number, };
 
-export type ImageMetadataReport = { status: ImageMetadataStatus, generation: KnownImageMetadata | null, warnings: Array<UserMessage>, };
+export type ImageMetadataReport = { status: ImageMetadataStatus, generation: KnownImageMetadata | null, hasVibeDocument: boolean, warnings: Array<UserMessage>, };
 
 export type PngTextInspection = { entries: Array<PngTextValue>, warnings: Array<UserMessage>, };
 

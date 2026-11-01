@@ -1,7 +1,4 @@
-use std::{
-    io::Cursor,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use reqwest::{Response, header};
 use serde_json::Value;
@@ -153,58 +150,9 @@ async fn bounded_bytes(mut response: Response, budget: usize) -> Result<Vec<u8>,
 }
 
 pub(super) async fn image_content(response: Response) -> Result<MediaContent, ExploreError> {
-    let mime = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .split(';')
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_owned();
-    if !matches!(mime.as_str(), "image/png" | "image/jpeg" | "image/webp") {
-        return Err(rejected());
-    }
-    let bytes = bounded_bytes(response, 32 * 1024 * 1024).await?;
-    validate_image(&bytes, &mime)?;
-    Ok(MediaContent {
-        mime_type: mime,
-        bytes,
-    })
-}
-
-fn validate_image(bytes: &[u8], mime: &str) -> Result<(), ExploreError> {
-    let reader = image::ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|error| rejected().with_source(error))?;
-    if reader.format().map(|format| format.to_mime_type()) != Some(mime) {
-        return Err(rejected());
-    }
-    let (width, height) = reader
-        .into_dimensions()
-        .map_err(|error| rejected().with_source(error))?;
-    if width == 0
-        || height == 0
-        || width > 16_384
-        || height > 16_384
-        || u64::from(width) * u64::from(height) > 40_000_000
-    {
-        return Err(rejected());
-    }
-    // Decode only after header geometry and encoded bytes have passed finite budgets.
-    let mut reader = image::ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|error| rejected().with_source(error))?;
-    let mut limits = image::Limits::default();
-    limits.max_alloc = Some(160 * 1024 * 1024);
-    limits.max_image_width = Some(16_384);
-    limits.max_image_height = Some(16_384);
-    reader.limits(limits);
-    reader
-        .decode()
-        .map_err(|error| rejected().with_source(error))?;
-    Ok(())
+    crate::media::remote::read_image_response(response)
+        .await
+        .map_err(|error| rejected().with_source(error))
 }
 
 fn rejected() -> ExploreError {

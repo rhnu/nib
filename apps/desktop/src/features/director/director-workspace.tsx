@@ -10,6 +10,7 @@ import type {
 import { Button, Modal, Notice } from "@/shared/ui";
 import { ImageImporter, ImagePickerDialog, useMediaAsset } from "@/features/media";
 import { imageName } from "@/features/media/model";
+import { useImageDrop } from "@/features/media/use-image-drop";
 import { ImageMetadataDialog } from "@/features/media/image-metadata-dialog";
 import { GenerationActions } from "@/features/generation/submission/generation-actions";
 import { JobQueue } from "@/features/generation/jobs/job-queue";
@@ -39,6 +40,7 @@ export function DirectorWorkspace({
   readCurrentDraft,
   onChange,
   refreshKey,
+  inputVersion,
   onUseImage,
   onReference,
   onEncodeImage,
@@ -54,6 +56,7 @@ export function DirectorWorkspace({
   readCurrentDraft: () => Draft;
   onChange: (workspace: DirectorWorkspaceState) => void;
   refreshKey: unknown;
+  inputVersion: number;
   onUseImage: (id: string, kind: ImageOperationAction) => void;
   onReference: (id: string, kind: "precise" | "vibe") => void;
   onEncodeImage: (assetId: string) => void;
@@ -148,6 +151,12 @@ export function DirectorWorkspace({
     }
   }, [handoff?.id]);
 
+  const selectedTool = workspace.selectedTool;
+  const drop = useImageDrop({
+    onImported: (asset) => requestSource({ tool: selectedTool, assetId: asset.id }),
+    contextKey: JSON.stringify([inputVersion, selectedTool, assetId]),
+  });
+
   const locate = (field: string) => {
     setMobileView("input");
     const name = field.includes("prompt")
@@ -171,7 +180,23 @@ export function DirectorWorkspace({
 
   if (!state) return <Notice>{t("director.stateUnavailable")}</Notice>;
   return (
-    <div className={`director-workspace director-mobile-${mobileView}`} ref={root}>
+    <div
+      className={`director-workspace image-drop-page director-mobile-${mobileView}`}
+      ref={root}
+      {...drop.bindings}
+    >
+      {(drop.dragging || drop.busy) && (
+        <output className="page-image-drop">
+          {t(drop.busy ? "media.importing" : "media.dropHere")}
+        </output>
+      )}
+      {drop.error && (
+        <div className="page-image-drop-error">
+          <Notice actions={<Button onClick={drop.clearError}>{t("common.close")}</Button>}>
+            {drop.error}
+          </Notice>
+        </div>
+      )}
       <nav className="director-mobile-navigation" aria-label={t("director.view")}>
         <Button aria-pressed={mobileView === "input"} onClick={() => setMobileView("input")}>
           {t("director.inputParameters")}

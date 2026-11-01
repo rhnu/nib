@@ -21,6 +21,7 @@ export function DirectorPage() {
         readCurrentDraft={readCurrentDraft}
         onChange={(director) => edit({ ...readCurrentDraft(), director })}
         refreshKey={quoteRefreshKey}
+        inputVersion={state.restoreVersion}
         onUseImage={requestOperation}
         onReference={addImageReference}
         onEncodeImage={encodeImage}

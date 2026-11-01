@@ -5,7 +5,7 @@ import { resultsApi } from "@/features/generation/results/api";
 import { mediaApi } from "@/features/media/api";
 import { VibeAssetDetails } from "./vibe-asset-details";
 import { useVibeAction } from "./use-vibe-action";
-import { downloadBytes } from "./model";
+import { saveExportFile } from "@/shared/host/file-export";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Draft, VibeEncodingInput, VibeReferenceInput } from "@/bindings/workbench";
 import { Button, Field, HelpMarker, Notice, Select } from "@/shared/ui";
@@ -53,7 +53,7 @@ function EncoderOutput({
           onClick={() =>
             void action.run(async (active) => {
               const bytes = await mediaApi.content(assetId);
-              if (active()) downloadBytes(bytes, "vibe.bin", "application/octet-stream");
+              if (active()) await saveExportFile(bytes, "vibe.bin");
             })
           }
         >
@@ -65,7 +65,7 @@ function EncoderOutput({
             void action.run(async (active) => {
               const document = await mediaApi.createEncodedVibeDocument(assetId);
               const bytes = await mediaApi.exportVibeDocument(document.id);
-              if (active()) downloadBytes(bytes, "vibe.naiv4vibe");
+              if (active()) await saveExportFile(bytes, "vibe.naiv4vibe");
             })
           }
         >

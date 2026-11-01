@@ -7,6 +7,9 @@ use crate::prompt::{
     CharacterComposition, Composition, GenerationSettings, PromptNode, ResolvedSettings,
 };
 
+#[cfg(test)]
+mod tests;
+
 fn text(id: &str, text: &str, profile: nib_prompt::PromptSyntaxProfile) -> PromptNode {
     PromptNode::Text {
         id: id.into(),
@@ -76,17 +79,37 @@ fn known_identifier<T: serde::de::DeserializeOwned>(value: Option<&String>) -> O
 /// remain absent. Embedded prompt text is already conditioned, so automatic tags are disabled.
 #[must_use]
 pub fn draft_from_metadata(metadata: &ImageMetadata) -> Draft {
+    let profile = known_identifier::<novelai_bridge::Model>(metadata.model.as_ref())
+        .unwrap_or_default()
+        .descriptor()
+        .prompt()
+        .syntax;
     Draft {
         composition: composition(
             "metadata",
             metadata.prompt.as_deref().unwrap_or_default(),
             metadata.negative_prompt.as_deref().unwrap_or_default(),
-            known_identifier::<novelai_bridge::Model>(metadata.model.as_ref())
-                .unwrap_or_default()
-                .descriptor()
-                .prompt()
-                .syntax,
+            profile,
         ),
+        characters: metadata
+            .characters
+            .iter()
+            .map(|character| {
+                let id = format!("metadata-character-{}", character.source_index);
+                CharacterComposition {
+                    composition: composition(
+                        &id,
+                        character.prompt.as_deref().unwrap_or_default(),
+                        character.negative_prompt.as_deref().unwrap_or_default(),
+                        profile,
+                    ),
+                    id,
+                    enabled: true,
+                    // Metadata supplies text, not reliable positions. The SDK owns the default.
+                    position: novelai_bridge::CharacterPosition::default(),
+                }
+            })
+            .collect(),
         settings: GenerationSettings {
             model: known_identifier(metadata.model.as_ref()),
             size: metadata

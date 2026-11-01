@@ -4,6 +4,8 @@ import { Image } from "lucide-react";
 import type { MediaAsset } from "@/bindings/media";
 import { Button, FilePicker, Notice } from "@/shared/ui";
 import { importAndCommitImage } from "./image-import";
+import { droppedImage } from "./image-drop";
+import { trackPendingWork } from "@/shared/host/pending-work";
 import { mediaApi } from "./api";
 import { singleImageFile } from "./model";
 import "./media.css";
@@ -86,9 +88,33 @@ export function ImageImporter({
           event.preventDefault();
           event.stopPropagation();
           setDragging(false);
-          if (event.dataTransfer.files.length === 0)
+          const input = droppedImage(event.dataTransfer);
+          if (!input) {
             setError(deferMessage(() => t("media.dropSingleImage")));
-          else choose(event.dataTransfer.files);
+            return;
+          }
+          if (input.kind === "file") {
+            choose([input.file]);
+            return;
+          }
+          if (latest.current.locked) return;
+          latest.current.locked = true;
+          setLastFile(null);
+          setBusy(true);
+          setError(null);
+          void trackPendingWork(
+            (async () => {
+              const asset = await mediaApi.importRemoteImage(input.url);
+              if (latest.current.active) await latest.current.onImported(asset);
+            })(),
+          )
+            .catch((cause: unknown) => {
+              if (latest.current.active) setError(cause);
+            })
+            .finally(() => {
+              latest.current.locked = false;
+              if (latest.current.active) setBusy(false);
+            });
         }}
       >
         <FilePicker

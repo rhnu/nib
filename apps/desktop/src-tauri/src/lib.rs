@@ -11,6 +11,7 @@ mod credentials;
 mod downloads;
 mod explore;
 mod explore_connection;
+mod file_export;
 mod generation;
 mod image_clipboard;
 mod lexicon;
@@ -105,6 +106,7 @@ fn application_base(
 )]
 fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        file_export::save_export_file,
         updates::get_update_status,
         updates::check_for_update,
         updates::download_update,
@@ -201,6 +203,7 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         media::inspect_vibe_asset,
         media::get_media_asset,
         media::import_image_asset,
+        media::import_remote_image,
         media::import_resource_cover,
         media::discard_resource_cover,
         media::import_vibe_asset,

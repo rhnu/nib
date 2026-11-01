@@ -22,7 +22,14 @@ import { outputIdentity } from "@/features/prompt/output-identity";
 import { collectOutputIssues, focusOutputField } from "./output-issues";
 import { usePendingInputTransition } from "./use-pending-input-transition";
 import { encodingApi } from "@/features/vibes/encoding-api";
+import {
+  applyMetadataImport,
+  metadataCharacterTargets,
+  type MetadataImportMode,
+  type MetadataSelection,
+} from "@/features/media/metadata-import";
 import { mediaApi } from "@/features/media/api";
+import { promptApi } from "@/features/prompt/api";
 import { referenceApi } from "@/features/references/api";
 import { createExploreSession } from "@/features/explore/session";
 import { canLeaveWorkbench } from "./navigation-guard";
@@ -206,6 +213,55 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
       setPage(value.activePage);
     });
 
+  const importMetadata = (source: Draft, selection: MetadataSelection, mode: MetadataImportMode) =>
+    guard(() => {
+      const snapshot = readCurrentDraft();
+      const linked =
+        mode === "append" && selection.characters
+          ? new Set(
+              metadataCharacterTargets(snapshot, resources)
+                .slice(0, source.characters.length)
+                .filter(
+                  (target, index) =>
+                    target.linked &&
+                    [
+                      ...source.characters[index].composition.positive,
+                      ...source.characters[index].composition.negative,
+                    ].some((node) => node.kind !== "text" || node.text !== ""),
+                )
+                .map((target) => target.presetId),
+            )
+          : new Set<string>();
+
+      const commit = (current: Draft) => {
+        imageOperation.cancel();
+        setPositioning(null);
+        restore(applyMetadataImport(current, source, selection, mode, resources));
+      };
+
+      if (!linked.size) {
+        commit(snapshot);
+        return;
+      }
+      // Linked presets cannot add nodes through text overrides. Expand only the targeted
+      // instances, as tag insertion does, preserving their current effective contents.
+      void trackPendingWork(
+        (async () => {
+          const expanded = await Promise.all(
+            snapshot.presets.filter((preset) => linked.has(preset.id)).map(promptApi.expandPreset),
+          );
+          if (readCurrentDraft() !== snapshot)
+            throw new MessageError(deferMessage(() => t("safety.stale")));
+          commit({
+            ...snapshot,
+            presets: snapshot.presets.map(
+              (preset) => expanded.find((value) => value.id === preset.id) ?? preset,
+            ),
+          });
+        })(),
+      ).catch((cause: unknown) => setError(cause));
+    });
+
   const sendToDirector = (assetId: string) =>
     guard(() => {
       setDirectorHandoff({ id: ++handoffSequence.current, assetId });
@@ -372,6 +428,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     openPositions,
     outputIssues,
     guardedRestore,
+    importMetadata,
     requestOperation,
     prepareImportedOperation,
     prepareImportedReference,

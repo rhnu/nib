@@ -1,5 +1,6 @@
 // Explicit command permissions shared with the desktop capability manifest.
 const COMMANDS: &[&str] = &[
+    "save_export_file",
     "get_update_status",
     "check_for_update",
     "download_update",
@@ -85,6 +86,7 @@ const COMMANDS: &[&str] = &[
     "list_media_assets",
     "get_media_asset",
     "import_image_asset",
+    "import_remote_image",
     "import_resource_cover",
     "discard_resource_cover",
     "read_media_asset",
