@@ -83,6 +83,11 @@ function CharacterRow({
         </strong>
         {tokenIndicator?.(character.id, index)}
         <span className="spacer" />
+        <Toggle
+          label={t("characters.enable", { value0: index + 1 })}
+          checked={character.enabled}
+          onChange={(enabled) => update({ enabled })}
+        />
         <IconButton
           label={t("characters.moveUp", { value0: index + 1 })}
           disabled={!actions.canUp}
@@ -97,12 +102,11 @@ function CharacterRow({
         >
           <ArrowDown size={14} />
         </IconButton>
-        <Toggle
-          label={t("characters.enable", { value0: index + 1 })}
-          checked={character.enabled}
-          onChange={(enabled) => update({ enabled })}
-        />
-        <IconButton label={t("characters.remove", { value0: index + 1 })} onClick={actions.remove}>
+        <IconButton
+          label={t("characters.remove", { value0: index + 1 })}
+          onClick={actions.remove}
+          className="danger"
+        >
           <Trash2 size={14} />
         </IconButton>
         <IconButton

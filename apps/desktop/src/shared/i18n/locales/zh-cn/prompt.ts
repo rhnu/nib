@@ -46,6 +46,7 @@ export const prompt = {
   moveUp: "上移",
   moveDown: "下移",
   dragSegment: "拖动片段",
+  dragPreset: "拖动调整预设顺序",
   moveSegmentTo: "移动到",
   expandToText: "展开为独立文本",
   revertOverride: "撤销本次覆盖",

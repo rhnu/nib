@@ -48,6 +48,7 @@ export const prompt = {
   moveUp: "Move up",
   moveDown: "Move down",
   dragSegment: "Drag segment",
+  dragPreset: "Drag to reorder preset",
   moveSegmentTo: "Move to",
   expandToText: "Expand to independent text",
   revertOverride: "Revert instance override",

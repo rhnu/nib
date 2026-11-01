@@ -44,8 +44,10 @@ export function PresetEditor({
   preciseIssues,
   vibeIssues,
   part = "all",
+  dragHandle,
 }: {
   part?: "all" | "characters" | "content";
+  dragHandle?: ReactNode;
   instance: PresetInstance;
   resources: Map<string, Resource>;
   models: string[];
@@ -234,6 +236,7 @@ export function PresetEditor({
       >
         <header className="node-heading">
           <span className="node-label">
+            {dragHandle}
             {binding.kind === "linked" ? <Link2 size={15} /> : <FileText size={15} />}
             <span title={name}>{name}</span>
           </span>
@@ -251,6 +254,9 @@ export function PresetEditor({
             </IconButton>
             <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
               <ArrowDown size={14} aria-hidden />
+            </IconButton>
+            <IconButton label={t("prompt.removePreset")} onClick={onRemove} className="danger">
+              <Trash2 size={14} aria-hidden />
             </IconButton>
             {binding.kind === "linked" && (
               <ActionsMenu
@@ -273,9 +279,6 @@ export function PresetEditor({
                 ]}
               />
             )}
-            <IconButton label={t("prompt.removePreset")} onClick={onRemove} className="danger">
-              <Trash2 size={14} aria-hidden />
-            </IconButton>
           </div>
         </header>
         {composition ? (

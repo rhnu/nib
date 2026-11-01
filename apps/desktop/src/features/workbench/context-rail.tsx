@@ -1,5 +1,6 @@
 import { t, useTranslation } from "@/shared/i18n";
-import { Plus } from "lucide-react";
+import { useState, type DragEvent } from "react";
+import { GripVertical, Plus } from "lucide-react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "@/bindings/generation";
 import { HelpMarker, IconButton } from "@/shared/ui";
@@ -11,6 +12,8 @@ import type { ImageOperationAction } from "@/features/inputs/image-operation";
 import { PreciseReferenceEditor, showPreciseReferences } from "@/features/references";
 import { VibeReferenceEditor, showVibeReferences } from "@/features/vibes";
 import type { ScopedOutputIssues } from "./output-issues";
+
+const presetDragType = "application/x-nib-preset-instance";
 
 export function ContextRail({
   draft,
@@ -57,6 +60,26 @@ export function ContextRail({
 }) {
   useTranslation();
 
+  const [presetDropBefore, setPresetDropBefore] = useState<string | null>(null);
+
+  const dropPreset = (event: DragEvent<HTMLElement>, beforeId?: string) => {
+    if (!event.dataTransfer.types.includes(presetDragType)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setPresetDropBefore(null);
+    const id = event.dataTransfer.getData(presetDragType);
+    if (id === beforeId) return;
+    const current = readCurrentDraft();
+    const from = current.presets.findIndex((item) => item.id === id);
+    const before = beforeId
+      ? current.presets.findIndex((item) => item.id === beforeId)
+      : current.presets.length;
+    if (from < 0 || before < 0) return;
+    const target = before > from ? before - 1 : before;
+    const presets = moveItem(current.presets, from, target - from);
+    if (presets !== current.presets) edit({ ...current, presets });
+  };
+
   return (
     <div className="context-rail">
       {draft.inputs.operation.kind !== "upscale" && (
@@ -73,41 +96,114 @@ export function ContextRail({
               <Plus size={16} />
             </IconButton>
           </header>
-          {draft.presets.map((instance, index) => (
-            <PresetEditor
-              key={instance.id}
-              part="content"
-              instance={instance}
-              resources={resources}
-              models={models}
-              capabilities={capabilities}
-              onPosition={(id) => onPosition(id, instance.id)}
-              characterIssues={outputIssues.presets[instance.id]?.characters}
-              preciseIssues={outputIssues.presets[instance.id]?.precise}
-              vibeIssues={outputIssues.presets[instance.id]?.vibes}
-              onChange={(value) => {
-                const current = readCurrentDraft();
-                if (current)
-                  edit({
-                    ...current,
-                    presets: current.presets.map((item) =>
-                      item.id === instance.id ? value : item,
-                    ),
-                  });
-              }}
-              onRemove={() =>
-                edit({
-                  ...draft,
-                  presets: draft.presets.filter((item) => item.id !== instance.id),
-                })
-              }
-              up={() => edit({ ...draft, presets: moveItem(draft.presets, index, -1) })}
-              down={() => edit({ ...draft, presets: moveItem(draft.presets, index, 1) })}
-              canUp={index > 0}
-              canDown={index < draft.presets.length - 1}
-              onError={setError}
-            />
-          ))}
+          <div
+            className={presetDropBefore === "end" ? "prompt-drop-end" : undefined}
+            onDragOver={(event) => {
+              if (!event.dataTransfer.types.includes(presetDragType)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.dataTransfer.dropEffect = "move";
+              setPresetDropBefore("end");
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+                setPresetDropBefore(null);
+            }}
+            onDrop={(event) => dropPreset(event)}
+          >
+            {draft.presets.map((instance, index) => (
+              <div
+                key={instance.id}
+                className={`preset-drop-slot${presetDropBefore === instance.id ? " prompt-drop-before" : ""}`}
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes(presetDragType)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.dataTransfer.dropEffect = "move";
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  const after = event.clientY > bounds.top + bounds.height / 2;
+                  setPresetDropBefore(
+                    after ? (draft.presets[index + 1]?.id ?? "end") : instance.id,
+                  );
+                }}
+                onDrop={(event) =>
+                  dropPreset(
+                    event,
+                    presetDropBefore === "end" ? undefined : (presetDropBefore ?? instance.id),
+                  )
+                }
+              >
+                <PresetEditor
+                  part="content"
+                  instance={instance}
+                  dragHandle={
+                    <span
+                      className="prompt-drag-handle"
+                      draggable
+                      title={t("prompt.dragPreset")}
+                      aria-label={t("prompt.dragPreset")}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData(presetDragType, instance.id);
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => setPresetDropBefore(null)}
+                    >
+                      <GripVertical size={14} aria-hidden />
+                    </span>
+                  }
+                  resources={resources}
+                  models={models}
+                  capabilities={capabilities}
+                  onPosition={(id) => onPosition(id, instance.id)}
+                  characterIssues={outputIssues.presets[instance.id]?.characters}
+                  preciseIssues={outputIssues.presets[instance.id]?.precise}
+                  vibeIssues={outputIssues.presets[instance.id]?.vibes}
+                  onChange={(value) => {
+                    const current = readCurrentDraft();
+                    if (current)
+                      edit({
+                        ...current,
+                        presets: current.presets.map((item) =>
+                          item.id === instance.id ? value : item,
+                        ),
+                      });
+                  }}
+                  onRemove={() => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      presets: current.presets.filter((item) => item.id !== instance.id),
+                    });
+                  }}
+                  up={() => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      presets: moveItem(
+                        current.presets,
+                        current.presets.findIndex((item) => item.id === instance.id),
+                        -1,
+                      ),
+                    });
+                  }}
+                  down={() => {
+                    const current = readCurrentDraft();
+                    edit({
+                      ...current,
+                      presets: moveItem(
+                        current.presets,
+                        current.presets.findIndex((item) => item.id === instance.id),
+                        1,
+                      ),
+                    });
+                  }}
+                  canUp={index > 0}
+                  canDown={index < draft.presets.length - 1}
+                  onError={setError}
+                />
+              </div>
+            ))}
+          </div>
         </section>
       )}
       <ImageOperationPanel

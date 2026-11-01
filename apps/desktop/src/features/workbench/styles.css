@@ -63,3 +63,9 @@
   min-height: 0;
   min-width: 0;
 }
+.preset-drop-slot > .preset-instance {
+  margin-bottom: 0;
+}
+.preset-drop-slot + .preset-drop-slot {
+  margin-top: 8px;
+}

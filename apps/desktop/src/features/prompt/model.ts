@@ -33,10 +33,13 @@ export const textNode = (text = ""): PromptNode => ({
   text,
 });
 
+/** Move an item to its offset position, keeping the other items in order. */
 export function moveItem<T>(items: T[], index: number, offset: number): T[] {
   const target = index + offset;
-  if (target < 0 || target >= items.length) return items;
+  if (index < 0 || index >= items.length || target < 0 || target >= items.length || offset === 0)
+    return items;
   const copy = [...items];
-  [copy[index], copy[target]] = [copy[target], copy[index]];
+  const [item] = copy.splice(index, 1);
+  copy.splice(target, 0, item);
   return copy;
 }

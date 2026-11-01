@@ -151,7 +151,7 @@ export function PromptTextEditor({
           {!collapsed && (
             <button
               type="button"
-              className="prompt-editor-action prompt-lexicon-trigger icon-button"
+              className="prompt-editor-action icon-button"
               disabled={disabled}
               title={t("lexicon.title")}
               aria-label={`${label} · ${t("lexicon.title")}`}

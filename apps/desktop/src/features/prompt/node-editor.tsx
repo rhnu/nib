@@ -99,6 +99,9 @@ export function NodeEditor({
           <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
             <ArrowDown size={14} aria-hidden />
           </IconButton>
+          <IconButton label={t("prompt.removeSegment")} onClick={remove} className="danger">
+            <Trash2 size={14} aria-hidden />
+          </IconButton>
           {(node.kind === "chunk" || destinations.length > 0) && (
             <ActionsMenu
               label={t("prompt.segmentActions")}
@@ -139,9 +142,6 @@ export function NodeEditor({
               ]}
             />
           )}
-          <IconButton label={t("prompt.removeSegment")} onClick={remove} className="danger">
-            <Trash2 size={14} aria-hidden />
-          </IconButton>
         </>
       }
     >

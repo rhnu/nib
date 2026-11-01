@@ -86,14 +86,7 @@
   gap: 2px;
 }
 .prompt-text-editor[data-formattable] {
-  --prompt-editor-padding-right: 64px;
-}
-.prompt-text-editor[data-formattable] .prompt-editor-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 26px);
-}
-.prompt-text-editor[data-formattable] .prompt-lexicon-trigger {
-  grid-column: 2;
+  --prompt-editor-min-height: 90px;
 }
 .prompt-text-editor .prompt-editor-action.icon-button {
   width: 26px;
