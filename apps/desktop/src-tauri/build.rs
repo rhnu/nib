@@ -74,6 +74,7 @@ const COMMANDS: &[&str] = &[
     "list_jobs",
     "get_job",
     "cancel_job",
+    "cancel_job_batch",
     "retry_job",
     "subscribe_job_feedback",
     "unsubscribe_job_feedback",

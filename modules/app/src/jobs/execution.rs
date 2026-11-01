@@ -11,11 +11,9 @@ use novelai_bridge::{
     EncodeVibeRequest, GenerateImageResult, ImageStreamEvent, RunDirectorToolRequest,
     UpscaleImageRequest,
 };
-use tokio::sync::Notify;
 
 use super::{
-    ActiveJob, FrozenSubmission, JobError, JobFeedback, JobQueue, JobRecord, public_failure,
-    report_failure,
+    FrozenSubmission, JobError, JobFeedback, JobQueue, JobRecord, public_failure, report_failure,
 };
 use crate::{api::UserMessage, media::JobOutput, persistence::PersistenceError};
 
@@ -39,20 +37,15 @@ impl JobQueue {
                 self.feedback
                     .send(JobFeedback::Started { job_id: id.clone() }),
             );
-            let cancel = Arc::new(Notify::new());
             *self
                 .active
                 .lock()
-                .map_err(|_poisoned| PersistenceError::Locked)? = Some(ActiveJob {
-                id: id.clone(),
-                cancel: Arc::clone(&cancel),
-            });
+                .map_err(|_poisoned| PersistenceError::Locked)? = Some(id.clone());
             drop(claim);
             let queue = Arc::clone(self);
-            // An explicit cancel does not abort this future. Streaming cancel must finish
-            // SDK observation; ordinary requests settle before the next queue item starts.
+            // A claimed request always settles and retains its outputs before the next task starts.
             let mut task = tokio::task::JoinSet::new();
-            task.spawn(async move { queue.execute(&next, cancel).await });
+            task.spawn(async move { queue.execute(&next).await });
             let outcome = task.join_next().await;
             let failure = match outcome {
                 Some(Ok(Ok(()))) => None,
@@ -91,34 +84,20 @@ impl JobQueue {
         }
     }
 
-    async fn execute(
-        self: &Arc<Self>,
-        record: &JobRecord,
-        cancel: Arc<Notify>,
-    ) -> Result<(), JobError> {
+    async fn execute(self: &Arc<Self>, record: &JobRecord) -> Result<(), JobError> {
         let queue = Arc::clone(self);
-        let id = record.id.clone();
         let execution = record.execution.clone();
         let credential_id = record.credential_id.clone();
-        let context = tokio::task::spawn_blocking(move || {
-            if !queue.store.job_running(&id)? {
-                return Ok(None);
-            }
-            queue
-                .clients
-                .execution_context(execution, &credential_id)
-                .map(Some)
+        let (client, sample) = tokio::task::spawn_blocking(move || {
+            queue.clients.execution_context(execution, &credential_id)
         })
         .await??;
-        let Some((client, sample)) = context else {
-            return Ok(());
-        };
         let account = sample.as_ref().map(crate::settings::AccountSample::summary);
         let observer =
             super::observation::JobObserver::new(record.id.clone(), account, self.feedback.clone());
         let client =
             client.with_credit_observer(Arc::<super::observation::JobObserver>::clone(&observer));
-        let outcome = self.execute_operation(record, cancel, client).await;
+        let outcome = self.execute_operation(record, client).await;
         if let Some(observation) = observer.snapshot() {
             let store = Arc::clone(&self.store);
             let id = record.id.clone();
@@ -132,7 +111,6 @@ impl JobQueue {
     async fn execute_operation(
         self: &Arc<Self>,
         record: &JobRecord,
-        cancel: Arc<Notify>,
         client: super::SdkClient,
     ) -> Result<(), JobError> {
         let queue = Arc::clone(self);
@@ -141,12 +119,6 @@ impl JobQueue {
             prepare_operation(submission, queue.assets.as_ref())
         })
         .await??;
-        // Cancellation may race local image preparation or client construction.
-        let store = Arc::clone(&self.store);
-        let id = record.id.clone();
-        if !tokio::task::spawn_blocking(move || store.job_running(&id)).await?? {
-            return Ok(());
-        }
         let output = match prepared {
             PreparedOperation::Generation { prepared, stream } => {
                 if let Some(mode) = stream {
@@ -154,37 +126,32 @@ impl JobQueue {
                     let seed = stream.resolved_seed;
                     let mut finals = BTreeMap::new();
                     let mut previews = PreviewBudget::default();
-                    loop {
-                        tokio::select! {
-                            biased;
-                            () = cancel.notified() => {
-                                stream.cancel().await;
-                                return Ok(());
-                            },
-                            chunk = stream.next() => {
-                                let Some(chunk) = chunk else { break; };
-                                match chunk?.event {
-                                    ImageStreamEvent::Intermediate { samp_ix, step_ix, image, .. } => {
-                                        if previews.accept(samp_ix, image.len(), Instant::now()) {
-                                            drop(self.feedback.send(JobFeedback::Preview {
-                                                job_id: record.id.clone(),
-                                                sample_index: samp_ix,
-                                                step_index: step_ix,
-                                                mime_type: preview_mime(&image).map(str::to_owned),
-                                                image_bytes: image,
-                                            }));
-                                        }
-                                    },
-                                    ImageStreamEvent::Final { samp_ix, image, .. } => {
-                                        finals.insert(samp_ix, image);
-                                        drop(self.feedback.send(JobFeedback::FinalReceived {
-                                            job_id: record.id.clone(),
-                                            sample_index: samp_ix,
-                                        }));
-                                    },
-                                    ImageStreamEvent::Error { .. } | ImageStreamEvent::Unknown { .. } => {},
+                    while let Some(chunk) = stream.next().await {
+                        match chunk?.event {
+                            ImageStreamEvent::Intermediate {
+                                samp_ix,
+                                step_ix,
+                                image,
+                                ..
+                            } => {
+                                if previews.accept(samp_ix, image.len(), Instant::now()) {
+                                    drop(self.feedback.send(JobFeedback::Preview {
+                                        job_id: record.id.clone(),
+                                        sample_index: samp_ix,
+                                        step_index: step_ix,
+                                        mime_type: preview_mime(&image).map(str::to_owned),
+                                        image_bytes: image,
+                                    }));
                                 }
                             },
+                            ImageStreamEvent::Final { samp_ix, image, .. } => {
+                                finals.insert(samp_ix, image);
+                                drop(self.feedback.send(JobFeedback::FinalReceived {
+                                    job_id: record.id.clone(),
+                                    sample_index: samp_ix,
+                                }));
+                            },
+                            ImageStreamEvent::Error { .. } | ImageStreamEvent::Unknown { .. } => {},
                         }
                     }
                     // SDK EOF validation rejects missing/duplicate finals and settles observation.

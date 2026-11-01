@@ -174,6 +174,7 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         generation::list_jobs,
         generation::get_job,
         generation::cancel_job,
+        generation::cancel_job_batch,
         generation::retry_job,
         generation::get_account_summary,
         generation::refresh_account_summary,

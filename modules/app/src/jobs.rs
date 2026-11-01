@@ -2,6 +2,7 @@
 
 use crate::api::UserMessage;
 
+mod cancellation;
 mod execution;
 mod observation;
 mod operations;
@@ -348,11 +349,6 @@ pub trait SdkClientProvider: Send + Sync {
     }
 }
 
-struct ActiveJob {
-    id: String,
-    cancel: Arc<Notify>,
-}
-
 pub trait JobStore: Send + Sync {
     /// # Errors
     /// Returns a backend failure retaining fixed input.
@@ -409,19 +405,20 @@ pub trait JobStore: Send + Sync {
     /// Returns a backend failure.
     fn claim_job(&self) -> Result<Option<JobRecord>, PersistenceError>;
 
+    /// Cancels a task only while queued, returning its actual state if already started or terminal.
     /// # Errors
     /// Returns missing task or backend failure.
     fn cancel_job(&self, id: &str) -> Result<JobRecord, PersistenceError>;
 
+    /// Atomically cancels queued tasks in one batch and returns the complete batch snapshot.
+    /// This operation must serialize with task claiming.
+    /// # Errors
+    /// Returns missing batch or backend failure.
+    fn cancel_batch(&self, batch_id: &str) -> Result<Vec<JobSummary>, PersistenceError>;
+
     /// # Errors
     /// Returns a backend failure.
     fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError>;
-
-    /// # Errors
-    /// Returns missing task or backend failure.
-    fn job_running(&self, id: &str) -> Result<bool, PersistenceError> {
-        Ok(self.get_job(id)?.status == JobStatus::Running)
-    }
 }
 
 pub trait SubmissionResolver: Send + Sync {
@@ -448,7 +445,7 @@ pub struct JobQueue {
     idle: Notify,
     claim_gate: tokio::sync::Mutex<()>,
     submission_gate: Mutex<()>,
-    active: Mutex<Option<ActiveJob>>,
+    active: Mutex<Option<String>>,
 }
 
 impl JobQueue {
@@ -709,25 +706,6 @@ impl JobQueue {
     /// # Errors
     /// Returns an unknown task or backend failure.
     pub fn get(&self, id: &str) -> Result<JobRecord, JobError> { Ok(self.store.get_job(id)?) }
-
-    /// Cancels queued work immediately; active streams settle asynchronously through the SDK.
-    /// # Errors
-    /// Returns missing task or storage failures.
-    pub fn cancel(&self, id: &str) -> Result<JobRecord, JobError> {
-        let record = self.store.cancel_job(id)?;
-        self.status_changed.send_replace(());
-        drop(self.feedback.send(JobFeedback::ResyncRequired));
-        if let Some(active) = self
-            .active
-            .lock()
-            .map_err(|_poisoned| PersistenceError::Locked)?
-            .as_ref()
-            && active.id == id
-        {
-            active.cancel.notify_one();
-        }
-        Ok(record)
-    }
 
     /// Runs one sequential worker, rejecting future submissions after fatal storage failure.
     /// # Errors

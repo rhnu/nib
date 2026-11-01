@@ -12,7 +12,9 @@ export function JobNotifications() {
         notify(
           () =>
             t(notice.failed ? "generation.batchFailed" : "generation.batchCompleted", {
-              count: notice.count,
+              completed: notice.completed,
+              failures: notice.failures,
+              cancelled: notice.cancelled,
             }),
           `batch-${notice.id}`,
           notice.failed,

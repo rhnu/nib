@@ -3,9 +3,9 @@ import { useFeedback } from "./feedback-context";
 import { useJobData } from "./job-context";
 import { jobsApi } from "./api";
 import { useRef, useState } from "react";
-import { Eye, ListOrdered, RotateCw, X } from "lucide-react";
+import { Eye, ListOrdered, RotateCw, Square, X } from "lucide-react";
 import type { JobSummary } from "@/bindings/generation";
-import { Button, IconButton, Modal, Notice } from "@/shared/ui";
+import { Button, IconButton, Modal, Notice, notify } from "@/shared/ui";
 import { JobRetryDialog } from "./job-retry-dialog";
 import { operationSummaryLabel } from "./summary";
 import { jobFeedbackText } from "./feedback-state";
@@ -22,7 +22,16 @@ export function JobQueue({
 }) {
   useTranslation();
 
-  const { jobs, acceptJob, queryError, hasMoreJobs, loadingMoreJobs, loadMoreJobs } = useJobData();
+  const {
+    jobs,
+    acceptJob,
+    stopBatch,
+    stoppingBatches,
+    queryError,
+    hasMoreJobs,
+    loadingMoreJobs,
+    loadMoreJobs,
+  } = useJobData();
   const { feedback, jobObservations } = useFeedback();
   const [localOpen, setLocalOpen] = useState(false);
   const [pending, setPending] = useState<string[]>([]);
@@ -36,7 +45,9 @@ export function JobQueue({
     setPending([...pendingRef.current]);
     setError(null);
     try {
-      acceptJob(await jobsApi.cancel(id));
+      const record = await jobsApi.cancel(id);
+      acceptJob(record);
+      if (record.status === "running") notify(() => t("generation.requestAlreadyStarted"));
     } catch (cause) {
       setError(cause);
     } finally {
@@ -77,23 +88,33 @@ export function JobQueue({
           ) : (
             groups.map((group) => {
               const ordered = [...group].sort((a, b) => a.requestIndex - b.requestIndex);
-              const active = ordered.filter(
-                (job) => job.status === "queued" || job.status === "running",
-              );
+              const queued = ordered.filter((job) => job.status === "queued");
+              const running = ordered.some((job) => job.status === "running");
+              const batchId = ordered[0]!.batchId;
               return (
                 <section className="queue-batch" key={ordered[0]!.batchId}>
                   <header>
                     <strong>{operationSummaryLabel(ordered[0]!.operation)}</strong>
                     <span>{t("generation.requestCount", { count: ordered[0]!.requestCount })}</span>
-                    {active.length > 1 && (
+                    {queued.length > 0 && (
                       <IconButton
-                        label={t("generation.cancelBatchRequests")}
-                        disabled={active.some((job) => pending.includes(job.id))}
+                        label={
+                          running
+                            ? t("generation.stopRemainingRequests")
+                            : t("generation.cancelQueuedRequests")
+                        }
+                        title={t("generation.stopRequestsHelp")}
+                        disabled={
+                          stoppingBatches.includes(batchId) ||
+                          queued.some((job) => pending.includes(job.id))
+                        }
+                        aria-busy={stoppingBatches.includes(batchId)}
                         onClick={() => {
-                          for (const job of active) void cancel(job.id);
+                          setError(null);
+                          void stopBatch(batchId).catch(setError);
                         }}
                       >
-                        <X size={15} />
+                        <Square size={13} fill="currentColor" />
                       </IconButton>
                     )}
                   </header>
@@ -128,10 +149,10 @@ export function JobQueue({
                             <Eye size={15} />
                           </IconButton>
                         )}
-                        {(job.status === "queued" || job.status === "running") && (
+                        {job.status === "queued" && (
                           <IconButton
                             label={t("generation.cancelRequest")}
-                            disabled={pending.includes(job.id)}
+                            disabled={pending.includes(job.id) || stoppingBatches.includes(batchId)}
                             onClick={() => void cancel(job.id)}
                           >
                             <X size={15} />

@@ -67,6 +67,8 @@ impl BatchNotice {
             (
                 if failed {
                     "nib · 批次包含失败任务"
+                } else if self.cancelled > 0 {
+                    "nib · 批次已结束"
                 } else {
                     "nib · 批次已完成"
                 },
@@ -79,6 +81,8 @@ impl BatchNotice {
             (
                 if failed {
                     "nib · Batch finished with errors"
+                } else if self.cancelled > 0 {
+                    "nib · Batch finished"
                 } else {
                     "nib · Batch completed"
                 },

@@ -1,11 +1,12 @@
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useAccount } from "../account/account-context";
-import { originForOperation } from "./work-state";
+import { originForOperation, workBatch } from "./work-state";
 import { useSubmission } from "./submission-context";
 import { useRef, useState, type ReactNode } from "react";
-import { AlertCircle, KeyRound, WandSparkles, RotateCw } from "lucide-react";
+import { AlertCircle, KeyRound, WandSparkles, RotateCw, Square } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
-import { Button } from "@/shared/ui";
+import { Button, IconButton, Notice } from "@/shared/ui";
+import { useJobData } from "../jobs/job-context";
 import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork } from "@/shared/host/pending-work";
 import { AccountDialog } from "../account/account-dialog";
@@ -45,6 +46,9 @@ export function GenerationActions({
     refreshAccountSummary,
   } = useAccount();
   const { submit: submitGeneration, submissionBlocked, work } = useSubmission();
+  const { jobs, stopBatch, stoppingBatches } = useJobData();
+  const batch = workBatch(jobs, originForOperation(draft.inputs.operation.kind));
+  const [stopError, setStopError] = useState<unknown>(null);
   const working = work[originForOperation(draft.inputs.operation.kind)];
   const displayQuote = estimate.displayQuote;
   const effectiveOperation = isOperationEffective(
@@ -88,6 +92,7 @@ export function GenerationActions({
       return;
     }
     submittingRef.current = true;
+    setStopError(null);
     setSubmitError(null);
     try {
       await submitGeneration(snapshot);
@@ -155,7 +160,14 @@ export function GenerationActions({
               {working === "loading"
                 ? t("generation.loading")
                 : working === "running"
-                  ? t("generation.working")
+                  ? batch?.finishing
+                    ? t("generation.waitingForCurrentRequest")
+                    : batch?.running
+                      ? t("generation.requestProgress", {
+                          index: batch.running.requestIndex + 1,
+                          total: batch.requestCount,
+                        })
+                      : t("generation.working")
                   : working === "queued"
                     ? t("generation.queued")
                     : working === "submitting"
@@ -189,7 +201,26 @@ export function GenerationActions({
               <span className="generation-submit-cost">{t("generation.costUnknown")}</span>
             ))}
         </Button>
+        {working !== "submitting" && batch && batch.queued > 0 && (
+          <IconButton
+            label={
+              batch.running
+                ? t("generation.stopRemainingRequests")
+                : t("generation.cancelQueuedRequests")
+            }
+            title={t("generation.stopRequestsHelp")}
+            disabled={stoppingBatches.includes(batch.id)}
+            aria-busy={stoppingBatches.includes(batch.id)}
+            onClick={() => {
+              setStopError(null);
+              void stopBatch(batch.id).catch(setStopError);
+            }}
+          >
+            <Square size={15} fill="currentColor" />
+          </IconButton>
+        )}
       </div>
+      {stopError !== null && <Notice>{errorMessage(stopError)}</Notice>}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}

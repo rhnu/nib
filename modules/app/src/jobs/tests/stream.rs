@@ -270,49 +270,64 @@ async fn incomplete_eof_and_error_after_final_do_not_retain_outputs() {
 }
 
 #[tokio::test]
-async fn active_cancel_awaits_sdk_observation_and_releases_the_queue() {
+async fn stopping_a_batch_preserves_the_active_stream_and_other_batches() {
+    let eof = Arc::new(Notify::new());
     let (queue, jobs, outputs) = streaming_queue(
         vec![event("intermediate"), event("final")],
-        Some(Arc::new(Notify::new())),
+        Some(Arc::clone(&eof)),
     );
+    let frozen = streamed_submission();
+    let batch = queue
+        .enqueue_with(
+            &[frozen.clone(), frozen.clone(), frozen.clone()],
+            ExecutionPreferences::default(),
+            "test-account",
+            None,
+        )
+        .unwrap();
+    let first = &batch.jobs[0];
+    let other = queue.enqueue(&frozen).unwrap();
     let mut feedback = queue.subscribe();
-    let first = queue.enqueue(&streamed_submission()).unwrap();
     let worker = tokio::spawn(Arc::clone(&queue).run());
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            if matches!(feedback.recv().await.unwrap(), JobFeedback::Preview { .. }) {
+            if matches!(
+                feedback.recv().await.unwrap(),
+                JobFeedback::FinalReceived { .. }
+            ) {
                 break;
             }
         }
     })
     .await
     .unwrap();
-    queue.cancel(&first.id).unwrap();
-    let second = queue.enqueue(&streamed_submission()).unwrap();
-    tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            if matches!(feedback.recv().await.unwrap(), JobFeedback::Finished { job_id, .. } if job_id == first.id) {
-                break;
-            }
-        }
-    })
-    .await
-    .unwrap();
+    // A stale individual cancel must also leave a claimed request untouched.
+    assert_eq!(queue.cancel(&first.id).unwrap().status, JobStatus::Running);
+    let snapshot = queue.cancel_batch(&batch.batch_id).unwrap();
     assert_eq!(
+        snapshot.iter().map(|job| job.status).collect::<Vec<_>>(),
+        [
+            JobStatus::Running,
+            JobStatus::Cancelled,
+            JobStatus::Cancelled
+        ]
+    );
+    assert!(outputs.images.lock().unwrap().is_empty());
+    assert_eq!(jobs.get_job(&other.id).unwrap().status, JobStatus::Queued);
+    assert_eq!(queue.cancel_batch(&batch.batch_id).unwrap(), snapshot);
+    eof.notify_one();
+    assert_eq!(terminal(&jobs, &first.id).await, JobStatus::Completed);
+    assert_eq!(terminal(&jobs, &other.id).await, JobStatus::Completed);
+    assert_eq!(*outputs.images.lock().unwrap(), [1, 1]);
+    assert_eq!(*jobs.claimed.lock().unwrap(), [first.id.clone(), other.id]);
+    assert!(matches!(
         jobs.get_job(&first.id)
             .unwrap()
             .observation
             .unwrap()
             .outcome,
-        Some(RequestSettlement::Cancelled)
-    );
-    assert_eq!(terminal(&jobs, &second.id).await, JobStatus::Completed);
-    assert_eq!(*outputs.images.lock().unwrap(), [1]);
-    assert_eq!(*jobs.claimed.lock().unwrap(), [first.id.clone(), second.id]);
-    assert_eq!(
-        jobs.get_job(&first.id).unwrap().status,
-        JobStatus::Cancelled
-    );
+        Some(RequestSettlement::Succeeded { image_count: 1 })
+    ));
     worker.abort();
     drop(worker.await);
 }

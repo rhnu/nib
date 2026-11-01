@@ -88,6 +88,7 @@
     "allow-list-jobs",
     "allow-get-job",
     "allow-cancel-job",
+    "allow-cancel-job-batch",
     "allow-retry-job",
     "allow-subscribe-job-feedback",
     "allow-unsubscribe-job-feedback",

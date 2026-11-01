@@ -1,6 +1,12 @@
 import type { JobSummary } from "@/bindings/generation";
 
-export type BatchNotice = { id: string; failed: boolean; count: number };
+export type BatchNotice = {
+  id: string;
+  failed: boolean;
+  completed: number;
+  failures: number;
+  cancelled: number;
+};
 
 /** Observe active work only; opening history never replays old completion notifications. */
 export class BatchNotifications {
@@ -36,7 +42,10 @@ export class BatchNotifications {
       if (!batch.every((job) => job.status === "cancelled"))
         notices.push({
           id,
-          count: batch.length,
+          completed: batch.filter((job) => job.status === "completed").length,
+          failures: batch.filter((job) => job.status === "failed" || job.status === "interrupted")
+            .length,
+          cancelled: batch.filter((job) => job.status === "cancelled").length,
           failed: batch.some((job) => job.status === "failed" || job.status === "interrupted"),
         });
     }

@@ -117,6 +117,7 @@
 .generation-submit-row > .primary {
   flex: 1;
   width: 100%;
+  min-width: 0;
   min-height: var(--control-height-prominent);
   justify-content: space-between;
 }
@@ -124,6 +125,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+.generation-submit-label > svg {
+  flex-shrink: 0;
 }
 .generation-submit-row > .primary[data-error],
 .generation-submit-row > .primary[data-error]:hover {

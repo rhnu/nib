@@ -64,7 +64,7 @@ pub(crate) fn decode_operation_summary(
     })
 }
 
-fn read_summaries(
+pub(super) fn read_summaries(
     connection: &Connection,
     filter: &str,
     parameters: &[&dyn rusqlite::ToSql],

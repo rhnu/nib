@@ -8,7 +8,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
     DerivationKey, FrozenSubmission, GenerationBatch, JobObservation, JobPage, JobQuery, JobRecord,
-    JobStore, ParameterDiagnostic, SubmissionResolver,
+    JobStore, JobSummary, ParameterDiagnostic, SubmissionResolver,
 };
 use crate::{
     persistence::{PersistenceError, SqliteDatabase, decode, encode},
@@ -482,21 +482,6 @@ impl JobStore for SqliteDatabase {
         read_job(&connection, parse_id(id)?)
     }
 
-    fn job_running(&self, id: &str) -> Result<bool, PersistenceError> {
-        self.connection()?
-            .query_row(
-                "SELECT status = 'running' FROM jobs WHERE id = ?1",
-                [parse_id(id)?],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(|error| PersistenceError::failure("read the current task state", error))?
-            .ok_or_else(|| PersistenceError::NotFound {
-                kind: "job",
-                id: id.to_owned(),
-            })
-    }
-
     fn list_jobs(&self, query: &JobQuery) -> Result<JobPage, PersistenceError> {
         let connection = self.connection()?;
         query::list_jobs(&connection, query)
@@ -540,9 +525,36 @@ impl JobStore for SqliteDatabase {
 
     fn cancel_job(&self, id: &str) -> Result<JobRecord, PersistenceError> {
         let connection = self.connection()?;
-        connection.execute("UPDATE jobs SET status = 'cancelled', finished_at = ?2, error = NULL WHERE id = ?1 AND status IN ('queued', 'running')", params![parse_id(id)?, timestamp()?])
+        connection.execute("UPDATE jobs SET status = 'cancelled', finished_at = ?2, error = NULL WHERE id = ?1 AND status = 'queued'", params![parse_id(id)?, timestamp()?])
             .map_err(|error| PersistenceError::failure("cancel a generation job", error))?;
         read_job(&connection, parse_id(id)?)
+    }
+
+    fn cancel_batch(&self, batch_id: &str) -> Result<Vec<JobSummary>, PersistenceError> {
+        // The connection guard also covers claim_job, so no task can be claimed between updates.
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction().map_err(|error| {
+            PersistenceError::failure("begin cancelling queued batch requests", error)
+        })?;
+        transaction.execute(
+            "UPDATE jobs SET status = 'cancelled', finished_at = ?2, error = NULL WHERE batch_id = ?1 AND status = 'queued'",
+            params![batch_id, timestamp()?],
+        ).map_err(|error| PersistenceError::failure("cancel queued batch requests", error))?;
+        let jobs = query::read_summaries(
+            &transaction,
+            "WHERE j.batch_id = ?1 ORDER BY j.request_index",
+            &[&batch_id],
+        )?;
+        if jobs.is_empty() {
+            return Err(PersistenceError::NotFound {
+                kind: "batch",
+                id: batch_id.to_owned(),
+            });
+        }
+        transaction
+            .commit()
+            .map_err(|error| PersistenceError::failure("retain batch cancellation", error))?;
+        Ok(jobs)
     }
 
     fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError> {

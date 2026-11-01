@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use nib_app::{
     api::{ApiError, ErrorCode, UserMessage},
-    jobs::{GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobQueue, JobRecord},
+    jobs::{
+        GenerationBatch, GenerationQuote, JobError, JobPage, JobQuery, JobQueue, JobRecord,
+        JobSummary,
+    },
     session::Draft,
     settings::{AccountError, AccountStatus, CredentialError},
 };
@@ -310,6 +313,17 @@ pub(crate) async fn cancel_job(
 ) -> Result<JobRecord, ApiError> {
     with_generation_write(state, move |runtime| {
         runtime.cancel(&id).map_err(generation_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn cancel_job_batch(
+    state: tauri::State<'_, DesktopState>,
+    batch_id: String,
+) -> Result<Vec<JobSummary>, ApiError> {
+    with_generation_write(state, move |runtime| {
+        runtime.cancel_batch(&batch_id).map_err(generation_error)
     })
     .await
 }

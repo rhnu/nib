@@ -13,19 +13,29 @@ describe("batch notifications", () => {
     const notices = new BatchNotifications();
     notices.update([job("a", "running"), job("b", "queued")]);
     expect(notices.update([job("a", "completed"), job("b", "running")])).toEqual([]);
-    expect(notices.update([job("b", "failed")])).toEqual([{ id: "batch", failed: true, count: 2 }]);
+    expect(notices.update([job("b", "failed")])).toEqual([
+      { id: "batch", failed: true, completed: 1, failures: 1, cancelled: 0 },
+    ]);
     expect(notices.update([job("a", "completed"), job("b", "failed")])).toEqual([]);
   });
   it("tracks returned submissions before a fast completion snapshot", () => {
     const notices = new BatchNotifications();
     notices.track([job("a", "queued", 1)]);
     expect(notices.update([job("a", "completed", 1)])).toEqual([
-      { id: "batch", failed: false, count: 1 },
+      { id: "batch", failed: false, completed: 1, failures: 0, cancelled: 0 },
     ]);
   });
   it("does not announce a fully cancelled batch", () => {
     const notices = new BatchNotifications();
     notices.update([job("a", "queued", 1)]);
     expect(notices.update([job("a", "cancelled", 1)])).toEqual([]);
+  });
+  it("waits for the current request and reports cancelled requests separately", () => {
+    const notices = new BatchNotifications();
+    notices.update([job("a", "running"), job("b", "queued")]);
+    expect(notices.update([job("b", "cancelled")])).toEqual([]);
+    expect(notices.update([job("a", "completed")])).toEqual([
+      { id: "batch", failed: false, completed: 1, failures: 0, cancelled: 1 },
+    ]);
   });
 });

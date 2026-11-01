@@ -399,10 +399,31 @@ impl JobStore for MemoryJobs {
                 kind: "job",
                 id: id.to_owned(),
             })?;
-        if matches!(record.status, JobStatus::Queued | JobStatus::Running) {
+        if record.status == JobStatus::Queued {
             record.status = JobStatus::Cancelled;
         }
         Ok(record.clone())
+    }
+
+    fn cancel_batch(&self, batch_id: &str) -> Result<Vec<JobSummary>, PersistenceError> {
+        let mut records = self.records.lock().unwrap();
+        let jobs: Vec<_> = records
+            .iter_mut()
+            .filter(|record| record.batch_id == batch_id)
+            .map(|record| {
+                if record.status == JobStatus::Queued {
+                    record.status = JobStatus::Cancelled;
+                }
+                JobSummary::from(&*record)
+            })
+            .collect();
+        if jobs.is_empty() {
+            return Err(PersistenceError::NotFound {
+                kind: "batch",
+                id: batch_id.to_owned(),
+            });
+        }
+        Ok(jobs)
     }
 
     fn fail_job(&self, id: &str, message: &UserMessage) -> Result<(), PersistenceError> {
@@ -603,6 +624,7 @@ impl SdkClientProvider for NoClient {
 mod account;
 use account::sampled_account;
 
+mod cancellation;
 mod inputs;
 mod stream;
 

@@ -1,6 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import type { GenerationBatch, JobRecord, JobPage, ResultPage } from "@/bindings/generation";
+import type {
+  GenerationBatch,
+  JobRecord,
+  JobSummary,
+  JobPage,
+  ResultPage,
+} from "@/bindings/generation";
 import { errorMessage } from "@/shared/host/error";
 import { jobsApi } from "./api";
 import { resultsApi } from "../results/api";
@@ -8,6 +14,7 @@ import { mergeSummaries, summarizeJob } from "./summary";
 import { refreshHistory } from "./paged-history";
 import { BatchNotifications } from "./batch-notifications";
 import { recoverMissingJobs } from "./recover-missing-jobs";
+import { trackPendingWork } from "@/shared/host/pending-work";
 
 export const jobQueryKey = ["jobs"] as const;
 export const resultQueryKey = ["results"] as const;
@@ -19,6 +26,8 @@ export function useJobQuery() {
   const client = useQueryClient();
   const [batchNotifications] = useState(() => new BatchNotifications());
   const [lastSubmission, setLastSubmission] = useState<GenerationBatch | null>(null);
+  const stopping = useRef(new Set<string>());
+  const [stoppingBatches, setStoppingBatches] = useState<string[]>([]);
   const jobsQuery = useInfiniteQuery({
     queryKey: jobQueryKey,
     initialPageParam: null as string | null,
@@ -94,8 +103,8 @@ export function useJobQuery() {
   }, [client]);
 
   const acceptJob = useCallback(
-    (record: JobRecord) => {
-      const summary = summarizeJob(record);
+    (record: JobRecord | JobSummary) => {
+      const summary = "submission" in record ? summarizeJob(record) : record;
       batchNotifications.track([summary]);
       // Cancel the old read before optimistic durable state is installed; its late IPC reply is discarded.
       void client.cancelQueries({ queryKey: jobQueryKey });
@@ -118,7 +127,8 @@ export function useJobQuery() {
           })),
         };
       });
-      client.setQueryData(["job", record.id], record);
+      if ("submission" in record) client.setQueryData(["job", record.id], record);
+      else void client.invalidateQueries({ queryKey: ["job", record.id], exact: true });
       void client.invalidateQueries({ queryKey: resultQueryKey });
       if (summary.status === "completed") void client.invalidateQueries({ queryKey: ["media"] });
     },
@@ -129,6 +139,26 @@ export function useJobQuery() {
     (batch: GenerationBatch, select = false) => {
       batch.jobs.forEach(acceptJob);
       if (select) setLastSubmission(batch);
+    },
+    [acceptJob],
+  );
+
+  const stopBatch = useCallback(
+    async (batchId: string) => {
+      if (stopping.current.has(batchId)) return;
+      stopping.current.add(batchId);
+      setStoppingBatches([...stopping.current]);
+      try {
+        await trackPendingWork(
+          (async () => {
+            const snapshot = await jobsApi.cancelBatch(batchId);
+            snapshot.forEach(acceptJob);
+          })(),
+        );
+      } finally {
+        stopping.current.delete(batchId);
+        setStoppingBatches([...stopping.current]);
+      }
     },
     [acceptJob],
   );
@@ -154,6 +184,8 @@ export function useJobQuery() {
     batchNotifications,
     acceptJob,
     acceptBatch,
+    stopBatch,
+    stoppingBatches,
     refresh,
     refreshJob,
     queryError:
