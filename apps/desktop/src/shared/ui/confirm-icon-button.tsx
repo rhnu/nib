@@ -4,7 +4,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { Button, IconButton } from "./button";
 import { Modal } from "./modal";
 
-/** Confirm a destructive item action before invoking the owner's current callback. */
+/** Confirm item removal unless the user explicitly bypasses the dialog with Shift. */
 export function ConfirmIconButton({
   label,
   description,
@@ -23,7 +23,16 @@ export function ConfirmIconButton({
   const cancel = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <IconButton ref={trigger} label={label} className="danger" onClick={() => setOpen(true)}>
+      <IconButton
+        ref={trigger}
+        label={label}
+        title={t("common.deleteWithShift", { label })}
+        className="danger"
+        onClick={(event) => {
+          if (event.shiftKey) onConfirm();
+          else setOpen(true);
+        }}
+      >
         {children}
       </IconButton>
       <Modal

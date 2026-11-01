@@ -207,7 +207,7 @@ export function AgentConnection({
               disabled={loading || (provider.kind === "custom" && !provider.endpoint.trim())}
               onClick={() => setRevision((value) => value + 1)}
             >
-              <RefreshCw size={14} aria-hidden />
+              <RefreshCw size={14} className={loading ? "spin" : undefined} aria-hidden />
             </IconButton>
           </div>
         </Field>

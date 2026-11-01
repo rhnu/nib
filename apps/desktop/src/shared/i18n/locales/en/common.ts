@@ -5,6 +5,7 @@ export const common = {
   undo: "Undo",
   cancel: "Cancel",
   confirmDelete: "Confirm deletion",
+  deleteWithShift: "{{label}} (Shift+click to skip confirmation)",
   redo: "Redo",
   cut: "Cut",
   copy: "Copy",

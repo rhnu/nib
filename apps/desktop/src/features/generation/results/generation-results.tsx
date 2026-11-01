@@ -313,7 +313,11 @@ export function GenerationResults({
                   aria-pressed={jobId === active.id}
                   onClick={() => selectJob(active.id)}
                 >
-                  <LoaderCircle size={22} />
+                  <LoaderCircle
+                    size={22}
+                    className={active.status === "running" ? "spin" : undefined}
+                    aria-hidden
+                  />
                   <span>
                     {active.status === "running"
                       ? t("generation.generating")
