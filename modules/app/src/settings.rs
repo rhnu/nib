@@ -255,6 +255,8 @@ pub struct AccountSummary {
     pub anlas_balance: i64,
     pub subscription_active: bool,
     pub tier: i32,
+    /// SDK tier name; absent in observations saved before names were included.
+    pub tier_name: Option<String>,
     #[cfg_attr(feature = "typegen", ts(type = "number | null"))]
     pub expires_at_ms: Option<i64>,
     pub v5_usage: Option<AllowanceSummary>,
@@ -290,11 +292,13 @@ pub struct AllowanceSummary {
 
 impl From<&novelai_bridge::SubscriptionInfo> for AccountSummary {
     fn from(info: &novelai_bridge::SubscriptionInfo) -> Self {
+        let tier_name = info.tier_name();
         Self {
             sampled_at: None,
             anlas_balance: info.anlas_balance,
             subscription_active: info.subscription_active,
             tier: info.tier,
+            tier_name: (tier_name != "unknown").then(|| tier_name.to_owned()),
             expires_at_ms: info.expires_at_ms,
             v5_usage: info.v5_usage.map(|usage| AllowanceSummary {
                 is_negative: usage.is_negative,

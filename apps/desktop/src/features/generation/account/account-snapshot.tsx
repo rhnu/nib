@@ -1,6 +1,32 @@
-import { t, useTranslation, formatDate } from "@/shared/i18n";
+import { t, useTranslation, formatDate, formatNumber } from "@/shared/i18n";
+import type { AccountSummary } from "@/bindings/generation";
 import { useAccount } from "./account-context";
-import { Gem, LoaderCircle, Zap } from "lucide-react";
+import { CalendarDays, Crown, Gem, LoaderCircle, Timer, Zap } from "lucide-react";
+import { allowanceText, recoveryHours } from "./account-display";
+
+/** Settings and the generation footer present the same balances at different sizes. */
+function AccountBalances({ summary }: { summary: AccountSummary | null }) {
+  const quotaLabel = [
+    t("generation.opusQuota"),
+    ...(summary?.v5Usage && summary.v5Usage.purchasedPercent > 0
+      ? [`${t("generation.purchasedQuota")} ${summary.v5Usage.purchasedPercent}%`]
+      : []),
+  ].join(" · ");
+  return (
+    <>
+      <span className="generation-account-metric" title={t("generation.anlasBalance")}>
+        <Gem size={18} aria-hidden />
+        <span className="sr-only">{t("generation.anlasBalance")}: </span>
+        <strong>{summary ? formatNumber(summary.anlasBalance) : "—"}</strong>
+      </span>
+      <span className="generation-account-metric" title={quotaLabel}>
+        <Zap size={18} aria-hidden />
+        <span className="sr-only">{t("generation.opusQuota")}: </span>
+        <strong>{summary?.v5Usage ? allowanceText(summary.v5Usage) : "—"}</strong>
+      </span>
+    </>
+  );
+}
 
 export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
   useTranslation();
@@ -20,10 +46,6 @@ export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
           <span className="generation-muted">{t("generation.accountRequired")}</span>
         </div>
       );
-    const sampled =
-      summary?.sampledAt == null
-        ? t("generation.snapshotTimeUnknown")
-        : formatDate(summary.sampledAt);
     const state =
       accountSummaryLoading || accountLoading
         ? t("generation.refreshing")
@@ -31,23 +53,10 @@ export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
           ? accountSummaryError
           : accountSummaryStale
             ? t("generation.staleSnapshot")
-            : t("generation.snapshotSummary", { value0: sampled });
+            : t("generation.subscriptionBalance");
     return (
       <div className="generation-account-balance" aria-live="polite" title={state}>
-        <span title={t("generation.anlasBalance")}>
-          <Gem size={16} aria-hidden />
-          <span className="sr-only">{t("generation.anlasBalance")}: </span>
-          <strong>{summary?.anlasBalance ?? "—"}</strong>
-        </span>
-        <span title={t("generation.opusQuota")}>
-          <Zap size={16} aria-hidden />
-          <span className="sr-only">{t("generation.opusQuota")}: </span>
-          <strong>
-            {summary?.v5Usage
-              ? `${summary.v5Usage.isNegative ? "−" : ""}${summary.v5Usage.percent}%`
-              : "—"}
-          </strong>
-        </span>
+        <AccountBalances summary={summary} />
         {accountSummaryLoading || accountLoading ? (
           <LoaderCircle size={13} className="spin" aria-label={t("generation.refreshing")} />
         ) : (
@@ -70,63 +79,63 @@ export function AccountSnapshot({ compact = false }: { compact?: boolean }) {
           : t("generation.noAccountSnapshot")}
       </p>
     );
-  const sampled =
-    summary.sampledAt === null
-      ? t("generation.snapshotTimeUnknown")
-      : formatDate(summary.sampledAt);
+  const tierName = summary.tierName
+    ? summary.tierName.charAt(0).toUpperCase() + summary.tierName.slice(1)
+    : t("generation.subscriptionTier", { value0: summary.tier });
   return (
-    <div className="generation-account-snapshot-details">
-      {accountSummaryStale && (
-        <p className="generation-muted">{t("generation.staleSnapshotHelp")}</p>
-      )}
-      <dl className="generation-metadata">
-        <div>
-          <dt>{t("generation.anlasBalance")}</dt>
-          <dd>{summary.anlasBalance}</dd>
-        </div>
-        <div>
-          <dt>{t("generation.subscription")}</dt>
-          <dd>
-            {summary.subscriptionActive
-              ? t("generation.activeSubscription", { value0: summary.tier })
-              : t("generation.inactive")}
-          </dd>
-        </div>
-        {summary.expiresAtMs !== null && (summary.subscriptionActive || summary.tier > 0) && (
-          <div>
-            <dt>{t("generation.subscriptionExpiry")}</dt>
-            <dd>{formatDate(summary.expiresAtMs)}</dd>
-          </div>
-        )}
+    <div className="generation-account-snapshot-details" aria-live="polite">
+      <div className="generation-account-metrics">
+        <AccountBalances summary={summary} />
         {summary.v5Usage && (
-          <>
-            <div>
-              <dt>{t("generation.v5Quota")}</dt>
-              <dd>
-                {summary.v5Usage.isNegative ? "−" : ""}
-                {summary.v5Usage.percent}%
-              </dd>
-            </div>
-            <div>
-              <dt>{t("generation.purchasedQuota")}</dt>
-              <dd>{summary.v5Usage.purchasedPercent}%</dd>
-            </div>
-            <div>
-              <dt>{t("generation.nextPercentRecovery")}</dt>
-              <dd>
-                {t("generation.snapshotSeconds", {
-                  count: summary.v5Usage.secondsUntilNextPercent,
-                })}
-              </dd>
-            </div>
-          </>
+          <span
+            className="generation-account-metric generation-account-recovery"
+            title={t("generation.nextPercentRecovery")}
+          >
+            <Timer size={18} aria-hidden />
+            <span className="sr-only">{t("generation.nextPercentRecovery")}: </span>
+            <strong>
+              {t("generation.recoveryHours", {
+                value0: formatNumber(recoveryHours(summary.v5Usage.secondsUntilNextPercent)),
+              })}
+            </strong>
+            <span>{t("generation.restoreOnePercent")}</span>
+          </span>
         )}
-        <div>
-          <dt>{t("generation.snapshotTime")}</dt>
-          <dd>{sampled}</dd>
-        </div>
-      </dl>
-      <p className="generation-muted">{t("generation.snapshotCostHelp")}</p>
+        {accountSummaryLoading && (
+          <LoaderCircle size={14} className="spin" aria-label={t("generation.refreshing")} />
+        )}
+        {accountSummaryStale && (
+          <span className="generation-account-status">{t("generation.staleSnapshot")}</span>
+        )}
+      </div>
+      <div className="generation-account-subscription">
+        <span className="generation-account-metric" title={t("generation.subscription")}>
+          <Crown size={16} aria-hidden />
+          <span className="sr-only">{t("generation.subscription")}: </span>
+          <span>{tierName}</span>
+          {!summary.subscriptionActive && summary.tier > 0 && (
+            <span className="generation-account-status">{t("generation.inactive")}</span>
+          )}
+        </span>
+        {summary.expiresAtMs !== null && (summary.subscriptionActive || summary.tier > 0) && (
+          <span className="generation-account-metric" title={t("generation.subscriptionExpiry")}>
+            <CalendarDays size={16} aria-hidden />
+            <span className="sr-only">{t("generation.subscriptionExpiry")}: </span>
+            <time dateTime={new Date(summary.expiresAtMs).toISOString()}>
+              {t("generation.subscriptionExpiryValue", {
+                value0: formatDate(summary.expiresAtMs, {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                }),
+              })}
+            </time>
+          </span>
+        )}
+      </div>
     </div>
   );
 }

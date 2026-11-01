@@ -10,7 +10,11 @@ export type CredentialProfile = { id: string, name: string, };
 
 export type AccountSnapshot = { summary: AccountSummary | null, refreshing: boolean, stale: boolean, error: UserMessage | null, revision: number, };
 
-export type AccountSummary = { sampledAt: number | null, anlasBalance: number, subscriptionActive: boolean, tier: number, expiresAtMs: number | null, v5Usage: AllowanceSummary | null, };
+export type AccountSummary = { sampledAt: number | null, anlasBalance: number, subscriptionActive: boolean, tier: number,
+/**
+ * SDK tier name; absent in observations saved before names were included.
+ */
+tierName: string | null, expiresAtMs: number | null, v5Usage: AllowanceSummary | null, };
 
 export type AllowanceSummary = { isNegative: boolean, percent: number, purchasedPercent: number, secondsUntilNextPercent: number, };
 

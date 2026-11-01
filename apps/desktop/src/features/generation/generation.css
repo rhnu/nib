@@ -15,16 +15,20 @@
   font-size: var(--font-size-label);
   line-height: 16px;
 }
-.generation-account-balance > span {
+.generation-account-metric {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
-.generation-account-balance strong {
+.generation-account-metric strong {
   font-variant-numeric: tabular-nums;
 }
 .generation-account-balance svg {
   color: var(--accent);
+}
+.generation-account-balance .generation-account-metric > svg {
+  width: 16px;
+  height: 16px;
 }
 .generation-balance-state {
   margin-left: auto;
@@ -48,14 +52,41 @@
 }
 .generation-account-snapshot-details {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-5);
 }
-.generation-account-snapshot-details p {
-  margin: 0;
+.generation-account-metrics,
+.generation-account-subscription {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+}
+.generation-account-metrics > .generation-account-metric > svg {
+  color: var(--accent);
+}
+.generation-account-metrics strong {
+  font-size: var(--font-size-page);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.generation-account-metrics > .generation-account-recovery > svg,
+.generation-account-recovery > span:not(.sr-only),
+.generation-account-subscription svg,
+.generation-account-status {
+  color: var(--muted);
+}
+.generation-account-recovery strong {
+  font-size: var(--font-size-title);
+  font-weight: 500;
+}
+.generation-account-status {
   font-size: var(--font-size-label);
 }
-.generation-account-snapshot-details .generation-metadata > div {
-  grid-template-columns: 112px minmax(0, 1fr);
+.generation-account-subscription {
+  font-size: var(--font-size-body);
+}
+.generation-account-metric > svg {
+  flex-shrink: 0;
 }
 .result-download {
   display: inline-flex;
