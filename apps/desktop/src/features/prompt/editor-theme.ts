@@ -12,7 +12,8 @@ export const promptEditorTheme = EditorView.theme({
   },
   ".cm-content": {
     minHeight: "var(--prompt-editor-min-height, 88px)",
-    padding: "var(--prompt-editor-padding-y, 7px) 36px var(--prompt-editor-padding-y, 7px) 9px",
+    padding:
+      "var(--prompt-editor-padding-y, 7px) var(--prompt-editor-padding-right, 36px) var(--prompt-editor-padding-y, 7px) 9px",
     caretColor: "var(--text)",
     fontVariantLigatures: "contextual",
   },

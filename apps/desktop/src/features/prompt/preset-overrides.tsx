@@ -6,6 +6,7 @@ import { IconButton } from "@/shared/ui";
 import { PromptTextEditor } from "./prompt-text-editor";
 import { PromptBlock } from "./prompt-block";
 import { PromptEditorScope } from "./prompt-editor-state";
+import { precedingPromptSources } from "./format-context";
 import { setTextOverride } from "@/features/characters/model";
 
 /** Linked instances keep only explicit text and enabled-state overrides. */
@@ -61,7 +62,7 @@ export function PresetOverrides({
             <PromptEditorScope path={[scope]}>
               <h3>{scope === "positive" ? t("prompt.basePrompt") : t("prompt.negativePrompt")}</h3>
               {composition[scope].length === 0 && <p className="muted">{t("prompt.noContent")}</p>}
-              {composition[scope].map((node) => {
+              {composition[scope].map((node, index) => {
                 const local = overrides.find((item) => item.nodeId === node.id) ?? {
                   nodeId: node.id,
                   enabled: null,
@@ -112,6 +113,12 @@ export function PresetOverrides({
                           value1: scope === "positive" ? t("prompt.base") : t("prompt.negative"),
                         })}
                         model={model}
+                        precedingSources={precedingPromptSources(
+                          composition[scope],
+                          index,
+                          resources,
+                          overrides,
+                        )}
                         value={local.text ?? original}
                         onChange={(text) => update(node.id, { text })}
                       />

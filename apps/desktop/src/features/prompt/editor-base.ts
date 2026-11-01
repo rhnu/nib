@@ -61,6 +61,7 @@ export function createPromptEditor(
   onSelection: (position: number) => void,
   onCompositionEnd: () => void,
   onInsertionError: (cause: unknown) => void,
+  onFormat: () => void,
 ) {
   return new EditorView({
     parent,
@@ -70,7 +71,17 @@ export function createPromptEditor(
         history(),
         drawSelection(),
         EditorView.lineWrapping,
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([
+          {
+            key: "Shift-Alt-f",
+            run: () => {
+              onFormat();
+              return true;
+            },
+          },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
         promptEditorTheme,
         promptContext,
         promptPending,

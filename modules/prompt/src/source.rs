@@ -207,6 +207,15 @@ pub fn compile_fragments<'a>(
     sources: impl IntoIterator<Item = &'a str>,
     profile: PromptSyntaxProfile,
 ) -> CompiledPrompt {
+    compile_source_fragments(sources, profile, true)
+}
+
+/// Formatting needs source-edge whitespace that request compilation normally trims.
+pub(crate) fn compile_source_fragments<'a>(
+    sources: impl IntoIterator<Item = &'a str>,
+    profile: PromptSyntaxProfile,
+    trim: bool,
+) -> CompiledPrompt {
     let mut result = CompiledPrompt {
         text: String::new(),
         source_map: Vec::new(),
@@ -225,7 +234,9 @@ pub fn compile_fragments<'a>(
         }
         let mut compiled =
             compile_with_state(source, profile, &mut state, (index > 0).then_some('\n'));
-        compiled.trim();
+        if trim {
+            compiled.trim();
+        }
         for mut segment in compiled.source_map {
             segment.source.from += source_offset;
             segment.source.to += source_offset;

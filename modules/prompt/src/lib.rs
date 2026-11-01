@@ -3,7 +3,10 @@
 mod completion;
 mod format;
 mod source;
-pub use format::{LexiconFormatError, LexiconFormatTerm, format_lexicon_terms};
+pub use format::{
+    LexiconFormatError, LexiconFormatTerm, PromptFormat, PromptFormatError, PromptTextEdit,
+    format_lexicon_terms, format_prompt,
+};
 pub use novelai_bridge_prompt::*;
 use serde::{Deserialize, Serialize};
 pub use source::{CompiledPrompt, SourceSegment, compile, compile_fragments, native_to_source};
@@ -92,6 +95,26 @@ pub fn analyze(text: &str, profile: PromptSyntaxProfile, context: PromptContext)
 mod wasm {
     use serde::Serialize as _;
     use wasm_bindgen::prelude::*;
+
+    /// Formats editable source using the same implementation as the native Agent tool.
+    #[wasm_bindgen(js_name = formatPrompt)]
+    pub fn format_prompt_wasm(
+        text: &str,
+        profile: JsValue,
+        preceding_sources: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let profile = serde_wasm_bindgen::from_value(profile)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        let preceding_sources: Vec<String> = serde_wasm_bindgen::from_value(preceding_sources)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        let result = super::format_prompt(text, profile, &preceding_sources).map_err(|error| {
+            serde_wasm_bindgen::to_value(&error)
+                .unwrap_or_else(|serialization| JsValue::from_str(&serialization.to_string()))
+        })?;
+        result
+            .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+            .map_err(|error| JsValue::from_str(&error.to_string()))
+    }
 
     #[wasm_bindgen(js_name = formatLexiconTerms)]
     pub fn format_lexicon_terms_wasm(terms: JsValue, profile: JsValue) -> Result<String, JsValue> {

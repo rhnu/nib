@@ -3,6 +3,21 @@ use serde_json::json;
 use super::*;
 use crate::prompt::{PresetInstance, PresetOutputOverrides, Resource};
 
+#[test]
+fn formatting_preview_uses_model_syntax_and_preceding_source_context() {
+    let args: FormatPrompt = serde_json::from_value(json!({
+        "text":"hello,world\n\n\nagain|blue,green",
+        "precedingSources":["Text:"]
+    }))
+    .unwrap();
+    let model = novelai_bridge::Model::default();
+    assert!(model.descriptor().prompt().syntax.text_rendering);
+    let preview = format_prompt(&args, model).unwrap();
+    assert_eq!(preview.text, "hello,world\n\n\nagain|blue, green");
+    assert_ne!(preview.changes, []);
+    assert_eq!(args.text, "hello,world\n\n\nagain|blue,green");
+}
+
 #[derive(Default)]
 struct Resources(Vec<Resource>);
 

@@ -20,6 +20,7 @@ export function NodeEditor({
   expand,
   model,
   transferTarget,
+  precedingSources,
 }: {
   node: PromptNode;
   resource?: Resource;
@@ -32,6 +33,7 @@ export function NodeEditor({
   expand: (node: PromptNode) => Promise<PromptNode>;
   model?: string;
   transferTarget?: PromptTarget;
+  precedingSources: string[] | null;
 }) {
   useTranslation();
 
@@ -154,6 +156,7 @@ export function NodeEditor({
               : t("prompt.instanceContent", { value0: resource?.name ?? t("prompt.missingChunk") })
           }
           model={model}
+          precedingSources={precedingSources}
           value={node.kind === "text" ? node.text : (node.overrideText ?? sourceText)}
           placeholder={
             node.kind === "text"

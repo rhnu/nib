@@ -30,6 +30,7 @@ enum Operation {
     Current,
     Resolve,
     Capabilities,
+    Format,
     Prompts,
     Node,
     Settings,
@@ -83,6 +84,13 @@ pub(super) fn tools(
             Operation::Prompts,
             json!({"positive":optional,"negative":optional,"append":{"type":"boolean"}}),
             vec!["append"],
+        ),
+        (
+            "format_prompt",
+            "Format editable prompt text with the same rules as the editor: normalize comma spacing and cap ordinary consecutive line breaks at two. Preserve comments, escapes and rendered text. Returns text and changed without writing. Use edit_prompt_node or save_prompt_chunk to apply. model=null uses the current creation's effective model; precedingSources contains all earlier enabled source fragments in the same scope, in order (inspect resolve_creation fragments), never joined comments.",
+            Operation::Format,
+            json!({"text":string,"model":optional,"precedingSources":{"type":"array","items":{"type":"string"}}}),
+            vec!["text"],
         ),
         (
             "edit_prompt_node",
@@ -306,6 +314,20 @@ fn execute(
                 }
             }
             value(lease.save(database, &draft)?)
+        },
+        Operation::Format => {
+            let args: edits::FormatPrompt = parse(args)?;
+            let model = if let Some(model) = args.model {
+                model
+            } else {
+                let draft = lease.snapshot()?.draft;
+                database
+                    .read_resources(|resources| crate::prompt::resolve_draft(&draft, resources))?
+                    .settings
+                    .model
+            };
+            let result = edits::format_prompt(&args, model)?;
+            Ok(json!({"text":result.text,"changed":!result.changes.is_empty()}))
         },
         Operation::Node => {
             let args: edits::NodeEdit = parse(args)?;

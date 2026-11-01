@@ -12,6 +12,32 @@ use crate::{
     session::{Draft, ReferenceInputs},
 };
 
+/// Formatting is a pure preview; existing node/resource edits own persistence and undo.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct FormatPrompt {
+    pub text: String,
+    pub model: Option<novelai_bridge::Model>,
+    #[serde(default)]
+    pub preceding_sources: Vec<String>,
+}
+
+pub(super) fn format_prompt(
+    args: &FormatPrompt,
+    model: novelai_bridge::Model,
+) -> Result<nib_prompt::PromptFormat, AgentError> {
+    nib_prompt::format_prompt(
+        &args.text,
+        model.descriptor().prompt().syntax,
+        &args.preceding_sources,
+    )
+    .map_err(|_error| {
+        AgentError::Invalid(
+            "Resolve the ambiguous comment or text-rendering context before formatting.",
+        )
+    })
+}
+
 /// A finite list of generation fields, not a general JSON path or patch interpreter.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,4 +1,10 @@
 export const prompt = {
+  format: "Format prompt",
+  formatShortcut: "Format prompt (Shift+Alt+F)",
+  formatAmbiguousContext:
+    "Resolve the ambiguous comment or text-rendering context before formatting.",
+  formatContextUnavailable:
+    "Resolve missing resources or invalid overrides before formatting this prompt.",
   combinedSource: "Combined source",
   combinedSourceScope: "Combined source · {{value0}}",
   combinedCharacterSource: "Character {{value0}} · Combined {{value1}} source",

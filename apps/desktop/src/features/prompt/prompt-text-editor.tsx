@@ -1,6 +1,6 @@
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useId, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ListFilter } from "lucide-react";
 import { LexiconBrowser } from "@/features/lexicon/lexicon-browser";
 import type { PromptDocument } from "@/bindings/prompt";
 import type { PromptContext } from "./analysis-protocol";
@@ -9,6 +9,7 @@ import { usePromptEditorStatistics } from "./use-prompt-editor-statistics";
 import { usePromptLexiconInsertion } from "./use-prompt-lexicon-insertion";
 import { PromptEditorDiagnostics, PromptEditorErrors } from "./prompt-editor-diagnostics";
 import { semanticDescription } from "./editor-semantics";
+import { useFormattingContext } from "./format-context";
 import "./text-assist.css";
 
 /** Compose persistent editing, analysis feedback and lexicon insertion for every prompt source. */
@@ -25,6 +26,7 @@ export function PromptTextEditor({
   sizing = "bounded",
   context = "editable",
   analysisDocument,
+  precedingSources = [],
   tokenUnavailableLabel = t("prompt.waitingForModel"),
 }: {
   value: string;
@@ -40,12 +42,14 @@ export function PromptTextEditor({
   context?: PromptContext;
   /** Rust's complete composition analysis retains source fragment boundaries. */
   analysisDocument?: PromptDocument;
+  precedingSources?: string[] | null;
   tokenUnavailableLabel?: string;
 }) {
   const { i18n } = useTranslation();
   const descriptionId = useId();
   const [position, setPosition] = useState(0);
   const [insertionError, setInsertionError] = useMessageState();
+  const formattingContext = useFormattingContext(precedingSources);
   const statistics = usePromptEditorStatistics({
     value,
     model,
@@ -53,7 +57,7 @@ export function PromptTextEditor({
     analysisDocument,
     tokenUnavailableLabel,
   });
-  const { hostRef, viewRef, disabledProbe } = usePromptEditor(
+  const { hostRef, viewRef, disabledProbe, format, formatting } = usePromptEditor(
     {
       value,
       label,
@@ -70,7 +74,11 @@ export function PromptTextEditor({
     onChange,
     setPosition,
     setInsertionError,
-    { visible: !collapsed, sizing },
+    {
+      visible: !collapsed,
+      sizing,
+      formattingContext: context === "editable" ? formattingContext : undefined,
+    },
   );
   const lexicon = usePromptLexiconInsertion(viewRef);
   const details = semanticDescription(statistics.document, position);
@@ -94,6 +102,9 @@ export function PromptTextEditor({
       className={`prompt-text-editor${readOnly ? " prompt-text-readonly" : ""}`}
       data-sizing={sizing}
       data-collapsed={collapsed || undefined}
+      data-formattable={
+        (!collapsed && !readOnly && Boolean(onChange) && context === "editable") || undefined
+      }
     >
       <input ref={disabledProbe} type="hidden" disabled={disabled} />
       <div className="prompt-editor-surface">
@@ -119,6 +130,24 @@ export function PromptTextEditor({
             disabled={disabled}
             onLocate={locate}
           />
+          {!collapsed && !readOnly && onChange && context === "editable" && (
+            <button
+              type="button"
+              className="prompt-editor-action icon-button"
+              disabled={disabled || formatting || !statistics.profile || precedingSources === null}
+              aria-busy={formatting}
+              aria-keyshortcuts="Alt+Shift+F"
+              title={t(
+                precedingSources === null
+                  ? "prompt.formatContextUnavailable"
+                  : "prompt.formatShortcut",
+              )}
+              aria-label={`${label} · ${t("prompt.format")}`}
+              onClick={format}
+            >
+              <ListFilter size={13} aria-hidden />
+            </button>
+          )}
           {!collapsed && (
             <button
               type="button"

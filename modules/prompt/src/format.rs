@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{PromptSyntaxProfile, PromptTokenKind, analyze_prompt, native_to_source};
 
+mod source;
+pub use source::{PromptFormat, PromptFormatError, PromptTextEdit, format_prompt};
+
 /// Null keeps normal weight; legacy models interpret a number as bracket emphasis layers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

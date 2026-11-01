@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { registerPromptContextMenu } from "./editor-context-menu";
+import { formatPromptEditor } from "./editor-format";
+import type { FormattingContext } from "./format-context";
 import type { PromptDocument } from "@/bindings/prompt";
 import {
   createPromptEditor,
@@ -26,16 +28,64 @@ export function usePromptEditor(
   {
     visible = true,
     sizing = "bounded",
-  }: { visible?: boolean; sizing?: "bounded" | "content" } = {},
+    formattingContext,
+  }: {
+    visible?: boolean;
+    sizing?: "bounded" | "content";
+    formattingContext?: () => Promise<FormattingContext>;
+  },
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const disabledProbe = useRef<HTMLInputElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const current = useRef({ configuration, document, onChange, onSelection, onInsertionError });
+  const current = useRef({
+    configuration,
+    document,
+    onChange,
+    onSelection,
+    onInsertionError,
+    formattingContext,
+  });
   useLayoutEffect(() => {
-    current.current = { configuration, document, onChange, onSelection, onInsertionError };
+    current.current = {
+      configuration,
+      document,
+      onChange,
+      onSelection,
+      onInsertionError,
+      formattingContext,
+    };
   });
   const [compartments] = useState(editorCompartments);
+  const [formatting, setFormatting] = useState(false);
+  const formatSession = useRef(0);
+
+  const format = () => {
+    const view = viewRef.current;
+    const context = current.current.formattingContext;
+    if (!view || !context || view.state.readOnly || view.compositionStarted) return;
+    const session = ++formatSession.current;
+
+    const valid = () =>
+      viewRef.current === view &&
+      formatSession.current === session &&
+      current.current.formattingContext === context;
+
+    setFormatting(true);
+    current.current.onInsertionError("");
+    void formatPromptEditor(view, context, valid)
+      .catch((cause: unknown) => {
+        if (valid()) current.current.onInsertionError(cause);
+      })
+      .finally(() => {
+        if (viewRef.current === view && formatSession.current === session) setFormatting(false);
+      });
+  };
+
+  const formatRef = useRef(format);
+  useLayoutEffect(() => {
+    formatRef.current = format;
+  });
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -72,6 +122,7 @@ export function usePromptEditor(
         }, 0);
       },
       (cause) => current.current.onInsertionError(cause),
+      () => formatRef.current(),
     );
     viewRef.current = view;
     const unregisterContextMenu = registerPromptContextMenu(view);
@@ -158,5 +209,5 @@ export function usePromptEditor(
     return () => cancelAnimationFrame(frame);
   }, [visible, sizing]);
 
-  return { hostRef, viewRef, disabledProbe };
+  return { hostRef, viewRef, disabledProbe, format, formatting };
 }

@@ -1,6 +1,10 @@
 import type { prompt as source } from "../en/prompt";
 
 export const prompt = {
+  format: "格式化提示词",
+  formatShortcut: "格式化提示词（Shift+Alt+F）",
+  formatAmbiguousContext: "请先修正含义不确定的注释或文字渲染语法，再格式化提示词。",
+  formatContextUnavailable: "请先修复缺失资源或失效覆盖，再格式化此提示词。",
   combinedSource: "组合源文",
   combinedSourceScope: "组合源文 · {{value0}}",
   combinedCharacterSource: "角色 {{value0}} · {{value1}}组合源文",

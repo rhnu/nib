@@ -9,6 +9,7 @@ import { moveItem, textNode } from "./model";
 import { NodeEditor } from "./node-editor";
 import { promptDragType, usePromptTransfer } from "./prompt-transfer-context";
 import { PromptEditorScope, usePromptEditorPath } from "./prompt-editor-state";
+import { precedingPromptSources } from "./format-context";
 
 export function CompositionEditor({
   value,
@@ -184,6 +185,7 @@ export function CompositionEditor({
                     transferTarget={{ path, scope }}
                     node={node}
                     model={model}
+                    precedingSources={precedingPromptSources(value[scope], index, resources)}
                     resource={node.kind === "chunk" ? resources.get(node.resourceId) : undefined}
                     onChange={(next) =>
                       update(

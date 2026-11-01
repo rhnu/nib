@@ -41,3 +41,7 @@ export type PromptDocument = { text: string, sourceMap: Array<SourceSegment>, co
 completionRanges: Array<TextRange>, valid: boolean, };
 
 export type LexiconFormatTerm = { name: string, weight: number | null, };
+
+export type PromptTextEdit = { from: number, to: number, insert: string, };
+
+export type PromptFormat = { text: string, changes: Array<PromptTextEdit>, };
