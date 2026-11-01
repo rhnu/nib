@@ -5,6 +5,7 @@ import { invokeHost, hasDesktopHost } from "@/shared/host/invoke";
 import { errorMessage } from "@/shared/host/error";
 import { ActionMenuItems, type ActionMenuItem } from "./actions-menu";
 import { notify } from "./notifications";
+import { isTextMenuRequest } from "./text-menu-request";
 
 export type TextEditAction = "undo" | "redo" | "cut" | "copy" | "paste" | "selectAll";
 export type TextEditingTarget = {
@@ -122,12 +123,7 @@ export function TextContextMenu() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const show = (event: MouseEvent | KeyboardEvent) => {
-      if (
-        event instanceof KeyboardEvent &&
-        event.key !== "ContextMenu" &&
-        !(event.shiftKey && event.key === "F10")
-      )
-        return;
+      if (!isTextMenuRequest(event)) return;
       if (!(event.target instanceof Element)) return;
       const target = editingTarget(event.target);
       if (!target) return;

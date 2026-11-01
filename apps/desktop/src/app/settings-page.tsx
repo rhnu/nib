@@ -25,6 +25,7 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
         <div className="execution-settings-fields">
           <SettingRow label={t("app.apiBaseUrl")} htmlFor="settings-endpoint" controlWidth="wide">
             <input
+              autoComplete="off"
               id="settings-endpoint"
               type="url"
               value={execution.imageBaseUrl ?? ""}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Resource } from "@/bindings/workbench";
-import { mergeResourceSave, splitLabels } from "./resource-edit";
+import { mergeResourceSave } from "./resource-edit";
 
 const resource = (text: string): Resource => ({
   id: "resource",
@@ -61,16 +61,5 @@ describe("resource save acknowledgements", () => {
     expect(
       mergeResourceSave({ ...resource("other"), id: "other" }, 2, request, resource("saved")),
     ).toBeNull();
-  });
-});
-
-describe("resource labels", () => {
-  it("accepts comma and newline separated labels without retaining empty or duplicate entries", () => {
-    expect(splitLabels(" portrait,  sky，portrait\n night , , sky ")).toEqual([
-      "portrait",
-      "sky",
-      "night",
-    ]);
-    expect(splitLabels(" ,，\n ")).toEqual([]);
   });
 });

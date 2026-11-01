@@ -14,5 +14,7 @@ export { FilePicker } from "./file-picker";
 
 export { NumberSlider } from "./number-slider";
 export { Select, type SelectOption } from "./select";
+export { AutocompleteInput } from "./autocomplete-input";
+export { TagInput } from "./tag-input";
 
 export { notify, Notifications } from "./notifications";

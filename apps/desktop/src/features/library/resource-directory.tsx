@@ -164,6 +164,7 @@ export function ResourceNewFolder({
     >
       <Folder size={22} aria-hidden />
       <input
+        autoComplete="off"
         ref={input}
         aria-label={t("library.folderName")}
         value={name}

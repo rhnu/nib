@@ -23,13 +23,3 @@ export function mergeResourceSave(
         dirty: true,
       };
 }
-
-/** Normalize human-entered tag and alias lists at the editing boundary. */
-export const splitLabels = (value: string) => [
-  ...new Set(
-    value
-      .split(/[,，\n]/)
-      .map((value) => value.trim())
-      .filter(Boolean),
-  ),
-];

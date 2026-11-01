@@ -1,4 +1,7 @@
 export const common = {
+  removeTag: "Remove {{value}}",
+  tagInputPlaceholder: "Type and press Enter",
+  noMatchingOptions: "No matching options",
   undo: "Undo",
   cancel: "Cancel",
   confirmDelete: "Confirm deletion",

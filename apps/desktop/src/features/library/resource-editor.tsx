@@ -120,12 +120,14 @@ export function ResourceEditor({
         <fieldset disabled={busy}>
           <Field label={t("library.resourceName")}>
             <input
+              autoComplete="off"
               value={editor.name}
               placeholder={t("library.namePlaceholder")}
               onChange={(event) => update((current) => ({ ...current, name: event.target.value }))}
             />
           </Field>
           <ResourceMetadata
+            key={editor.id}
             resource={editor}
             models={models}
             folders={folders}
@@ -252,11 +254,7 @@ export function ResourceEditor({
                 ? t("library.saved")
                 : t("library.newResource")}
           </span>
-          <Button
-            className="primary"
-            disabled={busy || (!dirty && persisted)}
-            onClick={() => void save()}
-          >
+          <Button className="primary" disabled={busy} onClick={() => void save()}>
             {busy ? t("library.saving") : t("library.saveResource")}
           </Button>
         </footer>

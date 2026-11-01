@@ -450,6 +450,7 @@ function DocumentEntries({
   const option = (value: DocumentSelection, label: string) => (
     <label className="vibe-cache-option">
       <input
+        autoComplete="off"
         type={single ? "radio" : "checkbox"}
         name={t("vibes.vibeCache")}
         disabled={disabled}

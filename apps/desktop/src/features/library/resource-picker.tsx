@@ -127,6 +127,7 @@ export function ResourcePicker({
             <div className="library-search-field">
               <Search size={15} />
               <input
+                autoComplete="off"
                 aria-label={t("library.searchResources")}
                 value={text}
                 placeholder={t("library.searchPlaceholder")}

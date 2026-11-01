@@ -1,13 +1,12 @@
-import { useState, useRef, useLayoutEffect } from "react";
+import { useId, useState, useRef, useLayoutEffect } from "react";
 import type { Resource, ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
-import { Field, FilePicker, IconButton } from "@/shared/ui";
+import { Field, FilePicker, FormField, IconButton, TagInput } from "@/shared/ui";
 import { ClipboardPaste, Image, X } from "lucide-react";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { libraryApi } from "./api";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { ResourceModelSelect } from "./resource-model-select";
-import { splitLabels } from "./resource-edit";
 import { ResourceCover } from "./resource-cover";
 import { folderAncestry } from "./resource-location";
 
@@ -30,6 +29,7 @@ export function ResourceMetadata({
   onCoverChange: (assetId: string, pending: boolean) => void;
 }) {
   useTranslation();
+  const fieldId = useId();
   const latest = useRef({ resource, onChange, onCoverChange, active: true, operation: 0 });
   useLayoutEffect(() => {
     Object.assign(latest.current, { resource, onChange, onCoverChange });
@@ -141,46 +141,32 @@ export function ResourceMetadata({
       <div className="resource-metadata-fields">
         <Field label={t("library.description")}>
           <textarea
+            autoComplete="off"
             rows={2}
             value={resource.description}
             onChange={(event) => onChange({ ...resource, description: event.target.value })}
           />
         </Field>
         <div className="resource-metadata-grid">
-          <Field label={t("library.aliases")}>
-            <input
-              value={resource.aliases.join(", ")}
-              onChange={(event) =>
-                onChange({
-                  ...resource,
-                  aliases: event.target.value.split(/[,，]/).map((value) => value.trimStart()),
-                })
-              }
-              onBlur={() =>
-                onChange({ ...resource, aliases: splitLabels(resource.aliases.join(",")) })
-              }
+          <FormField label={t("library.aliases")} htmlFor={`${fieldId}-aliases`}>
+            <TagInput
+              id={`${fieldId}-aliases`}
+              value={resource.aliases}
+              onValueChange={(aliases) => onChange({ ...resource, aliases })}
+              removeLabel={(value) => t("common.removeTag", { value })}
+              placeholder={t("common.tagInputPlaceholder")}
             />
-          </Field>
-          <Field label={t("library.tags")}>
-            <input
-              list="library-shared-tags"
-              value={resource.tags.join(", ")}
-              onChange={(event) =>
-                onChange({
-                  ...resource,
-                  tags: event.target.value.split(/[,，]/).map((value) => value.trimStart()),
-                })
-              }
-              onBlur={() => onChange({ ...resource, tags: splitLabels(resource.tags.join(",")) })}
+          </FormField>
+          <FormField label={t("library.tags")} htmlFor={`${fieldId}-tags`}>
+            <TagInput
+              id={`${fieldId}-tags`}
+              value={resource.tags}
+              suggestions={tags}
+              onValueChange={(tags) => onChange({ ...resource, tags })}
+              removeLabel={(value) => t("common.removeTag", { value })}
+              placeholder={t("common.tagInputPlaceholder")}
             />
-            <datalist id="library-shared-tags">
-              {tags.map((tag) => (
-                <option value={tag} key={tag}>
-                  {tag}
-                </option>
-              ))}
-            </datalist>
-          </Field>
+          </FormField>
         </div>
         <div className="resource-saved-location">
           <span>{t("library.folder")}</span>

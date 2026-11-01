@@ -1,6 +1,9 @@
 import type { common as source } from "../en/common";
 
 export const common = {
+  removeTag: "移除{{value}}",
+  tagInputPlaceholder: "输入后按回车添加",
+  noMatchingOptions: "没有匹配选项",
   undo: "撤销",
   cancel: "取消",
   confirmDelete: "确认删除",

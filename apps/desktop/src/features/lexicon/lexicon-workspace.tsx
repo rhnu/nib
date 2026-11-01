@@ -82,6 +82,7 @@ export function LexiconWorkspace({
         <div className="lexicon-search-field">
           <Search size={15} aria-hidden />
           <input
+            autoComplete="off"
             aria-label={t("lexicon.search")}
             placeholder={t("lexicon.search")}
             value={state.text}

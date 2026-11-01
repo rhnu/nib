@@ -6,7 +6,7 @@ import type {
   AgentPermission,
   AgentProvider,
 } from "@/bindings/agent";
-import { Button, Field, IconButton, Select } from "@/shared/ui";
+import { AutocompleteInput, Button, Field, IconButton, Select } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { t } from "@/shared/i18n";
 import { agentApi } from "./api";
@@ -143,6 +143,7 @@ export function AgentConnection({
           <>
             <Field label={t("agent.endpoint")}>
               <input
+                autoComplete="off"
                 type="url"
                 required
                 value={provider.endpoint}
@@ -192,21 +193,15 @@ export function AgentConnection({
         </p>
         <Field label={t("agent.model")}>
           <div className="agent-model-input">
-            <input
+            <AutocompleteInput
               required
-              list="agent-models"
+              disabled={disabled || agent.connectionBusy}
+              suggestions={models}
               value={config.model}
-              onChange={(event) => change({ ...config, model: event.target.value })}
+              onValueChange={(model) => change({ ...config, model })}
               aria-label={t("agent.model")}
               aria-describedby="agent-model-help"
             />
-            <datalist id="agent-models">
-              {models.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </datalist>
             <IconButton
               label={t("agent.refreshModels")}
               disabled={loading || (provider.kind === "custom" && !provider.endpoint.trim())}

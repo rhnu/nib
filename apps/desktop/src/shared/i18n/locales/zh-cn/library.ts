@@ -44,7 +44,7 @@ export const library = {
   savedRefreshFailed: "资源已保存，但刷新资源列表失败：{{value0}}",
   confirmDelete: "删除“{{value0}}”？已有引用会保留并显示资源缺失。",
   description: "描述",
-  aliases: "别名（逗号分隔）",
+  aliases: "别名",
   tags: "标签",
   folder: "目录",
   folders: "目录",

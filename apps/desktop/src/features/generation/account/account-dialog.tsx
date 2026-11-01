@@ -80,6 +80,7 @@ export function AccountDialog({
       >
         <Field label={t("generation.accountName")}>
           <input
+            autoComplete="off"
             value={name}
             onChange={(event) => setName(event.target.value)}
             disabled={pending}

@@ -112,6 +112,7 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
       </div>
       <Field label={t("agent.prompt")}>
         <textarea
+          autoComplete="off"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={t("agent.promptPlaceholder")}

@@ -45,7 +45,7 @@ export const library = {
   confirmDelete:
     "Delete “{{value0}}”? Existing references will remain and show the resource as missing.",
   description: "Description",
-  aliases: "Aliases (comma separated)",
+  aliases: "Aliases",
   tags: "Tags",
   folder: "Folder",
   folders: "Folders",

@@ -68,6 +68,7 @@ export function ContextActions({
             new MouseEvent("contextmenu", {
               bubbles: true,
               cancelable: true,
+              button: 2,
               clientX: rect.left + 8,
               clientY: rect.top + 8,
             }),

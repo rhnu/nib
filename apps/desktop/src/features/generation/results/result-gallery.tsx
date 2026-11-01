@@ -218,6 +218,7 @@ export function ResultCanvas({
           {result.operation.kind === "generation" && (
             <div className="image-overlay image-overlay-bottom-left">
               <input
+                autoComplete="off"
                 className="image-seed"
                 aria-label={t("generation.sampleSeed")}
                 readOnly

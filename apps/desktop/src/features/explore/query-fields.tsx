@@ -127,6 +127,7 @@ export function ExploreQueryFields({
             <label className="explore-creator">
               <span>{t("explore.creator")}</span>
               <input
+                autoComplete="off"
                 value={query.creatorId ?? ""}
                 disabled={random}
                 onChange={(event) =>

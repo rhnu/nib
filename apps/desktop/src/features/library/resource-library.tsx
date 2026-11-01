@@ -21,9 +21,11 @@ import {
   Button,
   ContextActions,
   Field,
+  FormField,
   IconButton,
   Modal,
   Notice,
+  TagInput,
   type ActionMenuItem,
 } from "@/shared/ui";
 import { ResourceEditor } from "./resource-editor";
@@ -43,7 +45,6 @@ import { destinationFolders, folderAncestry } from "./resource-location";
 import { useResourceSearch } from "./use-resource-search";
 import { useResourceEditor } from "./use-resource-editor";
 import { useLibrarySessionStore } from "./model/library-session-context";
-import { splitLabels } from "./resource-edit";
 import { resourceFolderEdit } from "./resource-folder-edit";
 import {
   completeLibraryPaste,
@@ -59,7 +60,7 @@ type OrganizeDialog =
       kind: "move" | "copy" | "tags" | "models";
       selection: ResourceSelection;
       folderId: string;
-      tags: string;
+      tags: string[];
       models: string[];
     }
   | { kind: "folder"; folder: ResourceFolder; original: ResourceFolder }
@@ -257,7 +258,7 @@ export function ResourceLibrary({
         )
           ? (folderId ?? "")
           : "",
-        tags: "",
+        tags: [],
         models: [],
       }),
     );
@@ -537,6 +538,7 @@ export function ResourceLibrary({
           <div className="library-search-field">
             <Search size={15} />
             <input
+              autoComplete="off"
               aria-label={t("library.searchResources")}
               placeholder={t("library.searchPlaceholder")}
               value={query}
@@ -818,6 +820,7 @@ export function ResourceLibrary({
                 label={dialog.kind === "tag" ? t("library.tagName") : t("library.resourceName")}
               >
                 <input
+                  autoComplete="off"
                   value={dialog.name}
                   onChange={(event) => setDialog({ ...dialog, name: event.target.value })}
                 />
@@ -832,6 +835,7 @@ export function ResourceLibrary({
               <>
                 <Field label={t("library.folderName")}>
                   <input
+                    autoComplete="off"
                     value={dialog.folder.name}
                     onChange={(event) =>
                       setDialog({
@@ -843,20 +847,16 @@ export function ResourceLibrary({
                 </Field>
               </>
             ) : dialog.kind === "tags" ? (
-              <Field label={t("library.replaceTags")}>
-                <input
+              <FormField label={t("library.replaceTags")} htmlFor="library-batch-tags">
+                <TagInput
+                  id="library-batch-tags"
                   value={dialog.tags}
-                  onChange={(event) => setDialog({ ...dialog, tags: event.target.value })}
-                  list="library-batch-tags"
+                  suggestions={tags}
+                  onValueChange={(tags) => setDialog({ ...dialog, tags })}
+                  removeLabel={(value) => t("common.removeTag", { value })}
+                  placeholder={t("common.tagInputPlaceholder")}
                 />
-                <datalist id="library-batch-tags">
-                  {tags.map((tag) => (
-                    <option value={tag} key={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                </datalist>
-              </Field>
+              </FormField>
             ) : (
               <ResourceDestination
                 folderId={dialog.folderId || null}
@@ -905,7 +905,7 @@ export function ResourceLibrary({
                     batch(
                       dialog.selection,
                       dialog.kind === "tags"
-                        ? { kind: "metadata", tags: splitLabels(dialog.tags), models: null }
+                        ? { kind: "metadata", tags: dialog.tags, models: null }
                         : dialog.kind === "models"
                           ? { kind: "metadata", tags: null, models: dialog.models }
                           : { kind: dialog.kind, folderId: dialog.folderId || null },

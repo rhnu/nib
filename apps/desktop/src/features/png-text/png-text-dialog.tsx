@@ -186,6 +186,7 @@ function PngTextDialogContent({
               <div className="png-text-editor-entry" key={index}>
                 <Field label={t("png-text.keywordLabel", { value0: index + 1 })}>
                   <input
+                    autoComplete="off"
                     value={entry.keyword}
                     disabled={busy}
                     onChange={(event) =>
@@ -199,6 +200,7 @@ function PngTextDialogContent({
                 </Field>
                 <Field label={t("png-text.textLabel", { value0: index + 1 })}>
                   <textarea
+                    autoComplete="off"
                     rows={4}
                     value={entry.text}
                     disabled={busy}
