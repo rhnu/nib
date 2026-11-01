@@ -378,7 +378,7 @@ fn output_namespaces_keep_colons_and_json_shaped_direct_identities_unambiguous()
 }
 
 #[test]
-fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
+fn restoration_keeps_conditioning_once() {
     let request = novelai_bridge::GenerateImageRequest::builder("portrait", Model::default())
         .negative_prompt("blur")
         .seed(42)
@@ -401,7 +401,6 @@ fn restoration_keeps_conditioning_once_and_never_invents_metadata_positions() {
         ..Default::default()
     };
     let metadata_draft = crate::session::draft_from_metadata(&metadata);
-    assert_eq!(metadata_draft.characters, []);
     assert_eq!(
         metadata_draft.settings.quality,
         Some(novelai_bridge::QualityPreset::None)

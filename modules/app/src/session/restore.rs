@@ -75,8 +75,9 @@ fn known_identifier<T: serde::de::DeserializeOwned>(value: Option<&String>) -> O
     value.and_then(|value| serde_json::from_value(serde_json::Value::String(value.clone())).ok())
 }
 
-/// Recovers only known metadata values; absent masks, image references and character positions
-/// remain absent. Embedded prompt text is already conditioned, so automatic tags are disabled.
+/// Recovers known metadata values and character text with SDK default positions.
+/// Missing masks and image references remain absent. Embedded prompt text is already
+/// conditioned, so automatic tags are disabled.
 #[must_use]
 pub fn draft_from_metadata(metadata: &ImageMetadata) -> Draft {
     let profile = known_identifier::<novelai_bridge::Model>(metadata.model.as_ref())
