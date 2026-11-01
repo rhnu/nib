@@ -36,6 +36,13 @@ pub fn run() -> anyhow::Result<()> {
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting nib");
     tauri::Builder::default()
+        // Register first so secondary instances exit before other plugins and bootstrap run.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tracing::info!("received a second instance launch; activating the main window");
+            if let Err(error) = window::activate(app) {
+                tracing::warn!(error = %error, "cannot activate the existing main window");
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(std::sync::Arc::new(updates::Updates::new()))
         .plugin(tauri_plugin_dialog::init())

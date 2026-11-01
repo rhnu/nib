@@ -2,7 +2,19 @@
 
 use anyhow::Context as _;
 use nib_app::settings::Theme;
-use tauri::{WebviewWindowBuilder, window::Color};
+use tauri::{Manager as _, WebviewWindowBuilder, window::Color};
+
+/// Restores and focuses the existing main window when the app is launched again.
+pub(crate) fn activate(handle: &tauri::AppHandle) -> anyhow::Result<()> {
+    let window = handle
+        .get_webview_window("main")
+        .context("find the existing main window")?;
+    window.show().context("show the existing main window")?;
+    window
+        .unminimize()
+        .context("restore the existing main window")?;
+    window.set_focus().context("focus the existing main window")
+}
 
 /// The configuration database stays authoritative; only the initial theme enters the document.
 pub(crate) fn create(handle: &tauri::AppHandle, theme: Theme) -> anyhow::Result<()> {
