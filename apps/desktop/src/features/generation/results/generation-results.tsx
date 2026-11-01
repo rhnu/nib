@@ -59,6 +59,13 @@ export function GenerationResults({
   const view = useResultViewStore(gallery);
   const selection = useStore(view, (state) => state.selection);
   const seenBatch = useStore(view, (state) => state.seenBatch);
+  const seenRunningJob = useStore(view, (state) => state.seenRunningJob);
+  const runningJobId = jobs?.find(
+    (job) =>
+      job.status === "running" &&
+      job.operation.kind !== "encodeVibe" &&
+      (!lastSubmission || job.batchId === lastSubmission.batchId),
+  )?.id;
 
   const setSelection = useCallback(
     (selection: Selection | null) => view.setState({ selection }),
@@ -68,15 +75,25 @@ export function GenerationResults({
   const [queueOpen, setQueueOpen] = useState(false);
   const [detail, setDetail] = useState<ResultSummary | null>(null);
   useEffect(() => {
-    if (gallery || !lastSubmission || lastSubmission.batchId === seenBatch) return;
-    const first = lastSubmission.jobs[0];
-    view.setState({
-      seenBatch: lastSubmission.batchId,
-      ...(first && first.submission.kind !== "encodeVibe"
-        ? { selection: { kind: "job", id: first.id } as const }
-        : {}),
-    });
-  }, [gallery, lastSubmission, seenBatch, view]);
+    if (gallery) return;
+    if (lastSubmission && lastSubmission.batchId !== seenBatch) {
+      const first = lastSubmission.jobs[0];
+      view.setState({
+        seenBatch: lastSubmission.batchId,
+        seenRunningJob: first?.id ?? null,
+        ...(first && first.submission.kind !== "encodeVibe"
+          ? { selection: { kind: "job", id: first.id } as const }
+          : {}),
+      });
+      return;
+    }
+    // Follow each request once; subsequent refreshes preserve manual image selection.
+    if (runningJobId && runningJobId !== seenRunningJob)
+      view.setState({
+        seenRunningJob: runningJobId,
+        selection: { kind: "job", id: runningJobId },
+      });
+  }, [gallery, lastSubmission, seenBatch, runningJobId, seenRunningJob, view]);
   const activeJobs =
     jobs?.filter(
       (job) =>
