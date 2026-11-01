@@ -1,12 +1,15 @@
-import { Download, Expand, ExternalLink, ImagePlus, Info, ScanFace, Waves } from "lucide-react";
+import { Expand, ExternalLink, ImagePlus, Info, ScanFace, Waves } from "lucide-react";
 import type { ExploreSummary } from "@/bindings/explore";
+import type { ImageExportFormat } from "@/bindings/media";
+import { ImageFormatMenu } from "@/features/media/image-export";
 import { IconButton } from "@/shared/ui";
 import { t, useTranslation } from "@/shared/i18n";
 
 export type ExploreImageActions = {
   busy: boolean;
   useImage: (item: ExploreSummary, kind: "source" | "precise" | "vibe") => void;
-  saveImage: (item: ExploreSummary) => void;
+  saveImage: (item: ExploreSummary, format: ImageExportFormat) => void;
+  copyImage: (item: ExploreSummary, format: ImageExportFormat) => void;
   openWebsite: (item: ExploreSummary) => void;
   precise: boolean;
   vibe: boolean;
@@ -64,13 +67,16 @@ export function ExploreImageActions({
           <Waves size={16} aria-hidden />
         </IconButton>
       )}
-      <IconButton
-        label={t("explore.saveImage")}
+      <ImageFormatMenu
+        action="save"
         disabled={actions.busy}
-        onClick={() => actions.saveImage(item)}
-      >
-        <Download size={16} aria-hidden />
-      </IconButton>
+        onSelect={(format) => actions.saveImage(item, format)}
+      />
+      <ImageFormatMenu
+        action="copy"
+        disabled={actions.busy}
+        onSelect={(format) => actions.copyImage(item, format)}
+      />
       <IconButton label={t("explore.openWebsite")} onClick={() => actions.openWebsite(item)}>
         <ExternalLink size={16} aria-hidden />
       </IconButton>

@@ -1,7 +1,6 @@
 export const explore = {
   viewLarge: "放大查看图片",
   publicAccessRejected: "公开来源拒绝了访问，请稍后重新浏览。",
-  saveImage: "保存图片",
   title: "探索",
   source: "来源",
   danbooru: "Danbooru",

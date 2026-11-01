@@ -5,6 +5,8 @@ import type { ExploreSource } from "./explore";
 
 export type AssetKind = "image" | "vibe" | "vibeDocument";
 
+export type ImageExportFormat = "original" | "cleanPng" | "jpeg";
+
 export type ResultImageSource = { "kind": "raw" } | { "kind": "archive", name: string, index: number, } | { "kind": "json", position: number, index: number | null, seed: number | null, };
 
 export type AssetSource = { "kind": "resourceCover", resourceId: string, } | { "kind": "import", name: string | null, } | { "kind": "explore", source: ExploreSource, itemId: string, websiteUrl: string, } | { "kind": "asset", assetId: string, } | { "kind": "embeddedVibe", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, displayName: string | null, strength: number | null, informationExtracted: number | null, } | { "kind": "job", jobId: string, } | { "kind": "vibeDocumentEntry", assetId: string, entryIndex: number, model: string | null, parameterKey: string | null, } | { "kind": "pngVibeDocument", imageAssetId: string, documentAssetId: string, } | { "kind": "vibeBundle", assetIds: Array<string>, };

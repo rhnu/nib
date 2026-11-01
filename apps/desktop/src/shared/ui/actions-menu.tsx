@@ -45,9 +45,13 @@ export function ActionsMenu({
   label,
   items,
   children,
+  icon,
+  disabled,
 }: {
   label: string;
   children?: ReactNode;
+  icon?: ReactNode;
+  disabled?: boolean;
   items: ActionMenuItem[];
 }) {
   return (
@@ -56,8 +60,9 @@ export function ActionsMenu({
         className={children ? undefined : "icon-button"}
         aria-label={label}
         title={label}
+        disabled={disabled}
       >
-        {children ?? <MoreHorizontal size={17} />}
+        {children ?? icon ?? <MoreHorizontal size={17} />}
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={5} align="end" className="menu-positioner">

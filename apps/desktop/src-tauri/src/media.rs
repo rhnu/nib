@@ -5,8 +5,9 @@ use std::sync::Arc;
 use nib_app::{
     api::ApiError,
     media::{
-        AssetSource, GenerationResult, ImageMetadataReport, MediaAsset, MediaLibrary,
-        MetadataRestore, ResultPage, ResultQuery, VibeAssetInspection, VibeDocumentInspection,
+        AssetSource, GenerationResult, ImageExportFormat, ImageMetadataReport, MediaAsset,
+        MediaLibrary, MetadataRestore, ResultPage, ResultQuery, VibeAssetInspection,
+        VibeDocumentInspection,
     },
     session::{
         CreationOperation, Draft, ImageOperationKind, ImageOperationOptions, PreciseReferenceInput,
@@ -15,6 +16,57 @@ use nib_app::{
 };
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
+
+/// Clipboard failures retain diagnostic context at the same boundary as image export failures.
+pub(crate) fn copy_exported_image(
+    content: &nib_app::media::MediaContent,
+) -> Result<(), nib_app::persistence::PersistenceError> {
+    let extension = match content.mime_type.as_str() {
+        "image/jpeg" => "jpg",
+        "image/png" => "png",
+        "image/webp" => "webp",
+        _ => unreachable!("image export only produces supported image encodings"),
+    };
+    crate::image_clipboard::copy_image(&content.bytes, extension).map_err(|error| {
+        nib_app::persistence::PersistenceError::failure(
+            "copy an exported image",
+            std::io::Error::other(error),
+        )
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn export_image_asset(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    format: ImageExportFormat,
+) -> Result<tauri::ipc::Response, ApiError> {
+    with_media(state, move |media| {
+        let content = media.read_asset(&id).map_err(persistence_error)?;
+        let output =
+            nib_app::media::export_image(content.bytes, format).map_err(persistence_error)?;
+        tracing::debug!(asset_id = id, ?format, "exported image");
+        Ok(tauri::ipc::Response::new(output.bytes))
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn copy_image_asset(
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+    format: ImageExportFormat,
+) -> Result<(), ApiError> {
+    with_media(state, move |media| {
+        let content = media.read_asset(&id).map_err(persistence_error)?;
+        let output =
+            nib_app::media::export_image(content.bytes, format).map_err(persistence_error)?;
+        copy_exported_image(&output).map_err(persistence_error)?;
+        tracing::debug!(asset_id = id, ?format, "copied image");
+        Ok(())
+    })
+    .await
+}
 
 /// PNG SDK validation is a rejected edit; storage failures keep the common persistence path.
 fn png_text_error(error: nib_app::persistence::PersistenceError) -> ApiError {

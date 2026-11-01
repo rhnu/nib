@@ -1,4 +1,10 @@
 export const media = {
+  saveImage: "Save image",
+  exportOriginalPng: "Original PNG",
+  exportOriginal: "Original file",
+  exportCleanPng: "PNG without metadata",
+  exportJpg: "JPG without metadata",
+  embeddedImage: "Image with embedded Vibe document",
   exifUserComment: "EXIF UserComment",
   stealthPng: "Stealth PNG",
   retryRead: "Retry loading",

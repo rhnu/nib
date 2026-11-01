@@ -5,6 +5,7 @@ import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench
 import { ActionsMenu, Button, FilePicker, Modal, Notice } from "@/shared/ui";
 import { ImagePickerDialog } from "@/features/media";
 import { mediaApi } from "@/features/media/api";
+import { ImageExportActions } from "@/features/media/image-export";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { VibeAssetInformation } from "./vibe-asset-details";
 import { downloadBytes, vibeMaterialName } from "./model";
@@ -42,6 +43,7 @@ function Materials({
   const [selectedId, setSelectedId] = useState<string | null>(initialAssetId ?? null);
   const [selection, setSelection] = useState<DocumentSelection[]>([]);
   const [bundleIds, setBundleIds] = useState<string[]>([]);
+  const [embeddedOutput, setEmbeddedOutput] = useState<MediaAsset | null>(null);
   const [imageAction, setImageAction] = useState<"document" | "embedded" | "read" | "embed" | null>(
     null,
   );
@@ -64,6 +66,7 @@ function Materials({
 
   const selectAsset = (id: string) => {
     setSelectedId(id);
+    setEmbeddedOutput(null);
     setSelection([]);
   };
 
@@ -140,9 +143,7 @@ function Materials({
       } else if (operation === "embed" && selected?.kind === "vibeDocument") {
         const value = await mediaApi.embedVibeDocument(selected.id, asset.id);
         if (!active()) return;
-        const bytes = await mediaApi.content(value.id);
-        if (!active()) return;
-        downloadBytes(bytes, "nib-vibe.png", "image/png");
+        setEmbeddedOutput(value);
         assets.retry();
       }
     });
@@ -325,6 +326,18 @@ function Materials({
                         {t("vibes.embedInPng")}
                       </Button>
                     </div>
+                    {embeddedOutput && (
+                      <div className="button-group">
+                        <span>{t("media.embeddedImage")}</span>
+                        <ImageExportActions
+                          key={embeddedOutput.id}
+                          id={embeddedOutput.id}
+                          mimeType={embeddedOutput.mimeType}
+                          available={!action.busy && embeddedOutput.available}
+                          filename="nib-vibe.png"
+                        />
+                      </div>
+                    )}
                   </>
                 ) : selected.kind === "vibe" ? (
                   <>

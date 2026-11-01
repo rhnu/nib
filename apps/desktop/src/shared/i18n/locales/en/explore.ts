@@ -1,7 +1,6 @@
 export const explore = {
   viewLarge: "View larger image",
   publicAccessRejected: "The public source rejected access. Try browsing again later.",
-  saveImage: "Save image",
   title: "Explore",
   source: "Source",
   danbooru: "Danbooru",

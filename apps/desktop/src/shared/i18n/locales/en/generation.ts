@@ -167,7 +167,6 @@ export const generation = {
   imageViewer: "Image viewer",
   imageActions: "Image actions",
   parametersSources: "Generation parameters & sources",
-  saveOriginal: "Save original image",
   imageFileIncomplete: "Image file missing or incomplete",
   generatedImage: "Generated image",
   generatedImageSeedPrefix: "Generated image, seed ",

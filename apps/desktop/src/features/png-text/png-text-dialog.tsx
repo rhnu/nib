@@ -9,7 +9,7 @@ import { mediaApi } from "@/features/media/api";
 import { imageName, imageUnavailableReason } from "@/features/media/model";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import { useMediaQuery } from "@/features/media/use-media-query";
-import { downloadBytes } from "@/features/vibes/model";
+import { ImageExportActions } from "@/features/media/image-export";
 import { pngTextApi } from "./api";
 import { editPngTextEntry, pngTextSession, storePngTextSession } from "./model";
 import "./png-text.css";
@@ -259,22 +259,13 @@ function PngTextDialogContent({
             {output.asset && !outputUnavailable && (
               <>
                 <div className="png-text-actions">
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const outputId = output.asset!.id;
-                        const bytes = await mediaApi.content(outputId);
-                        if (
-                          current.current.active &&
-                          readSession().selectedOutputAssetId === outputId
-                        )
-                          downloadBytes(bytes, "nib-png-text.png", "image/png");
-                      })
-                    }
-                  >
-                    {t("png-text.exportPng")}
-                  </Button>
+                  <ImageExportActions
+                    key={output.asset.id}
+                    id={output.asset.id}
+                    mimeType={output.asset.mimeType}
+                    available={!busy && output.asset.available}
+                    filename="nib-png-text.png"
+                  />
                   {onUseImage && (
                     <Button
                       disabled={busy}

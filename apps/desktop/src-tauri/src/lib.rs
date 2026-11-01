@@ -12,6 +12,7 @@ mod downloads;
 mod explore;
 mod explore_connection;
 mod generation;
+mod image_clipboard;
 mod lexicon;
 mod media;
 mod native_edit;
@@ -118,6 +119,8 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         explore::search_explore,
         explore::get_explore_detail,
         explore::read_explore_media,
+        explore::export_explore_image,
+        explore::copy_explore_image,
         explore::import_explore_image,
         explore::restore_explore_metadata,
         explore_connection::get_danbooru_connection,
@@ -181,6 +184,8 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         media::read_media_thumbnail,
         media::restore_result,
         media::list_media_assets,
+        media::export_image_asset,
+        media::copy_image_asset,
         media::get_image_operation_options,
         media::create_image_operation,
         media::create_inpaint_operation,

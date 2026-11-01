@@ -1,5 +1,6 @@
 import type {
   ImageMetadataReport,
+  ImageExportFormat,
   MediaAsset,
   MetadataRestore,
   VibeAssetInspection,
@@ -9,6 +10,10 @@ import type { VibeReferenceInput } from "@/bindings/workbench";
 import { invokeHost } from "@/shared/host/invoke";
 
 export const mediaApi = {
+  exportImage: (id: string, format: ImageExportFormat) =>
+    invokeHost<ArrayBuffer>("export_image_asset", { id, format }),
+  copyImage: (id: string, format: ImageExportFormat) =>
+    invokeHost<void>("copy_image_asset", { id, format }),
   assets: () => invokeHost<MediaAsset[]>("list_media_assets"),
   asset: (id: string) => invokeHost<MediaAsset>("get_media_asset", { id }),
   importImage: (bytes: number[], name: string | null = null, sourceAssetId: string | null = null) =>

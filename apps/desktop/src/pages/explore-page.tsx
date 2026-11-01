@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ExploreSource, ExploreSummary } from "@/bindings/explore";
-import type { MetadataRestore } from "@/bindings/media";
+import type { ImageExportFormat, MetadataRestore } from "@/bindings/media";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { tagPromptTargets, appendRecognizedTags } from "@/features/media/tag-prompt";
 import { promptApi } from "@/features/prompt/api";
@@ -14,6 +14,7 @@ import { exploreApi, danbooruApi, danbooruConnectionKey } from "@/features/explo
 import { exploreErrorMessage } from "@/features/explore/error";
 import { ExploreImage } from "@/features/explore/explore-image";
 import { ExploreImageActions } from "@/features/explore/image-actions";
+import { saveExportedImage } from "@/features/media/image-export";
 import { ExploreInspector } from "@/features/explore/explore-inspector";
 import { ExploreQueryFields } from "@/features/explore/query-fields";
 import { submitExploreQuery, updateExploreSource } from "@/features/explore/session";
@@ -221,31 +222,26 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
       );
     });
 
-  const saveImage = (item: ExploreSummary) =>
+  const saveImage = (item: ExploreSummary, format: ImageExportFormat) =>
     void run(async () => {
       checkIdentity(item);
-      const content = await exploreApi.media(item.key, "original");
-      const mime =
-        content.byteLength > 3 && new Uint8Array(content)[0] === 0xff
-          ? "image/jpeg"
-          : new Uint8Array(content)[0] === 0x89
-            ? "image/png"
-            : "image/webp";
-      const url = URL.createObjectURL(new Blob([content], { type: mime }));
-      try {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${source}-${item.key.id}.${mime.split("/")[1]}`;
-        link.click();
-      } finally {
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+      const content = await exploreApi.exportImage(item.key, format);
+      checkIdentity(item);
+      if (active.current) saveExportedImage(content, `${source}-${item.key.id}`);
+    });
+
+  const copyImage = (item: ExploreSummary, format: ImageExportFormat) =>
+    void run(async () => {
+      checkIdentity(item);
+      await exploreApi.copyImage(item.key, format);
+      if (active.current) notify(() => t("common.imageCopied"), "copy-image");
     });
 
   const actions = {
     busy,
     useImage,
     saveImage,
+    copyImage,
     openWebsite: (item: ExploreSummary) => void run(() => openUrl(item.websiteUrl)),
     precise: editorCapabilities?.canAddPreciseReference ?? false,
     vibe: editorCapabilities?.canAddVibeReference ?? false,

@@ -1,6 +1,12 @@
 import type { media as source } from "../en/media";
 
 export const media = {
+  saveImage: "保存图片",
+  exportOriginalPng: "原图 PNG",
+  exportOriginal: "原文件",
+  exportCleanPng: "无元数据 PNG",
+  exportJpg: "无元数据 JPG",
+  embeddedImage: "已嵌入氛围转移文档的图片",
   exifUserComment: "EXIF UserComment",
   stealthPng: "Stealth PNG",
   retryRead: "重试读取",

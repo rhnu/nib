@@ -165,7 +165,6 @@ export const generation = {
   imageViewer: "图片查看器",
   imageActions: "图片操作",
   parametersSources: "生成参数与来源",
-  saveOriginal: "保存原图",
   imageFileIncomplete: "图片文件缺失或不完整",
   generatedImage: "生成图片",
   generatedImageSeedPrefix: "生成图片，种子 ",

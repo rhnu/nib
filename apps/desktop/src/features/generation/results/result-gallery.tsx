@@ -162,17 +162,12 @@ export function ResultCanvas({
             <IconButton label={t("generation.parametersSources")} onClick={onOpen}>
               <Info size={17} />
             </IconButton>
-            {image.url && (
-              <a
-                className="image-icon-link"
-                href={image.url}
-                download={resultFilename(result)}
-                aria-label={t("generation.saveOriginal")}
-                title={t("generation.saveOriginal")}
-              >
-                <Download size={17} />
-              </a>
-            )}
+            <ActionsMenu
+              label={t("media.saveImage")}
+              icon={<Download size={17} aria-hidden />}
+              disabled={contextActions.imageExport.disabled}
+              items={contextActions.imageExport.saveItems}
+            />
           </div>
           <div className={"generation-canvas" + (canZoom ? " generation-canvas-viewer" : "")}>
             {!result.available ? (

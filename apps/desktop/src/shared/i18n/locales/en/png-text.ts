@@ -24,7 +24,6 @@ export const png_text = {
   lastWrittenImage: "Last written image",
   inspectAgain: "Inspect again",
   loadingNewImage: "Loading new image…",
-  exportPng: "Export PNG",
   useAsSource: "Use as source image",
   inspectingNewText: "Inspecting PNG text in the new image…",
   retryInspection: "Retry inspection",

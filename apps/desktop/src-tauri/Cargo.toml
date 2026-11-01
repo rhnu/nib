@@ -27,6 +27,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [target.'cfg(windows)'.dependencies]
+clipboard-win.workspace = true
+image = { workspace = true, features = ["bmp"] }
+uuid.workspace = true
 webview2-com.workspace = true
 windows-native-keyring-store = { workspace = true, default-features = false }
 

@@ -4,6 +4,7 @@ use crate::api::UserMessage;
 
 mod assets;
 mod content;
+mod export;
 mod metadata;
 mod query;
 pub(crate) mod references;
@@ -19,6 +20,7 @@ use std::{
 
 pub use assets::{AssetKind, AssetReader, AssetSource, MediaAsset};
 pub use content::{BlobId, InvalidBlobId};
+pub use export::{ImageExportFormat, export_image};
 pub use metadata::{
     ImageMetadataReport, ImageMetadataStatus, KnownCharacterMetadata, KnownImageMetadata,
     PngTextInspection,

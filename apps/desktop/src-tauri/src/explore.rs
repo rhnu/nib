@@ -4,7 +4,7 @@ use nib_app::{
         ExploreDetail, ExploreError, ExploreErrorKind, ExploreItemKey, ExploreMediaVariant,
         ExplorePage, ExploreQuery,
     },
-    media::{MediaAsset, MetadataRestore},
+    media::{ImageExportFormat, MediaAsset, MetadataRestore},
     persistence::PersistenceError,
     session::DraftStore as _,
 };
@@ -49,6 +49,47 @@ pub(crate) async fn read_explore_media(
     Ok(tauri::ipc::Response::new(
         state.app.explore().media(&key, variant).await?.bytes,
     ))
+}
+
+#[tauri::command]
+pub(crate) async fn export_explore_image(
+    state: tauri::State<'_, DesktopState>,
+    key: ExploreItemKey,
+    format: ImageExportFormat,
+) -> Result<tauri::ipc::Response, ExploreError> {
+    let content = state
+        .app
+        .explore()
+        .media(&key, ExploreMediaVariant::Original)
+        .await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = nib_app::media::export_image(content.bytes, format).map_err(local_error)?;
+        tracing::debug!(?key, ?format, "exported Explore image");
+        Ok(tauri::ipc::Response::new(output.bytes))
+    })
+    .await
+    .map_err(|_error| worker_error())?
+}
+
+#[tauri::command]
+pub(crate) async fn copy_explore_image(
+    state: tauri::State<'_, DesktopState>,
+    key: ExploreItemKey,
+    format: ImageExportFormat,
+) -> Result<(), ExploreError> {
+    let content = state
+        .app
+        .explore()
+        .media(&key, ExploreMediaVariant::Original)
+        .await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = nib_app::media::export_image(content.bytes, format).map_err(local_error)?;
+        crate::media::copy_exported_image(&output).map_err(local_error)?;
+        tracing::debug!(?key, ?format, "copied Explore image");
+        Ok(())
+    })
+    .await
+    .map_err(|_error| worker_error())?
 }
 
 #[tauri::command]

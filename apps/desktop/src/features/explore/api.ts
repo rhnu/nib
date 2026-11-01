@@ -6,7 +6,7 @@ import type {
   ExplorePage,
   ExploreQuery,
 } from "@/bindings/explore";
-import type { MediaAsset, MetadataRestore } from "@/bindings/media";
+import type { ImageExportFormat, MediaAsset, MetadataRestore } from "@/bindings/media";
 import type { DanbooruConnectionStatus } from "@/bindings/settings";
 import { queryClient } from "@/shared/query/client";
 import { invokeHost } from "@/shared/host/invoke";
@@ -36,6 +36,10 @@ export const exploreApi = {
   detail: (key: ExploreItemKey) => invokeExplore<ExploreDetail>("get_explore_detail", { key }),
   media: (key: ExploreItemKey, variant: ExploreMediaVariant) =>
     invokeExplore<ArrayBuffer>("read_explore_media", { key, variant }),
+  exportImage: (key: ExploreItemKey, format: ImageExportFormat) =>
+    invokeExplore<ArrayBuffer>("export_explore_image", { key, format }),
+  copyImage: (key: ExploreItemKey, format: ImageExportFormat) =>
+    invokeExplore<void>("copy_explore_image", { key, format }),
   importImage: (key: ExploreItemKey) => invokeExplore<MediaAsset>("import_explore_image", { key }),
   restore: (key: ExploreItemKey) =>
     invokeExplore<MetadataRestore>("restore_explore_metadata", { key }),

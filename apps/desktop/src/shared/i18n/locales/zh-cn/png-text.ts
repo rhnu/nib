@@ -26,7 +26,6 @@ export const png_text = {
   lastWrittenImage: "最近写入的图片",
   inspectAgain: "再次检查",
   loadingNewImage: "正在读取新图片…",
-  exportPng: "导出 PNG",
   useAsSource: "用作底图",
   inspectingNewText: "正在检查新图片的 PNG 文本…",
   retryInspection: "重试检查",
