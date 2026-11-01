@@ -29,10 +29,6 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
-  build: {
-    // Startup HTML and React share this icon; data URLs are blocked by the image CSP.
-    assetsInlineLimit: (file) => (file.endsWith("/app-icon.svg") ? false : undefined),
-  },
   clearScreen: false,
   server: {
     host: "127.0.0.1",

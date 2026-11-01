@@ -152,6 +152,8 @@ pnpm types:check
 
 宿主初始化 tracing，最终失败由处理它的 IPC 或后台任务管理者记录，不逐层重复输出。日志包含操作上下文及原因链，不记录秘密、完整请求或媒体。桌面关闭系统装饰，前端提供标题栏；主窗口权限遵循最小授权与 CSP。
 
+CSP 在宿主配置中统一维护，开发和生产均允许同源及内联样式，兼容启动样式、React 内联样式与组件库动态样式。`dangerousDisableAssetCspModification` 仅包含 `style-src`，阻止 Tauri 向该指令追加 nonce 或 hash 而使 `unsafe-inline` 失效；组件无需单独传递样式 nonce。图片允许同源、Blob 与 data URL，覆盖媒体内容与构建内联资源。脚本继续由 Tauri 注入 nonce 与 hash，Worker、WASM 和网络来源按各自指令限制；开发环境只增加本地开发服务所需的网络地址。
+
 前端入口在挂载前取消默认 `contextmenu` 行为，领域菜单复用 Base UI Context Menu；文本菜单通过编辑器适配器优先处理内部输入。Windows 普通输入的编辑命令由宿主通过 WebView2 的固定按键操作执行，保留原生选区与历史。其 COM 调用限定在 WebView UI 线程的两处带安全说明的 COM `unsafe` 调用，其余 Rust 代码默认拒绝 `unsafe`。图片复制通过 Clipboard API 写入 PNG 内容，权限或编码失败由所属动作展示。
 
 ### 状态归属与保存
@@ -249,7 +251,7 @@ Rusteward 管理 Rust 格式与 Clippy，Oxfmt 管理前端和工程配置，rum
 
 Rust 检查顺序为编译 → 格式 → lint → 单元测试。按影响选择检查，默认只新增或运行纯逻辑单元测试，不引入集成、UI、E2E、性能或快照测试；内存后端可验证调度逻辑，不能代替真实服务与恢复验收。文档修改收尾运行 `pnpm docs:fix <本次修改的文件...>`；桌面构建独立于统一检查。
 
-应用图标的矢量源为 [app-icon.svg](../apps/desktop/src/assets/app-icon.svg)，标题栏、启动页与浏览器图标共用此文件。Vite 对此图标禁用内联，统一输出同源 SVG 文件，以符合图片 CSP。修改后运行 `pnpm --filter @nib/desktop exec tauri icon src/assets/app-icon.svg`，生成的多尺寸及平台资源位于 `src-tauri/icons/`，Windows 程序使用 `icon.ico`。
+应用图标的矢量源为 [app-icon.svg](../apps/desktop/src/assets/app-icon.svg)，标题栏、启动页与浏览器图标共用此文件。修改后运行 `pnpm --filter @nib/desktop exec tauri icon src/assets/app-icon.svg`，生成的多尺寸及平台资源位于 `src-tauri/icons/`，Windows 程序使用 `icon.ico`。
 
 ## 词库资源与构建
 
