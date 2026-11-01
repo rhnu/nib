@@ -1,12 +1,45 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
-import type { ResourceSummary } from "@/bindings/workbench";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
+import type { ResourceSort, ResourceSummary } from "@/bindings/workbench";
 import { settingValue } from "@/features/prompt/settings";
 import { t, useTranslation } from "@/shared/i18n";
-import { IconButton } from "@/shared/ui";
+import { IconButton, Select } from "@/shared/ui";
 import { ResourceCover } from "./resource-cover";
 
 export type ResourceView = "grid" | "list";
+
+/** A single outlined group owns both the sort key and its direction. */
+export function ResourceSortControl({
+  sort,
+  descending,
+  onChange,
+}: {
+  sort: ResourceSort;
+  descending: boolean;
+  onChange: (patch: Partial<{ sort: ResourceSort; descending: boolean }>) => void;
+}) {
+  useTranslation();
+  return (
+    <fieldset className="resource-sort-control" aria-label={t("library.sort")}>
+      <Select
+        aria-label={t("library.sort")}
+        value={sort}
+        onValueChange={(sort) => onChange({ sort: sort as ResourceSort })}
+        options={[
+          { value: "name", label: t("library.resourceName") },
+          { value: "updatedAt", label: t("library.updated") },
+          { value: "createdAt", label: t("library.created") },
+        ]}
+      />
+      <IconButton
+        label={descending ? t("library.descending") : t("library.ascending")}
+        onClick={() => onChange({ descending: !descending })}
+      >
+        {descending ? <ArrowDown size={15} /> : <ArrowUp size={15} />}
+      </IconButton>
+    </fieldset>
+  );
+}
 
 /** Shared catalogue states and scrolling layout; callers own selection and available actions. */
 export function ResourceResults({
@@ -124,33 +157,39 @@ export function ResourcePagination({
   pageSize,
   loading,
   onChange,
+  children,
 }: {
   offset: number;
   total: number;
   pageSize: number;
   loading: boolean;
   onChange: (offset: number) => void;
+  children?: ReactNode;
 }) {
   useTranslation();
   return (
     <div className="resource-pagination" aria-label={t("library.pagination")}>
-      <IconButton
-        label={t("library.previousPage")}
-        disabled={offset === 0 || loading}
-        onClick={() => onChange(Math.max(0, offset - pageSize))}
-      >
-        <ChevronLeft size={15} />
-      </IconButton>
-      <span aria-live="polite">
-        {total ? `${offset + 1}–${Math.min(offset + pageSize, total)} / ${total}` : "0"}
-      </span>
-      <IconButton
-        label={t("library.nextPage")}
-        disabled={offset + pageSize >= total || loading}
-        onClick={() => onChange(offset + pageSize)}
-      >
-        <ChevronRight size={15} />
-      </IconButton>
+      <span className="resource-total">{t("library.resultCount", { count: total })}</span>
+      {children}
+      <div className="resource-page-controls">
+        <IconButton
+          label={t("library.previousPage")}
+          disabled={offset === 0 || loading}
+          onClick={() => onChange(Math.max(0, offset - pageSize))}
+        >
+          <ChevronLeft size={15} />
+        </IconButton>
+        <span aria-live="polite">
+          {total ? `${offset + 1}–${Math.min(offset + pageSize, total)} / ${total}` : "0"}
+        </span>
+        <IconButton
+          label={t("library.nextPage")}
+          disabled={offset + pageSize >= total || loading}
+          onClick={() => onChange(offset + pageSize)}
+        >
+          <ChevronRight size={15} />
+        </IconButton>
+      </div>
     </div>
   );
 }

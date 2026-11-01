@@ -1,6 +1,6 @@
 import { t, useTranslation } from "@/shared/i18n";
 import {
-  createHashHistory,
+  createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -17,14 +17,14 @@ import { LexiconPage } from "@/pages/lexicon-page";
 import { PreferencesPage } from "@/pages/preferences-page";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { RecoveryBoundary, RenderFailure } from "@/shared/ui/recovery-boundary";
-import { pagePaths, startupPage } from "./navigation";
+import { pagePaths, startupPage, startupPath } from "./navigation";
 
 function RouteOutlet() {
   useTranslation();
 
   const { guardNavigation, page } = useWorkbenchContext();
   useBlocker({
-    // The same guard covers links, application handoffs, and browser back/forward.
+    // Business navigation keeps the same pending-input and unapplied-mask guard.
     shouldBlockFn: async ({ current, next }) =>
       current.pathname !== next.pathname && !(await guardNavigation()),
     enableBeforeUnload: false,
@@ -43,9 +43,8 @@ function PageFailure({ error, reset }: { error: unknown; reset: () => void }) {
 
 /** Restore the saved page once; after startup, the history owns navigation. */
 export function createWorkspaceRouter(savedPage: Draft["activePage"], startupSettings: boolean) {
-  const history = createHashHistory();
-  const initialPage = startupPage(history.location.pathname, savedPage, startupSettings);
-  if (history.location.pathname !== pagePaths[initialPage]) history.replace(pagePaths[initialPage]);
+  const initialPage = startupPage(startupPath(window.location), savedPage, startupSettings);
+  const history = createMemoryHistory({ initialEntries: [pagePaths[initialPage]] });
   const root = createRootRoute({ component: RouteOutlet });
   const routeTree = root.addChildren([
     createRoute({ getParentRoute: () => root, path: "/create", component: CreatePage }),

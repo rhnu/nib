@@ -6,7 +6,7 @@ import { ClipboardPaste, Image, X } from "lucide-react";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { libraryApi } from "./api";
 import { trackPendingWork } from "@/shared/host/pending-work";
-import { settingValue } from "@/features/prompt/settings";
+import { ResourceModelSelect } from "./resource-model-select";
 import { splitLabels } from "./resource-edit";
 import { ResourceCover } from "./resource-cover";
 import { folderAncestry } from "./resource-location";
@@ -188,29 +188,11 @@ export function ResourceMetadata({
             {folderPath(resource.folderId, folders)}
           </span>
         </div>
-        <fieldset className="resource-models">
-          <legend>{t("library.models")}</legend>
-          <small className="muted">{t("library.modelsHint")}</small>
-          <div>
-            {[...new Set([...models, ...resource.models])].map((model) => (
-              <label key={model}>
-                <input
-                  type="checkbox"
-                  checked={resource.models.includes(model)}
-                  onChange={(event) =>
-                    onChange({
-                      ...resource,
-                      models: event.target.checked
-                        ? [...resource.models, model]
-                        : resource.models.filter((item) => item !== model),
-                    })
-                  }
-                />
-                {settingValue("model", model)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <ResourceModelSelect
+          models={models}
+          value={resource.models}
+          onChange={(models) => onChange({ ...resource, models })}
+        />
       </div>
       <ImagePickerDialog
         open={gallery}

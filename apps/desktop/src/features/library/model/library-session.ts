@@ -1,22 +1,25 @@
 import { createStore } from "zustand/vanilla";
 import type {
   Resource,
-  ResourceKind,
+  ResourceFolder,
   ResourceSaveMode,
   ResourceSelection,
-  ResourceSort,
 } from "@/bindings/workbench";
 import { mergeResourceSave } from "../resource-edit";
+import type { NavigationDirection } from "@/shared/navigation/navigation-input";
+import { folderAncestry } from "../resource-location";
+import {
+  createResourceBrowseHistory,
+  createResourceBrowseState,
+  moveResourceBrowseHistory,
+  pruneResourceBrowseHistory,
+  pushResourceBrowseHistory,
+  type ResourceBrowseHistory,
+  type ResourceBrowseState,
+} from "./resource-browse-history";
 
-export type LibrarySessionState = {
-  sort: ResourceSort;
-  descending: boolean;
-  query: string;
-  kind: ResourceKind | "";
-  folderId: string | null;
-  model: string;
-  tag: string;
-  offset: number;
+export type LibrarySessionState = ResourceBrowseState & {
+  browseHistory: ResourceBrowseHistory;
   view: "grid" | "list";
   selectedIds: string[];
   inspector: boolean;
@@ -35,15 +38,9 @@ export type LibrarySessionState = {
 
 /** Own resource edits and browsing context for the lifetime of one workbench. */
 export function createLibrarySessionStore() {
-  return createStore<LibrarySessionState>(() => ({
-    sort: "name",
-    descending: false,
-    query: "",
-    kind: "",
-    folderId: null,
-    model: "",
-    tag: "",
-    offset: 0,
+  const store = createStore<LibrarySessionState>(() => ({
+    ...createResourceBrowseState(),
+    browseHistory: createResourceBrowseHistory(createResourceBrowseState()),
     view: "grid",
     selectedIds: [],
     inspector: true,
@@ -59,9 +56,52 @@ export function createLibrarySessionStore() {
     error: "",
     confirm: null,
   }));
+  // Capture all browse writes, including pagination and context changes initiated by editors.
+  // Restores publish their history and destination together, so they do not create new entries.
+  store.subscribe((state, previous) => {
+    if (state.browseHistory !== previous.browseHistory) return;
+    const browseHistory = pushResourceBrowseHistory(state.browseHistory, state);
+    if (browseHistory !== state.browseHistory) store.setState({ browseHistory });
+  });
+  return store;
 }
 
 export type LibrarySessionStore = ReturnType<typeof createLibrarySessionStore>;
+
+/** Prune only after the folder catalogue has loaded successfully. */
+export function pruneLibraryHistory(store: LibrarySessionStore, folders: ResourceFolder[]) {
+  const current = store.getState();
+  const browseHistory = pruneResourceBrowseHistory(
+    current.browseHistory,
+    new Set(folders.map((folder) => folder.id)),
+  );
+  if (browseHistory === current.browseHistory) return;
+  store.setState({ ...browseHistory.entries[browseHistory.index], browseHistory, selectedIds: [] });
+}
+
+/** Browser history never dismisses an editor or bypasses its unsaved-change confirmation. */
+export function moveLibraryHistory(
+  store: LibrarySessionStore,
+  direction: NavigationDirection,
+  folders: ResourceFolder[],
+) {
+  const current = store.getState();
+  if (current.editor || current.busy || current.confirm) return;
+  const valid = pruneResourceBrowseHistory(
+    current.browseHistory,
+    new Set(folders.map((folder) => folder.id)),
+  );
+  const browseHistory = moveResourceBrowseHistory(valid, direction);
+  if (browseHistory === current.browseHistory) return;
+  const state = browseHistory.entries[browseHistory.index];
+  const path = new Set(folderAncestry(state.folderId, folders).map((folder) => folder.id));
+  store.setState({
+    ...state,
+    browseHistory,
+    selectedIds: [],
+    collapsedFolders: current.collapsedFolders.filter((id) => !path.has(id)),
+  });
+}
 
 /** Hold the session busy through the write and every refresh owned by that operation. */
 export async function runLibraryOperation(store: LibrarySessionStore, action: () => Promise<void>) {

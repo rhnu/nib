@@ -8,6 +8,8 @@ import {
   completeLibraryPaste,
   dismissLibraryResource,
   runLibraryOperation,
+  moveLibraryHistory,
+  pruneLibraryHistory,
 } from "./library-session";
 
 const resource = (text: string): Resource => ({
@@ -22,6 +24,59 @@ const resource = (text: string): Resource => ({
   updatedAt: 0,
   name: "Chunk",
   content: { kind: "chunk", text },
+});
+
+describe("library session navigation", () => {
+  it("retains direct pagination writes in a directory visit and restores without adding a destination", () => {
+    const store = createLibrarySessionStore();
+    filterLibraryResources(store, { query: "portrait", tag: "night" });
+    store.setState({ offset: 60, selectedIds: ["selected"] });
+    filterLibraryResources(store, { folderId: "folder" });
+    const entries = store.getState().browseHistory.entries;
+    const folders = [{ id: "folder", name: "Folder", parentId: null, createdAt: 0, updatedAt: 0 }];
+    moveLibraryHistory(store, "back", folders);
+    expect(store.getState()).toMatchObject({
+      query: "portrait",
+      tag: "night",
+      offset: 60,
+      selectedIds: [],
+    });
+    expect(store.getState().browseHistory.entries).toBe(entries);
+    moveLibraryHistory(store, "forward", folders);
+    expect(store.getState()).toMatchObject({ folderId: "folder", offset: 0 });
+    expect(store.getState().browseHistory.entries).toBe(entries);
+  });
+
+  it("does not dismiss or navigate through an editor, a pending operation, or a confirmation", () => {
+    const store = createLibrarySessionStore();
+    filterLibraryResources(store, { query: "portrait", folderId: "folder" });
+    const index = store.getState().browseHistory.index;
+    store.setState({ editor: resource("unsaved"), dirty: true });
+    moveLibraryHistory(store, "back", []);
+    expect(store.getState()).toMatchObject({ editor: resource("unsaved"), dirty: true });
+    store.setState({ editor: null, busy: true });
+    moveLibraryHistory(store, "back", []);
+    store.setState({ busy: false, confirm: { title: "confirm", action: () => {} } });
+    moveLibraryHistory(store, "back", []);
+    expect(store.getState().browseHistory.index).toBe(index);
+    expect(store.getState().query).toBe("portrait");
+  });
+
+  it("cleans a removed current folder and selection without recording another entry", () => {
+    const store = createLibrarySessionStore();
+    filterLibraryResources(store, { folderId: "removed", tag: "night" });
+    store.setState({ offset: 60, selectedIds: ["old"] });
+    pruneLibraryHistory(store, []);
+    expect(store.getState()).toMatchObject({
+      folderId: null,
+      tag: "night",
+      offset: 0,
+      selectedIds: [],
+    });
+    expect(store.getState().browseHistory.entries.every((entry) => entry.folderId === null)).toBe(
+      true,
+    );
+  });
 });
 
 describe("library session edits", () => {

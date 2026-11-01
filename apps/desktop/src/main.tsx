@@ -9,9 +9,12 @@ import "@/app/styles.css";
 import { Notice, Notifications } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { disableDefaultContextMenu, TextContextMenu } from "@/shared/ui/text-context-menu";
+import { installNavigationInput } from "@/shared/navigation/navigation-input";
 
 const restoreContextMenu = disableDefaultContextMenu();
 import.meta.hot?.dispose(restoreContextMenu);
+const restoreNavigationInput = installNavigationInput(window);
+import.meta.hot?.dispose(restoreNavigationInput);
 
 const root = document.getElementById("root");
 

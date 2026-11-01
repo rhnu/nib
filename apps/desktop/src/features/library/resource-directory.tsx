@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronRight, Folder, Check, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUp, ChevronRight, Folder, Check, X } from "lucide-react";
 import { useEffect, useRef, type ReactNode, type DragEvent } from "react";
 import type { ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
@@ -10,15 +10,35 @@ export function ResourceBreadcrumb({
   folderId,
   folders,
   onNavigate,
+  history,
 }: {
   folderId: string | null;
   folders: ResourceFolder[];
   onNavigate: (id: string | null) => void;
+  history?: { canBack: boolean; canForward: boolean; back: () => void; forward: () => void };
 }) {
   useTranslation();
   const path = folderAncestry(folderId, folders);
   return (
     <div className="resource-location">
+      {history && (
+        <>
+          <IconButton
+            label={t("library.backFolder")}
+            disabled={!history.canBack}
+            onClick={history.back}
+          >
+            <ArrowLeft size={15} />
+          </IconButton>
+          <IconButton
+            label={t("library.forwardFolder")}
+            disabled={!history.canForward}
+            onClick={history.forward}
+          >
+            <ArrowRight size={15} />
+          </IconButton>
+        </>
+      )}
       <IconButton
         label={t("library.upFolder")}
         disabled={!folderId}

@@ -16,6 +16,12 @@ export function pageAtPath(pathname: string): Draft["activePage"] | undefined {
   );
 }
 
+/** Accept the existing hash URL as well as a direct startup page URL. */
+export function startupPath(location: { hash: string; pathname: string }) {
+  const hashPath = location.hash.slice(1).split(/[?#]/, 1)[0];
+  return pageAtPath(hashPath) ? hashPath : location.pathname;
+}
+
 /** An explicit startup settings choice wins; otherwise use the URL before the saved snapshot. */
 export function startupPage(
   pathname: string,

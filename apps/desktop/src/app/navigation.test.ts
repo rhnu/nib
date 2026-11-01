@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageAtPath, startupPage } from "./navigation";
+import { pageAtPath, startupPage, startupPath } from "./navigation";
 
 describe("startup navigation", () => {
   it("restores the persisted page when the URL has no supported destination", () => {
@@ -19,5 +19,10 @@ describe("startup navigation", () => {
   it("does not accept an unknown location as a navigation snapshot", () => {
     expect(pageAtPath("/unknown")).toBeUndefined();
     expect(pageAtPath("/create")).toBe("create");
+  });
+  it("reads an existing hash or a direct startup URL without using browser history", () => {
+    expect(startupPath({ hash: "#/library?tag=night", pathname: "/" })).toBe("/library");
+    expect(startupPath({ hash: "#section", pathname: "/gallery" })).toBe("/gallery");
+    expect(startupPath({ hash: "", pathname: "/explore" })).toBe("/explore");
   });
 });

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Search } from "lucide-react";
 import type { ResourceKind, ResourceSummary } from "@/bindings/workbench";
 import { settingValue } from "@/features/prompt/settings";
 import { t, useTranslation } from "@/shared/i18n";
-import { Button, Modal, Notice, Select } from "@/shared/ui";
+import { Button, Modal, Notice } from "@/shared/ui";
 import { errorMessage } from "@/shared/host/error";
 import { libraryApi, resourceSearchQuery } from "./api";
 import {
@@ -20,6 +20,10 @@ import { ResourceBreadcrumb, ResourceDirectoryItems } from "./resource-directory
 import { folderAncestry, resourceLocationQuery } from "./resource-location";
 import { folderPath } from "./resource-metadata";
 import { useResourceResults } from "./use-resource-results";
+import { ResourceTagSelect } from "./resource-filters";
+import { createResourceBrowseState } from "./model/resource-browse-history";
+import { useResourceBrowseHistory } from "./model/use-resource-browse-history";
+import { useNavigationInput } from "@/shared/navigation/use-navigation-input";
 import "./styles.css";
 
 /** Browse persisted resources in place; the caller owns the insertion and its success feedback. */
@@ -40,19 +44,18 @@ export function ResourcePicker({
   const [returnFocus] = useState(() =>
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
-  const [text, setText] = useState("");
-  const [folderId, setFolderId] = useState<string | null>(null);
+  const browser = useRef<HTMLDivElement>(null);
+  const folders = useQuery({ queryKey: ["resource-folders"], queryFn: libraryApi.folders });
+  const history = useResourceBrowseHistory(
+    createResourceBrowseState({ kind, model: model ?? "" }),
+    folders.data,
+    JSON.stringify([kind, model]),
+  );
+  const { query: text, folderId, tag, offset } = history.state;
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  const [tag, setTag] = useState("");
-  const [offset, setOffset] = useState(0);
   const [view, setView] = useState<ResourceView>("grid");
   const [selection, setSelection] = useState<{ id: string; query: string } | null>(null);
-  const [scope, setScope] = useState({ kind, model });
-  if (scope.kind !== kind || scope.model !== model) {
-    setScope({ kind, model });
-    setOffset(0);
-    setSelection(null);
-  }
+  useNavigationInput({ element: browser, enabled: !!folders.data, onNavigate: history.move });
 
   const query = resourceSearchQuery({
     text,
@@ -65,7 +68,6 @@ export function ResourcePicker({
   });
   const queryKey = JSON.stringify(query);
   const { items, total, pageSize, loading, queryError, retry } = useResourceResults(query);
-  const folders = useQuery({ queryKey: ["resource-folders"], queryFn: libraryApi.folders });
   const tags = useQuery({ queryKey: ["resource-tags"], queryFn: libraryApi.tags });
   const catalogueError =
     queryError || (folders.error || tags.error ? errorMessage(folders.error ?? tags.error) : "");
@@ -74,17 +76,21 @@ export function ResourcePicker({
     selection?.query === queryKey ? items.find((item) => item.id === selection.id) : undefined;
   const canChoose = !loading && !folders.isPending && !tags.isPending && !catalogueError;
 
-  const reset = () => {
-    setOffset(0);
+  const [selectionContext, setSelectionContext] = useState({
+    queryKey,
+    folderId,
+    folders: folders.data,
+  });
+  if (selectionContext.queryKey !== queryKey || selectionContext.folders !== folders.data) {
+    setSelectionContext({ queryKey, folderId, folders: folders.data });
     setSelection(null);
-  };
+    if (selectionContext.folderId !== folderId || selectionContext.folders !== folders.data) {
+      const path = folderAncestry(folderId, folders.data ?? []).map((folder) => folder.id);
+      setCollapsed(collapsed.filter((id) => !path.includes(id)));
+    }
+  }
 
-  const navigate = (id: string | null) => {
-    setFolderId(id);
-    const path = folderAncestry(id, folders.data ?? []).map((folder) => folder.id);
-    setCollapsed((current) => current.filter((id) => !path.includes(id)));
-    reset();
-  };
+  const navigate = (id: string | null) => history.update({ folderId: id });
 
   const choose = (resource: ResourceSummary) => {
     if (canChoose) onChoose(resource);
@@ -108,7 +114,7 @@ export function ResourcePicker({
       onClose={onClose}
       finalFocus={() => (returnFocus?.isConnected ? returnFocus : true)}
     >
-      <div className="resource-picker-body">
+      <div className="resource-picker-body" ref={browser}>
         <ResourceFolders
           folders={folders.data ?? []}
           folderId={folderId}
@@ -125,22 +131,14 @@ export function ResourcePicker({
                 value={text}
                 placeholder={t("library.searchPlaceholder")}
                 onChange={(event) => {
-                  setText(event.target.value);
-                  reset();
+                  history.update({ query: event.target.value });
                 }}
               />
             </div>
-            <Select
-              aria-label={t("library.tags")}
+            <ResourceTagSelect
               value={tag}
-              onValueChange={(value) => {
-                setTag(value);
-                reset();
-              }}
-              options={[
-                { value: "", label: t("library.allTags") },
-                ...(tags.data ?? []).map((tag) => ({ value: tag, label: tag })),
-              ]}
+              tags={tags.data ?? []}
+              onChange={(tag) => history.update({ tag })}
             />
             {model && (
               <span className="resource-picker-model" title={t("library.currentModel")}>
@@ -154,9 +152,14 @@ export function ResourcePicker({
               folderId={folderId}
               folders={folders.data ?? []}
               onNavigate={navigate}
+              history={{
+                canBack: history.canBack,
+                canForward: history.canForward,
+                back: () => history.move("back"),
+                forward: () => history.move("forward"),
+              }}
             />
             <span className="spacer" />
-            <span className="muted">{t("library.resultCount", { count: total })}</span>
           </header>
           {searching && <div className="resource-search-scope">{t("library.searchScope")}</div>}
           {catalogueError && (
@@ -229,8 +232,7 @@ export function ResourcePicker({
           pageSize={pageSize}
           loading={loading}
           onChange={(value) => {
-            setOffset(value);
-            setSelection(null);
+            history.update({ offset: value }, false);
           }}
         />
         <span className="resource-picker-selection" aria-live="polite">

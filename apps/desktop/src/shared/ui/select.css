@@ -28,6 +28,9 @@
   max-width: var(--available-width);
 }
 .select-popup {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--available-height);
   min-width: var(--anchor-width);
   max-width: min(440px, var(--available-width));
   border: 1px solid var(--line);
@@ -38,6 +41,7 @@
   outline: none;
 }
 .select-list {
+  min-height: 0;
   max-height: min(360px, var(--available-height));
   padding: var(--space-1);
   overflow-y: auto;
@@ -73,4 +77,15 @@
   flex-shrink: 0;
   margin-left: auto;
   color: var(--accent);
+}
+
+.select-trigger[data-placeholder] {
+  color: var(--muted);
+}
+.select-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line-subtle);
+  padding: var(--space-1);
+  display: flex;
+  justify-content: flex-end;
 }

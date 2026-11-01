@@ -6,7 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { errorMessage } from "@/shared/host/error";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { resourceDependencies } from "./resource-dependencies";
-import { Plus, Search, PanelRight, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type {
   Resource,
   ResourceKind,
@@ -15,7 +15,6 @@ import type {
   ResourceSelection,
   ResourceBatchAction,
   ResourceImpact,
-  ResourceSort,
 } from "@/bindings/workbench";
 import {
   ActionsMenu,
@@ -25,13 +24,13 @@ import {
   IconButton,
   Modal,
   Notice,
-  Select,
   type ActionMenuItem,
 } from "@/shared/ui";
-import { settingValue } from "@/features/prompt/settings";
 import { ResourceEditor } from "./resource-editor";
 import { ResourceList, resourceDragType } from "./resource-list";
-import { ResourcePagination, ResourceViewSwitch } from "./resource-browser";
+import { ResourcePagination, ResourceSortControl, ResourceViewSwitch } from "./resource-browser";
+import { ResourceFilters } from "./resource-filters";
+import { ResourceModelSelect } from "./resource-model-select";
 import { ResourceFolders } from "./resource-folders";
 import { ResourceInspector } from "./resource-inspector";
 import {
@@ -46,8 +45,14 @@ import { useResourceEditor } from "./use-resource-editor";
 import { useLibrarySessionStore } from "./model/library-session-context";
 import { splitLabels } from "./resource-edit";
 import { resourceFolderEdit } from "./resource-folder-edit";
-import { completeLibraryPaste, runLibraryOperation } from "./model/library-session";
+import {
+  completeLibraryPaste,
+  moveLibraryHistory,
+  pruneLibraryHistory,
+  runLibraryOperation,
+} from "./model/library-session";
 import { libraryApi } from "./api";
+import { useNavigationInput } from "@/shared/navigation/use-navigation-input";
 
 type OrganizeDialog =
   | {
@@ -79,6 +84,8 @@ export function ResourceLibrary({
   useTranslation();
   const client = useQueryClient();
   const store = useLibrarySessionStore();
+  const libraryElement = useRef<HTMLElement>(null);
+  const browseHistory = useStore(store, (state) => state.browseHistory);
   const { selectedIds, view, inspector, clipboard, collapsedFolders } = useStore(
     store,
     useShallow(({ selectedIds, view, inspector, clipboard, collapsedFolders }) => ({
@@ -136,6 +143,9 @@ export function ResourceLibrary({
     enabled: open,
   });
   const folders = folderQuery.data ?? [];
+  useEffect(() => {
+    if (folderQuery.data) pruneLibraryHistory(store, folderQuery.data);
+  }, [store, folderQuery.data]);
   const tags = tagQuery.data ?? [];
   const [dialog, setDialog] = useState<OrganizeDialog | null>(null);
   const [creatingFolder, setCreatingFolder] = useState<{
@@ -153,6 +163,25 @@ export function ResourceLibrary({
   }, [dependencyKey, ensureResources, setError, resourceVersion]);
   const browser = useRef<HTMLDivElement>(null);
   const selected = items.filter((item) => selectedIds.includes(item.id));
+  const canNavigateHistory =
+    open &&
+    !editor &&
+    !busy &&
+    !dialog &&
+    !creatingFolder &&
+    !deletion &&
+    !confirm &&
+    !!folderQuery.data;
+
+  const moveHistory = (direction: "back" | "forward") => {
+    if (canNavigateHistory) moveLibraryHistory(store, direction, folders);
+  };
+
+  useNavigationInput({
+    element: libraryElement,
+    enabled: canNavigateHistory,
+    onNavigate: moveHistory,
+  });
 
   const selectionFor = (item?: ResourceSummary): ResourceSelection => ({
     resources: (item && !selectedIds.includes(item.id) ? [item] : selected).map(({ id }) => id),
@@ -498,7 +527,12 @@ export function ResourceLibrary({
   });
   return (
     <>
-      <section className="library-page" hidden={!open} aria-label={t("library.title")}>
+      <section
+        className="library-page"
+        ref={libraryElement}
+        hidden={!open}
+        aria-label={t("library.title")}
+      >
         <div className="library-toolbar">
           <div className="library-search-field">
             <Search size={15} />
@@ -512,37 +546,14 @@ export function ResourceLibrary({
               }}
             />
           </div>
-          <Select
-            aria-label={t("library.resourceType")}
-            value={kind}
-            onValueChange={(kind) => filter({ kind: kind as ResourceKind | "" })}
-            options={[
-              { value: "", label: t("library.allTypes") },
-              { value: "chunk", label: t("library.chunk") },
-              { value: "preset", label: t("library.preset") },
-            ]}
-          />
-          <Select
-            aria-label={t("library.models")}
-            value={model}
-            onValueChange={(model) => filter({ model })}
-            options={[
-              { value: "", label: t("library.allModels") },
-              ...models.map((model) => ({ value: model, label: settingValue("model", model) })),
-            ]}
-          />
-          <Select
-            aria-label={t("library.tags")}
-            value={tag}
-            onValueChange={(tag) => filter({ tag })}
-            options={[
-              { value: "", label: t("library.allTags") },
-              ...tags.map((tag) => ({ value: tag, label: tag })),
-            ]}
-          />
-          <ActionsMenu
-            label={t("library.manageTag")}
-            items={[
+          <ResourceFilters
+            kind={kind}
+            model={model}
+            tag={tag}
+            models={models}
+            tags={tags}
+            onChange={filter}
+            tagActions={[
               {
                 label: t("library.renameTag"),
                 disabled: busy || !tag,
@@ -568,39 +579,18 @@ export function ResourceLibrary({
               },
             ]}
           />
+          <ResourceViewSwitch view={view} onChange={(view) => store.setState({ view })} />
           <ActionsMenu
-            label={t("library.createResource")}
+            label={t("library.folderActions")}
             items={[
+              ...blankActions,
+              { separator: true },
               {
-                label: t("library.createChunk"),
-                action: () => createIn("chunk", folderId),
-                disabled: busy,
-              },
-              {
-                label: t("library.createPreset"),
-                action: () => createIn("preset", folderId),
-                disabled: busy,
-              },
-              {
-                label: t("library.createFolder"),
-                action: () => newFolder(folderId),
-                disabled: busy,
+                label: inspector ? t("library.closeInspector") : t("library.showInspector"),
+                action: () => store.setState({ inspector: !inspector }),
               },
             ]}
-          >
-            <Plus size={14} />
-            {t("library.create")}
-          </ActionsMenu>
-          <div className="button-group">
-            <ResourceViewSwitch view={view} onChange={(view) => store.setState({ view })} />
-            <IconButton
-              label={t("library.inspector")}
-              aria-pressed={inspector}
-              onClick={() => store.setState({ inspector: !inspector })}
-            >
-              <PanelRight size={15} />
-            </IconButton>
-          </div>
+          />
         </div>
         {(error || queryError || folderQuery.error || tagQuery.error) && (
           <Notice
@@ -670,48 +660,22 @@ export function ResourceLibrary({
                       folderId={folderId}
                       folders={folders}
                       onNavigate={navigate}
+                      history={{
+                        canBack: canNavigateHistory && browseHistory.index > 0,
+                        canForward:
+                          canNavigateHistory &&
+                          browseHistory.index + 1 < browseHistory.entries.length,
+                        back: () => moveHistory("back"),
+                        forward: () => moveHistory("forward"),
+                      }}
                     />
                     <span className="spacer" />
-                    <Select
-                      aria-label={t("library.sort")}
-                      value={sort}
-                      onValueChange={(value) => filter({ sort: value as ResourceSort })}
-                      options={[
-                        { value: "name", label: t("library.resourceName") },
-                        { value: "updatedAt", label: t("library.updated") },
-                        { value: "createdAt", label: t("library.created") },
-                      ]}
-                    />
-                    <IconButton
-                      label={descending ? t("library.descending") : t("library.ascending")}
-                      onClick={() => filter({ descending: !descending })}
-                    >
-                      {descending ? "↓" : "↑"}
-                    </IconButton>
-                    <span className="muted">{t("library.resultCount", { count: total })}</span>
-                    <ActionsMenu label={t("library.folderActions")} items={blankActions} />
+                    <ResourceSortControl sort={sort} descending={descending} onChange={filter} />
                   </header>
                   {searching && (
                     <div className="resource-search-scope">{t("library.searchScope")}</div>
                   )}
-                  {selected.length > 0 && (
-                    <div className="resource-selection-toolbar">
-                      <strong>{t("library.selectedCount", { count: selected.length })}</strong>
-                      <Button disabled={busy} onClick={() => organize("move", selectionFor())}>
-                        {t("library.move")}
-                      </Button>
-                      <Button disabled={busy} onClick={() => organize("tags", selectionFor())}>
-                        {t("library.editTags")}
-                      </Button>
-                      <ActionsMenu label={t("library.manageResource")} items={resourceActions()} />
-                      <IconButton
-                        label={t("library.clearSelection")}
-                        onClick={() => store.setState({ selectedIds: [] })}
-                      >
-                        <X size={14} />
-                      </IconButton>
-                    </div>
-                  )}
+
                   <ResourceList
                     loading={loading || folderQuery.isPending}
                     queryError={
@@ -761,7 +725,31 @@ export function ResourceLibrary({
                     pageSize={pageSize}
                     loading={loading}
                     onChange={(offset) => store.setState({ offset, selectedIds: [] })}
-                  />
+                  >
+                    {selected.length > 0 && (
+                      <div className="resource-selection-toolbar">
+                        <strong aria-live="polite">
+                          {t("library.selectedCount", { count: selected.length })}
+                        </strong>
+                        <Button disabled={busy} onClick={() => organize("move", selectionFor())}>
+                          {t("library.move")}
+                        </Button>
+                        <Button disabled={busy} onClick={() => organize("tags", selectionFor())}>
+                          {t("library.editTags")}
+                        </Button>
+                        <ActionsMenu
+                          label={t("library.manageResource")}
+                          items={resourceActions()}
+                        />
+                        <IconButton
+                          label={t("library.clearSelection")}
+                          onClick={() => store.setState({ selectedIds: [] })}
+                        >
+                          <X size={14} />
+                        </IconButton>
+                      </div>
+                    )}
+                  </ResourcePagination>
                 </div>
               </ContextActions>
               {inspector && (
@@ -835,29 +823,11 @@ export function ResourceLibrary({
                 />
               </Field>
             ) : dialog.kind === "models" ? (
-              <fieldset className="resource-models">
-                <legend>{t("library.models")}</legend>
-                <small className="muted">{t("library.modelsHint")}</small>
-                <div>
-                  {models.map((model) => (
-                    <label key={model}>
-                      <input
-                        type="checkbox"
-                        checked={dialog.models.includes(model)}
-                        onChange={(event) =>
-                          setDialog({
-                            ...dialog,
-                            models: event.target.checked
-                              ? [...dialog.models, model]
-                              : dialog.models.filter((item) => item !== model),
-                          })
-                        }
-                      />
-                      {settingValue("model", model)}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+              <ResourceModelSelect
+                models={models}
+                value={dialog.models}
+                onChange={(models) => setDialog({ ...dialog, models })}
+              />
             ) : dialog.kind === "folder" ? (
               <>
                 <Field label={t("library.folderName")}>
