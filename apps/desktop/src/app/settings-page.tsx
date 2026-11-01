@@ -294,8 +294,12 @@ export function SettingsPage({
                   </SettingRow>
                 </SettingsGroup>
                 <SettingsGroup
-                  title={t("safety.title")}
-                  description={t("safety.help")}
+                  title={
+                    <>
+                      {t("safety.title")}
+                      <HelpMarker label={t("safety.title")}>{t("safety.help")}</HelpMarker>
+                    </>
+                  }
                   actions={
                     <Button onClick={() => onSectionChange("downloads")}>
                       {t("safety.downloads")}

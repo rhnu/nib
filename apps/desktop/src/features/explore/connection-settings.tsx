@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DanbooruConnectionStatus } from "@/bindings/settings";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { queryClient } from "@/shared/query/client";
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
-import { ActionsMenu, Button, Modal, Notice, SettingRow, SettingsGroup } from "@/shared/ui";
+import { ActionsMenu, Button, HelpMarker, Modal, Notice, SettingsGroup } from "@/shared/ui";
 import { danbooruApi, danbooruConnectionKey } from "./api";
+import { ConnectionDialog } from "./connection-dialog";
+import "./connection-settings.css";
 
-/** Secret input is transient and cleared after saving or disconnecting. */
+/** Account details remain a summary; secret editing belongs to the transient dialog. */
 export function ExploreConnectionSettings() {
   useTranslation();
   const status = useQuery({
@@ -15,34 +16,75 @@ export function ExploreConnectionSettings() {
     queryFn: danbooruApi.status,
     retry: false,
   });
-  const [username, setUsername] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [editing, setEditing] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   const [error, setError] = useMessageState();
 
   const run = async (action: () => Promise<DanbooruConnectionStatus>) => {
-    if (busy) return;
+    if (pending.current) return false;
+    pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      const value = await action();
-      queryClient.setQueryData(danbooruConnectionKey, value);
-      setApiKey("");
-      setUsername("");
-    } catch (cause) {
-      setError(cause);
+      queryClient.setQueryData(danbooruConnectionKey, await action());
+      return true;
     } finally {
-      await status.refetch();
-      await queryClient.invalidateQueries({ queryKey: ["explore"] });
-      setBusy(false);
+      try {
+        await status.refetch();
+        await queryClient.invalidateQueries({ queryKey: ["explore"] });
+      } finally {
+        pending.current = false;
+        setBusy(false);
+      }
     }
   };
 
   return (
     <>
-      <SettingsGroup title={t("explore.danbooru")} description={t("explore.connectionHelp")}>
-        {status.isPending && <output>{t("explore.loading")}</output>}
+      <SettingsGroup
+        title={
+          <>
+            {t("explore.danbooru")}
+            <HelpMarker label={t("explore.danbooru")}>{t("explore.connectionHelp")}</HelpMarker>
+          </>
+        }
+        actions={
+          <>
+            <Button disabled={busy || !status.data} onClick={() => setEditing(true)}>
+              {status.data?.username ? t("explore.editConnection") : t("explore.connect")}
+            </Button>
+            <ActionsMenu
+              label={t("explore.connectionActions")}
+              disabled={busy || !status.data?.username}
+              items={[
+                {
+                  label: t("explore.verify"),
+                  action: () => void run(danbooruApi.verify).catch(setError),
+                },
+                { separator: true },
+                {
+                  label: t("explore.disconnect"),
+                  danger: true,
+                  action: () => setDisconnectOpen(true),
+                },
+              ]}
+            />
+          </>
+        }
+      >
+        <output className="danbooru-connection-summary" aria-live="polite">
+          {busy ? (
+            t("explore.connecting")
+          ) : status.isPending ? (
+            t("explore.loading")
+          ) : status.data ? (
+            <>
+              {t(`explore.connection_${status.data.state}`)} {status.data.username}
+            </>
+          ) : null}
+        </output>
         {status.error && (
           <Notice
             actions={<Button onClick={() => void status.refetch()}>{t("explore.retry")}</Button>}
@@ -50,87 +92,29 @@ export function ExploreConnectionSettings() {
             {t("explore.connectionFailed")}
           </Notice>
         )}
-        {status.data && (
-          <p className="muted">
-            {t(`explore.connection_${status.data.state}`)} {status.data.username}
-          </p>
-        )}
-        <SettingRow label={t("explore.username")} htmlFor="danbooru-username" controlWidth="wide">
-          <input
-            id="danbooru-username"
-            autoComplete="username"
-            value={username}
-            disabled={busy}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder={status.data?.username ?? ""}
-          />
-        </SettingRow>
-        <SettingRow label={t("explore.apiKey")} htmlFor="danbooru-key" controlWidth="wide">
-          <input
-            id="danbooru-key"
-            type="password"
-            autoComplete="off"
-            placeholder={status.data?.username ? t("explore.replaceKeyHint") : undefined}
-            value={apiKey}
-            disabled={busy}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-        </SettingRow>
-        <div className="settings-actions">
-          <Button
-            disabled={
-              busy ||
-              !(username.trim() || status.data?.username) ||
-              (!apiKey.trim() &&
-                Boolean(username.trim() && username.trim() !== status.data?.username)) ||
-              (!apiKey.trim() && !status.data?.username)
-            }
-            onClick={() =>
-              void run(() =>
-                danbooruApi.save(username.trim() || status.data!.username!, apiKey.trim()),
-              )
-            }
-          >
-            {t("explore.verifySave")}
-          </Button>
-          <Button
-            disabled={busy || !status.data?.username}
-            onClick={() => void run(danbooruApi.verify)}
-          >
-            {t("explore.verify")}
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() => void openUrl("https://danbooru.donmai.us/profile").catch(setError)}
-          >
-            {t("explore.getApiKey")}
-          </Button>
-          <ActionsMenu
-            label={t("explore.connectionActions")}
-            items={[
-              {
-                label: t("explore.disconnect"),
-                danger: true,
-                disabled: busy || !status.data?.username,
-                action: () => setDisconnectOpen(true),
-              },
-            ]}
-          />
-        </div>
-        {busy && <output>{t("explore.connecting")}</output>}
         {error && <Notice>{error}</Notice>}
       </SettingsGroup>
+      {editing && (
+        <ConnectionDialog
+          savedUsername={status.data?.username ?? null}
+          busy={busy}
+          onClose={() => {
+            if (!pending.current) setEditing(false);
+          }}
+          onSave={(username, apiKey) => run(() => danbooruApi.save(username, apiKey))}
+        />
+      )}
       {disconnectOpen && (
         <Modal open title={t("explore.disconnectTitle")} onClose={() => setDisconnectOpen(false)}>
-          <div className="settings-actions">
-            <p>{t("explore.disconnectHelp")}</p>
+          <p className="confirm-copy">{t("explore.disconnectHelp")}</p>
+          <div className="ui-actions">
             <Button onClick={() => setDisconnectOpen(false)}>{t("app.cancel")}</Button>
             <Button
               className="danger"
               disabled={busy}
               onClick={() => {
                 setDisconnectOpen(false);
-                void run(danbooruApi.disconnect);
+                void run(danbooruApi.disconnect).catch(setError);
               }}
             >
               {t("explore.disconnect")}

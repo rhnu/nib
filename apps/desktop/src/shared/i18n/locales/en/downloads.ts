@@ -25,7 +25,7 @@ export const downloads = {
   downloading: "Downloading",
   verifying: "Verifying files",
   activating: "Activating resources",
-  complete: "Installation complete",
+  complete: "{{name}} installation complete",
   cancelled: "Download cancelled",
   failed: "Installation failed",
   progress: "{{completed}} / {{total}}",

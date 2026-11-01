@@ -27,7 +27,7 @@ export const downloads = {
   downloading: "正在下载",
   verifying: "正在校验文件",
   activating: "正在启用资源",
-  complete: "安装完成",
+  complete: "{{name}}安装完成",
   cancelled: "下载已取消",
   failed: "安装失败",
   progress: "{{completed}} / {{total}}",

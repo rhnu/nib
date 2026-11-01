@@ -44,7 +44,6 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
     downloading: t("downloads.downloading"),
     verifying: t("downloads.verifying"),
     activating: t("downloads.activating"),
-    complete: t("downloads.complete"),
     cancelled: t("downloads.cancelled"),
     failed: t("downloads.failed"),
   };
@@ -198,7 +197,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
       </div>
       {resource.loading && <output aria-live="polite">{t("downloads.restoring")}</output>}
       {resource.error && <Notice>{resource.error}</Notice>}
-      {resource.install && (
+      {resource.install && resource.install.state !== "complete" && (
         <output className="download-progress" aria-live="polite">
           <span>{states[resource.install.state]}</span>
           {active && (
