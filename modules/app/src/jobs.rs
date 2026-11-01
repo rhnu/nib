@@ -743,7 +743,7 @@ impl JobQueue {
             .map_err(|_poisoned| PersistenceError::Locked)?;
         self.failed.store(true, Ordering::Release);
         if let Err(error) = self.store.interrupt_jobs() {
-            tracing::error!(error=%error,"cannot interrupt retained jobs after queue failure");
+            tracing::error!(error = %error, "cannot interrupt retained jobs after queue failure");
         }
         self.status_changed.send_replace(());
         drop(self.feedback.send(JobFeedback::ResyncRequired));
@@ -794,9 +794,14 @@ fn report_failure(id: &str, error: &JobError) {
             causes.push(cause.to_string());
             source = cause.source();
         }
-        tracing::error!(job_id=id,error=%error,causes=?causes,"operation persistence failed");
+        tracing::error!(
+            job_id = id,
+            error = %error,
+            causes = ?causes,
+            "operation persistence failed",
+        );
     } else {
-        tracing::warn!(job_id=id,message=%public_failure(error),"operation failed");
+        tracing::warn!(job_id = id, message = %public_failure(error), "operation failed");
     }
 }
 

@@ -36,7 +36,7 @@ impl MediaLibrary {
             Some(scanner) => match self.content(&asset) {
                 Ok(content) => scanner.scan(&content.bytes, manual)?,
                 Err(error) => {
-                    tracing::warn!(asset_id, error=?error, "image safety source is unavailable");
+                    tracing::warn!(asset_id, error = ?error, "image safety source is unavailable");
                     ScanOutcome::unknown(format!(
                         "imageUnavailable: {}",
                         crate::api::error_detail(&error)

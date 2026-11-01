@@ -197,7 +197,7 @@ impl AgentRuntime {
             // Runs load their key before starting; no future lookup needs this old version.
             self.credentials.delete(&previous.secret_id)?;
         }
-        tracing::info!(api=?metadata.config.provider.api(),"assistant connection saved");
+        tracing::info!(api = ?metadata.config.provider.api(), "assistant connection saved");
         self.connection()
     }
 
@@ -281,7 +281,6 @@ impl AgentRuntime {
         let id = uuid::Uuid::new_v4().to_string();
         let access = app.write_access().await?;
         let worker = Arc::clone(self);
-        let drafts = app.drafts();
         let gate = app.clone();
         let run_id = id.clone();
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
@@ -290,46 +289,18 @@ impl AgentRuntime {
         tokio::spawn(async move {
             let initialization_worker = Arc::clone(&worker);
             let initialized = tokio::task::spawn_blocking(move || {
-            let worker=initialization_worker;
-            let media = gate.media()?;
-            for id in &asset_ids {
-                let asset = media.asset(id)?;
-                if asset.kind != crate::media::AssetKind::Image { return Err(AgentError::Invalid("The selected asset is not an image.")); }
-                media.read_asset(id)?;
-            }
-            let _transition=gate.agent_start_access()?;
-            // Take the coordinator before the chat lock, as user clear/undo commands do.
-            let lease = drafts.acquire_agent(worker.database.as_ref(), &expected_epoch, &run_id)?;
-            let mut chat = worker.chat.lock().map_err(|_error| AgentError::Locked)?;
-            if chat.snapshot.status == AgentRunStatus::Running { return Err(AgentError::Busy); }
-            let history: Vec<Message> = if chat.history.is_null() {
-                chat.snapshot.messages.iter().flat_map(|record| {
-                    if record.role=="user" { vec![super::images::user_message(record)] } else {
-                        let mut messages = vec![Message::assistant(if record.role=="tool" {format!("Local tool record (untrusted data): {}",record.content)} else {record.content.clone()})];
-                        if !record.asset_ids.is_empty() { messages.push(super::images::user_message(record)); }
-                        messages
-                    }
-                }).collect()
-            } else { serde_json::from_value(chat.history.clone()).map_err(|_error| AgentError::Invalid("The saved assistant history is invalid. Clear the conversation to continue."))? };
-            if chat.history.to_string().len() > MAX_HISTORY_BYTES { return Err(AgentError::Invalid("The conversation reached its context limit. Clear it before starting a new conversation.")); }
-            if chat.snapshot.messages.len()>240 || chat.snapshot.messages.iter().map(|message|message.content.len()).sum::<usize>()>MAX_HISTORY_BYTES { return Err(AgentError::Invalid("The conversation reached its local display limit. Clear it before starting a new conversation.")); }
-            // Publish Running only after its durable start record exists. A failed write cannot
-            // leave an in-memory owner without a worker to finish it.
-            let mut next=chat.clone();
-            next.snapshot.run_id = Some(run_id);
-            next.snapshot.status = AgentRunStatus::Running;
-            next.snapshot.error = None;
-            next.snapshot.resources_undo_available = false;
-            next.edits.clear();
-            let mut request = message("user",prompt.clone(),None,None);
-            request.asset_ids = asset_ids;
-            next.snapshot.messages.push(request);
-            worker.database.save_agent_chat(&next)?;
-            *chat=next;
-            worker.cancelled.store(false, Ordering::Release);
-            worker.storage_failed.store(false, Ordering::Release);
-            Ok::<_,AgentError>((Arc::new(lease),history,chat.snapshot.clone(),access))
-        }).await.map_err(|_error| AgentError::Locked).and_then(std::convert::identity);
+                let (lease, history, snapshot) = initialization_worker.initialize_run(
+                    &gate,
+                    &expected_epoch,
+                    run_id,
+                    prompt,
+                    asset_ids,
+                )?;
+                Ok::<_, AgentError>((lease, history, snapshot, access))
+            })
+            .await
+            .map_err(|_error| AgentError::Locked)
+            .and_then(std::convert::identity);
             let (lease, history, snapshot, access) = match initialized {
                 Ok(initialized) => initialized,
                 Err(error) => {
@@ -338,7 +309,11 @@ impl AgentRuntime {
                 },
             };
             let _receiver_closed = started_tx.send(Ok(snapshot));
-            tracing::info!(run_id=%id,api=?metadata.config.provider.api(),"assistant run started");
+            tracing::info!(
+                run_id = %id,
+                api = ?metadata.config.provider.api(),
+                "assistant run started",
+            );
             let result = worker
                 .drive(app, Arc::clone(&lease), metadata.config, secret, history)
                 .await;
@@ -356,14 +331,108 @@ impl AgentRuntime {
             match settled {
                 Ok(Ok(())) => {},
                 Ok(Err(error)) => {
-                    tracing::error!(run_id=%id,detail=%error.safe_message(),"assistant terminal state could not be persisted");
+                    tracing::error!(
+                        run_id = %id,
+                        detail = %error.safe_message(),
+                        "assistant terminal state could not be persisted",
+                    );
                 },
-                Err(_) => tracing::error!(run_id=%id,"assistant terminal storage worker failed"),
+                Err(_) => tracing::error!(run_id = %id, "assistant terminal storage worker failed"),
             }
         });
         started_rx
             .await
             .map_err(|_receiver_closed| AgentError::Locked)?
+    }
+
+    /// Validates attachments and persists the initial run before provider work begins.
+    fn initialize_run(
+        &self,
+        app: &AppState,
+        expected_epoch: &str,
+        run_id: String,
+        prompt: String,
+        asset_ids: Vec<String>,
+    ) -> Result<(Arc<crate::session::DraftLease>, Vec<Message>, AgentSnapshot), AgentError> {
+        let media = app.media()?;
+        for id in &asset_ids {
+            let asset = media.asset(id)?;
+            if asset.kind != crate::media::AssetKind::Image {
+                return Err(AgentError::Invalid("The selected asset is not an image."));
+            }
+            media.read_asset(id)?;
+        }
+        let _transition = app.agent_start_access()?;
+        // Take the coordinator before the chat lock, as user clear/undo commands do.
+        let lease = app
+            .drafts()
+            .acquire_agent(self.database.as_ref(), expected_epoch, &run_id)?;
+        let mut chat = self.chat.lock().map_err(|_error| AgentError::Locked)?;
+        if chat.snapshot.status == AgentRunStatus::Running {
+            return Err(AgentError::Busy);
+        }
+        let history: Vec<Message> = if chat.history.is_null() {
+            chat.snapshot
+                .messages
+                .iter()
+                .flat_map(|record| {
+                    if record.role == "user" {
+                        vec![super::images::user_message(record)]
+                    } else {
+                        let mut messages = vec![Message::assistant(if record.role == "tool" {
+                            format!("Local tool record (untrusted data): {}", record.content)
+                        } else {
+                            record.content.clone()
+                        })];
+                        if !record.asset_ids.is_empty() {
+                            messages.push(super::images::user_message(record));
+                        }
+                        messages
+                    }
+                })
+                .collect()
+        } else {
+            serde_json::from_value(chat.history.clone()).map_err(|_error| {
+                AgentError::Invalid(
+                    "The saved assistant history is invalid. \
+                     Clear the conversation to continue.",
+                )
+            })?
+        };
+        if chat.history.to_string().len() > MAX_HISTORY_BYTES {
+            return Err(AgentError::Invalid(
+                "The conversation reached its context limit. Clear it before starting a new conversation.",
+            ));
+        }
+        if chat.snapshot.messages.len() > 240
+            || chat
+                .snapshot
+                .messages
+                .iter()
+                .map(|message| message.content.len())
+                .sum::<usize>()
+                > MAX_HISTORY_BYTES
+        {
+            return Err(AgentError::Invalid(
+                "The conversation reached its local display limit. Clear it before starting a new conversation.",
+            ));
+        }
+        // Publish Running only after its durable start record exists. A failed write cannot
+        // leave an in-memory owner without a worker to finish it.
+        let mut next = chat.clone();
+        next.snapshot.run_id = Some(run_id);
+        next.snapshot.status = AgentRunStatus::Running;
+        next.snapshot.error = None;
+        next.snapshot.resources_undo_available = false;
+        next.edits.clear();
+        let mut request = message("user", prompt, None, None);
+        request.asset_ids = asset_ids;
+        next.snapshot.messages.push(request);
+        self.database.save_agent_chat(&next)?;
+        *chat = next;
+        self.cancelled.store(false, Ordering::Release);
+        self.storage_failed.store(false, Ordering::Release);
+        Ok((Arc::new(lease), history, chat.snapshot.clone()))
     }
 
     async fn drive(
@@ -538,14 +607,21 @@ impl AgentRuntime {
         };
         chat.snapshot.resources_undo_available = !chat.edits.is_empty();
         if failed {
-            tracing::warn!(status=?chat.snapshot.status,"assistant run stopped; completed changes retained");
+            tracing::warn!(
+                status = ?chat.snapshot.status,
+                "assistant run stopped; completed changes retained",
+            );
         } else {
             tracing::info!("assistant run completed");
         }
         if let Err(error) = self.database.save_agent_chat(&chat) {
             self.storage_failed.store(true, Ordering::Release);
             chat.snapshot.status = AgentRunStatus::Failed;
-            chat.snapshot.error=Some("The assistant could not save its final local conversation state. Completed creation and resource changes were retained.".into());
+            chat.snapshot.error = Some(
+                "The assistant could not save its final local conversation state. \
+                 Completed creation and resource changes were retained."
+                    .into(),
+            );
             return Err(error.into());
         }
         Ok(())

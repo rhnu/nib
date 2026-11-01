@@ -96,7 +96,11 @@ impl Drop for ResourceGeneration {
         if self.retired.load(Ordering::Acquire)
             && let Err(error) = fs::remove_dir_all(&self.directory)
         {
-            tracing::warn!(path=%self.directory.display(),error=?error,"could not remove retired resource generation");
+            tracing::warn!(
+                path = %self.directory.display(),
+                error = ?error,
+                "could not remove retired resource generation",
+            );
         }
     }
 }
@@ -308,7 +312,7 @@ impl ResourceStore {
                 state.catalog_error = None;
             },
             Err(error) => {
-                tracing::warn!(error=?error,"resource catalog refresh failed");
+                tracing::warn!(error = ?error, "resource catalog refresh failed");
                 state.catalog_error = Some(format!("{error:#}"));
             },
         }
@@ -446,7 +450,11 @@ impl ResourceStore {
                 },
                 Err(error) => {
                     if !cancelled {
-                        tracing::error!(resource=id,error=?error,"resource installation failed");
+                        tracing::error!(
+                            resource = id,
+                            error = ?error,
+                            "resource installation failed",
+                        );
                     }
                     progress.state = if cancelled {
                         DownloadState::Cancelled

@@ -284,7 +284,12 @@ impl ExploreService {
         } else {
             persist()?
         };
-        tracing::info!(source=?key.source,post_id=%key.id,asset_id=%asset.id,"Explore image imported");
+        tracing::info!(
+            source = ?key.source,
+            post_id = %key.id,
+            asset_id = %asset.id,
+            "Explore image imported",
+        );
         Ok(asset)
     }
 

@@ -80,9 +80,10 @@ fn director_ignores_unrelated_prompt_dependencies_and_keeps_sdk_adjustments() {
     let FrozenSubmission::Director { command, .. } = frozen else {
         panic!("expected Director")
     };
-    assert!(
-        matches!(command,novelai_bridge::DirectorCommand::Emotion {prompt,defry:5} if prompt=="happy")
-    );
+    assert!(matches!(
+        command,
+        novelai_bridge::DirectorCommand::Emotion { prompt, defry: 5 } if prompt == "happy"
+    ));
     let quote = queue.quote(&draft).unwrap();
     assert!(quote.resolved.is_none());
     assert!(quote.tokens.is_empty());

@@ -157,20 +157,32 @@ impl JobQueue {
                     loop {
                         tokio::select! {
                             biased;
-                            ()=cancel.notified()=>{stream.cancel().await;return Ok(());},
-                            chunk=stream.next()=>{
-                                let Some(chunk)=chunk else {break;};
+                            () = cancel.notified() => {
+                                stream.cancel().await;
+                                return Ok(());
+                            },
+                            chunk = stream.next() => {
+                                let Some(chunk) = chunk else { break; };
                                 match chunk?.event {
-                                    ImageStreamEvent::Intermediate {samp_ix,step_ix,image,..} => {
+                                    ImageStreamEvent::Intermediate { samp_ix, step_ix, image, .. } => {
                                         if previews.accept(samp_ix, image.len(), Instant::now()) {
                                             drop(self.feedback.send(JobFeedback::Preview {
-                                                job_id:record.id.clone(),sample_index:samp_ix,step_index:step_ix,
-                                                mime_type: preview_mime(&image).map(str::to_owned), image_bytes:image,
+                                                job_id: record.id.clone(),
+                                                sample_index: samp_ix,
+                                                step_index: step_ix,
+                                                mime_type: preview_mime(&image).map(str::to_owned),
+                                                image_bytes: image,
                                             }));
                                         }
                                     },
-                                    ImageStreamEvent::Final {samp_ix,image,..} => {finals.insert(samp_ix,image);drop(self.feedback.send(JobFeedback::FinalReceived {job_id:record.id.clone(),sample_index:samp_ix}));},
-                                    ImageStreamEvent::Error {..}|ImageStreamEvent::Unknown {..}=>{},
+                                    ImageStreamEvent::Final { samp_ix, image, .. } => {
+                                        finals.insert(samp_ix, image);
+                                        drop(self.feedback.send(JobFeedback::FinalReceived {
+                                            job_id: record.id.clone(),
+                                            sample_index: samp_ix,
+                                        }));
+                                    },
+                                    ImageStreamEvent::Error { .. } | ImageStreamEvent::Unknown { .. } => {},
                                 }
                             },
                         }

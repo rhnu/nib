@@ -302,10 +302,10 @@ impl AppState {
                     match result {
                         Ok(Ok(revision)) => previous = Some(revision),
                         Ok(Err(error)) => {
-                            tracing::error!(error=?error, "image safety history scan failed");
+                            tracing::error!(error = ?error, "image safety history scan failed");
                         },
                         Err(error) => {
-                            tracing::error!(error=?error, "image safety history worker failed");
+                            tracing::error!(error = ?error, "image safety history worker failed");
                         },
                     }
                     drop(app);

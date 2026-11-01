@@ -147,7 +147,30 @@ fn only_public_approved_novelai_images_are_visible() {
 
 #[test]
 fn nested_metadata_preserves_positive_negative_and_character_text() {
-    let raw=json!(json!({"Description":"fallback","Comment":json!({"prompt":"legacy","uc":"noise","seed":0,"model_name":"future-model","v4_prompt":{"caption":{"base_caption":"2::sky:: // literal","char_captions":[{"char_caption":"first"},{"char_caption":""}]}},"v4_negative_prompt":{"caption":{"base_caption":"negative","char_captions":[{"char_caption":"blur"}]}}}).to_string()}).to_string());
+    let raw = json!(
+        json!({
+            "Description": "fallback",
+            "Comment": json!({
+                "prompt": "legacy",
+                "uc": "noise",
+                "seed": 0,
+                "model_name": "future-model",
+                "v4_prompt": {
+                    "caption": {
+                        "base_caption": "2::sky:: // literal",
+                        "char_captions": [{"char_caption": "first"}, {"char_caption": ""}]
+                    }
+                },
+                "v4_negative_prompt": {
+                    "caption": {
+                        "base_caption": "negative",
+                        "char_captions": [{"char_caption": "blur"}]
+                    }
+                }
+            }).to_string()
+        })
+        .to_string()
+    );
     let (view, parsed) = metadata::interpret(Some(&raw));
     assert_eq!(view.status, ExploreMetadataStatus::Available);
     assert_eq!(view.prompt.as_deref(), Some("2::sky:: // literal"));
@@ -186,7 +209,17 @@ fn partial_metadata_keeps_description_and_refuses_unreliable_restore() {
 #[test]
 fn restore_uses_existing_literal_prompt_rules_and_reports_missing_materials() {
     let model = serde_json::to_value(novelai_bridge::Model::default()).unwrap();
-    let raw=json!(json!({"Comment":json!({"prompt":"sky // literal","uc":"blur","model":model,"v4_prompt":{"caption":{"char_captions":[{"char_caption":"actor"}]}}}).to_string()}).to_string());
+    let raw = json!(
+        json!({
+            "Comment": json!({
+                "prompt": "sky // literal",
+                "uc": "blur",
+                "model": model,
+                "v4_prompt": {"caption": {"char_captions": [{"char_caption": "actor"}]}}
+            }).to_string()
+        })
+        .to_string()
+    );
     let restored = metadata::restore(Some(&raw), Draft::default()).unwrap();
     assert_eq!(
         restored.draft.settings.quality,

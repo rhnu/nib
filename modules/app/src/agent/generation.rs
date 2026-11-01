@@ -184,7 +184,7 @@ async fn generate(
     })
     .await
     .map_err(|_error| AgentError::Locked)??;
-    tracing::info!(batch_id=%batch.batch_id, "assistant generation submitted");
+    tracing::info!(batch_id = %batch.batch_id, "assistant generation submitted");
     let mut changed = queue.subscribe_status();
     loop {
         if runtime.cancelled.load(Ordering::Acquire) {

@@ -163,34 +163,102 @@ pub(super) fn tools(
             vec!["id", "negative"],
         ),
     ];
-    let mut tools: Vec<_> = specs.into_iter().map(|(name,description,op,properties,required)| {
-        let runtime=Arc::clone(runtime); let app=app.clone(); let lease=Arc::clone(lease);
-        DynamicTool::new(ToolName::new(name).expect("static tool names are nonempty"),description,json!({"type":"object","properties":properties,"required":required,"additionalProperties":false}),move |arguments| {
-            let runtime=Arc::clone(&runtime); let app=app.clone(); let lease=Arc::clone(&lease);
-            Box::pin(async move {
-                if arguments.to_string().len()>128*1024 {return Err(ToolExecutionError::invalid_args("Tool arguments exceeded 128 KiB. Use smaller edits."));}
-                if runtime.cancelled.load(Ordering::Acquire) || runtime.storage_failed.load(Ordering::Acquire) {return Err(ToolExecutionError::invalid_args("The assistant has stopped; this operation was not executed."));}
-                let access=app.write_access().await.map_err(|_error|ToolExecutionError::invalid_args("Creation data is not writable during relocation or before restart."))?;
-                let activity=runtime.tool_activity();
-                let result=tokio::task::spawn_blocking(move || {
-                    let _activity=activity;
-                    let _access=access;
-                    if runtime.cancelled.load(Ordering::Acquire) {return Err(AgentError::Cancelled);}
-                    let result=execute(op,arguments,&runtime,&app,&lease);
-                    let (mut output,success)=match result {Ok(output)=>(json!({"ok":true,"result":output}),true),Err(error)=>(json!({"ok":false,"error":tool_error(&error)}),false)};
-                    let mut chat=runtime.chat.lock().map_err(|_error|AgentError::Locked)?;
-                    let content=match &output["error"] {Value::String(error)=>error.clone(),_=>format!("{name}: completed successfully")};
-                    chat.snapshot.messages.push(message("tool",content,Some(name.into()),Some(success)));
-                    chat.snapshot.resources_undo_available = !chat.edits.is_empty();
-                    if let Err(error)=runtime.database.save_agent_chat(&chat) {runtime.storage_failed.store(true,Ordering::Release);return Err(error.into());}
-                    if output.to_string().len()>64*1024 {output=json!({"ok":success,"detailsOmitted":true,"summary":"The operation completed; its detailed result exceeded 64 KiB. Inspect a narrower scope for details."});}
-                    tracing::debug!(tool=name,success,"assistant domain tool finished");
-                    Ok::<_,AgentError>(output)
-                }).await.map_err(|_error|ToolExecutionError::invalid_args("The local tool worker failed. Inspect the saved creation before retrying."))?;
-                result.map(ToolOutput::json).map_err(|error|ToolExecutionError::invalid_args(error.safe_message()))
-            })
+    let mut tools: Vec<_> = specs
+        .into_iter()
+        .map(|(name, description, op, properties, required)| {
+            let runtime = Arc::clone(runtime);
+            let app = app.clone();
+            let lease = Arc::clone(lease);
+            DynamicTool::new(
+                ToolName::new(name).expect("static tool names are nonempty"),
+                description,
+                json!({
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                    "additionalProperties": false
+                }),
+                move |arguments| {
+                    let runtime = Arc::clone(&runtime);
+                    let app = app.clone();
+                    let lease = Arc::clone(&lease);
+                    Box::pin(async move {
+                        if arguments.to_string().len() > 128 * 1024 {
+                            return Err(ToolExecutionError::invalid_args(
+                                "Tool arguments exceeded 128 KiB. Use smaller edits.",
+                            ));
+                        }
+                        if runtime.cancelled.load(Ordering::Acquire)
+                            || runtime.storage_failed.load(Ordering::Acquire)
+                        {
+                            return Err(ToolExecutionError::invalid_args(
+                                "The assistant has stopped; this operation was not executed.",
+                            ));
+                        }
+                        let access = app.write_access().await.map_err(|_error| {
+                            ToolExecutionError::invalid_args(
+                                "Creation data is not writable \
+                                 during relocation or before restart.",
+                            )
+                        })?;
+                        let activity = runtime.tool_activity();
+                        let result = tokio::task::spawn_blocking(move || {
+                            let _activity = activity;
+                            let _access = access;
+                            if runtime.cancelled.load(Ordering::Acquire) {
+                                return Err(AgentError::Cancelled);
+                            }
+                            let result = execute(op, arguments, &runtime, &app, &lease);
+                            let (mut output, success) = match result {
+                                Ok(output) => (json!({"ok":true,"result":output}), true),
+                                Err(error) => {
+                                    (json!({"ok":false,"error":tool_error(&error)}), false)
+                                },
+                            };
+                            let mut chat =
+                                runtime.chat.lock().map_err(|_error| AgentError::Locked)?;
+                            let content = match &output["error"] {
+                                Value::String(error) => error.clone(),
+                                _ => format!("{name}: completed successfully"),
+                            };
+                            chat.snapshot.messages.push(message(
+                                "tool",
+                                content,
+                                Some(name.into()),
+                                Some(success),
+                            ));
+                            chat.snapshot.resources_undo_available = !chat.edits.is_empty();
+                            if let Err(error) = runtime.database.save_agent_chat(&chat) {
+                                runtime.storage_failed.store(true, Ordering::Release);
+                                return Err(error.into());
+                            }
+                            if output.to_string().len() > 64 * 1024 {
+                                output = json!({
+                                    "ok": success,
+                                    "detailsOmitted": true,
+                                    "summary": "The operation completed; \
+                                        its detailed result exceeded 64 KiB. \
+                                        Inspect a narrower scope for details."
+                                });
+                            }
+                            tracing::debug!(tool = name, success, "assistant domain tool finished");
+                            Ok::<_, AgentError>(output)
+                        })
+                        .await
+                        .map_err(|_error| {
+                            ToolExecutionError::invalid_args(
+                                "The local tool worker failed. \
+                                 Inspect the saved creation before retrying.",
+                            )
+                        })?;
+                        result
+                            .map(ToolOutput::json)
+                            .map_err(|error| ToolExecutionError::invalid_args(error.safe_message()))
+                    })
+                },
+            )
         })
-    }).collect();
+        .collect();
     tools.extend(super::images::tools(runtime, app));
     tools.push(super::generation::tool(runtime, app, lease));
     tools
@@ -205,7 +273,13 @@ pub(super) fn record_output(
 ) -> Result<ToolOutput, ToolExecutionError> {
     let (output, success, content) = match result {
         Ok(output) => {
-            let success = !output.as_content().iter().any(|part| matches!(part, rig_core::message::ToolResultContent::Json { value } if value.get("ok").and_then(Value::as_bool) == Some(false)));
+            let success = !output.as_content().iter().any(|part| {
+                matches!(
+                    part,
+                    rig_core::message::ToolResultContent::Json { value }
+                        if value.get("ok").and_then(Value::as_bool) == Some(false)
+                )
+            });
             let content = if success {
                 format!("{name}: completed successfully")
             } else {
@@ -248,7 +322,12 @@ fn tool_error(error: &AgentError) -> String {
 }
 
 fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, AgentError> {
-    serde_json::from_value(value).map_err(|_error|AgentError::Invalid("The tool arguments do not match the declared domain fields. Inspect the schema and retry."))
+    serde_json::from_value(value).map_err(|_error| {
+        AgentError::Invalid(
+            "The tool arguments do not match the declared domain fields. \
+             Inspect the schema and retry.",
+        )
+    })
 }
 
 fn value(value: impl serde::Serialize) -> Result<Value, AgentError> {
@@ -477,7 +556,20 @@ fn execute(
                 semantic: bool,
             }
             let args: Args = parse(args)?;
-            value(app.lexicon().search(crate::lexicon::LexiconQuery {text:args.text,semantic:args.semantic,kinds:vec![],limit:30,related_to:None}).map_err(|error|match error {crate::lexicon::LexiconError::Unavailable(_)=>AgentError::Invalid("The local vocabulary or semantic component is not installed or unavailable."),_=>AgentError::Invalid("The local vocabulary query failed.")})?)
+            let query = crate::lexicon::LexiconQuery {
+                text: args.text,
+                semantic: args.semantic,
+                kinds: vec![],
+                limit: 30,
+                related_to: None,
+            };
+            value(app.lexicon().search(query).map_err(|error| match error {
+                crate::lexicon::LexiconError::Unavailable(_) => AgentError::Invalid(
+                    "The local vocabulary or semantic component \
+                     is not installed or unavailable.",
+                ),
+                _ => AgentError::Invalid("The local vocabulary query failed."),
+            })?)
         },
         Operation::Attach => {
             #[derive(Deserialize)]

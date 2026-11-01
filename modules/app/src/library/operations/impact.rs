@@ -113,7 +113,11 @@ pub(crate) fn impact_on(
         .filter(|resource| ids.contains(&resource.id) && !selected.contains(&resource.id))
         .map(summary)
         .collect();
-    let draft:Option<String>=connection.query_row("SELECT json_array(json(composition),json(presets),json(characters)) FROM current_creation WHERE id=1",[],|row|row.get(0)).optional().map_err(|error|PersistenceError::failure("inspect current creation references",error))?;
+    let sql = "SELECT json_array(json(composition),json(presets),json(characters)) FROM current_creation WHERE id=1";
+    let draft: Option<String> = connection
+        .query_row(sql, [], |row| row.get(0))
+        .optional()
+        .map_err(|error| PersistenceError::failure("inspect current creation references", error))?;
     let current_creation = draft
         .map(|value| crate::persistence::decode::<serde_json::Value>(&value))
         .transpose()?

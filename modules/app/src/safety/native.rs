@@ -124,7 +124,7 @@ impl ImageSafetyScanner for SafetyScanner {
                 let reason = if matches!(error, nib_image_analysis::AnalysisError::Unavailable(_)) {
                     "modelUnavailable".to_owned()
                 } else {
-                    tracing::warn!(error=?error, "primary image safety inference failed");
+                    tracing::warn!(error = ?error, "primary image safety inference failed");
                     format!("analysisFailed: {}", crate::api::error_detail(&error))
                 };
                 return Ok(ScanOutcome::unknown(reason));
