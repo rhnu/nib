@@ -1,4 +1,5 @@
 export const references = {
+  confirmRemove: "Remove this precise reference and its settings? The image asset will be kept.",
   strengthLabel: "Strength",
   fidelityLabel: "Fidelity",
   modelUnsupported: "Not supported by the current model",

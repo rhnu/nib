@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
-import { FormField, HelpMarker, IconButton, Select } from "@/shared/ui";
+import { ConfirmIconButton, FormField, HelpMarker, IconButton, Select } from "@/shared/ui";
 import { preciseReferenceMessages } from "@/features/references/model";
 import { VibeReferenceRow } from "./vibe-reference-row";
 import { VibeMaterialDialog } from "./vibe-material-dialog";
@@ -151,14 +151,15 @@ function Editor({
               >
                 <ArrowDown size={13} />
               </IconButton>
-              <IconButton
+              <ConfirmIconButton
                 label={t("vibes.removeVibe", { value0: index + 1 })}
-                onClick={() =>
+                description={t("vibes.confirmRemove")}
+                onConfirm={() =>
                   update(latest.current.value.filter((item) => item.id !== reference.id))
                 }
               >
                 <Trash2 size={13} />
-              </IconButton>
+              </ConfirmIconButton>
             </>
           }
         />

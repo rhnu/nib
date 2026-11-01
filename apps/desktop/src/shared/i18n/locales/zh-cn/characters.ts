@@ -1,6 +1,7 @@
 import type { characters as source } from "../en/characters";
 
 export const characters = {
+  confirmRemove: "移除此角色及其正负提示词和位置设置？",
   characterNumber: "角色 ",
   moveUp: "上移角色 {{value0}}",
   moveDown: "下移角色 {{value0}}",

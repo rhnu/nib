@@ -53,6 +53,11 @@ export const prompt = {
   expandToText: "Expand to independent text",
   revertOverride: "Revert instance override",
   removeSegment: "Remove segment",
+  confirmRemoveText: "Remove this text segment and its contents?",
+  confirmRemoveChunk:
+    "Remove this segment reference and its local overrides? The original resource will be kept.",
+  confirmRemovePreset:
+    "Remove this preset instance, including its prompt, characters, references and settings overrides? The original resource will be kept.",
   promptText: "Prompt text",
   instanceContent: "Current content of {{value0}}",
   missingChunk: "Missing Chunk",

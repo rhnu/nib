@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, PreciseReferenceInput } from "@/bindings/workbench";
 import { trackPendingWork } from "@/shared/host/pending-work";
-import { IconButton, Notice } from "@/shared/ui";
+import { ConfirmIconButton, IconButton, Notice } from "@/shared/ui";
 import { ImagePickerDialog } from "@/features/media";
 import { moveItem } from "@/features/prompt/model";
 import { referenceApi } from "./api";
@@ -146,12 +146,15 @@ function EditorContent({
               >
                 <ArrowDown size={14} />
               </IconButton>
-              <IconButton
+              <ConfirmIconButton
                 label={t("references.removePreciseReference", { value0: index + 1 })}
-                onClick={() => update((value) => value.filter((item) => item.id !== reference.id))}
+                description={t("references.confirmRemove")}
+                onConfirm={() =>
+                  update((value) => value.filter((item) => item.id !== reference.id))
+                }
               >
                 <Trash2 size={14} />
-              </IconButton>
+              </ConfirmIconButton>
             </>
           }
         />

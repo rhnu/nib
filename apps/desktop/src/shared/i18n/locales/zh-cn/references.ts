@@ -1,6 +1,7 @@
 import type { references as source } from "../en/references";
 
 export const references = {
+  confirmRemove: "移除此精确参考及其设置？图片资产会保留。",
   strengthLabel: "Strength",
   fidelityLabel: "Fidelity",
   modelUnsupported: "当前模型不支持",

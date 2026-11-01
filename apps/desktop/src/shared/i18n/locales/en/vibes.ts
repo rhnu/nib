@@ -1,4 +1,5 @@
 export const vibes = {
+  confirmRemove: "Remove this Vibe Transfer entry and its settings? The material will be kept.",
   focusSeed: "Focus Seed",
   bundleCount: "Bundle ({{count}})",
   unsupportedMaterial:

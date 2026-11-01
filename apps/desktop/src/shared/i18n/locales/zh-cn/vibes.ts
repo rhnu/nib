@@ -1,6 +1,7 @@
 import type { vibes as source } from "../en/vibes";
 
 export const vibes = {
+  confirmRemove: "移除此氛围转移条目及其设置？材料会保留。",
   focusSeed: "Focus Seed",
   bundleCount: "组包（{{count}}）",
   unsupportedMaterial: "此材料类型不适用于当前模型，请选择{{material}}。",

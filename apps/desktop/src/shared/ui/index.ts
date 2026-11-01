@@ -1,4 +1,5 @@
 export { Button, IconButton } from "./button";
+export { ConfirmIconButton } from "./confirm-icon-button";
 export { Field, FormField, FormGrid } from "./field";
 export { SettingRow, SettingsGroup } from "./settings-layout";
 export { Modal } from "./modal";

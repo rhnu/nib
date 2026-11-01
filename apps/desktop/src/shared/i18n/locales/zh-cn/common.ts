@@ -2,6 +2,8 @@ import type { common as source } from "../en/common";
 
 export const common = {
   undo: "撤销",
+  cancel: "取消",
+  confirmDelete: "确认删除",
   redo: "重做",
   cut: "剪切",
   copy: "复制",

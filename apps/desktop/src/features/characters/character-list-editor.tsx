@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "@/bindings/workbench";
-import { IconButton, Toggle } from "@/shared/ui";
+import { ConfirmIconButton, IconButton, Toggle } from "@/shared/ui";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { PromptEditorScope } from "@/features/prompt/prompt-editor-state";
 import { promptApi } from "@/features/prompt/api";
@@ -102,13 +102,13 @@ function CharacterRow({
         >
           <ArrowDown size={14} />
         </IconButton>
-        <IconButton
+        <ConfirmIconButton
           label={t("characters.remove", { value0: index + 1 })}
-          onClick={actions.remove}
-          className="danger"
+          onConfirm={actions.remove}
+          description={t("characters.confirmRemove")}
         >
           <Trash2 size={14} />
-        </IconButton>
+        </ConfirmIconButton>
         <IconButton
           label={t("characters.toggleExpanded", {
             value0: isCollapsed ? t("characters.expand") : t("characters.collapse"),

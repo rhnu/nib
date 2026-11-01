@@ -2,7 +2,7 @@ import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Link2, Trash2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "@/bindings/workbench";
-import { ActionsMenu, IconButton } from "@/shared/ui";
+import { ActionsMenu, ConfirmIconButton, IconButton } from "@/shared/ui";
 import { PromptTextEditor } from "./prompt-text-editor";
 import type { PromptTarget } from "./prompt-transfer";
 import { promptDragType, usePromptTransfer } from "./prompt-transfer-context";
@@ -99,9 +99,15 @@ export function NodeEditor({
           <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
             <ArrowDown size={14} aria-hidden />
           </IconButton>
-          <IconButton label={t("prompt.removeSegment")} onClick={remove} className="danger">
+          <ConfirmIconButton
+            label={`${t("prompt.removeSegment")} · ${node.kind === "chunk" ? (resource?.name ?? t("prompt.resourceMissing")) : t("prompt.text")}`}
+            description={t(
+              node.kind === "chunk" ? "prompt.confirmRemoveChunk" : "prompt.confirmRemoveText",
+            )}
+            onConfirm={remove}
+          >
             <Trash2 size={14} aria-hidden />
-          </IconButton>
+          </ConfirmIconButton>
           {(node.kind === "chunk" || destinations.length > 0) && (
             <ActionsMenu
               label={t("prompt.segmentActions")}

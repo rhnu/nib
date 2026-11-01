@@ -12,6 +12,7 @@ export function Modal({
   showClose = true,
   className = "",
   finalFocus,
+  initialFocus,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +22,7 @@ export function Modal({
   showClose?: boolean;
   className?: string;
   finalFocus?: ComponentProps<typeof Dialog.Popup>["finalFocus"];
+  initialFocus?: ComponentProps<typeof Dialog.Popup>["initialFocus"];
 }) {
   useTranslation();
 
@@ -36,6 +38,7 @@ export function Modal({
         <Dialog.Popup
           className={`modal ${wide ? "modal-wide" : ""} ${className}`}
           finalFocus={finalFocus}
+          initialFocus={initialFocus}
         >
           <header className="modal-header">
             <Dialog.Title>{title}</Dialog.Title>

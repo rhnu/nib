@@ -1,4 +1,5 @@
 export const characters = {
+  confirmRemove: "Remove this character, including its positive and negative prompts and position?",
   characterNumber: "Character ",
   moveUp: "Move character {{value0}} up",
   moveDown: "Move character {{value0}} down",

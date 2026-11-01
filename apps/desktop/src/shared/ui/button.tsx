@@ -1,10 +1,6 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
-export function Button({
-  className = "",
-  type = "button",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function Button({ className = "", type = "button", ...props }: ComponentProps<"button">) {
   return (
     <button
       type={type}
@@ -19,7 +15,7 @@ export function IconButton({
   children,
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; children: ReactNode }) {
+}: ComponentProps<"button"> & { label: string; children: ReactNode }) {
   return (
     <Button className={`icon-button ${className}`} title={label} aria-label={label} {...props}>
       {children}

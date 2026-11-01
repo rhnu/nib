@@ -13,7 +13,7 @@ import { SettingsEditor } from "./settings-editor";
 import { PresetOverrides } from "./preset-overrides";
 import { PromptEditorScope } from "./prompt-editor-state";
 import { promptApi } from "./api";
-import { ActionsMenu, Button, IconButton, IconCheckbox } from "@/shared/ui";
+import { ActionsMenu, Button, ConfirmIconButton, IconButton, IconCheckbox } from "@/shared/ui";
 import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { settingsWithDefaults } from "./settings";
 import {
@@ -255,9 +255,13 @@ export function PresetEditor({
             <IconButton label={t("prompt.moveDown")} onClick={down} disabled={!canDown}>
               <ArrowDown size={14} aria-hidden />
             </IconButton>
-            <IconButton label={t("prompt.removePreset")} onClick={onRemove} className="danger">
+            <ConfirmIconButton
+              label={`${t("prompt.removePreset")} · ${name}`}
+              description={t("prompt.confirmRemovePreset")}
+              onConfirm={onRemove}
+            >
               <Trash2 size={14} aria-hidden />
-            </IconButton>
+            </ConfirmIconButton>
             {binding.kind === "linked" && (
               <ActionsMenu
                 label={t("prompt.namedItemActions", { value0: name })}

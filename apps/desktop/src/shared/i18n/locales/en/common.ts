@@ -1,5 +1,7 @@
 export const common = {
   undo: "Undo",
+  cancel: "Cancel",
+  confirmDelete: "Confirm deletion",
   redo: "Redo",
   cut: "Cut",
   copy: "Copy",
