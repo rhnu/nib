@@ -3,17 +3,25 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "native")]
+mod configuration;
+#[cfg(feature = "native")]
 mod connection;
 #[cfg(feature = "native")]
 mod generation;
 #[cfg(feature = "native")]
 mod images;
+pub mod mcp;
 #[cfg(feature = "native")]
 mod runtime;
+#[cfg(feature = "native")]
+mod sessions;
+pub mod skills;
 #[cfg(feature = "native")]
 pub(crate) mod storage;
 #[cfg(feature = "native")]
 mod tools;
+#[cfg(feature = "native")]
+pub use configuration::{AgentConfiguration, ConfigureMcpCommand, ExtensionError};
 #[cfg(feature = "native")]
 pub use runtime::AgentRuntime;
 
@@ -126,10 +134,23 @@ pub struct AgentMessage {
     pub asset_ids: Vec<String>,
 }
 
+/// A retained conversation, ordered by creation rather than last activity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AgentSession {
+    pub id: String,
+    pub title: String,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub created_at: i64,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct AgentSnapshot {
+    #[serde(default)]
+    pub session_id: String,
     pub run_id: Option<String>,
     pub status: AgentRunStatus,
     pub messages: Vec<AgentMessage>,
@@ -143,6 +164,9 @@ pub struct AgentSnapshot {
 /// Deliberate safe errors. Provider bodies and transport URLs never become user diagnostics.
 #[derive(Debug, thiserror::Error)]
 pub enum AgentError {
+    #[cfg(feature = "native")]
+    #[error(transparent)]
+    Extension(#[from] ExtensionError),
     #[error("{0}")]
     Invalid(&'static str),
     #[error("the assistant is already running")]
@@ -173,6 +197,8 @@ impl AgentError {
     #[must_use]
     pub fn safe_message(&self) -> &str {
         match self {
+            #[cfg(feature = "native")]
+            Self::Extension(error) => error.safe_message(),
             Self::Invalid(message) => message,
             Self::Busy => "The assistant is already running.",
             Self::Unconfigured => "Configure an assistant connection and API key first.",

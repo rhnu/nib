@@ -174,6 +174,64 @@ impl GlobalSettingsStore {
         Ok(())
     }
 
+    #[cfg(feature = "native")]
+    pub(crate) fn agent_mcp(
+        &self,
+    ) -> Result<Vec<crate::agent::mcp::native::StoredServer>, PersistenceError> {
+        let value: String = self
+            .connection()?
+            .query_row(
+                "SELECT agent_mcp_json FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| PersistenceError::failure("read MCP servers", error))?;
+        decode(&value)
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn save_agent_mcp(
+        &self,
+        servers: &[crate::agent::mcp::native::StoredServer],
+    ) -> Result<(), PersistenceError> {
+        self.connection()?
+            .execute(
+                "UPDATE global_settings SET agent_mcp_json=?1 WHERE id=1",
+                [encode(&servers)?],
+            )
+            .map_err(|error| PersistenceError::failure("save MCP servers", error))?;
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn agent_skills(
+        &self,
+    ) -> Result<Vec<crate::agent::skills::SkillConfig>, PersistenceError> {
+        let value: String = self
+            .connection()?
+            .query_row(
+                "SELECT agent_skills_json FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| PersistenceError::failure("read skills", error))?;
+        decode(&value)
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn save_agent_skills(
+        &self,
+        skills: &[crate::agent::skills::SkillConfig],
+    ) -> Result<(), PersistenceError> {
+        self.connection()?
+            .execute(
+                "UPDATE global_settings SET agent_skills_json=?1 WHERE id=1",
+                [encode(&skills)?],
+            )
+            .map_err(|error| PersistenceError::failure("save skills", error))?;
+        Ok(())
+    }
+
     /// Lists names and the active account without loading any secret.
     ///
     /// # Errors

@@ -22,4 +22,22 @@ export type AgentMessage = { id: string,
  */
 role: string, content: string, toolName: string | null, success: boolean | null, assetIds: Array<string>, };
 
-export type AgentSnapshot = { runId: string | null, status: AgentRunStatus, messages: Array<AgentMessage>, error: string | null, resourcesUndoAvailable: boolean, approval: AgentApproval | null, };
+export type AgentSnapshot = { sessionId: string, runId: string | null, status: AgentRunStatus, messages: Array<AgentMessage>, error: string | null, resourcesUndoAvailable: boolean, approval: AgentApproval | null, };
+
+export type AgentSession = { id: string, title: string, createdAt: number, };
+
+export type McpTransport = { "kind": "http", url: string, } | { "kind": "stdio", command: string, args: Array<string>, cwd: string | null, };
+
+export type McpServerConfig = { id: string, name: string, enabled: boolean, transport: McpTransport, connectionTimeoutMs: number, callTimeoutMs: number, };
+
+export type McpServerStatus = { config: McpServerConfig, hasSecrets: boolean, };
+
+export type McpSecrets = { bearerToken: string | null, headers: { [key in string]: string }, env: { [key in string]: string }, };
+
+export type McpConnectionTest = { toolNames: Array<string>, };
+
+export type SkillConfig = { id: string, directory: string, enabled: boolean, };
+
+export type SkillSummary = { id: string, name: string, description: string, };
+
+export type SkillDocument = { path: string, content: string, };

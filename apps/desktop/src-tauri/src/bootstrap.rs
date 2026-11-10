@@ -23,6 +23,7 @@ pub(crate) fn start(
     );
     let credentials = Arc::new(NativeCredentials::new(development));
     let app = Bootstrap {
+        configure_mcp_command,
         settings: Arc::clone(&storage.settings),
         credentials,
         storage,
@@ -37,4 +38,11 @@ pub(crate) fn start(
         "desktop bootstrap completed"
     );
     Ok(desktop)
+}
+
+fn configure_mcp_command(command: &mut tokio::process::Command) {
+    #[cfg(target_os = "windows")]
+    command.creation_flags(0x0800_0000);
+    #[cfg(not(target_os = "windows"))]
+    let _command = command;
 }

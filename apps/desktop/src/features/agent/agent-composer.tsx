@@ -1,4 +1,15 @@
-import { Button, Toolbar, Field, FilePicker, IconButton, Grid, Row, Textarea } from "@/shared/ui";
+import {
+  Button,
+  Toolbar,
+  Field,
+  FilePicker,
+  IconButton,
+  Grid,
+  Row,
+  Textarea,
+  notify,
+  HelpMarker,
+} from "@/shared/ui";
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { ClipboardPaste, Send, X } from "lucide-react";
@@ -9,13 +20,18 @@ import { mediaApi } from "@/features/media/api";
 import { importAndCommitImage } from "@/features/media/image-import";
 import { AgentImage } from "./agent-image";
 import type { AgentController } from "./use-agent";
+import { useAgentSettings } from "./use-agent-settings";
 
 /** Composer attachments are ordinary media assets; a successful send transfers their references to chat. */
 export function AgentComposer({ agent, disabled }: { agent: AgentController; disabled: boolean }) {
+  const settings = useAgentSettings();
   const [prompt, setPrompt] = useState("");
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
+
+  const reportError = (cause: unknown) =>
+    notify(() => errorMessage(cause), "agent-composer-error", true);
+
   const latest = useRef({ active: true, disabled, busy: false, attachmentCount: 0 });
   useLayoutEffect(() => {
     latest.current.disabled = disabled;
@@ -31,12 +47,11 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
   const importFile = async (file: File) => {
     if (latest.current.busy || latest.current.disabled) return;
     if (latest.current.attachmentCount >= 4) {
-      setError(new Error(t("agent.imageLimit")));
+      reportError(new Error(t("agent.imageLimit")));
       return;
     }
     latest.current.busy = true;
     setBusy(true);
-    setError(null);
     try {
       await importAndCommitImage({
         file,
@@ -48,7 +63,7 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
         },
       });
     } catch (cause) {
-      if (latest.current.active) setError(cause);
+      if (latest.current.active) reportError(cause);
     } finally {
       latest.current.busy = false;
       if (latest.current.active) setBusy(false);
@@ -64,7 +79,7 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
       const blob = await item.getType(type);
       if (latest.current.active) await importFile(new File([blob], "clipboard-image", { type }));
     } catch (cause) {
-      if (latest.current.active) setError(cause);
+      if (latest.current.active) reportError(cause);
     }
   };
 
@@ -77,7 +92,6 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
         setPrompt("");
         setAssetIds([]);
         latest.current.attachmentCount = 0;
-        setError(null);
       }
     } finally {
       latest.current.busy = false;
@@ -120,7 +134,10 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
           </div>
         ))}
       </Row>
-      <Field label={t("agent.prompt")}>
+      <Field
+        label={t("agent.prompt")}
+        help={<HelpMarker label={t("agent.attachImage")}>{t("agent.imageHelp")}</HelpMarker>}
+      >
         <Textarea
           autoComplete="off"
           value={prompt}
@@ -139,14 +156,6 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
           }}
         />
       </Field>
-      {error !== null && (
-        <p className="agent-failure text-danger" role="alert">
-          {errorMessage(error)}
-        </p>
-      )}
-      {assetIds.length > 0 && (
-        <p className="agent-help m-0 text-muted text-label">{t("agent.imageHelp")}</p>
-      )}
       <Toolbar gap={2} align="center" justify="end" wrap className="agent-composer-actions ">
         <FilePicker
           label={t("agent.attachImage")}
@@ -168,9 +177,9 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
           disabled={
             disabled ||
             busy ||
-            agent.connectionBusy ||
+            settings.connectionBusy ||
             (!prompt.trim() && !assetIds.length) ||
-            !agent.connection?.configured ||
+            !settings.connection?.configured ||
             !agent.snapshot
           }
         >

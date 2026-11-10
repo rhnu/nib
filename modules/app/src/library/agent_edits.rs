@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use super::{ResourceSaveMode, ResourceSelection};
 use crate::{
-    agent::storage::{ResourceEdit, StoredChat},
+    agent::storage::{ResourceEdit, StoredChat, ensure_selected_on},
     persistence::{PersistenceError, SqliteDatabase, encode},
     prompt::{
         Resource,
@@ -23,6 +23,7 @@ impl SqliteDatabase {
         let transaction = connection
             .transaction()
             .map_err(|error| PersistenceError::failure("begin assistant resource change", error))?;
+        ensure_selected_on(&transaction, &chat.id)?;
         let before = get_resource(&transaction, &resource.id)?;
         let after = save_resource_on(&transaction, resource, mode)?;
         let edit = ResourceEdit {
@@ -33,10 +34,11 @@ impl SqliteDatabase {
         edits.push(edit.clone());
         transaction
             .execute(
-                "UPDATE agent_chat SET resource_edits_json=?1 WHERE id=1",
-                [encode(&edits)?],
+                "UPDATE agent_chat SET resource_edits_json=?1 WHERE id=?2",
+                rusqlite::params![encode(&edits)?, chat.id],
             )
             .map_err(|error| PersistenceError::failure("retain assistant resource undo", error))?;
+        crate::media::references::sync_agent_on(&transaction, &chat.id, &chat.snapshot, &edits)?;
         transaction.commit().map_err(|error| {
             PersistenceError::failure("commit assistant resource change", error)
         })?;
@@ -44,12 +46,9 @@ impl SqliteDatabase {
         Ok(after)
     }
 
-    pub(crate) fn undo_agent_resources(
-        &self,
-        edits: &[ResourceEdit],
-    ) -> Result<(), PersistenceError> {
+    pub(crate) fn undo_agent_resources(&self, chat: &StoredChat) -> Result<(), PersistenceError> {
         let mut grouped: BTreeMap<&str, (Option<&Resource>, &Resource)> = BTreeMap::new();
-        for edit in edits {
+        for edit in &chat.edits {
             grouped
                 .entry(&edit.after.id)
                 .and_modify(|(_, after)| *after = &edit.after)
@@ -59,6 +58,7 @@ impl SqliteDatabase {
         let transaction = connection
             .transaction()
             .map_err(|error| PersistenceError::failure("begin assistant resource undo", error))?;
+        ensure_selected_on(&transaction, &chat.id)?;
         for (id, (_, after)) in &grouped {
             if get_resource(&transaction, id)?.as_ref() != Some(*after) {
                 return Err(PersistenceError::Conflict {
@@ -108,10 +108,11 @@ impl SqliteDatabase {
         }
         transaction
             .execute(
-                "UPDATE agent_chat SET resource_edits_json='[]' WHERE id=1",
-                [],
+                "UPDATE agent_chat SET resource_edits_json='[]' WHERE id=?1",
+                [&chat.id],
             )
             .map_err(|error| PersistenceError::failure("clear assistant resource undo", error))?;
+        crate::media::references::sync_agent_on(&transaction, &chat.id, &chat.snapshot, &[])?;
         transaction
             .commit()
             .map_err(|error| PersistenceError::failure("commit assistant resource undo", error))

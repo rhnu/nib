@@ -238,18 +238,22 @@ pub(crate) fn remove_owner_on(
 #[cfg(feature = "native")]
 pub(crate) fn sync_agent_on(
     connection: &Connection,
+    id: &str,
     snapshot: &crate::agent::AgentSnapshot,
+    edits: &[crate::agent::storage::ResourceEdit],
 ) -> Result<(), PersistenceError> {
-    replace_on(
-        connection,
-        "agent",
-        "1",
-        snapshot
-            .messages
-            .iter()
-            .flat_map(|message| message.asset_ids.iter().map(String::as_str))
-            .collect(),
-    )
+    let mut ids: AssetIds<'_> = snapshot
+        .messages
+        .iter()
+        .flat_map(|message| message.asset_ids.iter().map(String::as_str))
+        .collect();
+    for edit in edits {
+        if let Some(before) = &edit.before {
+            ids.extend(resource_ids(before));
+        }
+        ids.extend(resource_ids(&edit.after));
+    }
+    replace_on(connection, "agent", id, ids)
 }
 
 #[cfg(test)]

@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import type {
-  AgentConnectionConfig,
-  AgentConnectionStatus,
-  AgentSnapshot,
-  AgentPermission,
-} from "@/bindings/agent";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AgentSnapshot } from "@/bindings/agent";
 import type { WorkbenchController } from "@/features/workbench/workbench-context";
 import type { Draft } from "@/bindings/workbench";
 import { workbenchApi } from "@/features/workbench/api";
@@ -30,14 +25,15 @@ export function useAgent({
 }) {
   const client = useQueryClient();
   const [snapshot, setSnapshot] = useState<AgentSnapshot | null>(null);
-  const [connection, setConnection] = useState<AgentConnectionStatus | null>(null);
   const [phase, setPhase] = useState<AgentPhase>("checking");
   const [error, setError] = useState<unknown>(null);
   const [pollError, setPollError] = useState<unknown>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [connectionBusy, setConnectionBusy] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const sessions = useQuery({ queryKey: ["agent-sessions"], queryFn: agentApi.sessions });
+  const undoIdentity = useRef<string | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
-  const [undoDraft, setUndoDraft] = useState<Draft | null>(null);
+  const [undoDraft, setUndoDraft] = useState<{ draft: Draft; identity: string } | null>(null);
   const latest = useRef({ controller, onLock, readOnly, onRunning });
   useLayoutEffect(() => {
     latest.current = { controller, onLock, readOnly, onRunning };
@@ -81,7 +77,13 @@ export function useAgent({
     }
     const state = latest.current.controller.state;
     state.acceptDraftSnapshot(current);
-    setUndoDraft(current.undoAvailable ? current.draft : null);
+    const active = runtime.current.snapshot;
+    const identity = active ? `${active.sessionId}:${active.runId}` : null;
+    setUndoDraft(
+      current.undoAvailable && identity !== null && undoIdentity.current === identity
+        ? { draft: current.draft, identity }
+        : null,
+    );
     await refreshResources();
     state.writer.setEditingLocked(false);
     changePhase("ready");
@@ -98,6 +100,11 @@ export function useAgent({
       const next = await agentApi.state();
       if (!run.active || run.busy || run.requestVersion !== requestVersion) return;
       const previous = run.snapshot;
+      if (previous?.sessionId !== next.sessionId) {
+        setUndoDraft(null);
+        undoIdentity.current = null;
+        void client.invalidateQueries({ queryKey: ["agent-sessions"] });
+      }
       run.snapshot = next;
       setSnapshot(next);
       if (next.status === "running") {
@@ -105,7 +112,11 @@ export function useAgent({
         setUndoDraft(null);
         if (previous?.status !== "running") latest.current.onRunning();
         changePhase("running");
-      } else if (run.phase !== "ready" || previous?.runId !== next.runId) {
+      } else if (
+        run.phase !== "ready" ||
+        previous?.runId !== next.runId ||
+        previous?.sessionId !== next.sessionId
+      ) {
         // Reserve the reconciliation so a send cannot overlap its authoritative read.
         run.busy = true;
         ownsOperation = true;
@@ -135,7 +146,7 @@ export function useAgent({
       if (ownsOperation) run.busy = false;
       run.polling = false;
     }
-  }, [changePhase, reconcile]);
+  }, [changePhase, reconcile, client]);
 
   useEffect(() => {
     const run = runtime.current;
@@ -150,14 +161,6 @@ export function useAgent({
     };
 
     void poll();
-    void agentApi.connection().then(
-      (value) => {
-        if (listening) setConnection(value);
-      },
-      (cause: unknown) => {
-        if (listening) setError(cause);
-      },
-    );
     return () => {
       run.active = false;
       listening = false;
@@ -167,7 +170,7 @@ export function useAgent({
 
   const start = async (prompt: string, assetIds: string[]) => {
     const run = runtime.current;
-    if (run.busy || run.phase !== "ready") return false;
+    if (run.busy || run.phase !== "ready" || !run.snapshot) return false;
     if (latest.current.readOnly) {
       setError(new MessageError(deferMessage(() => t("agent.readOnly"))));
       return false;
@@ -180,6 +183,7 @@ export function useAgent({
     setUndoDraft(null);
     changePhase("preparing");
     let startAttempted = false;
+    const expectedSessionId = run.snapshot.sessionId;
     const { state } = latest.current.controller;
     try {
       const initialResource = state.librarySession.getState();
@@ -204,11 +208,13 @@ export function useAgent({
       if (resource.busy) throw new MessageError(deferMessage(() => t("agent.resourcesBusy")));
       state.writer.setEditingLocked(true);
       startAttempted = true;
-      let next = await agentApi.start(prompt, assetIds, state.readDraftEpoch());
+      let next = await agentApi.start(prompt, assetIds, state.readDraftEpoch(), expectedSessionId);
       // Cancellation may arrive while the start IPC is establishing backend ownership.
       if (run.cancelled) next = await agentApi.cancel();
       run.snapshot = next;
+      undoIdentity.current = `${next.sessionId}:${next.runId}`;
       setSnapshot(next);
+      void client.invalidateQueries({ queryKey: ["agent-sessions"] });
       changePhase("running");
       return true;
     } catch (cause) {
@@ -249,45 +255,28 @@ export function useAgent({
     }
   };
 
-  const saveConnection = async (config: AgentConnectionConfig, apiKey: string | null) => {
-    setConnectionBusy(true);
-    setError(null);
+  const changeSession = async (action: () => Promise<AgentSnapshot>) => {
+    const run = runtime.current;
+    if (run.busy || run.phase !== "ready") return;
+    run.busy = true;
+    run.requestVersion++;
+    setSessionBusy(true);
+    const previousSessionId = run.snapshot?.sessionId;
     try {
-      setConnection(await agentApi.saveConnection(config, apiKey));
-      return true;
-    } catch (cause) {
-      setError(cause);
-      return false;
-    } finally {
-      setConnectionBusy(false);
-    }
-  };
-
-  const clear = async () => {
-    if (runtime.current.busy || runtime.current.phase !== "ready") return;
-    runtime.current.busy = true;
-    runtime.current.requestVersion++;
-    try {
-      const next = await agentApi.clear();
-      runtime.current.snapshot = next;
+      const next = await action();
+      if (next.sessionId !== previousSessionId) {
+        setUndoDraft(null);
+        undoIdentity.current = null;
+      }
+      run.snapshot = next;
       setSnapshot(next);
       setError(null);
+      await client.invalidateQueries({ queryKey: ["agent-sessions"] });
     } catch (cause) {
       setError(cause);
     } finally {
-      runtime.current.busy = false;
-    }
-  };
-
-  const savePermission = async (permission: AgentPermission) => {
-    setConnectionBusy(true);
-    try {
-      setConnection(await agentApi.permission(permission));
-      setError(null);
-    } catch (cause) {
-      setError(cause);
-    } finally {
-      setConnectionBusy(false);
+      run.busy = false;
+      setSessionBusy(false);
     }
   };
 
@@ -372,30 +361,31 @@ export function useAgent({
   };
 
   const retry = async () => {
+    setError(null);
     await refresh();
-    try {
-      setConnection(await agentApi.connection());
-      setError(null);
-    } catch (cause) {
-      setError(cause);
-    }
   };
 
   return {
     snapshot,
-    connection,
-    connectionBusy,
+    sessions: sessions.data ?? [],
+    retrySessions: sessions.refetch,
+    sessionError: sessions.error,
+    sessionsLoading: sessions.isPending,
+    sessionBusy,
+    newSession: () => changeSession(agentApi.newSession),
+    selectSession: (id: string) => changeSession(() => agentApi.selectSession(id)),
+    deleteSession: (id: string) => changeSession(() => agentApi.deleteSession(id)),
     approvalBusy,
     phase,
     error: error ?? pollError,
     cancelling,
-    undoAvailable: undoDraft !== null && undoDraft === controller.state.written.value,
+    undoAvailable:
+      undoDraft !== null &&
+      undoDraft.draft === controller.state.written.value &&
+      undoDraft.identity === `${snapshot?.sessionId}:${snapshot?.runId}`,
     start,
     cancel,
-    saveConnection,
-    savePermission,
     approve,
-    clear,
     undo,
     undoResources,
     retry,

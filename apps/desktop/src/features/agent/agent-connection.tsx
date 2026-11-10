@@ -7,7 +7,8 @@ import {
   IconButton,
   Select,
   Input,
-  Row,
+  SettingsGroup,
+  HelpMarker,
 } from "@/shared/ui";
 
 import { useEffect, useRef, useState } from "react";
@@ -22,7 +23,7 @@ import type {
 import { errorMessage } from "@/shared/host/error";
 import { t } from "@/shared/i18n";
 import { agentApi } from "./api";
-import type { AgentController } from "./use-agent";
+import type { AgentSettingsController } from "./use-agent-settings";
 
 const presets = [
   { id: "openAi", label: "OpenAI" },
@@ -37,7 +38,7 @@ export function AgentConnection({
   open,
   visible,
 }: {
-  agent: AgentController;
+  agent: AgentSettingsController;
   disabled: boolean;
   open: boolean;
   visible: boolean;
@@ -45,7 +46,7 @@ export function AgentConnection({
   const [editedConfig, setConfig] = useState<AgentConnectionConfig | null>(null);
   const config = editedConfig ??
     agent.connection?.config ?? { model: "", provider: { kind: "openAi" } };
-  const [saved, setSaved] = useState(false);
+
   const [discovery, setDiscovery] = useState<{
     key: string;
     models: string[];
@@ -53,6 +54,9 @@ export function AgentConnection({
     loading: boolean;
   } | null>(null);
   const [revision, setRevision] = useState(0);
+  const [customDraft, setCustomDraft] = useState<Extract<AgentProvider, { kind: "custom" }> | null>(
+    null,
+  );
   const password = useRef<HTMLInputElement>(null);
   const provider = config.provider;
   const storedProvider = agent.connection?.config?.provider;
@@ -67,10 +71,6 @@ export function AgentConnection({
   const models = currentDiscovery?.models ?? [];
   const modelError = currentDiscovery?.error ?? null;
   const loading = currentDiscovery?.loading ?? false;
-
-  useEffect(() => {
-    if ((!open || !visible) && password.current) password.current.value = "";
-  }, [open, visible]);
 
   useEffect(() => {
     if (!open || !visible || disabled) return;
@@ -107,162 +107,175 @@ export function AgentConnection({
   ]);
 
   const change = (next: AgentConnectionConfig) => {
-    setSaved(false);
     setConfig(next);
   };
 
   return (
     <form
       id="agent-connection"
-      className="agent-connection [max-height:55%] overflow-auto py-space-3 px-space-4 [border-block:1px_solid_var(--line-subtle)] [&_legend]:mb-space-3 [&_legend]:font-semibold"
+      className="agent-connection"
       hidden={!visible}
       onSubmit={(event) => {
         event.preventDefault();
+        if (disabled || agent.connectionBusy) return;
         const key = password.current?.value.trim() || null;
-        if (password.current) password.current.value = "";
-        setSaved(false);
         void agent
           .saveConnection({ ...config, model: config.model.trim() }, key)
           .then((success) => {
-            setSaved(success);
             if (success) {
+              if (password.current) password.current.value = "";
               setConfig(null);
               setRevision((value) => value + 1);
             }
           });
       }}
     >
-      <Grid
-        align="stretch"
-        as="fieldset"
-        columns={1}
-        gap={3}
-        className="m-0 min-w-0 border-0 p-0"
-        disabled={disabled || agent.connectionBusy}
-      >
-        <legend>{t("agent.connection")}</legend>
-        <Field label={t("agent.provider")}>
-          <Select
-            value={provider.kind}
-            options={[
-              ...presets.map(({ id, label }) => ({ value: id, label })),
-              { value: "custom", label: t("agent.customProvider") },
-            ]}
-            onValueChange={(id) => {
-              const next: AgentProvider =
-                id === "custom"
-                  ? { kind: "custom", endpoint: "", api: "responses" }
-                  : { kind: id as "openAi" | "deepSeek" | "openRouter" };
-              change({ ...config, provider: next });
-              if (password.current) password.current.value = "";
-            }}
-          />
-        </Field>
-        {provider.kind === "custom" && (
-          <>
-            <Field required label={t("agent.endpoint")} description={t("agent.endpointHelp")}>
-              <Input
-                autoComplete="off"
-                type="url"
-
-                value={provider.endpoint}
-                placeholder="https://api.openai.com/v1"
-                onChange={(event) =>
-                  change({ ...config, provider: { ...provider, endpoint: event.target.value } })
-                }
-              />
-            </Field>
-            <Field label={t("agent.protocol")}>
-              <Select
-                value={provider.api}
-                onValueChange={(api) =>
-                  change({ ...config, provider: { ...provider, api: api as AgentApi } })
-                }
-                options={[
-                  { value: "chatCompletions", label: t("agent.chatCompletions") },
-                  { value: "responses", label: t("agent.responses") },
-                ]}
-              />
-            </Field>
-          </>
-        )}
-        <Field
-          required={!agent.connection?.configured || !sameDestination}
-          label={t("agent.apiKey")}
-          description={t(
-            agent.connection?.configured && sameDestination
-              ? "agent.keyStored"
-              : "agent.keyRequired",
-          )}
-        >
-          <Input
-            ref={password}
-            type="password"
-            autoComplete="new-password"
-
-            onChange={() => {
-              setSaved(false);
-            }}
-            onBlur={() => setRevision((value) => value + 1)}
-          />
-        </Field>
-        <Field
-          required
-          label={t("agent.model")}
-          htmlFor="agent-model"
-          description={
-            <span aria-live="polite">{t(loading ? "agent.loadingModels" : "agent.modelHelp")}</span>
-          }
-          error={
-            modelError !== null ? (
-              <>
-                {t("agent.modelsFailed")} {errorMessage(modelError)}
-              </>
-            ) : undefined
-          }
-        >
-          <InputRow>
-            <AutocompleteInput
-              id="agent-model"
-
-              disabled={disabled || agent.connectionBusy}
-              suggestions={models}
-              value={config.model}
-              onValueChange={(model) => change({ ...config, model })}
-              aria-label={t("agent.model")}
-            />
-            <IconButton
-              label={t("agent.refreshModels")}
-              disabled={loading || (provider.kind === "custom" && !provider.endpoint.trim())}
-              onClick={() => setRevision((value) => value + 1)}
-            >
-              <RefreshCw size={14} className={loading ? "spin" : undefined} aria-hidden />
-            </IconButton>
-          </InputRow>
-        </Field>
-        <Field label={t("agent.generationPermission")} description={t("agent.permissionHelp")}>
-          <Select
-            value={agent.connection?.generationPermission ?? "ask"}
-            onValueChange={(value) => void agent.savePermission(value as AgentPermission)}
-            options={[
-              { value: "ask", label: t("agent.permissionAsk") },
-              { value: "allow", label: t("agent.permissionAllow") },
-              { value: "deny", label: t("agent.permissionDeny") },
-            ]}
-          />
-        </Field>
-        <Row
-          gap={2}
-          align="center"
-          justify="end"
-          className="agent-connection-actions [&_output]:text-accent [&_output]:text-label"
-        >
-          {saved && <output>{t("agent.connectionSaved")}</output>}
-          <Button type="submit" disabled={agent.connectionBusy}>
-            {t("agent.saveConnection")}
+      <SettingsGroup
+        title={t("agent.modelPermissions")}
+        actions={
+          <Button type="submit" disabled={disabled || agent.connectionBusy}>
+            {t(agent.connectionBusy ? "agent.saving" : "agent.saveConnection")}
           </Button>
-        </Row>
-      </Grid>
+        }
+      >
+        <Grid
+          align="stretch"
+          as="fieldset"
+          columns={2}
+          gap={4}
+          className="m-0 min-w-0 border-0 p-0 max-[700px]:grid-cols-1"
+          disabled={disabled || agent.connectionBusy}
+        >
+          <Field label={t("agent.provider")}>
+            <Select
+              value={provider.kind}
+              options={[
+                ...presets.map(({ id, label }) => ({ value: id, label })),
+                { value: "custom", label: t("agent.customProvider") },
+              ]}
+              onValueChange={(id) => {
+                if (provider.kind === "custom") setCustomDraft(provider);
+                const next: AgentProvider =
+                  id === "custom"
+                    ? (customDraft ??
+                      (storedProvider?.kind === "custom"
+                        ? storedProvider
+                        : { kind: "custom", endpoint: "", api: "responses" }))
+                    : { kind: id as "openAi" | "deepSeek" | "openRouter" };
+                change({ ...config, provider: next });
+                if (password.current) password.current.value = "";
+              }}
+            />
+          </Field>
+          {provider.kind === "custom" && (
+            <>
+              <Field
+                required
+                label={t("agent.endpoint")}
+                help={
+                  <HelpMarker label={t("agent.endpoint")}>{t("agent.endpointHelp")}</HelpMarker>
+                }
+              >
+                <Input
+                  autoComplete="off"
+                  type="url"
+
+                  value={provider.endpoint}
+                  placeholder="https://api.openai.com/v1"
+                  onChange={(event) => {
+                    if (password.current) password.current.value = "";
+                    change({ ...config, provider: { ...provider, endpoint: event.target.value } });
+                  }}
+                />
+              </Field>
+              <Field label={t("agent.protocol")}>
+                <Select
+                  value={provider.api}
+                  onValueChange={(api) =>
+                    change({ ...config, provider: { ...provider, api: api as AgentApi } })
+                  }
+                  options={[
+                    { value: "chatCompletions", label: t("agent.chatCompletions") },
+                    { value: "responses", label: t("agent.responses") },
+                  ]}
+                />
+              </Field>
+            </>
+          )}
+          <Field
+            required={!agent.connection?.configured || !sameDestination}
+            label={t("agent.apiKey")}
+            help={
+              <HelpMarker label={t("agent.apiKey")}>
+                {t(
+                  agent.connection?.configured && sameDestination
+                    ? "agent.keyStored"
+                    : "agent.keyRequired",
+                )}
+              </HelpMarker>
+            }
+          >
+            <Input
+              ref={password}
+              type="password"
+              autoComplete="new-password"
+              onChange={() => setRevision((value) => value + 1)}
+
+              onBlur={() => setRevision((value) => value + 1)}
+            />
+          </Field>
+          <Field
+            required
+            label={t("agent.model")}
+            htmlFor="agent-model"
+            help={<HelpMarker label={t("agent.model")}>{t("agent.modelHelp")}</HelpMarker>}
+            error={
+              modelError !== null ? (
+                <>
+                  {t("agent.modelsFailed")} {errorMessage(modelError)}
+                </>
+              ) : undefined
+            }
+          >
+            <InputRow>
+              <AutocompleteInput
+                id="agent-model"
+
+                disabled={disabled || agent.connectionBusy}
+                suggestions={models}
+                value={config.model}
+                onValueChange={(model) => change({ ...config, model })}
+                aria-label={t("agent.model")}
+              />
+              <IconButton
+                label={t("agent.refreshModels")}
+                disabled={loading || (provider.kind === "custom" && !provider.endpoint.trim())}
+                onClick={() => setRevision((value) => value + 1)}
+              >
+                <RefreshCw size={14} className={loading ? "spin" : undefined} aria-hidden />
+              </IconButton>
+            </InputRow>
+          </Field>
+          <Field
+            label={t("agent.generationPermission")}
+            help={
+              <HelpMarker label={t("agent.generationPermission")}>
+                {t("agent.permissionHelp")}
+              </HelpMarker>
+            }
+          >
+            <Select
+              value={agent.connection?.generationPermission ?? "ask"}
+              onValueChange={(value) => void agent.savePermission(value as AgentPermission)}
+              options={[
+                { value: "ask", label: t("agent.permissionAsk") },
+                { value: "allow", label: t("agent.permissionAllow") },
+                { value: "deny", label: t("agent.permissionDeny") },
+              ]}
+            />
+          </Field>
+        </Grid>
+      </SettingsGroup>
     </form>
   );
 }

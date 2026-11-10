@@ -24,6 +24,7 @@ import { useAgent } from "@/features/agent/use-agent";
 
 type WorkspaceShellProps = Omit<WorkbenchControllerOptions, "page" | "navigate"> & {
   startupSettings: boolean;
+  onSelectAgentSettings: () => void;
   renderHeader: (navigation: ReactNode, actions: ReactNode) => ReactNode;
 };
 
@@ -219,6 +220,10 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                     open={agentOpen}
                     readOnly={props.readOnly}
                     onClose={closeAgent}
+                    onSettings={() => {
+                      props.onSelectAgentSettings();
+                      void navigate("settings");
+                    }}
                   />
                 </Row>
               </Col>

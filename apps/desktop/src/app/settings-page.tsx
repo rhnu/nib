@@ -20,6 +20,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Moon, Sun } from "lucide-react";
 import { ExploreConnectionSettings } from "@/features/explore/connection-settings";
 import { AccountSettings } from "@/features/generation";
+import { AgentSettings } from "@/features/agent/agent-settings";
 import { DownloadsSettings } from "@/features/downloads/downloads-settings";
 
 import type { ApplicationSettingsState } from "./use-application-settings";
@@ -206,6 +207,12 @@ const sections = [
     },
   },
   {
+    id: "agent",
+    get name() {
+      return t("agent.title");
+    },
+  },
+  {
     id: "generation",
     get name() {
       return t("app.generationPreview");
@@ -284,6 +291,10 @@ export function SettingsPage({
           ))}
         </Col>
         <div className="settings-page-content min-w-0 w-full [max-width:1080px] p-space-6 max-[760px]:p-space-5">
+          <section hidden={section !== "agent"}>
+            <h2 className="settings-category-title text-title mb-space-5">{t("agent.title")}</h2>
+            <AgentSettings visible={section === "agent"} />
+          </section>
           <section
             className="settings-category [&_>_.settings-group_+_.settings-group]:mt-space-6 [&_>_div_+_.settings-group]:mt-space-6"
             hidden={section !== "updates"}

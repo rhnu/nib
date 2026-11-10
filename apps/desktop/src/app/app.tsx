@@ -164,6 +164,7 @@ export default function App() {
                   startupSettings={startupPage === "settings"}
                   recentImageLimit={settings.preferences.value?.recentImageLimit ?? 20}
                   settingsWriter={settings.closeWriter}
+                  onSelectAgentSettings={() => setSettingsSection("agent")}
                   onSelectDownloadSettings={() => setSettingsSection("downloads")}
                   renderHeader={(navigation, actions) => (
                     <>

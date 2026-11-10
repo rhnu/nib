@@ -7,7 +7,7 @@ publish.workspace = true
 
 [features]
 typegen = ["dep:ts-rs", "nib-prompt/typegen", "nib-contract/typegen"]
-native = ["dep:nib-lexicon", "dep:nib-resources", "dep:nib-image-analysis", "dep:rig-core", "dep:rig-agent"]
+native = ["dep:nib-lexicon", "dep:nib-resources", "dep:nib-image-analysis", "dep:rig-core", "dep:rig-agent", "dep:rig-rmcp", "dep:rmcp", "dep:serde_yaml_ng"]
 
 [dependencies]
 anyhow.workspace = true
@@ -21,6 +21,9 @@ nib-prompt.workspace = true
 futures-util.workspace = true
 rig-core = { workspace = true, optional = true }
 rig-agent = { workspace = true, optional = true }
+rig-rmcp = { workspace = true, optional = true }
+rmcp = { workspace = true, optional = true }
+serde_yaml_ng = { workspace = true, optional = true }
 reqwest.workspace = true
 image.workspace = true
 rusqlite.workspace = true

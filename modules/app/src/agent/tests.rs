@@ -15,7 +15,7 @@ fn connection_rejects_credentials_or_query_secrets() {
         "file:///tmp/model",
     ] {
         assert!(
-            super::runtime::normalize_connection(AgentConnectionConfig {
+            super::configuration::normalize_connection(AgentConnectionConfig {
                 model: "model".into(),
                 provider: AgentProvider::Custom {
                     endpoint: endpoint.into(),
@@ -25,7 +25,7 @@ fn connection_rejects_credentials_or_query_secrets() {
             .is_err()
         );
     }
-    let config = super::runtime::normalize_connection(AgentConnectionConfig {
+    let config = super::configuration::normalize_connection(AgentConnectionConfig {
         model: " model ".into(),
         provider: AgentProvider::Custom {
             endpoint: " https://example.test/v1/ ".into(),

@@ -48,6 +48,7 @@ struct State {
     explore: Arc<crate::explore::ExploreService>,
     drafts: Arc<crate::session::DraftCoordinator>,
     agent: Mutex<Option<Arc<crate::agent::AgentRuntime>>>,
+    agent_configuration: Arc<crate::agent::AgentConfiguration>,
     agent_transition: Mutex<()>,
 }
 
@@ -60,6 +61,11 @@ impl AppState {
         danbooru: Arc<crate::settings::DanbooruConnection>,
         explore: Arc<crate::explore::ExploreService>,
     ) -> Self {
+        let agent_configuration = Arc::new(crate::agent::AgentConfiguration::new(
+            Arc::clone(&bootstrap.settings),
+            Arc::clone(&bootstrap.credentials),
+            bootstrap.configure_mcp_command,
+        ));
         Self {
             inner: Arc::new(State {
                 settings: bootstrap.settings,
@@ -79,6 +85,7 @@ impl AppState {
                 explore,
                 drafts: Arc::default(),
                 agent: Mutex::new(None),
+                agent_configuration,
                 agent_transition: Mutex::new(()),
             }),
         }
@@ -99,6 +106,11 @@ impl AppState {
     /// A single owner serializes retained creation changes from UI and assistant tools.
     pub fn drafts(&self) -> Arc<crate::session::DraftCoordinator> { Arc::clone(&self.inner.drafts) }
 
+    /// Global Agent settings remain available without opening the creation database.
+    pub fn agent_configuration(&self) -> &Arc<crate::agent::AgentConfiguration> {
+        &self.inner.agent_configuration
+    }
+
     /// Opens the retained assistant conversation without starting a model request.
     /// # Errors
     /// Returns local storage or shared-state failures.
@@ -114,7 +126,6 @@ impl AppState {
         let agent = Arc::new(crate::agent::AgentRuntime::new(
             self.database()?,
             Arc::clone(&self.inner.settings),
-            Arc::clone(&self.inner.credentials),
         )?);
         *slot = Some(Arc::clone(&agent));
         Ok(agent)

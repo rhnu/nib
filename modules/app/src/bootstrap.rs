@@ -11,6 +11,7 @@ use crate::{
 
 /// Platform I/O and runtime are supplied before application capabilities are assembled.
 pub struct Bootstrap {
+    pub configure_mcp_command: crate::agent::ConfigureMcpCommand,
     pub settings: Arc<GlobalSettingsStore>,
     pub credentials: Arc<dyn CredentialStore>,
     pub storage: Arc<dyn StorageBackend>,

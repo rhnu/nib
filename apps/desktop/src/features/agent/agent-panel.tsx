@@ -1,13 +1,13 @@
-import { Button, IconButton, Col, Row, ButtonGroup } from "@/shared/ui";
+import { Button, IconButton, Col, Row, ButtonGroup, Modal, notify } from "@/shared/ui";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Settings2, Square, Trash2, Undo2, X } from "lucide-react";
+import { Bot, Settings2, Square, Trash2, Undo2, X, History, Plus } from "lucide-react";
 import type { AgentMessage } from "@/bindings/agent";
 
 import { errorMessage } from "@/shared/host/error";
 import { t, useTranslation } from "@/shared/i18n";
 import type { AgentController } from "./use-agent";
-import { AgentConnection } from "./agent-connection";
+import { useAgentSettings } from "./use-agent-settings";
 import { AgentComposer } from "./agent-composer";
 import { AgentImage } from "./agent-image";
 import { AgentApprovalCard } from "./agent-approval";
@@ -16,6 +16,8 @@ import "./styles.css";
 
 const toolLabelKeys = {
   inspect_creation: "agent.tools.inspectCreation",
+  list_skills: "agent.tools.listSkills",
+  read_skill: "agent.tools.readSkill",
   resolve_creation: "agent.tools.resolveCreation",
   inspect_model_capabilities: "agent.tools.inspectModelCapabilities",
   edit_prompts: "agent.tools.editPrompts",
@@ -36,7 +38,8 @@ const toolLabelKeys = {
 
 /** Tool identifiers remain transport data; the conversation presents domain actions. */
 function toolLabel(name: string | null) {
-  if (name === null || !Object.hasOwn(toolLabelKeys, name)) return t("agent.tool");
+  if (name === null) return t("agent.tool");
+  if (!Object.hasOwn(toolLabelKeys, name)) return name;
   return t(toolLabelKeys[name as keyof typeof toolLabelKeys]);
 }
 
@@ -52,21 +55,36 @@ export function AgentPanel({
   open,
   readOnly,
   onClose,
+  onSettings,
 }: {
   agent: AgentController;
   open: boolean;
   readOnly: boolean;
   onClose: () => void;
+  onSettings: () => void;
 }) {
   useTranslation();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const settings = useAgentSettings();
   const panel = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const messages = agent.snapshot?.messages ?? [];
-  const locked = agent.phase !== "ready";
-  const canCancel = locked;
+  const currentSession = agent.sessions.find((session) => session.id === agent.snapshot?.sessionId);
+  const locked = agent.phase !== "ready" || agent.sessionBusy;
+  const canCancel = agent.phase === "preparing" || agent.phase === "running";
   const last = messages.at(-1);
+  const failure = agent.error ? errorMessage(agent.error) : agent.snapshot?.error;
+
+  useEffect(() => {
+    if (failure) notify(() => failure, "agent-run-error", true);
+  }, [failure]);
+
+  useEffect(() => {
+    following.current = true;
+    if (log.current) log.current.scrollTop = log.current.scrollHeight;
+  }, [agent.snapshot?.sessionId]);
 
   useEffect(() => {
     if (open && following.current && log.current) log.current.scrollTop = log.current.scrollHeight;
@@ -108,16 +126,31 @@ export function AgentPanel({
         justify="between"
         className="agent-panel-header py-space-2 px-[10px] [border-bottom:1px_solid_var(--line-subtle)]"
       >
-        <Row align="stretch" as="strong" gap={2}>
+        <Row align="center" as="strong" gap={2} className="min-w-0">
           <Bot size={16} aria-hidden />
-          {t("agent.title")}
+          <span className="truncate" title={currentSession?.title || t("agent.title")}>
+            {currentSession?.title || t("agent.title")}
+          </span>
         </Row>
         <ButtonGroup gap={1} className="button-group">
           <IconButton
-            label={t("agent.connection")}
-            aria-expanded={settingsOpen}
-            aria-controls="agent-connection"
-            onClick={() => setSettingsOpen((value) => !value)}
+            label={t("agent.newChat")}
+            disabled={locked || readOnly}
+            onClick={() => void agent.newSession()}
+          >
+            <Plus size={15} aria-hidden />
+          </IconButton>
+          <IconButton
+            label={t("agent.history")}
+            disabled={locked || readOnly}
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History size={15} aria-hidden />
+          </IconButton>
+          <IconButton
+            label={t("agent.settings")}
+            disabled={locked || readOnly}
+            onClick={onSettings}
           >
             <Settings2 size={15} aria-hidden />
           </IconButton>
@@ -132,6 +165,9 @@ export function AgentPanel({
             ? t(`agent.${agent.snapshot?.status ?? "idle"}`)
             : t(`agent.${agent.phase}`)}
         </output>
+        {Boolean(agent.error) && (
+          <Button onClick={() => void agent.retry()}>{t("agent.retry")}</Button>
+        )}
         {canCancel && (
           <Button onClick={() => void agent.cancel()} disabled={agent.cancelling}>
             <Square size={13} aria-hidden />
@@ -144,12 +180,14 @@ export function AgentPanel({
           {t("agent.lockedNotice")}
         </p>
       )}
-      <AgentConnection
-        agent={agent}
-        disabled={locked || readOnly}
-        open={open}
-        visible={settingsOpen || agent.connection?.configured === false}
-      />
+      {settings.connection?.configured === false && (
+        <Row gap={2} justify="between" className="px-space-4 pb-space-3">
+          <span className="text-muted text-label">{t("agent.notConfigured")}</span>
+          <Button disabled={locked || readOnly} onClick={onSettings}>
+            {t("agent.settings")}
+          </Button>
+        </Row>
+      )}
       {/* The conversation needs keyboard focus for scrolling while editing is locked. */}
       {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex */}
       <div
@@ -215,15 +253,6 @@ export function AgentPanel({
         ))}
       </div>
       {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
-      {(Boolean(agent.error) || agent.snapshot?.error) && (
-        <div
-          className="agent-error py-space-3 px-space-4 text-danger [border-top:1px_solid_var(--line-subtle)] [max-height:140px] overflow-auto [&_p]:[margin:0_0_6px] [&_p]:whitespace-pre-wrap [&_p]:[overflow-wrap:anywhere]"
-          role="alert"
-        >
-          <p>{agent.error ? errorMessage(agent.error) : agent.snapshot?.error}</p>
-          <Button onClick={() => void agent.retry()}>{t("agent.retry")}</Button>
-        </div>
-      )}
       <Row
         gap={2}
         align="center"
@@ -239,13 +268,6 @@ export function AgentPanel({
           <Undo2 size={14} aria-hidden />
           {t("agent.undo")}
         </Button>
-        <IconButton
-          label={t("agent.clear")}
-          disabled={locked || readOnly || !messages.length}
-          onClick={() => void agent.clear()}
-        >
-          <Trash2 size={14} aria-hidden />
-        </IconButton>
         {agent.snapshot?.resourcesUndoAvailable && (
           <Button
             disabled={locked || readOnly || agent.undoAvailable}
@@ -258,7 +280,84 @@ export function AgentPanel({
         )}
       </Row>
       <AgentApprovalCard agent={agent} readOnly={readOnly} />
-      <AgentComposer agent={agent} disabled={locked || readOnly} />
+      <AgentComposer
+        key={agent.snapshot?.sessionId ?? "loading"}
+        agent={agent}
+        disabled={locked || readOnly}
+      />
+      {historyOpen && (
+        <Modal open title={t("agent.history")} onClose={() => setHistoryOpen(false)}>
+          <Row gap={2} className="mb-space-3">
+            <span className="text-muted text-label">{t("agent.historyHelp")}</span>
+          </Row>
+          <Col gap={0} className="max-h-[60vh] overflow-auto">
+            {agent.sessionsLoading ? (
+              <p>{t("agent.loadingSettings")}</p>
+            ) : agent.sessionError ? (
+              <Row gap={2}>
+                <span className="text-danger">{errorMessage(agent.sessionError)}</span>
+                <Button onClick={() => void agent.retrySessions()}>{t("app.reload")}</Button>
+              </Row>
+            ) : (
+              agent.sessions.map((session) => (
+                <Row key={session.id} gap={2} className="py-space-2 border-b border-line-subtle">
+                  <Button
+                    className="flex-1 min-w-0 justify-start text-left aria-current:bg-accent-soft aria-current:text-accent"
+                    disabled={locked || readOnly}
+                    aria-current={session.id === agent.snapshot?.sessionId ? "true" : undefined}
+                    onClick={() => {
+                      if (session.id !== agent.snapshot?.sessionId)
+                        void agent.selectSession(session.id);
+                      setHistoryOpen(false);
+                    }}
+                  >
+                    <span className="truncate">{session.title || t("agent.newChat")}</span>
+                    <time
+                      className="ml-auto text-caption text-muted"
+                      dateTime={new Date(Number(session.createdAt)).toISOString()}
+                    >
+                      {new Date(Number(session.createdAt)).toLocaleDateString()}
+                    </time>
+                  </Button>
+                  <IconButton
+                    label={t("agent.deleteChat")}
+                    disabled={locked || readOnly}
+                    onClick={() => setDeleteId(session.id)}
+                  >
+                    <Trash2 size={14} aria-hidden />
+                  </IconButton>
+                </Row>
+              ))
+            )}
+          </Col>
+        </Modal>
+      )}
+      {deleteId && (
+        <Modal
+          open
+          title={t("agent.deleteChat")}
+          onClose={() => {
+            if (!agent.sessionBusy) setDeleteId(null);
+          }}
+        >
+          <p>{t("agent.deleteChatHelp")}</p>
+          <Row gap={3} justify="end">
+            <Button disabled={agent.sessionBusy} onClick={() => setDeleteId(null)}>
+              {t("app.cancel")}
+            </Button>
+            <Button
+              className="text-danger"
+              disabled={locked || readOnly}
+              onClick={() => {
+                void agent.deleteSession(deleteId);
+                setDeleteId(null);
+              }}
+            >
+              {t("agent.deleteChat")}
+            </Button>
+          </Row>
+        </Modal>
+      )}
     </Col>
   );
 }

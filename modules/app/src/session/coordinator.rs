@@ -41,7 +41,17 @@ struct AgentEdit {
 
 /// Keeps user resource writes serialized against Agent takeover.
 pub struct UserWriteGuard<'a> {
-    _state: MutexGuard<'a, Option<RetainedDraft>>,
+    state: MutexGuard<'a, Option<RetainedDraft>>,
+}
+
+impl UserWriteGuard<'_> {
+    /// Changing chat selection cannot restore an earlier run's creation undo group.
+    pub fn discard_agent_undo(&mut self) {
+        if let Some(retained) = self.state.as_mut() {
+            retained.undo = None;
+            retained.snapshot.undo_available = false;
+        }
+    }
 }
 
 /// An exclusive Agent editing capability; releasing it invalidates outstanding tool writes.
@@ -94,7 +104,7 @@ impl DraftCoordinator {
         if let Some(retained) = state.as_ref() {
             require_user(retained, &retained.snapshot.epoch)?;
         }
-        Ok(UserWriteGuard { _state: state })
+        Ok(UserWriteGuard { state })
     }
 
     /// Saves a user edit only in the epoch it was based on.

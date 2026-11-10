@@ -120,8 +120,16 @@ CREATE TABLE image_safety (
 );
 
 CREATE TABLE agent_chat (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
+    creation_order INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
     snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json)),
     history_json TEXT NOT NULL CHECK (json_valid(history_json)),
     resource_edits_json TEXT NOT NULL CHECK (json_valid(resource_edits_json))
+);
+
+CREATE TABLE agent_selection (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    session_id TEXT REFERENCES agent_chat(id) ON DELETE SET NULL
 );
