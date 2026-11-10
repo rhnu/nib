@@ -27,18 +27,6 @@
     font-weight: 600;
   }
 
-  .agent-markdown pre {
-    padding: 8px;
-    white-space: pre;
-    overflow: auto;
-    background: var(--raised);
-    border: 1px solid var(--line);
-  }
-
-  .agent-markdown code {
-    font-size: var(--font-size-label);
-  }
-
   .agent-markdown blockquote {
     border-left: 2px solid var(--line);
     padding-left: 8px;
@@ -58,4 +46,69 @@
     color: var(--accent);
     text-decoration: underline;
   }
+}
+
+/* Override Streamdown utility defaults outside layers so nib owns code presentation. */
+.agent-markdown :is(pre, code) {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-label);
+}
+
+/* Streamdown owns the code structure; only its outer container has a frame. */
+.agent-markdown [data-streamdown="code-block"] {
+  min-width: 0;
+  margin-block: var(--space-3);
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--input);
+  color: var(--text);
+}
+
+.agent-markdown > [data-streamdown="code-block"]:first-child {
+  margin-top: 0;
+}
+
+.agent-markdown > [data-streamdown="code-block"]:last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown [data-streamdown="code-block-header"] {
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-label);
+}
+
+.agent-markdown [data-streamdown="code-block-header"][data-language=""] {
+  display: none;
+}
+
+.agent-markdown [data-streamdown="code-block-body"] {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.agent-markdown pre {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+/* nib's muted token is a foreground color, unlike Streamdown's default bg-muted. */
+.agent-markdown [data-streamdown="inline-code"] {
+  padding: 1px var(--space-1);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius);
+  background: var(--hover);
+  color: var(--text);
+  box-decoration-break: clone;
 }
