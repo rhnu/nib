@@ -3081,7 +3081,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nib-app"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "nib-contract"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -3122,7 +3122,7 @@ dependencies = [
 
 [[package]]
 name = "nib-desktop"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3151,7 +3151,7 @@ dependencies = [
 
 [[package]]
 name = "nib-image-analysis"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "csv",
@@ -3167,7 +3167,7 @@ dependencies = [
 
 [[package]]
 name = "nib-inference-runtime"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "ort",
  "thiserror 2.0.21",
@@ -3175,7 +3175,7 @@ dependencies = [
 
 [[package]]
 name = "nib-lexicon"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "clap",
@@ -3197,7 +3197,7 @@ dependencies = [
 
 [[package]]
 name = "nib-prompt"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "novelai-bridge-prompt",
  "serde",
@@ -3209,7 +3209,7 @@ dependencies = [
 
 [[package]]
 name = "nib-resources"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "nib-contract",
@@ -7368,7 +7368,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "clap",
