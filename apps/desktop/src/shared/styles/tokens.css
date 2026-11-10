@@ -40,6 +40,8 @@
   --accent-fill: #2c8881;
   --accent-text: #c8fbf4;
   --accent-soft: #203b3b;
+  --selection-bg: #2b5753;
+  --selection-text: var(--text);
   --danger: #f0a3a5;
   --danger-bg: #3d292e;
   --shadow: 0 18px 80px #0008, 0 2px 10px #0005;
@@ -61,6 +63,7 @@
   --accent-fill: #287e77;
   --accent-text: #fff;
   --accent-soft: #dfefec;
+  --selection-bg: #b9dfd8;
   --danger: #ac3d48;
   --danger-bg: #fae8eb;
   --shadow: 0 18px 80px #26323c26, 0 2px 10px #26323c15;

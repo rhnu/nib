@@ -9,6 +9,10 @@
   box-sizing: border-box;
   scrollbar-color: var(--line) transparent;
 }
+::selection {
+  color: var(--selection-text);
+  background-color: var(--selection-bg);
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

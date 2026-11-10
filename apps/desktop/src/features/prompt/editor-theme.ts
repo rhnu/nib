@@ -12,16 +12,21 @@ export const promptEditorTheme = EditorView.theme({
   },
   ".cm-content": {
     minHeight: "var(--prompt-editor-min-height, 88px)",
-    padding:
-      "var(--prompt-editor-padding-y, 7px) var(--prompt-editor-padding-right, 36px) var(--prompt-editor-padding-y, 7px) 9px",
+    padding: "var(--prompt-editor-padding-y, 7px) 0",
     caretColor: "var(--text)",
     fontVariantLigatures: "contextual",
   },
-  ".cm-line": { padding: "0" },
+  // CodeMirror subtracts line padding when measuring multi-line selection bounds.
+  ".cm-line": { padding: "0 var(--prompt-editor-padding-right, 36px) 0 9px" },
   ".cm-placeholder": { color: "var(--muted)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text)" },
-  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-    backgroundColor: "var(--accent-soft)",
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionLayer .cm-selectionBackground":
+    {
+      backgroundColor: "var(--selection-bg)",
+    },
+  "::selection": {
+    backgroundColor: "var(--selection-bg)",
+    color: "var(--selection-text)",
   },
   ".cm-tooltip": {
     border: "1px solid var(--line)",
