@@ -3,6 +3,7 @@ CREATE TABLE global_settings (
     preferences_json TEXT NOT NULL CHECK (json_valid(preferences_json)),
     agent_mcp_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(agent_mcp_json)),
     agent_skills_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(agent_skills_json)),
+    agent_system_prompt_json TEXT CHECK (agent_system_prompt_json IS NULL OR json_valid(agent_system_prompt_json)),
     agent_connection_json TEXT CHECK (agent_connection_json IS NULL OR json_valid(agent_connection_json)),
     agent_generation_permission TEXT NOT NULL DEFAULT '"ask"' CHECK (json_valid(agent_generation_permission)),
     current_directory_json TEXT CHECK (current_directory_json IS NULL OR json_valid(current_directory_json))

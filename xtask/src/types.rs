@@ -101,6 +101,7 @@ fn agent_types(config: &Config) -> String {
     use nib_app::agent::{
         AgentApi, AgentApproval, AgentConnectionConfig, AgentConnectionStatus, AgentMessage,
         AgentPermission, AgentProvider, AgentRunStatus, AgentSession, AgentSnapshot,
+        AgentSystemPrompt,
         mcp::{McpConnectionTest, McpSecrets, McpServerConfig, McpServerStatus, McpTransport},
         skills::{SkillConfig, SkillDocument, SkillSummary},
     };
@@ -113,6 +114,7 @@ fn agent_types(config: &Config) -> String {
             AgentApproval::decl(config),
             AgentConnectionConfig::decl(config),
             AgentConnectionStatus::decl(config),
+            AgentSystemPrompt::decl(config),
             AgentRunStatus::decl(config),
             AgentMessage::decl(config),
             AgentSnapshot::decl(config),

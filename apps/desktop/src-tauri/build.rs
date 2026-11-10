@@ -6,6 +6,8 @@ const COMMANDS: &[&str] = &[
     "download_update",
     "install_update",
     "get_agent_connection",
+    "get_agent_system_prompt",
+    "save_agent_system_prompt",
     "list_agent_sessions",
     "new_agent_session",
     "select_agent_session",

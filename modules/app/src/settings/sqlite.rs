@@ -26,6 +26,56 @@ pub struct GlobalSettingsStore {
 
 impl GlobalSettingsStore {
     #[cfg(feature = "native")]
+    pub(crate) fn agent_system_prompt(
+        &self,
+    ) -> Result<Option<crate::agent::system_prompt::StoredSystemPrompt>, PersistenceError> {
+        let value: Option<String> = self
+            .connection()?
+            .query_row(
+                "SELECT agent_system_prompt_json FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| PersistenceError::failure("read assistant system prompt", error))?;
+        value.as_deref().map(decode).transpose()
+    }
+
+    #[cfg(feature = "native")]
+    pub(crate) fn save_agent_system_prompt(
+        &self,
+        custom_prompt: Option<String>,
+        built_in: &str,
+    ) -> Result<Option<crate::agent::system_prompt::StoredSystemPrompt>, PersistenceError> {
+        use crate::agent::system_prompt::StoredSystemPrompt;
+
+        // Keep the read and replacement under one lock so concurrent saves compare actual state.
+        let connection = self.connection()?;
+        let value: Option<String> = connection
+            .query_row(
+                "SELECT agent_system_prompt_json FROM global_settings WHERE id=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| {
+                PersistenceError::failure("read assistant system prompt for replacement", error)
+            })?;
+        let previous: Option<StoredSystemPrompt> = value.as_deref().map(decode).transpose()?;
+        let stored = StoredSystemPrompt::replacement(previous.as_ref(), custom_prompt, built_in);
+        if stored != previous {
+            let value = stored.as_ref().map(encode).transpose()?;
+            connection
+                .execute(
+                    "UPDATE global_settings SET agent_system_prompt_json=?1 WHERE id=1",
+                    [value],
+                )
+                .map_err(|error| {
+                    PersistenceError::failure("save assistant system prompt", error)
+                })?;
+        }
+        Ok(stored)
+    }
+
+    #[cfg(feature = "native")]
     pub(crate) fn credential_name_for_version(
         &self,
         version: &str,

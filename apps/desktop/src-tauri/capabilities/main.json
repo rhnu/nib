@@ -10,6 +10,8 @@
     "allow-download-update",
     "allow-install-update",
     "allow-get-agent-connection",
+    "allow-get-agent-system-prompt",
+    "allow-save-agent-system-prompt",
     "allow-list-agent-sessions",
     "allow-new-agent-session",
     "allow-select-agent-session",

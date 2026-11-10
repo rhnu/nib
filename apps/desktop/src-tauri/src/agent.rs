@@ -3,7 +3,8 @@
 use nib_app::{
     agent::{
         AgentConfiguration, AgentConnectionConfig, AgentConnectionStatus, AgentError,
-        AgentPermission, AgentProvider, AgentRuntime, AgentSession, AgentSnapshot, ExtensionError,
+        AgentPermission, AgentProvider, AgentRuntime, AgentSession, AgentSnapshot,
+        AgentSystemPrompt, ExtensionError,
         mcp::{McpConnectionTest, McpSecrets, McpServerConfig, McpServerStatus},
         skills::{SkillConfig, SkillDocument, SkillSummary},
     },
@@ -40,6 +41,37 @@ fn agent_error(error: AgentError) -> ApiError {
         message: UserMessage::external(error.safe_message()),
         validation_fields: Vec::new(),
     }
+}
+
+#[tauri::command]
+pub(crate) async fn get_agent_system_prompt(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<AgentSystemPrompt, ApiError> {
+    let access = state.app.read_access().await;
+    let app = state.app.clone();
+    blocking(move || {
+        let _access = access;
+        app.agent_configuration()
+            .system_prompt()
+            .map_err(agent_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn save_agent_system_prompt(
+    state: tauri::State<'_, DesktopState>,
+    custom_prompt: Option<String>,
+) -> Result<AgentSystemPrompt, ApiError> {
+    let access = state.app.write_access().await.map_err(persistence_error)?;
+    let app = state.app.clone();
+    blocking(move || {
+        let _access = access;
+        app.agent_configuration()
+            .save_system_prompt(custom_prompt)
+            .map_err(agent_error)
+    })
+    .await
 }
 
 #[tauri::command]

@@ -20,6 +20,7 @@ import { errorMessage } from "@/shared/host/error";
 import { t } from "@/shared/i18n";
 import { agentApi } from "./api";
 import { AgentConnection } from "./agent-connection";
+import { AgentSystemPromptSettings } from "./agent-system-prompt-settings";
 import { useAgentSettings } from "./use-agent-settings";
 import { McpServerDialog } from "./mcp-server-dialog";
 import { SkillViewer } from "./skill-viewer";
@@ -88,6 +89,7 @@ export function AgentSettings({ visible }: { visible: boolean }) {
         open={visible}
         visible
       />
+      <AgentSystemPromptSettings />
       <SettingsGroup
         title={
           <>

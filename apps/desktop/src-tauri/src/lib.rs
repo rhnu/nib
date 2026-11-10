@@ -136,6 +136,8 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         agent::save_agent_permission,
         agent::approve_agent_generation,
         agent::save_agent_connection,
+        agent::get_agent_system_prompt,
+        agent::save_agent_system_prompt,
         agent::get_agent_state,
         agent::start_agent_run,
         agent::cancel_agent_run,

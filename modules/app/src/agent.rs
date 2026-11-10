@@ -18,6 +18,8 @@ mod sessions;
 pub mod skills;
 #[cfg(feature = "native")]
 pub(crate) mod storage;
+#[cfg(any(feature = "native", test))]
+pub(crate) mod system_prompt;
 #[cfg(feature = "native")]
 mod tools;
 #[cfg(feature = "native")]
@@ -86,6 +88,16 @@ pub struct AgentConnectionStatus {
     pub config: Option<AgentConnectionConfig>,
     pub configured: bool,
     pub generation_permission: AgentPermission,
+}
+
+/// The shipped instructions and an optional global user replacement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
+pub struct AgentSystemPrompt {
+    pub built_in: String,
+    pub custom_prompt: Option<String>,
+    pub built_in_changed: bool,
 }
 
 /// Persistent permission for Agent-initiated paid generation.

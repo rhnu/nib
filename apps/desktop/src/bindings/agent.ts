@@ -14,6 +14,8 @@ export type AgentConnectionConfig = { model: string, provider: AgentProvider, };
 
 export type AgentConnectionStatus = { config: AgentConnectionConfig | null, configured: boolean, generationPermission: AgentPermission, };
 
+export type AgentSystemPrompt = { builtIn: string, customPrompt: string | null, builtInChanged: boolean, };
+
 export type AgentRunStatus = "idle" | "running" | "completed" | "cancelled" | "failed";
 
 export type AgentMessage = { id: string,

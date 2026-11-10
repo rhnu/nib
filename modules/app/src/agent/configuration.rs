@@ -4,8 +4,9 @@ use std::sync::{Arc, Mutex};
 use secrecy::ExposeSecret as _;
 
 use super::{
-    AgentConnectionConfig, AgentConnectionStatus, AgentError, AgentProvider,
+    AgentConnectionConfig, AgentConnectionStatus, AgentError, AgentProvider, AgentSystemPrompt,
     storage::ConnectionMetadata,
+    system_prompt::{BUILT_IN, validate_custom_prompt},
 };
 use crate::settings::{CredentialStore, GlobalSettingsStore};
 
@@ -78,6 +79,34 @@ impl AgentConfiguration {
             configured,
             generation_permission: self.settings.agent_permission()?,
         })
+    }
+
+    /// Reads the global replacement without opening creation data or credentials.
+    /// # Errors
+    /// Returns configuration storage failures.
+    pub fn system_prompt(&self) -> Result<AgentSystemPrompt, AgentError> {
+        Ok(AgentSystemPrompt::from_stored(
+            self.settings.agent_system_prompt()?,
+            BUILT_IN,
+        ))
+    }
+
+    /// Replaces the complete system instructions, or restores the shipped default.
+    /// # Errors
+    /// Returns blank input or configuration storage failures.
+    pub fn save_system_prompt(
+        &self,
+        custom_prompt: Option<String>,
+    ) -> Result<AgentSystemPrompt, AgentError> {
+        validate_custom_prompt(custom_prompt.as_deref())?;
+        let stored = self
+            .settings
+            .save_agent_system_prompt(custom_prompt, BUILT_IN)?;
+        tracing::info!(
+            customized = stored.is_some(),
+            "assistant system prompt saved"
+        );
+        Ok(AgentSystemPrompt::from_stored(stored, BUILT_IN))
     }
 
     /// Lists models using the current form endpoint and a new key, or the same saved endpoint's key.

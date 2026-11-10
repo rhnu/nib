@@ -2,6 +2,22 @@ export const agent = {
   saving: "Saving…",
   modelPermissions: "Model and permissions",
   settings: "Agent settings",
+  systemPrompt: "System prompt",
+  systemPromptHelp:
+    "The built-in prompt follows app updates. Editing and saving creates a custom override that is kept across updates. Changes apply to the next run; enabled skill metadata is added automatically.",
+  systemPromptBuiltIn: "Using the built-in prompt",
+  systemPromptCustom: "Using your custom prompt",
+  systemPromptContent: "Prompt content",
+  systemPromptEmpty: "Enter a system prompt, or reset to use the built-in prompt.",
+  systemPromptUpdated:
+    "The built-in prompt has changed since your last edit. Your custom prompt is retained. View the latest built-in prompt to compare and edit, or reset to follow it.",
+  viewBuiltInPrompt: "View latest built-in prompt",
+  saveSystemPrompt: "Save prompt",
+  systemPromptSaved: "System prompt saved. Applies to the next run.",
+  resetSystemPrompt: "Reset to built-in prompt",
+  resetSystemPromptHelp:
+    "Discard your custom prompt and unsaved edits? The latest built-in prompt will be used and will follow future app updates.",
+  systemPromptReset: "Restored the built-in system prompt.",
   history: "Chat history",
   historyHelp:
     "Keep up to 10 chats. New chats replace the oldest by creation time; the current blank chat is reused.",

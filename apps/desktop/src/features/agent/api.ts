@@ -12,12 +12,16 @@ import type {
   SkillSummary,
   AgentPermission,
   AgentProvider,
+  AgentSystemPrompt,
 } from "@/bindings/agent";
 import type { DraftSnapshot } from "@/bindings/workbench";
 import { invokeHost } from "@/shared/host/invoke";
 
 /** Secrets only cross the connection command and are never part of query or conversation state. */
 export const agentApi = {
+  systemPrompt: () => invokeHost<AgentSystemPrompt>("get_agent_system_prompt"),
+  saveSystemPrompt: (customPrompt: string | null) =>
+    invokeHost<AgentSystemPrompt>("save_agent_system_prompt", { customPrompt }),
   connection: () => invokeHost<AgentConnectionStatus>("get_agent_connection"),
   saveConnection: (config: AgentConnectionConfig, apiKey: string | null) =>
     invokeHost<AgentConnectionStatus>("save_agent_connection", { config, apiKey }),
