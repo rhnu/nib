@@ -1,3 +1,5 @@
+import { Button, Modal, Notice, Grid, Row, Col, Toolbar } from "@/shared/ui";
+
 import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
@@ -6,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUpLeft, RotateCw } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { GenerationResult } from "@/bindings/generation";
-import { Button, Modal, Notice } from "@/shared/ui";
+
 import { ResultResubmitDialog } from "./result-resubmit-dialog";
 import { SubmissionSummary } from "../submission/submission-summary";
 import { useMediaContent } from "@/features/media/use-media-content";
@@ -73,10 +75,17 @@ function ResultDetailContent({
       }
       wide
     >
-      <div className="generation-detail">
-        <div className="generation-detail-image">
+      <Grid
+        gap={0}
+        align="stretch"
+        className="generation-detail [&_button]:shrink-0 [&_p]:m-0 grid grid-cols-[minmax(0,_1.4fr)_minmax(260px,_0.8fr)] flex-1 min-h-0 overflow-auto max-[950px]:grid-cols-1"
+      >
+        <Row
+          gap={0}
+          className="generation-detail-image [&_img]:w-full [&_img]:max-h-[75vh] [&_img]:object-contain max-[950px]:[&_img]:max-h-[45vh] flex items-center justify-center min-h-[250px] p-space-5 bg-background"
+        >
           {!result.available ? (
-            <p className="generation-muted">{t("generation.mediaMissing")}</p>
+            <p className="generation-muted text-muted">{t("generation.mediaMissing")}</p>
           ) : image.error ? (
             <Notice actions={<Button onClick={image.retry}>{t("generation.retryLoad")}</Button>}>
               {image.error}
@@ -103,17 +112,24 @@ function ResultDetailContent({
           ) : (
             <output>{t("generation.loadingResultImage")}</output>
           )}
-        </div>
-        <div className="generation-detail-info">
+        </Row>
+        <Col
+          gap={0}
+          align="stretch"
+          className="generation-detail-info flex flex-col gap-space-5 p-[18px] overflow-auto min-w-0"
+        >
           <SubmissionSummary submission={result.submission} />
           {result.submission.kind === "generation" && (
-            <p className="generation-muted">
+            <p className="generation-muted text-muted">
               {result.seed === null
                 ? t("generation.sampleSeedMissingHelp")
                 : t("generation.sampleSeedValue", { value0: result.seed })}
             </p>
           )}
-          <div className="ui-actions">
+          <Toolbar
+            gap={2}
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+          >
             <Button
               onClick={() => {
                 setConfirmRestore(true);
@@ -128,9 +144,15 @@ function ResultDetailContent({
               <RotateCw size={14} />
               {isDirector ? t("generation.processAgain") : t("generation.generateAgain")}
             </Button>
-          </div>
+          </Toolbar>
           {confirmRestore && (
-            <fieldset className="generation-restore-confirm">
+            <Grid
+              gap={0}
+              align="stretch"
+              columns={1}
+              as="fieldset"
+              className="generation-restore-confirm grid gap-[10px] p-space-4 border border-accent bg-accent-soft rounded-control"
+            >
               <legend>
                 {isDirector
                   ? t("generation.replaceToolInputTitle")
@@ -139,23 +161,31 @@ function ResultDetailContent({
               <p>
                 {isDirector ? t("generation.restoreToolHelp") : t("generation.restoreCreationHelp")}
               </p>
-              <div className="ui-actions">
+              <Toolbar
+                gap={2}
+                className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+              >
                 <Button disabled={restoring} onClick={() => setConfirmRestore(false)}>
                   {isDirector ? t("generation.keepToolInput") : t("generation.keepCreation")}
                 </Button>
-                <Button className="primary" disabled={restoring} onClick={() => void restore()}>
+                <Button
+                  variant="primary"
+                  className=""
+                  disabled={restoring}
+                  onClick={() => void restore()}
+                >
                   {restoring
                     ? t("generation.restoring")
                     : isDirector
                       ? t("generation.restoreToolInput")
                       : t("generation.replaceCreation")}
                 </Button>
-              </div>
-            </fieldset>
+              </Toolbar>
+            </Grid>
           )}
           {error && <Notice>{error}</Notice>}
-        </div>
-      </div>
+        </Col>
+      </Grid>
       {resubmitOpen && (
         <ResultResubmitDialog result={result} onClose={() => setResubmitOpen(false)} />
       )}
@@ -179,7 +209,11 @@ export function ResultDetail(
   if (detail.value) return <ResultDetailContent {...props} result={detail.value} />;
   return (
     <Modal open onClose={props.onClose} title={t("generation.generationResult")}>
-      <div className="generation-dialog-body">
+      <Col
+        gap={0}
+        align="stretch"
+        className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto [&_button]:shrink-0 [&_p]:m-0"
+      >
         {detail.error ? (
           <Notice actions={<Button onClick={detail.retry}>{t("generation.retryLoad")}</Button>}>
             {detail.error}
@@ -187,7 +221,7 @@ export function ResultDetail(
         ) : (
           <output>{t("generation.loadingResultDetails")}</output>
         )}
-      </div>
+      </Col>
     </Modal>
   );
 }

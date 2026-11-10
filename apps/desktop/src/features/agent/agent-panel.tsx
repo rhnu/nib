@@ -1,7 +1,9 @@
+import { Button, IconButton, Col, Row, ButtonGroup } from "@/shared/ui";
+
 import { useEffect, useRef, useState } from "react";
 import { Bot, Settings2, Square, Trash2, Undo2, X } from "lucide-react";
 import type { AgentMessage } from "@/bindings/agent";
-import { Button, IconButton } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 import { t, useTranslation } from "@/shared/i18n";
 import type { AgentController } from "./use-agent";
@@ -90,20 +92,27 @@ export function AgentPanel({
   }, [open, onClose]);
 
   return (
-    <aside
+    <Col
+      gap={0}
+      as="aside"
       ref={panel}
       id="agent-panel"
-      className="agent-panel"
+      className="agent-panel [flex:0_0_clamp(320px,_27vw,_390px)] min-w-0 min-h-0 [border-left:1px_solid_var(--line)] bg-panel overflow-hidden [&[hidden]]:hidden max-[1050px]:absolute max-[1050px]:[z-index:40] max-[1050px]:[inset:0_0_0_auto] max-[1050px]:[width:min(390px,_100%)] max-[1050px]:[box-shadow:var(--shadow)]"
       hidden={!open}
       aria-label={t("agent.title")}
       data-agent-panel
     >
-      <div className="agent-panel-header">
-        <strong>
+      <Row
+        gap={2}
+        align="center"
+        justify="between"
+        className="agent-panel-header py-space-2 px-[10px] [border-bottom:1px_solid_var(--line-subtle)]"
+      >
+        <Row align="stretch" as="strong" gap={2}>
           <Bot size={16} aria-hidden />
           {t("agent.title")}
-        </strong>
-        <div className="button-group">
+        </Row>
+        <ButtonGroup gap={1} className="button-group">
           <IconButton
             label={t("agent.connection")}
             aria-expanded={settingsOpen}
@@ -115,10 +124,10 @@ export function AgentPanel({
           <IconButton label={t("agent.close")} onClick={onClose}>
             <X size={16} aria-hidden />
           </IconButton>
-        </div>
-      </div>
-      <div className="agent-run-status">
-        <output className="agent-state" aria-live="polite">
+        </ButtonGroup>
+      </Row>
+      <Row gap={2} align="center" justify="between" className="agent-run-status shrink-0 pr-[10px]">
+        <output className="agent-state py-space-2 px-space-4 text-accent" aria-live="polite">
           {agent.phase === "ready"
             ? t(`agent.${agent.snapshot?.status ?? "idle"}`)
             : t(`agent.${agent.phase}`)}
@@ -129,8 +138,12 @@ export function AgentPanel({
             {t(agent.cancelling ? "agent.cancelling" : "agent.cancel")}
           </Button>
         )}
-      </div>
-      {locked && <p className="agent-lock-notice">{t("agent.lockedNotice")}</p>}
+      </Row>
+      {locked && (
+        <p className="agent-lock-notice m-0 text-muted text-label [padding:0_12px_8px]">
+          {t("agent.lockedNotice")}
+        </p>
+      )}
       <AgentConnection
         agent={agent}
         disabled={locked || readOnly}
@@ -141,7 +154,7 @@ export function AgentPanel({
       {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex */}
       <div
         ref={log}
-        className="agent-conversation"
+        className="agent-conversation flex-1 [min-height:70px] overflow-auto p-space-4 [overscroll-behavior:contain] bg-background [&:focus-visible]:[outline:2px_solid_var(--accent)] [&:focus-visible]:[outline-offset:-2px]"
         role="log"
         tabIndex={0}
         aria-label={t("agent.conversation")}
@@ -153,10 +166,20 @@ export function AgentPanel({
               log.current.scrollHeight - log.current.scrollTop - log.current.clientHeight < 60;
         }}
       >
-        {!messages.length && <p className="agent-empty">{t("agent.empty")}</p>}
+        {!messages.length && (
+          <p className="agent-empty m-0 text-muted text-label">{t("agent.empty")}</p>
+        )}
         {messages.map((message) => (
-          <article className={`agent-message agent-message-${message.role}`} key={message.id}>
-            <div className="agent-message-heading">
+          <article
+            className={`agent-message mb-[14px] ${message.role === "tool" ? "border-l-2 border-line pl-space-3 [&_.agent-message-content]:text-label" : ""}`}
+            key={message.id}
+          >
+            <Row
+              gap={2}
+              align="center"
+              wrap
+              className="agent-message-heading text-caption text-muted [&_strong]:text-foreground"
+            >
               <strong>
                 {t(
                   message.role === "user"
@@ -168,12 +191,12 @@ export function AgentPanel({
               </strong>
               {message.toolName && <span>{toolLabel(message.toolName)}</span>}
               {message.success !== null && (
-                <span className={message.success ? "" : "agent-failure"}>
+                <span className={message.success ? "" : "agent-failure text-danger"}>
                   {t(message.success ? "agent.toolSucceeded" : "agent.toolFailed")}
                 </span>
               )}
-            </div>
-            <div className="agent-message-content">
+            </Row>
+            <div className="agent-message-content whitespace-pre-wrap [overflow-wrap:anywhere] mt-space-1 select-text">
               {message.role === "assistant" ? (
                 <AgentMarkdown
                   content={message.content}
@@ -183,22 +206,31 @@ export function AgentPanel({
                 messageContent(message)
               )}
             </div>
-            <div className="agent-message-images">
+            <Row gap={2} align="stretch" wrap className="agent-message-images [&:empty]:hidden">
               {message.assetIds.map((id) => (
                 <AgentImage key={id} id={id} />
               ))}
-            </div>
+            </Row>
           </article>
         ))}
       </div>
       {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
       {(Boolean(agent.error) || agent.snapshot?.error) && (
-        <div className="agent-error" role="alert">
+        <div
+          className="agent-error py-space-3 px-space-4 text-danger [border-top:1px_solid_var(--line-subtle)] [max-height:140px] overflow-auto [&_p]:[margin:0_0_6px] [&_p]:whitespace-pre-wrap [&_p]:[overflow-wrap:anywhere]"
+          role="alert"
+        >
           <p>{agent.error ? errorMessage(agent.error) : agent.snapshot?.error}</p>
           <Button onClick={() => void agent.retry()}>{t("agent.retry")}</Button>
         </div>
       )}
-      <div className="agent-conversation-actions">
+      <Row
+        gap={2}
+        align="center"
+        justify="between"
+        wrap
+        className="agent-conversation-actions py-space-2 px-[10px] [border-top:1px_solid_var(--line-subtle)] [&_button]:text-label"
+      >
         <Button
           disabled={locked || readOnly || !agent.undoAvailable}
           onClick={() => void agent.undo()}
@@ -224,9 +256,9 @@ export function AgentPanel({
             {t("agent.undoResources")}
           </Button>
         )}
-      </div>
+      </Row>
       <AgentApprovalCard agent={agent} readOnly={readOnly} />
       <AgentComposer agent={agent} disabled={locked || readOnly} />
-    </aside>
+    </Col>
   );
 }

@@ -1,7 +1,19 @@
+import {
+  ButtonGroup,
+  Grid,
+  Input,
+  Button,
+  Field,
+  Modal,
+  Notice,
+  Select,
+  notify,
+} from "@/shared/ui";
+
 import { useContext, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ExtractedTag } from "@/bindings/safety";
-import { Button, Field, Modal, Notice, Select, notify } from "@/shared/ui";
+
 import {
   t,
   useTranslation,
@@ -142,7 +154,16 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
 
   return (
     <Modal open onClose={onClose} title={t("safety.tags")} wide>
-      <fieldset className="image-tag-dialog" disabled={busy} aria-busy={busy}>
+      <Grid
+        align="stretch"
+        as="fieldset"
+        gap={0}
+        columns={1}
+        minColumnWidth="0px"
+        className="image-tag-dialog grid gap-space-4 p-space-5 [border:0] m-0 min-w-0"
+        disabled={busy}
+        aria-busy={busy}
+      >
         {modelLoading && !tags.isFetching && <output>{t("safety.modelLoading")}</output>}
         {tags.isFetching && <output>{t("safety.recognizing")}</output>}
         {availability.data?.wd.error && <Notice>{availability.data.wd.error}</Notice>}
@@ -162,18 +183,26 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
             {errorMessage(tags.error)}
           </Notice>
         )}
-        {modelMissing && <p className="image-safety-hint">{t("safety.needsModel")}</p>}
+        {modelMissing && (
+          <p className="image-safety-hint text-label text-muted">{t("safety.needsModel")}</p>
+        )}
         {workbench && (modelMissing || availability.data?.wd.error) && (
           <Button onClick={() => void openDownloads()}>{t("safety.downloads")}</Button>
         )}
         {tags.data && (
           <>
-            <div className="image-tag-groups">
+            <Grid
+              columns={1}
+              align="stretch"
+              gap={0}
+              minColumnWidth="0px"
+              className="image-tag-groups grid grid-cols-2 gap-space-4"
+            >
               {groups.map((group) => (
                 <section key={group.key}>
                   <h3>{t(`safety.${group.key}`)}</h3>
                   <Field label={t("safety.threshold")}>
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       max={1}
@@ -186,14 +215,20 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
                       }}
                     />
                   </Field>
-                  <div className="image-tag-list">
+                  <Grid
+                    align="stretch"
+                    gap={0}
+                    columns={1}
+                    minColumnWidth="0px"
+                    className="image-tag-list [&_label]:flex [&_label]:items-center [&_label]:gap-space-2 [&_output]:ml-auto [&_output]:text-muted grid content-start gap-space-1 max-h-[40vh] overflow-auto p-[8px_0]"
+                  >
                     {group.items
                       .filter((tag) => tag.confidence >= group.threshold)
                       .map((tag: ExtractedTag) => {
                         const key = `${group.key}:${tag.name}`;
                         return (
                           <label key={key}>
-                            <input
+                            <Input
                               type="checkbox"
                               checked={!excluded.has(key)}
                               onChange={(event) =>
@@ -216,13 +251,13 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
                         );
                       })}
                     {!group.items.some((tag) => tag.confidence >= group.threshold) && (
-                      <p className="muted">{t("safety.noTags")}</p>
+                      <p className="muted text-muted">{t("safety.noTags")}</p>
                     )}
-                  </div>
+                  </Grid>
                 </section>
               ))}
-            </div>
-            <div className="button-group">
+            </Grid>
+            <ButtonGroup gap={0} className="button-group">
               <Button onClick={() => setExcluded(new Set())}>{t("safety.selectAll")}</Button>
               <Button onClick={() => setExcluded(new Set(visible.map((item) => item.key)))}>
                 {t("safety.selectNone")}
@@ -233,8 +268,8 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
               >
                 {t("safety.recognize")}
               </Button>
-            </div>
-            <div className="button-group">
+            </ButtonGroup>
+            <ButtonGroup gap={0} className="button-group">
               <Button disabled={busy || !selected.length} onClick={() => void run(false)}>
                 {t("safety.copy")}
               </Button>
@@ -255,15 +290,17 @@ export function ImageTagDialog({ assetId, onClose }: { assetId: string; onClose:
                   </Button>
                 </>
               )}
-            </div>
-            {target?.linked && <p className="image-safety-hint">{t("safety.expandsPreset")}</p>}
-            <p className="image-safety-hint">
+            </ButtonGroup>
+            {target?.linked && (
+              <p className="image-safety-hint text-label text-muted">{t("safety.expandsPreset")}</p>
+            )}
+            <p className="image-safety-hint text-label text-muted">
               {t("safety.model")}: {tags.data.modelVersion}
             </p>
           </>
         )}
         {error && <Notice>{error}</Notice>}
-      </fieldset>
+      </Grid>
     </Modal>
   );
 }

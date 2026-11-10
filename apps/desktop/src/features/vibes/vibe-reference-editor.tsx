@@ -1,13 +1,14 @@
+import { Grid, ConfirmIconButton, Field, HelpMarker, IconButton, Select } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
-import { ConfirmIconButton, FormField, HelpMarker, IconButton, Select } from "@/shared/ui";
+
 import { preciseReferenceMessages } from "@/features/references/model";
 import { VibeReferenceRow } from "./vibe-reference-row";
 import { VibeMaterialDialog } from "./vibe-material-dialog";
 import { referenceMode, showVibeReferences, type VibeIssues } from "./model";
-import "./vibes.css";
 
 export function VibeNormalize({
   value,
@@ -22,8 +23,8 @@ export function VibeNormalize({
 
   const id = useId();
   return (
-    <FormField
-      className="vibe-normalize"
+    <Field
+      className="vibe-normalize [&_.form-label]:min-w-0 grid grid-cols-[minmax(0,_1fr)_118px] items-center gap-space-3 grid-rows-[auto]"
       label={t("vibes.strengthNormalization")}
       htmlFor={id}
       help={
@@ -34,7 +35,7 @@ export function VibeNormalize({
     >
       <Select
         id={id}
-        className={value === null ? "inherited-control" : undefined}
+        className={value === null ? "text-muted" : undefined}
         value={value === null ? "inherit" : String(value)}
         onValueChange={(value) => onChange(referenceMode(value))}
         options={[
@@ -46,7 +47,7 @@ export function VibeNormalize({
           { value: "false", label: t("vibes.off") },
         ]}
       />
-    </FormField>
+    </Field>
   );
 }
 
@@ -98,14 +99,22 @@ function Editor({
 
   const message = capabilities ? preciseReferenceMessages(capabilities).vibe : null;
   return (
-    <section className="vibe-editor" aria-label={t("vibes.vibeReferences")}>
-      <header className="vibe-heading">
+    <Grid
+      align="stretch"
+      as="section"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="vibe-editor [&_>_h3]:m-0 [&_>_h3]:text-foreground [&_>_h3]:text-body [&_>_h3]:font-semibold grid gap-space-3 min-w-0"
+      aria-label={t("vibes.vibeReferences")}
+    >
+      <header className="vibe-heading flex items-center gap-[5px] [&_h3]:m-0 [&_h3]:text-foreground [&_h3]:text-body [&_h3]:font-semibold [&_h3]:flex [&_h3]:items-center [&_h3]:gap-space-1">
         <h3>
           {t("vibes.vibeTransfer")}
           {value.length ? ` · ${value.length}` : ""}
           <HelpMarker label={t("vibes.vibeHelp")}>{t("vibes.vibeDescription")}</HelpMarker>
         </h3>
-        <span className="spacer" />
+        <span className="flex-1" />
         <IconButton label={t("vibes.openMaterials")} onClick={() => setMaterials(true)}>
           <Plus size={14} />
         </IconButton>
@@ -120,7 +129,9 @@ function Editor({
             />
           </div>
         )}
-      {message && <p className="vibe-message">{message}</p>}
+      {message && (
+        <p className="vibe-message m-0 text-danger text-label wrap-anywhere">{message}</p>
+      )}
       {value.map((reference, index) => (
         <VibeReferenceRow
           key={reference.id}
@@ -173,6 +184,6 @@ function Editor({
           setMaterials(false);
         }}
       />
-    </section>
+    </Grid>
   );
 }

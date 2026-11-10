@@ -1,3 +1,5 @@
+import { Row } from "@/shared/ui";
+
 import { SafetyImage } from "@/features/media/safety-image";
 import { ImageOff, Layers, Link2 } from "lucide-react";
 import { useMediaContent } from "@/features/media/use-media-content";
@@ -14,7 +16,10 @@ export function ResourceCover({
 }) {
   const image = useMediaContent(assetId, "image/png", !!assetId, "thumbnail");
   return (
-    <div className="resource-cover">
+    <Row
+      gap={0}
+      className="resource-cover [&_img]:w-full [&_img]:h-full [&_img]:object-cover flex items-center justify-center overflow-hidden bg-panel text-muted"
+    >
       {image.url ? (
         <SafetyImage assetId={assetId} src={image.url} alt={name} onError={image.failed} />
       ) : image.error ? (
@@ -24,6 +29,6 @@ export function ResourceCover({
       ) : (
         <Layers size={30} aria-hidden />
       )}
-    </div>
+    </Row>
   );
 }

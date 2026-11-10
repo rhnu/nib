@@ -1,9 +1,21 @@
+import {
+  Button,
+  Row,
+  IconButton,
+  Notice,
+  notify,
+  Col,
+  Input,
+  Grid,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
 import { ArrowDown, ArrowUp, ChevronDown, Copy, X } from "lucide-react";
 import type { PromptSyntaxProfile } from "@/bindings/prompt";
-import { Button, IconButton, Notice, notify } from "@/shared/ui";
+
 import { formatNumber, t, useMessageState, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { formatLexiconTerms } from "@/features/prompt/format-runtime";
@@ -73,15 +85,26 @@ export function LexiconComposer({
   };
 
   return (
-    <section className="lexicon-composer" aria-label={t("lexicon.combination")}>
-      <h2 className="lexicon-composer-heading">
+    <Col
+      gap={0}
+      as="section"
+      className="lexicon-composer min-w-0 min-h-0 [border-left:1px_solid_var(--line)] max-[850px]:[flex:0_0_auto] max-[850px]:[border-left:0] max-[850px]:[border-top:1px_solid_var(--line)]"
+      aria-label={t("lexicon.combination")}
+    >
+      <h2 className="lexicon-composer-heading text-body font-semibold py-space-4 px-[14px] text-foreground [&_>_button]:w-full [&_>_button]:justify-start [&_svg]:ml-auto">
         <Button aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {t("lexicon.combination")}
-          <span className="count">{formatNumber(selected.length)}</span>
+          <span className="count ml-space-3 text-caption text-muted font-[450]">
+            {formatNumber(selected.length)}
+          </span>
           <ChevronDown size={14} aria-hidden />
         </Button>
       </h2>
-      <div className="lexicon-composer-content" hidden={!expanded}>
+      <Col
+        gap={4}
+        className="lexicon-composer-content min-h-0 flex-1 [padding:0_14px_14px]"
+        hidden={!expanded}
+      >
         {invalidated && (
           <Notice
             actions={
@@ -93,22 +116,29 @@ export function LexiconComposer({
             {t("lexicon.resourceChanged")}
           </Notice>
         )}
-        <div className="lexicon-selection-scroll">
+        <div className="lexicon-selection-scroll [min-height:70px] [max-height:48%] overflow-auto max-[850px]:[max-height:220px]">
           {selected.length === 0 ? (
-            <p className="empty-note">{t("lexicon.selectHelp")}</p>
+            <p className="empty-note text-muted text-label leading-[1.75] m-[3px_0]">
+              {t("lexicon.selectHelp")}
+            </p>
           ) : (
-            <ol className="lexicon-selected" aria-label={t("lexicon.selected")}>
+            <ol
+              className="lexicon-selected list-none [margin:0_0_var(--space-3)] p-0 [&_>_li]:py-space-3 [&_>_li]:px-0 [&_>_li]:[border-bottom:1px_solid_var(--line-subtle)]"
+              aria-label={t("lexicon.selected")}
+            >
               {selected.map((item, index) => (
-                <li key={item.term.key}>
-                  <span className="lexicon-order">{formatNumber(index + 1)}</span>
-                  <div className="lexicon-selected-name">
+                <Row align="stretch" as="li" gap={2} key={item.term.key}>
+                  <span className="lexicon-order text-muted text-caption [min-width:12px]">
+                    {formatNumber(index + 1)}
+                  </span>
+                  <div className="lexicon-selected-name [&_strong]:font-mono [&_strong]:text-label [&_strong]:font-normal min-w-0 flex-1 [overflow-wrap:anywhere] [&_small]:block [&_small]:text-caption [&_small]:text-muted">
                     <strong>{item.term.name}</strong>
                     {item.term.translation && <small>{item.term.translation}</small>}
                   </div>
                   {weighted && (
-                    <input
+                    <Input
                       type="number"
-                      className="lexicon-weight"
+                      className="lexicon-weight [width:62px] shrink-0"
                       aria-label={`${item.term.name} · ${t(profile!.numericWeights ? "lexicon.weight" : "lexicon.emphasis")}`}
                       title={t(profile!.numericWeights ? "lexicon.weight" : "lexicon.emphasis")}
                       aria-invalid={!validLexiconSelection([item], profile)}
@@ -137,7 +167,12 @@ export function LexiconComposer({
                       }
                     />
                   )}
-                  <div className="lexicon-selection-actions">
+                  <Grid
+                    align="stretch"
+                    gap={0}
+                    columns={1}
+                    className="lexicon-selection-actions [grid-template-columns:repeat(3,_24px)] [&_>_.icon-button]:[min-width:24px] [&_>_.icon-button]:[width:24px] [&_>_.icon-button]:p-[3px]"
+                  >
                     <IconButton
                       label={t("lexicon.moveUp", { name: item.term.name })}
                       disabled={index === 0}
@@ -158,8 +193,8 @@ export function LexiconComposer({
                     >
                       <X size={13} aria-hidden />
                     </IconButton>
-                  </div>
-                </li>
+                  </Grid>
+                </Row>
               ))}
             </ol>
           )}
@@ -167,14 +202,19 @@ export function LexiconComposer({
             <Button onClick={() => store.setState({ selected: [] })}>{t("lexicon.clear")}</Button>
           )}
         </div>
-        <div className="lexicon-preview">
+        <Col
+          gap={0}
+          className="lexicon-preview [min-height:100px] flex-1 [&_h3]:[margin:0_0_var(--space-2)] [&_pre]:m-0 [&_pre]:p-[9px] [&_pre]:[min-height:90px] [&_pre]:flex-1 [&_pre]:overflow-auto [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre]:font-mono [&_pre]:text-label [&_pre]:[border:1px_solid_var(--line)] [&_pre]:rounded-control [&_pre]:bg-background max-[850px]:[&_pre]:[max-height:180px]"
+        >
           <h3>{t("lexicon.preview")}</h3>
           <pre aria-label={t("lexicon.preview")}>{ready ? preview.data : ""}</pre>
           {selected.length > 0 && !profile && (
-            <p className="help-note">{t("lexicon.profileUnavailable")}</p>
+            <p className="help-note text-muted text-caption leading-[1.7] m-[var(--space-4)_0_0]">
+              {t("lexicon.profileUnavailable")}
+            </p>
           )}
           {selected.length > 0 && profile && !validLexiconSelection(selected, profile) && (
-            <p className="danger" role="alert">
+            <p className="danger text-danger" role="alert">
               {t("lexicon.invalidWeight")}
             </p>
           )}
@@ -186,11 +226,25 @@ export function LexiconComposer({
               {errorMessage(preview.error)}
             </Notice>
           )}
-        </div>
-        <div className="lexicon-composer-footer">
+        </Col>
+        <Grid
+          align="stretch"
+          gap={3}
+          columns={1}
+          className="lexicon-composer-footer [&_.help-note]:m-0"
+        >
           {targetSelector}
-          {readOnly && <p className="help-note">{t("lexicon.lookupOnly")}</p>}
-          <div className="ui-actions lexicon-output-actions">
+          {readOnly && (
+            <p className="help-note text-muted text-caption leading-[1.7] m-[var(--space-4)_0_0]">
+              {t("lexicon.lookupOnly")}
+            </p>
+          )}
+          <ButtonGroup
+            gap={3}
+            wrap
+            justify="end"
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3 lexicon-output-actions [&_>_button]:flex-1"
+          >
             <Button
               disabled={!ready}
               onClick={async () => {
@@ -207,14 +261,19 @@ export function LexiconComposer({
               {t("lexicon.copy")}
             </Button>
             {!readOnly && onInsert && (
-              <Button className="primary" disabled={!ready} onClick={() => void insert()}>
+              <Button
+                variant="primary"
+
+                disabled={!ready}
+                onClick={() => void insert()}
+              >
                 {t("lexicon.insert")}
               </Button>
             )}
-          </div>
+          </ButtonGroup>
           {error && <Notice>{error}</Notice>}
-        </div>
-      </div>
-    </section>
+        </Grid>
+      </Col>
+    </Col>
   );
 }

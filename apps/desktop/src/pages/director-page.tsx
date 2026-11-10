@@ -1,3 +1,5 @@
+import { Row } from "@/shared/ui";
+
 import { DirectorWorkspace } from "@/features/director";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
@@ -15,7 +17,7 @@ export function DirectorPage() {
   } = useWorkbenchContext();
   const { draft, readCurrentDraft, edit } = state;
   return (
-    <div className="director-page-slot">
+    <Row gap={0} align="stretch" className="director-page-slot flex flex-1 min-h-0 min-w-0">
       <DirectorWorkspace
         draft={draft}
         readCurrentDraft={readCurrentDraft}
@@ -35,6 +37,6 @@ export function DirectorPage() {
           editorCapabilities?.canAddVibeReference && editorCapabilities.vibeInputPath === "image",
         )}
       />
-    </div>
+    </Row>
   );
 }

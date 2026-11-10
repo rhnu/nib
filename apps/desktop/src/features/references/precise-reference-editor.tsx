@@ -1,15 +1,16 @@
+import { Grid, ConfirmIconButton, IconButton, Notice } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import type { ModelCapabilities, PreciseReferenceInput } from "@/bindings/workbench";
 import { trackPendingWork } from "@/shared/host/pending-work";
-import { ConfirmIconButton, IconButton, Notice } from "@/shared/ui";
+
 import { ImagePickerDialog } from "@/features/media";
 import { moveItem } from "@/features/prompt/model";
 import { referenceApi } from "./api";
 import { patchPreciseReference, showPreciseReferences, type PreciseReferenceIssues } from "./model";
 import { PreciseReferenceAvailability, PreciseReferenceRow } from "./precise-reference-row";
-import "./references.css";
 
 export interface PreciseReferenceEditorProps {
   value: PreciseReferenceInput[];
@@ -84,13 +85,22 @@ function EditorContent({
   if (!showPreciseReferences(capabilities, value.length)) return null;
 
   return (
-    <section className="precise-reference-editor" aria-label={title} aria-busy={busy}>
-      <header className="precise-reference-heading">
+    <Grid
+      align="stretch"
+      as="section"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="precise-reference-editor [&_>_h3]:m-0 [&_>_h3]:text-foreground [&_>_h3]:text-body [&_>_h3]:font-semibold grid min-w-0 gap-space-3"
+      aria-label={title}
+      aria-busy={busy}
+    >
+      <header className="precise-reference-heading flex items-center gap-[5px] min-w-0 [&_h3]:m-0 [&_h3]:text-foreground [&_h3]:text-body [&_h3]:font-semibold">
         <h3>
           {title}
           {value.length > 0 ? ` · ${value.length}` : ""}
         </h3>
-        <span className="spacer" />
+        <span className="flex-1" />
         <IconButton
           label={t("references.addPreciseImage")}
           disabled={
@@ -107,7 +117,7 @@ function EditorContent({
       </header>
       <PreciseReferenceAvailability capabilities={capabilities} />
       {busy && (
-        <output className="precise-reference-status">
+        <output className="precise-reference-status m-0 text-muted text-caption leading-[1.6] wrap-anywhere">
           {t("references.preparingPreciseReference")}
         </output>
       )}
@@ -167,6 +177,6 @@ function EditorContent({
           if (pickingType !== null) void add(asset.id, pickingType);
         }}
       />
-    </section>
+    </Grid>
   );
 }

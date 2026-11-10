@@ -1,3 +1,5 @@
+import { Button, Notice, Row } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useState } from "react";
 import { AccountProvider } from "@/features/generation/account/account-provider";
@@ -11,7 +13,7 @@ import { useWorkspaceStartup } from "./use-workspace-startup";
 import { SettingsPage, type SettingsSection } from "./settings-page";
 import { useApplicationSettings } from "./use-application-settings";
 import { useCloseGuard } from "@/shared/host/use-close-guard";
-import { Button, Notice } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 import { NavigationIcon } from "./navigation-icon";
 import { SafetyPreferencesContext } from "@/features/media/safety-image";
@@ -90,7 +92,13 @@ export default function App() {
                 <TitleBar
                   navigation={
                     settings.ready && (
-                      <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
+                      <Row
+                        gap={0}
+                        align="stretch"
+                        as="nav"
+                        className="desktop-navigation [align-self:stretch] gap-[3px] [&_button]:py-0 [&_button]:px-[14px] [&_button]:[border:0] [&_button]:[border-radius:0] [&_button]:[background:transparent] [&_button]:text-foreground [&_button[aria-current='page']]:bg-hover [&_button[aria-current='page']]:[box-shadow:inset_0_-2px_var(--text)] [&_button:disabled]:[opacity:1] max-[580px]:[&_button]:px-[10px]"
+                        aria-label={t("app.mainNavigation")}
+                      >
                         <Button
                           aria-current={startupPage === "create" ? "page" : undefined}
                           onClick={() => setStartupPage("create")}
@@ -105,14 +113,14 @@ export default function App() {
                           <NavigationIcon page="settings" />
                           {t("app.settings")}
                         </Button>
-                      </nav>
+                      </Row>
                     )
                   }
                 />
                 {settingsNotice}
                 {settings.ready ? (
                   startupPage === "settings" ? (
-                    <div inert={readOnly} style={{ display: "contents" }}>
+                    <div inert={readOnly} className="contents">
                       <SettingsPage
                         updates={updates}
                         settings={settings}

@@ -1,9 +1,11 @@
+import { Button, IconButton, Modal, Notice, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import { Clapperboard, ImagePlus, Paintbrush, ScanLine, Sparkles, Maximize } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { ImageOperationAction } from "@/features/inputs/image-operation";
-import { Button, IconButton, Modal, Notice } from "@/shared/ui";
+
 import { ImageMetadataDialog } from "@/features/media/image-metadata-dialog";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import { useMediaTools } from "@/features/media/media-tools-context";
@@ -33,7 +35,12 @@ export function ImageResultActions({
   const media = useMediaAsset(metadataOpen ? assetId : null);
   return (
     <>
-      <div className="generation-image-actions" aria-label={t("generation.continueFromImage")}>
+      <Row
+        gap={0}
+        align="stretch"
+        className="generation-image-actions flex flex-wrap gap-[5px] py-space-2 px-space-4 border-b border-line-subtle"
+        aria-label={t("generation.continueFromImage")}
+      >
         <IconButton
           label={t("generation.useAsSource")}
           disabled={!available}
@@ -78,7 +85,7 @@ export function ImageResultActions({
         >
           <ScanLine size={17} />
         </IconButton>
-      </div>
+      </Row>
       {metadataOpen && !media.asset && (
         <Modal open title={t("generation.imageInfo")} onClose={() => setMetadataOpen(false)}>
           {media.error ? (

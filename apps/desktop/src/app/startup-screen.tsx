@@ -1,6 +1,8 @@
+import { Button } from "@/shared/ui";
+
 import { t, useTranslation, Trans } from "@/shared/i18n";
 import { LoaderCircle } from "lucide-react";
-import { Button } from "@/shared/ui";
+
 import appIcon from "@/assets/app-icon.svg";
 
 export function StartupScreen({

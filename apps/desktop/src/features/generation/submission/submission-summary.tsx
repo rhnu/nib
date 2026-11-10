@@ -1,3 +1,5 @@
+import { Grid } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import type { JobRecord } from "@/bindings/generation";
@@ -15,23 +17,29 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
   if (submission.kind !== "generation")
     return (
       <div>
-        <dl className="generation-metadata">
-          <div>
+        <Grid
+          gap={0}
+          align="stretch"
+          columns={1}
+          as="dl"
+          className="generation-metadata [&_>_div]:grid-cols-[76px_minmax(0,_1fr)] [&_dt]:text-muted [&_dd]:wrap-anywhere [&_>_div]:grid [&_>_div]:gap-space-3 [&_dd]:m-0 grid gap-space-3 m-0 text-label"
+        >
+          <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
             <dt>{t("generation.operation")}</dt>
             <dd>{submissionLabel(submission)}</dd>
-          </div>
+          </Grid>
           {submission.kind === "encodeVibe" && (
-            <div>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.informationExtraction")}</dt>
               <dd>{submission.informationExtracted}</dd>
-            </div>
+            </Grid>
           )}
           {submission.kind === "director" && (
             <>
-              <div>
+              <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                 <dt>{t("generation.tool")}</dt>
                 <dd>{directorToolLabels[commandTool(submission.command)]}</dd>
-              </div>
+              </Grid>
               {typeof submission.command !== "string" &&
                 (() => {
                   const options =
@@ -40,7 +48,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
                       : submission.command.colorize;
                   return (
                     <>
-                      <div>
+                      <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                         <dt>{t("generation.prompt")}</dt>
                         <dd>
                           <PromptTextEditor
@@ -51,37 +59,37 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
                             tokenUnavailableLabel={t("generation.directorTokenRulesUnavailable")}
                           />
                         </dd>
-                      </div>
-                      <div>
+                      </Grid>
+                      <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                         <dt>{t("generation.defry")}</dt>
                         <dd>{options.defry}</dd>
-                      </div>
+                      </Grid>
                     </>
                   );
                 })()}
-              <div>
+              <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                 <dt>{t("generation.parameterValidation")}</dt>
                 <dd>
                   {submission.policy === "reject"
                     ? t("generation.strictRejection")
                     : t("generation.autoAdjust")}
                 </dd>
-              </div>
+              </Grid>
             </>
           )}
           {submission.kind === "upscale" && (
             <>
-              <div>
+              <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                 <dt>{t("generation.upscaleModel")}</dt>
                 <dd>{submission.model}</dd>
-              </div>
-              <div>
+              </Grid>
+              <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
                 <dt>{t("generation.blurSigma")}</dt>
                 <dd>{submission.declaredBlurSigma}</dd>
-              </div>
+              </Grid>
             </>
           )}
-        </dl>
+        </Grid>
         <SubmissionImageInput operation={submission} />
         <ParameterDiagnostics diagnostics={submission.diagnostics} />
       </div>
@@ -90,8 +98,14 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
   return (
     <div className="generation-submission">
       <ParameterDiagnostics diagnostics={submission.diagnostics} />
-      <dl className="generation-metadata">
-        <div>
+      <Grid
+        gap={0}
+        align="stretch"
+        columns={1}
+        as="dl"
+        className="generation-metadata [&_>_div]:grid-cols-[76px_minmax(0,_1fr)] [&_dt]:text-muted [&_dd]:wrap-anywhere [&_>_div]:grid [&_>_div]:gap-space-3 [&_dd]:m-0 grid gap-space-3 m-0 text-label"
+      >
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.operation")}</dt>
           <dd>
             {operationLabel(resolved.inputs.operation)}
@@ -99,18 +113,18 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
               ? ` · ${resolved.inputs.operation.img2img ? t("generation.regionalImageToImage") : t("generation.pureInpainting")}`
               : ""}
           </dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.model")}</dt>
           <dd>{resolved.settings.model}</dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.dimensions")}</dt>
           <dd>
             {resolved.settings.size.width} × {resolved.settings.size.height}
           </dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.sampling")}</dt>
           <dd>
             {t("generation.samplingDetails", {
@@ -119,26 +133,26 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
               scale: resolved.settings.scale,
             })}
           </dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.submissionSeed")}</dt>
           <dd>{seed}</dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.sampleCountLabel")}</dt>
           <dd>{resolved.settings.nSamples}</dd>
-        </div>
-        <div>
+        </Grid>
+        <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.parameterValidation")}</dt>
           <dd>
             {resolved.inputs.policy === "reject"
               ? t("generation.strictRejection")
               : t("generation.autoAdjust")}
           </dd>
-        </div>
-      </dl>
+        </Grid>
+      </Grid>
       <SubmissionImageInput operation={resolved.inputs.operation} seed={seed} />
-      <details className="generation-prompts">
+      <details className="generation-prompts [&_summary]:text-muted [&_summary]:cursor-pointer [&_h4]:[margin:var(--space-4)_0_var(--space-1)] [&_h4]:text-muted [&_h4]:text-label mt-[14px]">
         <summary>{t("generation.viewSubmittedPrompts")}</summary>
         <h4>{t("generation.positivePrompt")}</h4>
         <PromptTextEditor
@@ -158,9 +172,9 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
         />
       </details>
       <ResolvedOutputs resolved={resolved} />
-      <details className="generation-sources">
+      <details className="generation-sources mt-space-1">
         <summary>{t("generation.effectiveSettingsSources")}</summary>
-        <div className="generation-source-details">
+        <div className="generation-source-details [&_h4]:[margin:var(--space-4)_0_var(--space-3)] [&_h4]:text-muted [&_h4]:text-label [&_.fragment-list_p]:mt-[5px] max-h-[300px] overflow-auto [padding:2px_var(--space-3)_var(--space-1)] border border-line-subtle rounded-control bg-background">
           <section>
             <h4>{t("generation.contentSources")}</h4>
             <ContentSources fragments={resolved.fragments} />

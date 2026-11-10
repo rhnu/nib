@@ -1,5 +1,7 @@
+import { ActionsMenu, Button, ContextActions, type ActionMenuItem, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
-import { ActionsMenu, Button, ContextActions, type ActionMenuItem } from "@/shared/ui";
+
 import type { MouseEvent, ReactNode } from "react";
 import type { ResourceSummary, ResourceFolder } from "@/bindings/workbench";
 import { ResourceCardContent, ResourceColumns, ResourceResults } from "./resource-browser";
@@ -51,7 +53,7 @@ export function ResourceList({
       {items.map((item) => (
         <ContextActions key={item.id} items={actions(item)} onOpen={() => onContextSelect(item.id)}>
           <div
-            className={`resource-row ${selectedIds.includes(item.id) ? "selected" : ""}`}
+            className={`resource-row [&.selected]:border-accent [&.selected]:bg-accent-soft [&:hover]:border-line [&.selected:hover]:border-accent relative min-w-0 border border-line-subtle rounded-control outline-offset-[2px] cursor-default ${selectedIds.includes(item.id) ? "selected" : ""}`}
             draggable
             onDragStart={(event) => {
               const selected = selectedIds.includes(item.id)
@@ -69,7 +71,7 @@ export function ResourceList({
             }}
           >
             <Button
-              className="resource-card-select"
+              className="resource-card-select [&:hover]:bg-transparent block border-0 bg-transparent text-left p-0 w-full text-foreground"
               aria-pressed={selectedIds.includes(item.id)}
               onClick={(event) => onSelect(item.id, event)}
               onDoubleClick={() => onActivate(item.id)}
@@ -83,16 +85,19 @@ export function ResourceList({
               <ResourceCardContent item={item} view={view} />
               {searchFolders && (
                 <span
-                  className="resource-result-path"
+                  className="resource-result-path block overflow-hidden text-ellipsis whitespace-nowrap text-muted text-caption"
                   title={folderPath(item.folderId, searchFolders)}
                 >
                   {folderPath(item.folderId, searchFolders)}
                 </span>
               )}
             </Button>
-            <div className="resource-row-actions">
+            <Row
+              gap={0}
+              className="resource-row-actions [&_.icon-button]:w-[27px] [&_.icon-button]:min-h-[27px] [&_.icon-button]:h-[27px] flex items-center gap-[2px]"
+            >
               <ActionsMenu label={t("library.manageResource")} items={actions(item)} />
-            </div>
+            </Row>
           </div>
         </ContextActions>
       ))}

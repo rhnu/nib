@@ -1,3 +1,5 @@
+import { Col } from "@/shared/ui";
+
 import { GenerationResults } from "@/features/generation";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
@@ -27,8 +29,8 @@ export function ResultPanel({ gallery = false }: { gallery?: boolean }) {
 
 export function GalleryPage() {
   return (
-    <div className="gallery-page-slot">
+    <Col gap={0} className="gallery-page-slot flex-1 min-h-0">
       <ResultPanel gallery />
-    </div>
+    </Col>
   );
 }

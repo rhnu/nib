@@ -1,12 +1,22 @@
+import {
+  overlayStyles,
+  ActionsMenu,
+  Button,
+  HelpMarker,
+  Modal,
+  Notice,
+  SettingsGroup,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DanbooruConnectionStatus } from "@/bindings/settings";
 import { queryClient } from "@/shared/query/client";
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
-import { ActionsMenu, Button, HelpMarker, Modal, Notice, SettingsGroup } from "@/shared/ui";
+
 import { danbooruApi, danbooruConnectionKey } from "./api";
 import { ConnectionDialog } from "./connection-dialog";
-import "./connection-settings.css";
 
 /** Account details remain a summary; secret editing belongs to the transient dialog. */
 export function ExploreConnectionSettings() {
@@ -74,7 +84,10 @@ export function ExploreConnectionSettings() {
           </>
         }
       >
-        <output className="danbooru-connection-summary" aria-live="polite">
+        <output
+          className="danbooru-connection-summary text-muted text-label [overflow-wrap:anywhere]"
+          aria-live="polite"
+        >
           {busy ? (
             t("explore.connecting")
           ) : status.isPending ? (
@@ -106,11 +119,18 @@ export function ExploreConnectionSettings() {
       )}
       {disconnectOpen && (
         <Modal open title={t("explore.disconnectTitle")} onClose={() => setDisconnectOpen(false)}>
-          <p className="confirm-copy">{t("explore.disconnectHelp")}</p>
-          <div className="ui-actions">
+          <p className={`confirm-copy ${overlayStyles["confirm-copy"]}`}>
+            {t("explore.disconnectHelp")}
+          </p>
+          <ButtonGroup
+            gap={3}
+            wrap
+            justify="end"
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+          >
             <Button onClick={() => setDisconnectOpen(false)}>{t("app.cancel")}</Button>
             <Button
-              className="danger"
+              className="danger text-danger"
               disabled={busy}
               onClick={() => {
                 setDisconnectOpen(false);
@@ -119,7 +139,7 @@ export function ExploreConnectionSettings() {
             >
               {t("explore.disconnect")}
             </Button>
-          </div>
+          </ButtonGroup>
         </Modal>
       )}
     </>

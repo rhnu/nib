@@ -1,8 +1,10 @@
+import { ConfirmIconButton, IconButton, Toggle } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { CharacterComposition, ModelCapabilities, Resource } from "@/bindings/workbench";
-import { ConfirmIconButton, IconButton, Toggle } from "@/shared/ui";
+
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { PromptEditorScope } from "@/features/prompt/prompt-editor-state";
 import { promptApi } from "@/features/prompt/api";
@@ -14,7 +16,6 @@ import {
   type CharacterFieldIssue,
   type CharacterIssues,
 } from "./model";
-import "./characters.css";
 
 type EditorProps = {
   value: CharacterComposition[];
@@ -67,12 +68,12 @@ function CharacterRow({
   const signature = fieldIssues.map((issue) => `${issue.field}:${issue.message}`).join("|");
   useEffect(() => {
     if (!textIssue) return;
-    root.current?.querySelector<HTMLElement>(`[data-prompt-tab="${textIssue}"]`)?.click();
+    root.current?.querySelector<HTMLElement>(`[data-prompt-tab='${textIssue}']`)?.click();
   }, [signature, textIssue]);
   return (
     <article
       ref={root}
-      className={`character-editor-row ${character.enabled ? "" : "character-disabled"}`}
+      className={`character-editor-row [&_>_header]:flex [&_>_header]:items-center [&_>_header]:gap-space-2 [&_>_header]:min-w-0 [&_>_header]:min-h-[28px] [&_>_header_>_strong]:text-label [&_>_header_>_strong]:font-[550] [border-top:1px_solid_var(--line-subtle)] p-[7px_0] min-w-0 ${character.enabled ? "" : "character-disabled [&_>_header_>_strong]:text-muted"}`}
       data-character-id={character.id}
       data-has-errors={fieldIssues.length > 0 || undefined}
     >
@@ -82,7 +83,7 @@ function CharacterRow({
           {index + 1}
         </strong>
         {tokenIndicator?.(character.id, index)}
-        <span className="spacer" />
+        <span className="flex-1" />
         <Toggle
           label={t("characters.enable", { value0: index + 1 })}
           checked={character.enabled}
@@ -122,12 +123,12 @@ function CharacterRow({
         </IconButton>
       </header>
       {fieldIssues.map((issue, index) => (
-        <p className="inline-warning" role="alert" key={index}>
+        <p className="inline-warning text-danger text-label leading-[1.7]" role="alert" key={index}>
           {issue.message}
         </p>
       ))}
-      <div className="character-body" hidden={isCollapsed}>
-        <div className="character-prompts">
+      <div className="character-body [&[hidden]]:hidden" hidden={isCollapsed}>
+        <div className="character-prompts [&_>_section_h3]:m-[8px_0_5px] [&_>_section_h3]:text-caption [&_>_section_h3]:font-medium [&_>_section_h3]:text-muted [&_.prompt-node]:mb-[5px] [&_.composition-toolbar]:mb-[5px] m-[7px_0]">
           <PromptEditorScope path={["character", character.id]}>
             <CompositionEditor
               negativeSupported={capabilities?.customNegativePrompts}
@@ -193,11 +194,11 @@ export function CharacterListEditor({
   const enabled = value.filter((character) => character.enabled).length;
   const max = capabilities?.maxCharacters ?? 0;
   return (
-    <section className="character-list-editor">
-      <header className="character-list-heading">
+    <section className="character-list-editor min-w-0 mt-space-2">
+      <header className="character-list-heading flex items-center gap-space-2 min-w-0 [&_h3]:m-0 justify-between mb-[7px]">
         <h3>
           {title}
-          <span className="count">
+          <span className="count ml-space-3 text-caption text-muted font-[450]">
             {enabled}
             {capabilities ? ` / ${max}` : ""}
           </span>
@@ -217,15 +218,17 @@ export function CharacterListEditor({
         </IconButton>
       </header>
       {capabilities && max > 0 && enabled > max && (
-        <p className="inline-warning">
+        <p className="inline-warning text-danger text-label leading-[1.7]">
           {t("characters.enabledLimit", { count: enabled, maximum: max })}
         </p>
       )}
       {capabilities?.maxCharacters === 0 && value.length > 0 && (
-        <p className="inline-warning">{t("characters.unsupported")}</p>
+        <p className="inline-warning text-danger text-label leading-[1.7]">
+          {t("characters.unsupported")}
+        </p>
       )}
       {!capabilities && value.length > 0 && (
-        <output className="muted">{t("characters.capabilitiesNotLoaded")}</output>
+        <output className="muted text-muted">{t("characters.capabilitiesNotLoaded")}</output>
       )}
       {value.map((character, index) => (
         <CharacterRow

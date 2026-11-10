@@ -24,7 +24,7 @@
   --control-height-prominent: 40px;
   --label-height: 24px;
   --radius: 2px;
-  --radius-overlay: 4px;
+  --overlay-radius: 4px;
   --font-mono: "Maple Mono CN", ui-monospace, monospace;
   --sidebar-width: clamp(340px, 27vw, 390px);
   --bg: #1b1d21;

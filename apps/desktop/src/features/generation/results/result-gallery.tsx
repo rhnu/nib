@@ -1,3 +1,14 @@
+import {
+  ActionsMenu,
+  Button,
+  ContextActions,
+  IconButton,
+  notify,
+  Row,
+  Input,
+  Col,
+} from "@/shared/ui";
+
 import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useState, type ReactNode } from "react";
@@ -14,7 +25,7 @@ import {
 } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
 import type { ResultSummary } from "@/bindings/generation";
-import { ActionsMenu, Button, ContextActions, IconButton, notify } from "@/shared/ui";
+
 import {
   ImageContextActions,
   useImageContextActions,
@@ -43,9 +54,12 @@ export function ResultTile({
       available={result.available}
       filename={resultFilename(result)}
     >
-      <div className="generation-result-image">
+      <div className="generation-result-image relative min-w-0">
         <Button
-          className={"generation-result-open" + (selected ? " selected" : "")}
+          className={
+            "generation-result-open [&.selected]:border-accent w-full p-0 flex flex-col gap-0 whitespace-normal overflow-hidden items-stretch rounded-control" +
+            (selected ? " selected" : "")
+          }
           aria-pressed={selected}
           aria-label={
             result.seed === null
@@ -54,7 +68,12 @@ export function ResultTile({
           }
           onClick={onSelect}
         >
-          <span className="generation-result-preview">
+          <Row
+            gap={0}
+            align="stretch"
+            as="span"
+            className="generation-result-preview [&_>_span]:flex-col [&_>_span]:gap-space-2 [&_img]:object-cover [&_>_span]:flex [&_>_span]:items-center [&_img]:w-full [&_img]:h-full [&_img]:min-h-0 w-full h-[82px] min-h-0 overflow-hidden flex items-center justify-center bg-background"
+          >
             {!result.available ? (
               <ImageOff size={22} />
             ) : image.error ? (
@@ -70,14 +89,17 @@ export function ResultTile({
             ) : (
               <span>{t("generation.loading")}</span>
             )}
-          </span>
+          </Row>
         </Button>
         {image.error && (
-          <div className="image-overlay image-overlay-top-right">
+          <Row
+            gap={0}
+            className="image-overlay [&_.icon-button]:w-[30px] [&_.icon-button]:h-[30px] [&_.icon-button]:min-h-[30px] [&_.icon-button]:[flex:0_0_30px] [&_.icon-button]:inline-flex [&_.icon-button]:items-center [&_.icon-button]:justify-center [&_.icon-button]:text-inherit [&_.icon-button]:border-0 [&_.icon-button]:bg-transparent [&_.icon-button]:rounded-control [&_.icon-button]:no-underline [&_.generation-image-actions]:contents absolute z-[2] flex items-center gap-[2px] p-[3px] border border-line rounded-control bg-[color-mix(in_srgb,_var(--surface)_92%,_transparent)] [box-shadow:0_2px_12px_#0003] image-overlay-top-right"
+          >
             <IconButton label={t("media.retryRead")} onClick={image.retry}>
               <RefreshCw size={14} aria-hidden />
             </IconButton>
-          </div>
+          </Row>
         )}
       </div>
     </ImageContextActions>
@@ -142,9 +164,16 @@ export function ResultCanvas({
   return (
     <>
       <ContextActions items={contextActions.items}>
-        <section className="image-viewer" aria-label={t("generation.imageViewer")}>
-          <div
-            className="image-overlay image-overlay-top"
+        <Row
+          gap={0}
+          align="stretch"
+          as="section"
+          className="image-viewer relative flex flex-1 min-h-0 min-w-0 overflow-hidden [&_>_.generation-canvas]:min-h-0"
+          aria-label={t("generation.imageViewer")}
+        >
+          <Row
+            gap={0}
+            className="image-overlay [&_.icon-button]:w-[30px] [&_.icon-button]:h-[30px] [&_.icon-button]:min-h-[30px] [&_.icon-button]:[flex:0_0_30px] [&_.icon-button]:inline-flex [&_.icon-button]:items-center [&_.icon-button]:justify-center [&_.icon-button]:text-inherit [&_.icon-button]:border-0 [&_.icon-button]:bg-transparent [&_.icon-button]:rounded-control [&_.icon-button]:no-underline [&_.generation-image-actions]:contents absolute z-[2] flex items-center gap-[2px] p-[3px] border border-line rounded-control bg-[color-mix(in_srgb,_var(--surface)_92%,_transparent)] [box-shadow:0_2px_12px_#0003] image-overlay-top left-[50%] top-[10px] [transform:translateX(-50%)] max-w-[calc(100%_-_16px)] whitespace-nowrap overflow-x-auto"
             role="toolbar"
             aria-label={t("generation.imageActions")}
           >
@@ -158,7 +187,7 @@ export function ResultCanvas({
               canMaxEnhance={canMaxEnhance}
               canInpaint={canInpaint}
             />
-            <span className="image-tool-divider" />
+            <span className="image-tool-divider h-[18px] border-l border-line my-0 mx-[3px]" />
             <IconButton label={t("generation.parametersSources")} onClick={onOpen}>
               <Info size={17} />
             </IconButton>
@@ -168,21 +197,36 @@ export function ResultCanvas({
               disabled={contextActions.imageExport.disabled}
               items={contextActions.imageExport.saveItems}
             />
-          </div>
-          <div className={"generation-canvas" + (canZoom ? " generation-canvas-viewer" : "")}>
+          </Row>
+          <div
+            className={
+              "generation-canvas [&_p]:m-0 flex items-center justify-center flex-1 min-h-[180px] min-w-0 overflow-hidden p-space-5 [&.generation-canvas-viewer]:block [&.generation-canvas-viewer]:overflow-auto [&.generation-canvas-viewer]:p-0" +
+              (canZoom ? " generation-canvas-viewer" : "")
+            }
+          >
             {!result.available ? (
-              <div className="generation-canvas-status">
+              <Col
+                gap={0}
+                align="stretch"
+                className="generation-canvas-status flex flex-col items-center gap-space-3 text-muted text-label"
+              >
                 <ImageOff size={28} />
                 <p>{t("generation.imageFileIncomplete")}</p>
-              </div>
+              </Col>
             ) : image.error ? (
-              <div className="generation-canvas-status generation-danger">
+              <Col
+                gap={0}
+                align="stretch"
+                className="generation-canvas-status flex flex-col items-center gap-space-3 text-label generation-danger text-danger"
+              >
                 <p>{image.error}</p>
                 <Button onClick={image.retry}>{t("generation.retryLoad")}</Button>
-              </div>
+              </Col>
             ) : image.url ? (
-              <div
-                className="generation-canvas-image-stage"
+              <Row
+                gap={0}
+                align="stretch"
+                className="generation-canvas-image-stage [&_>_img]:object-contain [&_>_.generation-live-image]:absolute [&_>_.generation-live-image]:inset-0 [&_>_img]:block [&_>_img]:min-h-0 [&_>_img]:min-w-0 flex items-center justify-center min-w-0 min-h-0 relative"
                 style={{
                   width: Math.max(1, zoom) * 100 + "%",
                   height: Math.max(1, zoom) * 100 + "%",
@@ -208,18 +252,23 @@ export function ResultCanvas({
                     onImageLoaded?.();
                   }}
                 />
-              </div>
+              </Row>
             ) : (
               (fallback ?? (
-                <output className="generation-muted">{t("generation.loadingImages")}</output>
+                <output className="generation-muted text-muted">
+                  {t("generation.loadingImages")}
+                </output>
               ))
             )}
           </div>
           {result.operation.kind === "generation" && (
-            <div className="image-overlay image-overlay-bottom-left">
-              <input
+            <Row
+              gap={0}
+              className="image-overlay [&_.icon-button]:w-[30px] [&_.icon-button]:h-[30px] [&_.icon-button]:min-h-[30px] [&_.icon-button]:[flex:0_0_30px] [&_.icon-button]:inline-flex [&_.icon-button]:items-center [&_.icon-button]:justify-center [&_.icon-button]:text-inherit [&_.icon-button]:border-0 [&_.icon-button]:bg-transparent [&_.icon-button]:rounded-control [&_.icon-button]:no-underline [&_.generation-image-actions]:contents absolute z-[2] flex items-center gap-[2px] p-[3px] border border-line rounded-control bg-[color-mix(in_srgb,_var(--surface)_92%,_transparent)] [box-shadow:0_2px_12px_#0003] image-overlay-bottom-left left-[10px] bottom-[10px]"
+            >
+              <Input
                 autoComplete="off"
-                className="image-seed"
+                className="image-seed w-[108px] min-h-[28px] py-[3px] px-space-2 [font:11px_var(--font-mono)]"
                 aria-label={t("generation.sampleSeed")}
                 readOnly
                 value={result.seed ?? t("generation.seedUnknown")}
@@ -238,10 +287,11 @@ export function ResultCanvas({
               >
                 <Copy size={16} />
               </IconButton>
-            </div>
+            </Row>
           )}
-          <div
-            className="image-overlay image-overlay-bottom-right"
+          <Row
+            gap={0}
+            className="image-overlay [&_.icon-button]:w-[30px] [&_.icon-button]:h-[30px] [&_.icon-button]:min-h-[30px] [&_.icon-button]:[flex:0_0_30px] [&_.icon-button]:inline-flex [&_.icon-button]:items-center [&_.icon-button]:justify-center [&_.icon-button]:text-inherit [&_.icon-button]:border-0 [&_.icon-button]:bg-transparent [&_.icon-button]:rounded-control [&_.icon-button]:no-underline [&_.generation-image-actions]:contents absolute z-[2] flex items-center gap-[2px] p-[3px] border border-line rounded-control bg-[color-mix(in_srgb,_var(--surface)_92%,_transparent)] [box-shadow:0_2px_12px_#0003] image-overlay-bottom-right right-[10px] bottom-[10px]"
             role="toolbar"
             aria-label={t("generation.zoom")}
           >
@@ -266,8 +316,8 @@ export function ResultCanvas({
             >
               <Plus size={16} />
             </IconButton>
-          </div>
-        </section>
+          </Row>
+        </Row>
       </ContextActions>
       {contextActions.dialogs}
     </>

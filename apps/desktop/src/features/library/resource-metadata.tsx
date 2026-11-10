@@ -1,7 +1,9 @@
+import { Field, FilePicker, IconButton, TagInput, Grid, Row, Textarea } from "@/shared/ui";
+
 import { useId, useState, useRef, useLayoutEffect } from "react";
 import type { Resource, ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
-import { Field, FilePicker, FormField, IconButton, TagInput } from "@/shared/ui";
+
 import { ClipboardPaste, Image, X } from "lucide-react";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { libraryApi } from "./api";
@@ -94,14 +96,20 @@ export function ResourceMetadata({
   };
 
   return (
-    <div className="resource-metadata">
-      <div className="resource-metadata-cover">
+    <Grid
+      gap={0}
+      className="resource-metadata grid grid-cols-[160px_minmax(0,_1fr)] gap-space-5 items-start"
+    >
+      <div className="resource-metadata-cover [&_.resource-cover]:aspect-[4/3] [&_.resource-cover]:border [&_.resource-cover]:border-line-subtle [&_.resource-cover]:rounded-control relative">
         <ResourceCover
           assetId={resource.coverAssetId}
           name={resource.name}
           kind={resource.content.kind}
         />
-        <div className="resource-cover-actions">
+        <Row
+          gap={0}
+          className="resource-cover-actions [&_.file-picker_button]:text-caption [&_.file-picker_button]:w-[28px] [&_.file-picker_button]:min-w-[28px] [&_.file-picker_button]:p-0 [&_.file-picker_button]:text-[0] [&_.file-picker_button]:gap-0 [&_.icon-button]:w-[28px] [&_.icon-button]:min-w-[28px] flex items-center flex-nowrap gap-[1px] mt-space-2 absolute left-[5px] bottom-[5px] right-auto p-[2px] m-0 bg-raised border border-line-subtle rounded-control"
+        >
           <FilePicker
             label={t("library.coverFile")}
             title={t("library.coverFile")}
@@ -136,19 +144,28 @@ export function ResourceMetadata({
               <X size={15} />
             </IconButton>
           )}
-        </div>
+        </Row>
       </div>
-      <div className="resource-metadata-fields">
+      <Grid
+        gap={0}
+        align="stretch"
+        columns={1}
+        className="resource-metadata-fields [&_textarea]:[resize:vertical] [&_textarea]:min-h-[54px] grid gap-[10px]"
+      >
         <Field label={t("library.description")}>
-          <textarea
+          <Textarea
             autoComplete="off"
             rows={2}
             value={resource.description}
             onChange={(event) => onChange({ ...resource, description: event.target.value })}
           />
         </Field>
-        <div className="resource-metadata-grid">
-          <FormField label={t("library.aliases")} htmlFor={`${fieldId}-aliases`}>
+        <Grid
+          gap={0}
+          align="stretch"
+          className="resource-metadata-grid grid grid-cols-2 gap-[10px] max-[1050px]:grid-cols-1"
+        >
+          <Field label={t("library.aliases")} htmlFor={`${fieldId}-aliases`}>
             <TagInput
               id={`${fieldId}-aliases`}
               value={resource.aliases}
@@ -156,8 +173,8 @@ export function ResourceMetadata({
               removeLabel={(value) => t("common.removeTag", { value })}
               placeholder={t("common.tagInputPlaceholder")}
             />
-          </FormField>
-          <FormField label={t("library.tags")} htmlFor={`${fieldId}-tags`}>
+          </Field>
+          <Field label={t("library.tags")} htmlFor={`${fieldId}-tags`}>
             <TagInput
               id={`${fieldId}-tags`}
               value={resource.tags}
@@ -166,20 +183,24 @@ export function ResourceMetadata({
               removeLabel={(value) => t("common.removeTag", { value })}
               placeholder={t("common.tagInputPlaceholder")}
             />
-          </FormField>
-        </div>
-        <div className="resource-saved-location">
+          </Field>
+        </Grid>
+        <Row
+          gap={0}
+          align="stretch"
+          className="resource-saved-location [&_>_:last-child]:wrap-anywhere flex gap-space-3 min-w-0 text-muted text-caption"
+        >
           <span>{t("library.folder")}</span>
           <span title={folderPath(resource.folderId, folders)}>
             {folderPath(resource.folderId, folders)}
           </span>
-        </div>
+        </Row>
         <ResourceModelSelect
           models={models}
           value={resource.models}
           onChange={(models) => onChange({ ...resource, models })}
         />
-      </div>
+      </Grid>
       <ImagePickerDialog
         open={gallery}
         title={t("library.coverGallery")}
@@ -191,7 +212,7 @@ export function ResourceMetadata({
             current.onCoverChange(asset.id, false);
         }}
       />
-    </div>
+    </Grid>
   );
 }
 

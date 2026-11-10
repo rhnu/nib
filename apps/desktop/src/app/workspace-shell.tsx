@@ -1,3 +1,5 @@
+import { Button, IconButton, Notice, Col, Row, RecoveryBoundary } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { RouterProvider } from "@tanstack/react-router";
@@ -10,8 +12,7 @@ import {
 import { WorkbenchContext } from "@/features/workbench/workbench-context";
 import { LibrarySessionProvider } from "@/features/library/model/library-session-context";
 import { MediaToolsContext } from "@/features/media/media-tools-context";
-import { Button, IconButton, Notice } from "@/shared/ui";
-import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
+
 import { errorMessage } from "@/shared/host/error";
 import { WriteAccessContext } from "@/shared/host/write-access";
 import { WorkspaceDialogs } from "./workspace-dialogs";
@@ -130,9 +131,15 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                 canInpaint: controller.extension.canInpaint,
               }}
             >
-              <div className="workbench">
+              <Col gap={0} className="workbench flex min-h-0 flex-1 flex-col overflow-hidden">
                 {props.renderHeader(
-                  <nav className="desktop-navigation" aria-label={t("app.mainNavigation")}>
+                  <Row
+                    gap={0}
+                    align="stretch"
+                    as="nav"
+                    className="desktop-navigation [align-self:stretch] gap-[3px] [&_button]:py-0 [&_button]:px-[14px] [&_button]:[border:0] [&_button]:[border-radius:0] [&_button]:[background:transparent] [&_button]:text-foreground [&_button[aria-current='page']]:bg-hover [&_button[aria-current='page']]:[box-shadow:inset_0_-2px_var(--text)] [&_button:disabled]:[opacity:1] max-[580px]:[&_button]:px-[10px]"
+                    aria-label={t("app.mainNavigation")}
+                  >
                     {(Object.keys(navigationLabels) as Draft["activePage"][]).map((target) => (
                       <Button
                         key={target}
@@ -144,10 +151,10 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                         {navigationLabels[target]}
                       </Button>
                     ))}
-                  </nav>,
+                  </Row>,
                   <IconButton
                     id="agent-toggle"
-                    className="window-control"
+                    className="window-control [width:46px] h-full min-h-0 p-0 [border:0] [border-radius:0] cursor-default [&:focus-visible]:[outline-offset:-3px] max-[580px]:[width:34px]"
                     label={t("agent.title")}
                     aria-expanded={agentOpen}
                     aria-controls="agent-panel"
@@ -157,13 +164,21 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                   </IconButton>,
                 )}
                 {agentLocked && !agentOpen && (
-                  <output className="agent-state">
+                  <output className="agent-state py-space-2 px-space-4 text-accent">
                     {t(`agent.${agent.phase === "ready" ? "idle" : agent.phase}`)}
                     <Button onClick={() => setAgentOpen(true)}>{t("agent.open")}</Button>
                   </output>
                 )}
-                <div className="workspace-with-agent">
-                  <div inert={props.readOnly || agentLocked} className="workspace-editing-area">
+                <Row
+                  gap={0}
+                  align="stretch"
+                  className="workspace-with-agent flex-1 min-w-0 min-h-0 overflow-hidden max-[1050px]:relative"
+                >
+                  <Col
+                    gap={0}
+                    inert={props.readOnly || agentLocked}
+                    className="workspace-editing-area flex-1 min-w-0 min-h-0 overflow-hidden"
+                  >
                     {error && (
                       <Notice
                         actions={
@@ -198,15 +213,15 @@ export function WorkspaceShell(props: WorkspaceShellProps) {
                     <RecoveryBoundary label={t("app.operationPanel")}>
                       <WorkspaceDialogs />
                     </RecoveryBoundary>
-                  </div>
+                  </Col>
                   <AgentPanel
                     agent={agent}
                     open={agentOpen}
                     readOnly={props.readOnly}
                     onClose={closeAgent}
                   />
-                </div>
-              </div>
+                </Row>
+              </Col>
             </MediaToolsContext>
           </LibrarySessionProvider>
         </WriteAccessContext>

@@ -1,3 +1,5 @@
+import { Button, IconButton, Notice, Col, Row } from "@/shared/ui";
+
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useAccount } from "../account/account-context";
 import { originForOperation, workBatch } from "./work-state";
@@ -5,7 +7,7 @@ import { useSubmission } from "./submission-context";
 import { useRef, useState, type ReactNode } from "react";
 import { AlertCircle, KeyRound, WandSparkles, RotateCw, Square } from "lucide-react";
 import type { Draft } from "@/bindings/workbench";
-import { Button, IconButton, Notice } from "@/shared/ui";
+
 import { useJobData } from "../jobs/job-context";
 import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork } from "@/shared/host/pending-work";
@@ -119,29 +121,50 @@ export function GenerationActions({
             : null))
       : null;
   return (
-    <div className="generation-actions">
+    <Col
+      gap={0}
+      align="stretch"
+      className="generation-actions flex flex-col gap-space-2 [&:has(.generation-parameter-panel[data-open])_>_.generation-account-balance]:hidden [&_button]:shrink-0"
+    >
       <AccountSnapshot compact />
       {parameters}
-      <div className="generation-submit-row">
+      <Row
+        gap={0}
+        className="generation-submit-row [&_>_[data-variant=primary]]:flex-1 [&_>_[data-variant=primary]]:w-full [&_>_[data-variant=primary]]:min-w-0 [&_>_[data-variant=primary]]:min-h-control-prominent [&_>_[data-variant=primary]]:justify-between flex items-center gap-[10px] min-w-0"
+      >
         {actionError ? (
-          <div className="generation-error-banner" role="alert">
+          <Row
+            gap={0}
+            className="generation-error-banner [&_>_svg]:shrink-0 [&_>_span]:[flex:1_1_180px] [&_>_span]:min-w-0 flex flex-1 flex-wrap items-center gap-space-2 min-w-0 py-space-2 px-space-3 text-danger border border-danger rounded-control bg-background whitespace-normal wrap-anywhere text-left"
+            role="alert"
+          >
             <AlertCircle size={16} aria-hidden />
             <span>{actionError}</span>
             {error && (
-              <div className="generation-error-actions">
+              <Row
+                gap={0}
+                align="stretch"
+                className="generation-error-actions [&_>_button]:text-inherit flex flex-wrap gap-space-1 ml-auto"
+              >
                 {!account?.configured && (
-                  <Button className="quiet" onClick={() => setAccountOpen(true)}>
+                  <Button variant="quiet" className="" onClick={() => setAccountOpen(true)}>
                     <KeyRound size={13} aria-hidden />
                     {t("generation.configureAccount")}
                   </Button>
                 )}
                 {[...new Set(currentSubmitError ? submitFields : estimate.fields)].map((field) => (
-                  <Button key={field} className="quiet" onClick={() => onFocusField(field)}>
+                  <Button
+                    variant="quiet"
+                    key={field}
+                    className=""
+                    onClick={() => onFocusField(field)}
+                  >
                     {t("generation.locateParameter")}
                   </Button>
                 ))}
                 <Button
-                  className="quiet"
+                  variant="quiet"
+                  className=""
                   onClick={() => {
                     setSubmitError(null);
                     estimate.retry();
@@ -152,12 +175,13 @@ export function GenerationActions({
                   <RotateCw size={13} aria-hidden />
                   {t("generation.retryQuery")}
                 </Button>
-              </div>
+              </Row>
             )}
-          </div>
+          </Row>
         ) : (
           <Button
-            className="primary"
+            variant="primary"
+            className=""
             aria-busy={working !== "idle"}
             disabled={
               accountLoading ||
@@ -176,7 +200,11 @@ export function GenerationActions({
               else void submit();
             }}
           >
-            <span className="generation-submit-label">
+            <Row
+              gap={0}
+              as="span"
+              className="generation-submit-label [&_>_svg]:shrink-0 inline-flex items-center gap-space-2 min-w-0 whitespace-normal text-left"
+            >
               {account?.configured ? (
                 <WandSparkles size={16} aria-hidden />
               ) : (
@@ -204,15 +232,15 @@ export function GenerationActions({
                           : submissionBlocked
                             ? t("generation.savingSettings")
                             : actionLabel}
-            </span>
+            </Row>
             {account?.configured &&
               (estimate.quote && !effectiveOperation ? (
-                <span className="generation-submit-cost">
+                <span className="generation-submit-cost [&[aria-busy=true]]:opacity-[0.65] py-[2px] px-space-2 border border-current rounded-control text-caption tabular-nums">
                   {t("generation.operationNotApplied")}
                 </span>
               ) : displayQuote ? (
                 <span
-                  className="generation-submit-cost"
+                  className="generation-submit-cost [&[aria-busy=true]]:opacity-[0.65] py-[2px] px-space-2 border border-current rounded-control text-caption tabular-nums"
                   aria-busy={estimate.refreshing}
                   title={estimate.refreshing ? t("generation.estimating") : undefined}
                 >
@@ -221,9 +249,13 @@ export function GenerationActions({
                     : `${displayQuote.estimatedAnlas} Anlas`}
                 </span>
               ) : estimate.loading ? (
-                <span className="generation-submit-cost">{t("generation.estimating")}</span>
+                <span className="generation-submit-cost [&[aria-busy=true]]:opacity-[0.65] py-[2px] px-space-2 border border-current rounded-control text-caption tabular-nums">
+                  {t("generation.estimating")}
+                </span>
               ) : (
-                <span className="generation-submit-cost">{t("generation.costUnknown")}</span>
+                <span className="generation-submit-cost [&[aria-busy=true]]:opacity-[0.65] py-[2px] px-space-2 border border-current rounded-control text-caption tabular-nums">
+                  {t("generation.costUnknown")}
+                </span>
               ))}
           </Button>
         )}
@@ -245,12 +277,12 @@ export function GenerationActions({
             <Square size={15} fill="currentColor" />
           </IconButton>
         )}
-      </div>
+      </Row>
       {stopError !== null && <Notice>{errorMessage(stopError)}</Notice>}
       {estimate.quote && (
         <ParameterDiagnostics diagnostics={estimate.quote.diagnostics} onLocate={onFocusField} />
       )}
       {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} />}
-    </div>
+    </Col>
   );
 }

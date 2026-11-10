@@ -1,9 +1,11 @@
+import { Col, Grid, Row, Input, Button, IconButton, Modal, Notice, Select } from "@/shared/ui";
+
 import { useState } from "react";
 import { ImagePlus, ScanFace, Waves, FileInput } from "lucide-react";
 import type { MediaAsset } from "@/bindings/media";
 import type { Draft, ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
 import { t, useTranslation, errorMessage, MessageError, deferMessage } from "@/shared/i18n";
-import { Button, IconButton, Modal, Notice, Select } from "@/shared/ui";
+
 import { VibeMaterialDialog } from "@/features/vibes/vibe-material-dialog";
 import { showVibeReferences } from "@/features/vibes/model";
 import { useVibeAction } from "@/features/vibes/use-vibe-action";
@@ -12,7 +14,6 @@ import { mediaApi } from "./api";
 import { useMediaQuery } from "./use-media-query";
 import { ImageMetadataFields } from "./image-metadata-dialog";
 import type { MetadataImportMode, MetadataSelection } from "./metadata-import";
-import "./media.css";
 
 /** Keep image uses and direct metadata import together above the recorded source text. */
 export function ImageImportDialog({
@@ -98,15 +99,29 @@ export function ImageImportDialog({
     <Modal
       open
       wide
-      className="media-import-modal"
+      className="media-import-modal [.modal&]:w-[min(1120px,_calc(100vw_-_48px))] [.modal&]:max-w-[calc(100vw_-_48px)] [.modal&]:h-[min(760px,_calc(100dvh_-_var(--titlebar-height)_-_48px))] [.modal&]:max-h-[calc(100dvh_-_var(--titlebar-height)_-_48px)]"
       title={t("media.droppedImage")}
       onClose={onClose}
     >
-      <div className="media-import-dialog">
-        <div className="media-import-top">
-          <div className="media-import-image">
+      <Col
+        gap={0}
+        className="media-import-dialog [&_.media-character-content_>_h3]:mt-0 [&_.media-character-content_>_div_>_h4]:mt-space-3 overflow-auto p-[20px] min-h-0 flex flex-col gap-space-5"
+      >
+        <Grid
+          columns={1}
+          gap={0}
+          minColumnWidth="0px"
+          className="media-import-top grid grid-cols-[minmax(180px,_280px)_minmax(0,_1fr)] items-start gap-space-6"
+        >
+          <div className="media-import-image [&_.media-image]:max-h-[220px] [&_.media-image]:w-full relative min-w-0">
             <AssetImage asset={asset} alt={t("media.droppedImage")} />
-            <fieldset className="media-import-actions" aria-label={t("media.imageUses")}>
+            <Row
+              align="stretch"
+              as="fieldset"
+              gap={0}
+              className="media-import-actions absolute left-[50%] bottom-[8px] [transform:translateX(-50%)] flex gap-space-1 p-space-1 m-0 [border:1px_solid_var(--line)] rounded-control bg-raised"
+              aria-label={t("media.imageUses")}
+            >
               <IconButton
                 label={t("inputs.imageToImage")}
                 disabled={!capabilities || action.busy}
@@ -128,17 +143,28 @@ export function ImageImportDialog({
               >
                 <ScanFace size={18} aria-hidden />
               </IconButton>
-            </fieldset>
+            </Row>
           </div>
-          <section
-            className="metadata-import-options"
+          <Grid
+            align="stretch"
+            as="section"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="metadata-import-options [&_>_h3]:m-0 [&_>_h3]:text-section grid content-start gap-space-5 min-w-0"
             aria-label={t("media.importSelectedMetadata")}
           >
             <h3>{t("media.importSelectedMetadata")}</h3>
-            <div className="metadata-import-fields">
+            <Grid
+              columns={1}
+              align="stretch"
+              gap={0}
+              minColumnWidth="0px"
+              className="metadata-import-fields [&_label]:flex [&_label]:items-center [&_label]:gap-space-2 grid  gap-[12px_18px]"
+            >
               {(Object.keys(selection) as (keyof MetadataSelection)[]).map((key) => (
                 <label key={key}>
-                  <input
+                  <Input
                     type="checkbox"
                     checked={selected[key]}
                     disabled={!available[key] || action.busy}
@@ -149,8 +175,11 @@ export function ImageImportDialog({
                   {t(`media.importField_${key}`)}
                 </label>
               ))}
-            </div>
-            <div className="metadata-import-submit">
+            </Grid>
+            <Row
+              gap={0}
+              className="metadata-import-submit [&_>_.select-trigger]:w-[120px] flex items-center gap-[10px]"
+            >
               <Select
                 value={mode}
                 aria-label={t("media.importMode")}
@@ -162,7 +191,8 @@ export function ImageImportDialog({
                 ]}
               />
               <Button
-                className="primary"
+                variant="primary"
+                className=""
                 disabled={!canImport || action.busy}
                 onClick={() =>
                   void action.run(async (active) => {
@@ -173,7 +203,7 @@ export function ImageImportDialog({
               >
                 {t("media.importSelectedMetadata")}
               </Button>
-            </div>
+            </Row>
             {(report.value?.hasVibeDocument || (metadata?.embeddedVibeCount ?? 0) > 0) && (
               <Button
                 disabled={action.busy || !vibe}
@@ -193,8 +223,8 @@ export function ImageImportDialog({
                 {t("media.inspectEmbeddedVibes")}
               </Button>
             )}
-          </section>
-        </div>
+          </Grid>
+        </Grid>
         {report.loading && <output>{t("media.inspectingMetadata")}</output>}
         {report.error && (
           <Notice actions={<Button onClick={report.retry}>{t("media.retryInspection")}</Button>}>
@@ -206,7 +236,7 @@ export function ImageImportDialog({
         ))}
         {metadata && <ImageMetadataFields metadata={metadata} />}
         {action.error && <Notice>{action.error}</Notice>}
-      </div>
+      </Col>
     </Modal>
   );
 }

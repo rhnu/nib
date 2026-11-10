@@ -1,6 +1,8 @@
+import { Grid, Button, Field, Select } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { CreationOperation, ImageOperationOptions } from "@/bindings/workbench";
-import { Button, Field, Select } from "@/shared/ui";
+
 import type { ImageOperationFeedback } from "./image-operation-feedback";
 
 /** Upscale consumes only its model and SDK blur options. */
@@ -25,7 +27,13 @@ export function UpscaleSettings({
 
   const { messages, controlProps } = feedback;
   return (
-    <div className="image-operation-fields">
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="image-operation-fields [&_input]:w-full [&_input]:h-control [&_input]:min-w-0 [&_input]:text-label [&_input]:rounded-control grid gap-[10px] min-w-0"
+    >
       <div data-setting-field="upscaleModel">
         <Field label={t("inputs.upscaleModel")}>
           <Select
@@ -83,16 +91,16 @@ export function UpscaleSettings({
         {messages("declaredBlurSigma")}
       </div>
       {optionsError && (
-        <div className="inline-warning" role="alert">
+        <div className="inline-warning text-danger text-label leading-[1.7]" role="alert">
           {optionsError}
-          <Button className="quiet" onClick={retryOptions}>
+          <Button variant="quiet" className="" onClick={retryOptions}>
             {t("inputs.retry")}
           </Button>
         </div>
       )}
       {!options && !optionsError && (
-        <output className="muted">{t("inputs.loadingUpscaleOptions")}</output>
+        <output className="muted text-muted">{t("inputs.loadingUpscaleOptions")}</output>
       )}
-    </div>
+    </Grid>
   );
 }

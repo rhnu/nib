@@ -1,9 +1,11 @@
+import { Button, Notice, SettingsGroup, SettingRow, Grid, Row } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useAccount } from "./account-context";
 import { accountApi } from "./api";
-import { Button, Notice, SettingsGroup, SettingRow } from "@/shared/ui";
+
 import { AccountDialog } from "./account-dialog";
 import { AccountSnapshot } from "./account-snapshot";
 
@@ -37,7 +39,14 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
   }
 
   return (
-    <section className="generation-account-settings" aria-label={t("generation.novelaiAccount")}>
+    <Grid
+      gap={0}
+      align="stretch"
+      columns={1}
+      as="section"
+      className="generation-account-settings grid gap-space-6"
+      aria-label={t("generation.novelaiAccount")}
+    >
       <SettingsGroup
         title={t("generation.accountCredentials")}
         actions={
@@ -48,11 +57,16 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
         }
       >
         {accountLoading ? (
-          <p className="generation-muted">{t("generation.loadingAccounts")}</p>
+          <p className="generation-muted text-muted">{t("generation.loadingAccounts")}</p>
         ) : !account?.credentials.length ? (
-          <p className="generation-muted">{t("generation.addKeyHint")}</p>
+          <p className="generation-muted text-muted">{t("generation.addKeyHint")}</p>
         ) : (
-          <div className="generation-account-list">
+          <Grid
+            gap={0}
+            align="stretch"
+            columns={1}
+            className="generation-account-list [&_.tag]:ml-space-3 grid gap-0"
+          >
             {account.credentials.map((profile) => (
               <SettingRow
                 key={profile.id}
@@ -61,12 +75,17 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
                   <>
                     {profile.name}
                     {account.activeId === profile.id && (
-                      <span className="tag">{t("generation.activeAccount")}</span>
+                      <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+                        {t("generation.activeAccount")}
+                      </span>
                     )}
                   </>
                 }
               >
-                <div className="generation-account-actions">
+                <Row
+                  gap={0}
+                  className="generation-account-actions flex items-center flex-wrap gap-space-3"
+                >
                   {account.activeId !== profile.id && (
                     <Button disabled={pending} onClick={() => void activate(profile.id)}>
                       {t("generation.useAccount")}
@@ -75,10 +94,10 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
                   <Button disabled={pending} onClick={() => setEditing(profile.id)}>
                     {t("generation.edit")}
                   </Button>
-                </div>
+                </Row>
               </SettingRow>
             ))}
-          </div>
+          </Grid>
         )}
         {accountError && (
           <Notice
@@ -110,6 +129,6 @@ export function AccountSettings({ onOpenTasks }: { onOpenTasks?: () => void }) {
           onClose={() => setEditing(undefined)}
         />
       )}
-    </section>
+    </Grid>
   );
 }

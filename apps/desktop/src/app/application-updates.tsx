@@ -1,6 +1,8 @@
+import { Button, Modal, Notice, SettingRow, SettingsGroup, ButtonGroup } from "@/shared/ui";
+
 import { useTranslation, t } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
-import { Button, Modal, Notice, SettingRow, SettingsGroup } from "@/shared/ui";
+
 import type { ApplicationUpdates } from "./use-application-updates";
 
 function UpdateDetails({ updates }: { updates: ApplicationUpdates }) {
@@ -10,7 +12,7 @@ function UpdateDetails({ updates }: { updates: ApplicationUpdates }) {
     <>
       {status?.release && <p>{t("updates.available", { version: status.release.version })}</p>}
       {status?.release?.notes && (
-        <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{status.release.notes}</p>
+        <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{status.release.notes}</p>
       )}
       {operation === "downloading" && (
         <output>
@@ -44,7 +46,12 @@ export function ApplicationUpdateDialog({ updates }: { updates: ApplicationUpdat
       showClose={!updates.operation}
     >
       <UpdateDetails updates={updates} />
-      <div className="ui-actions">
+      <ButtonGroup
+        gap={3}
+        wrap
+        justify="end"
+        className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+      >
         <Button disabled={Boolean(updates.operation)} onClick={() => updates.setOpen(false)}>
           {t("updates.later")}
         </Button>
@@ -54,7 +61,7 @@ export function ApplicationUpdateDialog({ updates }: { updates: ApplicationUpdat
         >
           {updates.status?.phase === "ready" ? t("updates.install") : t("updates.download")}
         </Button>
-      </div>
+      </ButtonGroup>
     </Modal>
   );
 }

@@ -1,3 +1,5 @@
+import { RecoveryBoundary, RenderFailure } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import {
   createMemoryHistory,
@@ -16,7 +18,6 @@ import { ExplorePage } from "@/pages/explore-page";
 import { LexiconPage } from "@/pages/lexicon-page";
 import { PreferencesPage } from "@/pages/preferences-page";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
-import { RecoveryBoundary, RenderFailure } from "@/shared/ui/recovery-boundary";
 import { pagePaths, startupPage, startupPath } from "./navigation";
 
 function RouteOutlet() {

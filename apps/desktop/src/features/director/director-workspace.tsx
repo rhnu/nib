@@ -1,3 +1,5 @@
+import { ButtonGroup, Col, Grid, Input, Row, Button, Modal, Notice } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useAccount } from "@/features/generation/account/account-context";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +9,7 @@ import type {
   DirectorWorkspace as DirectorWorkspaceState,
   Draft,
 } from "@/bindings/workbench";
-import { Button, Modal, Notice } from "@/shared/ui";
+
 import { ImageImporter, ImagePickerDialog, useMediaAsset } from "@/features/media";
 import { imageName } from "@/features/media/model";
 import { useImageDrop } from "@/features/media/use-image-drop";
@@ -168,11 +170,11 @@ export function DirectorWorkspace({
           : "assetId";
     if (name === "policy" && advanced.current) advanced.current.open = true;
     requestAnimationFrame(() => {
-      const target = root.current?.querySelector<HTMLElement>(`[data-director-field="${name}"]`);
+      const target = root.current?.querySelector<HTMLElement>(`[data-director-field='${name}']`);
       target?.scrollIntoView({ block: "nearest" });
       (
         target?.querySelector<HTMLElement>(
-          '[role="textbox"], textarea, input:not([type="hidden"]), select, button',
+          "[role='textbox'], textarea, input:not([type='hidden']), select, button",
         ) ?? target
       )?.focus();
     });
@@ -180,24 +182,28 @@ export function DirectorWorkspace({
 
   if (!state) return <Notice>{t("director.stateUnavailable")}</Notice>;
   return (
-    <div
-      className={`director-workspace image-drop-page director-mobile-${mobileView}`}
+    <Col
+      gap={0}
+      className={`director-workspace flex flex-1 flex-col min-h-0 overflow-hidden image-drop-page relative director-mobile-${mobileView}`}
       ref={root}
       {...drop.bindings}
     >
       {(drop.dragging || drop.busy) && (
-        <output className="page-image-drop">
+        <output className="page-image-drop absolute inset-[8px] z-20 grid place-content-center [border:2px_dashed_var(--accent)] rounded-control bg-accent-soft text-foreground font-semibold pointer-events-none">
           {t(drop.busy ? "media.importing" : "media.dropHere")}
         </output>
       )}
       {drop.error && (
-        <div className="page-image-drop-error">
+        <div className="page-image-drop-error absolute top-[8px] right-[12px] z-21 max-w-[420px]">
           <Notice actions={<Button onClick={drop.clearError}>{t("common.close")}</Button>}>
             {drop.error}
           </Notice>
         </div>
       )}
-      <nav className="director-mobile-navigation" aria-label={t("director.view")}>
+      <nav
+        className="director-mobile-navigation max-[760px]:flex max-[760px]:gap-space-2 max-[760px]:p-[var(--space-3)_var(--space-4)] max-[760px]:[border-bottom:1px_solid_var(--line)] hidden"
+        aria-label={t("director.view")}
+      >
         <Button aria-pressed={mobileView === "input"} onClick={() => setMobileView("input")}>
           {t("director.inputParameters")}
         </Button>
@@ -205,19 +211,34 @@ export function DirectorWorkspace({
           {t("director.results")}
         </Button>
       </nav>
-      <div className="director-body">
-        <aside className="director-sidebar" aria-label={t("director.toolInputParameters")}>
-          <div className="director-sidebar-scroll">
+      <Grid
+        columns={1}
+        align="stretch"
+        gap={0}
+        minColumnWidth="0px"
+        className="director-body max-[760px]:flex max-[760px]:overflow-hidden grid flex-1 grid-cols-[var(--sidebar-width)_minmax(0,_1fr)] min-h-0"
+      >
+        <Col
+          as="aside"
+          gap={0}
+          className="director-sidebar max-[760px]:flex-1 max-[760px]:[border-right:0] max-[760px]:[.director-mobile-results_&]:hidden flex flex-col min-h-0 min-w-0 [border-right:1px_solid_var(--line)] bg-panel"
+          aria-label={t("director.toolInputParameters")}
+        >
+          <div className="director-sidebar-scroll [&_>_section]:p-[var(--space-4)_14px] [&_>_section]:[border-bottom:1px_solid_var(--line-subtle)] flex-1 min-h-0 overflow-auto [scrollbar-gutter:stable]">
             <section className="director-tool-section">
               <h2>{t("director.tool")}</h2>
-              <div
-                className="director-tool-picker"
+              <Grid
+                columns={1}
+                align="stretch"
+                gap={0}
+                minColumnWidth="0px"
+                className="director-tool-picker [&_label]:flex [&_label]:items-center [&_label]:gap-[7px] [&_label]:min-h-control [&_label]:p-[var(--space-2)_var(--space-3)] [&_label]:[border:1px_solid_var(--line)] [&_label]:rounded-control [&_label]:cursor-pointer [&_label]:text-label [&_label:hover]:bg-hover [&_label.is-selected]:text-accent [&_label.is-selected]:border-accent [&_input]:shrink-0 [&_input]:w-[15px] [&_input]:h-[15px] [&_input]:m-0 [&_input]:p-0 [&_input]:accent-accent grid grid-cols-2 gap-space-2 mt-[10px]"
                 role="radiogroup"
                 aria-label={t("director.chooseTool")}
               >
                 {workspace.tools.map((item) => (
                   <label key={item.tool} className={item.tool === state.tool ? "is-selected" : ""}>
-                    <input
+                    <Input
                       type="radio"
                       name={t("director.toolIdentifier")}
                       checked={item.tool === state.tool}
@@ -232,9 +253,9 @@ export function DirectorWorkspace({
                     <span>{directorToolLabels[item.tool]}</span>
                   </label>
                 ))}
-              </div>
+              </Grid>
             </section>
-            <section className="director-input-section">
+            <section className="director-input-section [&_>_h2]:mb-[10px]">
               <h2>{t("director.input")}</h2>
               <div data-director-field="assetId">
                 <ImageImporter
@@ -245,16 +266,21 @@ export function DirectorWorkspace({
                 />
               </div>
               {media.asset && (
-                <div className="director-input-metadata">
+                <Row
+                  gap={0}
+                  className="director-input-metadata [&_p]:m-[var(--space-2)_0] [&_p]:wrap-anywhere flex items-center justify-between gap-space-3 text-muted text-caption"
+                >
                   <p>
                     {imageName(media.asset)} · {media.asset.width} × {media.asset.height}
                   </p>
-                  <Button className="quiet" onClick={() => setMetadataOpen(true)}>
+                  <Button variant="quiet" className="" onClick={() => setMetadataOpen(true)}>
                     {t("director.imageInfo")}
                   </Button>
-                </div>
+                </Row>
               )}
-              {media.loading && <output className="muted">{t("director.loadingInput")}</output>}
+              {media.loading && (
+                <output className="muted text-muted">{t("director.loadingInput")}</output>
+              )}
               {media.error && (
                 <Notice actions={<Button onClick={media.retry}>{t("director.retryLoad")}</Button>}>
                   {media.error}
@@ -270,7 +296,14 @@ export function DirectorWorkspace({
               />
             </section>
           </div>
-          <footer className="director-submit">
+          <Grid
+            align="stretch"
+            as="footer"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="director-submit grid shrink-0 gap-space-3 p-[10px_14px] [border-top:1px_solid_var(--line)]"
+          >
             {submission ? (
               <GenerationActions
                 draft={submission}
@@ -285,13 +318,17 @@ export function DirectorWorkspace({
                 onFocusField={locate}
               />
             ) : (
-              <Button className="primary" disabled>
+              <Button variant="primary" className="" disabled>
                 {t("director.selectInputHint")}
               </Button>
             )}
-          </footer>
-        </aside>
-        <main className="director-main">
+          </Grid>
+        </Col>
+        <Col
+          as="main"
+          gap={0}
+          className="director-main max-[760px]:[.director-mobile-input_&]:hidden flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden bg-background relative"
+        >
           <DirectorResults
             key={state.tool}
             tool={state.tool}
@@ -309,11 +346,11 @@ export function DirectorWorkspace({
             canUsePreciseReference={canUsePreciseReference}
             canUseVibeReference={canUseVibeReference}
           />
-          <div className="director-queue-trigger">
+          <div className="director-queue-trigger absolute top-[8px] right-[8px] z-15">
             <JobQueue />
           </div>
-        </main>
-      </div>
+        </Col>
+      </Grid>
       <ImagePickerDialog
         key={picker ?? "closed"}
         open={picker !== null}
@@ -338,9 +375,18 @@ export function DirectorWorkspace({
             setCandidate(null);
           }}
         >
-          <div className="director-replace-dialog">
+          <Grid
+            align="stretch"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="director-replace-dialog [&_p]:m-0 grid gap-space-5 p-[18px]"
+          >
             <p>{t("director.replaceInputHelp")}</p>
-            <div className="ui-actions">
+            <ButtonGroup
+              gap={0}
+              className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+            >
               <Button
                 onClick={() => {
                   completeHandoff(candidate.handoffId);
@@ -349,13 +395,13 @@ export function DirectorWorkspace({
               >
                 {t("director.keepInput")}
               </Button>
-              <Button className="primary" onClick={() => accept(candidate)}>
+              <Button variant="primary" className="" onClick={() => accept(candidate)}>
                 {t("director.replaceInput")}
               </Button>
-            </div>
-          </div>
+            </ButtonGroup>
+          </Grid>
         </Modal>
       )}
-    </div>
+    </Col>
   );
 }

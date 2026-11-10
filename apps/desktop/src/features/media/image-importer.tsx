@@ -1,14 +1,15 @@
+import { Grid, Row, Button, FilePicker, Notice } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState, deferMessage } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Image } from "lucide-react";
 import type { MediaAsset } from "@/bindings/media";
-import { Button, FilePicker, Notice } from "@/shared/ui";
+
 import { importAndCommitImage } from "./image-import";
 import { droppedImage } from "./image-drop";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { mediaApi } from "./api";
 import { singleImageFile } from "./model";
-import "./media.css";
 
 export function ImageImporter({
   onImported,
@@ -69,9 +70,19 @@ export function ImageImporter({
   };
 
   return (
-    <section className="image-importer" aria-label={t("media.importImage")} aria-busy={busy}>
-      <div
-        className={`image-drop-target ${dragging ? "is-dragging" : ""}`}
+    <Grid
+      align="stretch"
+      as="section"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="image-importer [&_.help-note]:m-0 grid gap-space-3 min-w-0"
+      aria-label={t("media.importImage")}
+      aria-busy={busy}
+    >
+      <Row
+        gap={0}
+        className={`image-drop-target [&.is-dragging]:border-accent [&.is-dragging]:bg-accent-soft flex items-center flex-wrap gap-space-2 p-[5px] [border:1px_dashed_var(--line)] rounded-control bg-background ${dragging ? "is-dragging" : ""}`}
         onDragOver={(event) => {
           event.preventDefault();
           event.dataTransfer.dropEffect = busy ? "none" : "copy";
@@ -130,7 +141,7 @@ export function ImageImporter({
             {t("media.existingMedia")}
           </Button>
         )}
-      </div>
+      </Row>
       {busy && (
         <output aria-live="polite">
           {t("media.importing")}
@@ -150,6 +161,6 @@ export function ImageImporter({
           {error}
         </Notice>
       )}
-    </section>
+    </Grid>
   );
 }

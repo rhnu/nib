@@ -40,7 +40,10 @@ export function useImageOperationFeedback(
 
   const messages = (field: string) =>
     diagnostic(field).length > 0 || rejected(field) ? (
-      <output className="image-operation-diagnostic" id={`${prefix}-${field}-message`}>
+      <output
+        className="image-operation-diagnostic grid text-danger text-caption leading-[1.6] mt-space-1"
+        id={`${prefix}-${field}-message`}
+      >
         {diagnostic(field).map((item, index) => (
           <span key={index}>{errorMessage(item.change)}</span>
         ))}

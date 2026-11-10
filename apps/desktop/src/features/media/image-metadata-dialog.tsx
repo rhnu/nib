@@ -1,15 +1,26 @@
+import {
+  Row,
+  ButtonGroup,
+  Grid,
+  ActionsMenu,
+  Button,
+  IconButton,
+  Modal,
+  Notice,
+  notify,
+} from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { KnownImageMetadata, MediaAsset, MetadataRestore } from "@/bindings/media";
 import type { Draft } from "@/bindings/workbench";
 import { Copy } from "lucide-react";
-import { ActionsMenu, Button, IconButton, Modal, Notice, notify } from "@/shared/ui";
+
 import { useMediaTools } from "./media-tools-context";
 import { mediaApi } from "./api";
 import { imageName, imageUnavailableReason } from "./model";
 import { useMediaQuery } from "./use-media-query";
-import "./media.css";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
 import { settingLabels, settingValue, type SettingKey } from "@/features/prompt/settings";
 
@@ -42,7 +53,10 @@ const origins = {
 /** Copy the recorded value exactly, without the editable prompt conversion. */
 function MetadataPromptHeading({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="section-heading">
+    <Row
+      gap={0}
+      className="flex items-center justify-between gap-space-3 min-w-0 min-h-control mb-space-2 [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+    >
       <h3>{label}</h3>
       <IconButton
         label={`${t("common.copy")} · ${label}`}
@@ -56,7 +70,7 @@ function MetadataPromptHeading({ label, value }: { label: string; value: string 
       >
         <Copy size={15} aria-hidden />
       </IconButton>
-    </div>
+    </Row>
   );
 }
 
@@ -88,12 +102,18 @@ function MetadataPromptPair({
   context?: "native" | "editable";
 }) {
   return (
-    <div className="media-prompt-pair">
+    <Grid
+      columns={1}
+      align="stretch"
+      gap={0}
+      minColumnWidth="0px"
+      className="media-prompt-pair grid grid-cols-2 gap-space-5"
+    >
       {[
         { label: positiveLabel, value: positive },
         { label: negativeLabel, value: negative },
       ].map(({ label, value }) => (
-        <div className="media-prompt-value" key={label}>
+        <div className="media-prompt-value [&_.section-heading_h3]:m-0 min-w-0" key={label}>
           <MetadataPromptHeading label={label} value={value} />
           <PromptTextEditor
             value={value ?? ""}
@@ -106,7 +126,7 @@ function MetadataPromptPair({
           />
         </div>
       ))}
-    </div>
+    </Grid>
   );
 }
 
@@ -114,7 +134,7 @@ export function ImageMetadataFields({ metadata }: { metadata: KnownImageMetadata
   useTranslation();
   return (
     <>
-      <section className="media-literal-content">
+      <section className="media-literal-content [&_pre]:whitespace-pre-wrap [&_pre]:wrap-anywhere [&_pre]:[border:1px_solid_var(--line-subtle)] [&_pre]:rounded-control [&_pre]:p-[9px] [&_pre]:bg-background [&_h3]:m-[15px_0_7px] [&_h4]:m-[15px_0_7px]">
         <MetadataPromptPair
           positive={metadata.prompt}
           negative={metadata.negativePrompt}
@@ -124,7 +144,7 @@ export function ImageMetadataFields({ metadata }: { metadata: KnownImageMetadata
         />
       </section>
       {metadata.characters.length > 0 && (
-        <section className="media-literal-content media-character-content">
+        <section className="media-literal-content [&_pre]:whitespace-pre-wrap [&_pre]:wrap-anywhere [&_pre]:[border:1px_solid_var(--line-subtle)] [&_pre]:rounded-control [&_pre]:p-[9px] [&_pre]:bg-background [&_h3]:m-[15px_0_7px] [&_h4]:m-[15px_0_7px] media-character-content">
           <h3>{t("media.characterText")}</h3>
           {metadata.characters.map((character) => (
             <div key={character.sourceIndex}>
@@ -142,7 +162,7 @@ export function ImageMetadataFields({ metadata }: { metadata: KnownImageMetadata
       )}
       <details>
         <summary>{t("media.knownSettings")}</summary>
-        <dl className="media-metadata-fields">
+        <dl className="media-metadata-fields [&_>_div]:grid [&_>_div]:grid-cols-[minmax(110px,_0.35fr)_minmax(0,_1fr)] [&_>_div]:gap-[9px] [&_>_div]:p-[5px_0] [&_>_div]:[border-bottom:1px_solid_var(--line-subtle)] [&_dt]:text-muted [&_dd]:m-0 [&_dd]:wrap-anywhere m-[var(--space-4)_0]">
           <MetadataField
             label={t("media.metadataCarrier")}
             value={
@@ -187,15 +207,21 @@ function RestorePreview({
 
   const { draft, notices } = restore;
   return (
-    <section className="metadata-restore-preview" aria-label={t("media.restorePreview")}>
+    <section
+      className="metadata-restore-preview [&_>_h3]:text-foreground mt-space-5 [border:1px_solid_var(--accent)] rounded-control p-space-4"
+      aria-label={t("media.restorePreview")}
+    >
       <h3>{t("media.restoreCreation")}</h3>
       <p>{t("media.restoreConsequences")}</p>
-      <ul className="media-notices">
+      <ul className="media-notices pl-[20px] wrap-anywhere">
         {notices.map((notice, index) => (
           <li key={index}>{errorMessage(notice)}</li>
         ))}
       </ul>
-      <details open className="media-literal-content">
+      <details
+        open
+        className="media-literal-content [&_pre]:whitespace-pre-wrap [&_pre]:wrap-anywhere [&_pre]:[border:1px_solid_var(--line-subtle)] [&_pre]:rounded-control [&_pre]:p-[9px] [&_pre]:bg-background [&_h3]:m-[15px_0_7px] [&_h4]:m-[15px_0_7px]"
+      >
         <summary>{t("media.contentToUse")}</summary>
         <MetadataPromptPair
           positive={draft.composition.positive
@@ -214,7 +240,7 @@ function RestorePreview({
           context="editable"
         />
         <h4>{t("media.knownSettings")}</h4>
-        <dl className="media-metadata-fields">
+        <dl className="media-metadata-fields [&_>_div]:grid [&_>_div]:grid-cols-[minmax(110px,_0.35fr)_minmax(0,_1fr)] [&_>_div]:gap-[9px] [&_>_div]:p-[5px_0] [&_>_div]:[border-bottom:1px_solid_var(--line-subtle)] [&_dt]:text-muted [&_dd]:m-0 [&_dd]:wrap-anywhere m-[var(--space-4)_0]">
           {Object.entries(draft.settings)
             .filter(([, value]) => value !== null)
             .map(([key, value]) => (
@@ -225,7 +251,7 @@ function RestorePreview({
               />
             ))}
         </dl>
-        <p className="muted">
+        <p className="muted text-muted">
           {t("media.presetCountPrefix")}
           {draft.presets.length}
           {t("media.characterCountPrefix")}
@@ -236,12 +262,15 @@ function RestorePreview({
             : t("media.imageOperation")}
         </p>
       </details>
-      <div className="ui-actions">
+      <ButtonGroup
+        gap={0}
+        className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+      >
         <Button onClick={cancel}>{t("media.keepCreation")}</Button>
-        <Button className="primary" onClick={confirm}>
+        <Button variant="primary" className="" onClick={confirm}>
           {t("media.replaceCreation")}
         </Button>
-      </div>
+      </ButtonGroup>
     </section>
   );
 }
@@ -296,8 +325,8 @@ function MetadataDialogContent({
 
   return (
     <Modal open onClose={onClose} title={t("media.imageMetadata")} wide>
-      <div className="media-metadata-dialog">
-        <p className="media-asset-heading">
+      <div className="media-metadata-dialog overflow-auto p-[14px_17px] min-h-0">
+        <p className="media-asset-heading wrap-anywhere">
           {imageName(asset)} · {asset.mimeType}
         </p>
         {tools && asset.mimeType === "image/png" && (
@@ -327,7 +356,10 @@ function MetadataDialogContent({
           <>
             <output>{metadataStatusLabels[report.value.status]}</output>
             {report.value.warnings.length > 0 && (
-              <ul className="media-notices" aria-label={t("media.metadataNotice")}>
+              <ul
+                className="media-notices pl-[20px] wrap-anywhere"
+                aria-label={t("media.metadataNotice")}
+              >
                 {report.value.warnings.map((warning, index) => (
                   <li key={index}>{errorMessage(warning)}</li>
                 ))}

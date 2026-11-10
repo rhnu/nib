@@ -1,3 +1,5 @@
+import { Row, Button, IconButton, Toggle } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
@@ -8,12 +10,11 @@ import type {
   ModelCapabilities,
   Resource,
 } from "@/bindings/workbench";
-import { Button, IconButton, Toggle } from "@/shared/ui";
+
 import { PresetOverrides } from "@/features/prompt/preset-overrides";
 import { PromptEditorScope } from "@/features/prompt/prompt-editor-state";
 import { CharacterPositionFields } from "./character-position-fields";
 import { setCharacterOverride, type CharacterIssues } from "./model";
-import "./characters.css";
 
 /** A linked recipe keeps only explicit output edits; character order belongs to its definition. */
 export function CharacterOutputOverrides({
@@ -68,11 +69,13 @@ export function CharacterOutputOverrides({
     (item) => !value.some((character) => character.id === item.characterId),
   );
   return (
-    <section className="character-list-editor" ref={root}>
-      <header className="character-list-heading">
+    <section className="character-list-editor min-w-0 mt-space-2" ref={root}>
+      <header className="character-list-heading flex items-center gap-space-2 min-w-0 [&_h3]:m-0 justify-between mb-[7px]">
         <h3>
           {t("characters.output")}
-          <span className="count">{value.length}</span>
+          <span className="count ml-space-3 text-caption text-muted font-[450]">
+            {value.length}
+          </span>
         </h3>
       </header>
       {value.map((character, index) => {
@@ -81,7 +84,7 @@ export function CharacterOutputOverrides({
         return (
           <article
             key={character.id}
-            className="character-editor-row"
+            className="character-editor-row [&_>_header]:flex [&_>_header]:items-center [&_>_header]:gap-space-2 [&_>_header]:min-w-0 [&_>_header]:min-h-[28px] [&_>_header_>_strong]:text-label [&_>_header_>_strong]:font-[550] [border-top:1px_solid_var(--line-subtle)] p-[7px_0] min-w-0"
             data-character-id={character.id}
             data-has-errors={fieldIssues.length > 0 || undefined}
           >
@@ -91,8 +94,12 @@ export function CharacterOutputOverrides({
                 {index + 1}
               </strong>
               {tokenIndicator?.(character.id, index)}
-              <span className="spacer" />
-              {local && <span className="tag">{t("characters.currentOverride")}</span>}
+              <span className="flex-1" />
+              {local && (
+                <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+                  {t("characters.currentOverride")}
+                </span>
+              )}
               <Toggle
                 label={t("characters.enableRecipeCharacter", { value0: index + 1 })}
                 checked={local?.enabled ?? character.enabled}
@@ -131,15 +138,19 @@ export function CharacterOutputOverrides({
               </IconButton>
             </header>
             {fieldIssues.map((issue, index) => (
-              <p role="alert" className="inline-warning" key={index}>
+              <p
+                role="alert"
+                className="inline-warning text-danger text-label leading-[1.7]"
+                key={index}
+              >
                 {issue.message}
               </p>
             ))}
             <div
-              className="character-body"
+              className="character-body [&[hidden]]:hidden"
               hidden={collapsed.has(character.id) && fieldIssues.length === 0}
             >
-              <div className="character-prompts">
+              <div className="character-prompts [&_>_section_h3]:m-[8px_0_5px] [&_>_section_h3]:text-caption [&_>_section_h3]:font-medium [&_>_section_h3]:text-muted [&_.prompt-node]:mb-[5px] [&_.composition-toolbar]:mb-[5px] m-[7px_0]">
                 <PromptEditorScope path={["character", character.id]}>
                   <PresetOverrides
                     negativeSupported={capabilities?.customNegativePrompts}
@@ -170,8 +181,9 @@ export function CharacterOutputOverrides({
         );
       })}
       {stale.map((item) => (
-        <div
-          className="character-stale-override"
+        <Row
+          gap={0}
+          className="character-stale-override [&_code]:wrap-anywhere flex items-center flex-wrap gap-space-3 m-[8px_0] text-danger"
           data-character-id={item.characterId}
           key={item.characterId}
         >
@@ -182,7 +194,7 @@ export function CharacterOutputOverrides({
           <Button onClick={() => update(item.characterId, { enabled: null, position: null })}>
             {t("characters.removeStaleOverride")}
           </Button>
-        </div>
+        </Row>
       ))}
     </section>
   );

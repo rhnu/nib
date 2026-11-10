@@ -1,3 +1,15 @@
+import {
+  ButtonGroup,
+  Grid,
+  Row,
+  Input,
+  Button,
+  Field,
+  HelpMarker,
+  Notice,
+  Select,
+} from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useAccount } from "@/features/generation/account/account-context";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +20,7 @@ import { useVibeAction } from "./use-vibe-action";
 import { saveExportFile } from "@/shared/host/file-export";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Draft, VibeEncodingInput, VibeReferenceInput } from "@/bindings/workbench";
-import { Button, Field, HelpMarker, Notice, Select } from "@/shared/ui";
+
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { errorMessage } from "@/shared/host/error";
 import { ImagePickerDialog, useMediaAsset, AssetImage } from "@/features/media";
@@ -19,7 +31,6 @@ import { useGenerationQuote } from "@/features/generation/submission/use-generat
 import { GenerationActions } from "@/features/generation/submission/generation-actions";
 import { encodingApi } from "./encoding-api";
 import { encodingSubmission, isReusableEncoding, optionalEncodingSeed } from "./encoding-model";
-import "./encoder.css";
 
 function EncoderOutput({
   assetId,
@@ -34,7 +45,7 @@ function EncoderOutput({
   return (
     <article className="vibe-encoder-output">
       <VibeAssetDetails id={assetId} />
-      <div className="button-group">
+      <ButtonGroup gap={0} className="button-group">
         {onAddReference && (
           <Button
             disabled={action.busy}
@@ -71,7 +82,7 @@ function EncoderOutput({
         >
           {t("vibes.exportVibeFile")}
         </Button>
-      </div>
+      </ButtonGroup>
       {action.error && <Notice>{action.error}</Notice>}
     </article>
   );
@@ -190,7 +201,7 @@ export function VibeEncoderPanel({
       advanced.current.open = true;
     requestAnimationFrame(() => {
       const target = root.current?.querySelector<HTMLElement>(
-        `[data-encoder-field="${CSS.escape(key)}"]`,
+        `[data-encoder-field='${CSS.escape(key)}']`,
       );
       target?.scrollIntoView({ block: "nearest" });
       target?.querySelector<HTMLElement>("input, select, button")?.focus();
@@ -199,7 +210,14 @@ export function VibeEncoderPanel({
 
   const encoded = input && results?.some((result) => isReusableEncoding(result, input));
   return (
-    <div className="vibe-encoder" ref={root}>
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="vibe-encoder grid gap-[1rem] p-space-5 overflow-auto max-h-[calc(85dvh_-_60px)]"
+      ref={root}
+    >
       {options.loading && <output>{t("vibes.loadingEncodingOptions")}</output>}
       {options.error && (
         <Notice actions={<Button onClick={options.retry}>{t("vibes.retry")}</Button>}>
@@ -207,12 +225,16 @@ export function VibeEncoderPanel({
         </Notice>
       )}
       {error && <Notice>{error}</Notice>}
-      <div className="vibe-encoder-source" data-encoder-field="assetId">
+      <Row
+        gap={0}
+        className="vibe-encoder-source flex items-center gap-[1rem]"
+        data-encoder-field="assetId"
+      >
         {media.asset && (
           <AssetImage
             asset={media.asset}
             alt={t("vibes.encodingSourceImage")}
-            className="vibe-encoder-preview"
+            className="vibe-encoder-preview w-[132px] h-[160px] object-contain"
           />
         )}
         <div>
@@ -229,10 +251,16 @@ export function VibeEncoderPanel({
             {busy ? t("vibes.preparing") : input ? t("vibes.changeImage") : t("vibes.chooseImage")}
           </Button>
         </div>
-      </div>
+      </Row>
       {input && (
         <>
-          <div className="vibe-encoder-fields">
+          <Grid
+            columns={1}
+            align="stretch"
+            gap={0}
+            minColumnWidth="0px"
+            className="vibe-encoder-fields max-[560px]:grid-cols-[minmax(0,_1fr)] grid  gap-[0.8rem]"
+          >
             <div data-encoder-field="model">
               <Field label={t("vibes.encodingModel")}>
                 <Select
@@ -250,7 +278,7 @@ export function VibeEncoderPanel({
             </div>
             <div data-encoder-field="informationExtracted">
               <Field label={t("vibes.informationExtracted")}>
-                <input
+                <Input
                   type="number"
                   step="any"
                   min={options.value?.informationExtracted.min}
@@ -264,15 +292,22 @@ export function VibeEncoderPanel({
                 />
               </Field>
             </div>
-          </div>
-          <details ref={advanced} className="vibe-encoder-advanced">
+          </Grid>
+          <details
+            ref={advanced}
+            className="vibe-encoder-advanced [&_>_summary]:cursor-pointer [&_>_summary]:py-[0.5rem]"
+          >
             <summary>{t("vibes.advanced")}</summary>
-            <div data-encoder-field="maskAssetId" className="vibe-encoder-mask">
+            <Row
+              gap={0}
+              data-encoder-field="maskAssetId"
+              className="vibe-encoder-mask flex items-center flex-wrap gap-[0.5rem] my-[0.7rem]"
+            >
               {mask.asset && (
                 <AssetImage
                   asset={mask.asset}
                   alt={t("vibes.encodingMask")}
-                  className="vibe-encoder-mask-preview"
+                  className="vibe-encoder-mask-preview w-[72px] h-[72px] object-contain"
                 />
               )}
               {mask.error && <Notice>{mask.error}</Notice>}
@@ -284,8 +319,14 @@ export function VibeEncoderPanel({
                   {t("vibes.clearMask")}
                 </Button>
               )}
-            </div>
-            <div className="vibe-encoder-fields">
+            </Row>
+            <Grid
+              columns={1}
+              align="stretch"
+              gap={0}
+              minColumnWidth="0px"
+              className="vibe-encoder-fields max-[560px]:grid-cols-[minmax(0,_1fr)] grid  gap-[0.8rem]"
+            >
               <div data-encoder-field="cropToMask">
                 <Field label={t("vibes.cropToMask")}>
                   <Select
@@ -309,7 +350,7 @@ export function VibeEncoderPanel({
                   <Field
                     label={key === "focusSeed" ? t("vibes.focusSeed") : t("vibes.extractionSeed")}
                   >
-                    <input
+                    <Input
                       type="number"
                       step={1}
                       value={input[key] ?? ""}
@@ -322,16 +363,16 @@ export function VibeEncoderPanel({
                   </Field>
                 </div>
               ))}
-            </div>
+            </Grid>
           </details>
-          <div className="vibe-encoder-status">
+          <Row gap={0} className="vibe-encoder-status flex items-center gap-[0.4rem] text-muted">
             <span>
               {encoded ? t("vibes.reusableEncodingAvailable") : t("vibes.encodingChoices")}
             </span>
             <HelpMarker label={t("vibes.encodingReferenceHelp")}>
               {t("vibes.encodingReferenceDescription")}
             </HelpMarker>
-          </div>
+          </Row>
           {submission && (
             <GenerationActions
               draft={submission}
@@ -381,6 +422,6 @@ export function VibeEncoderPanel({
           else if (target === "source") void prepare(asset.id);
         }}
       />
-    </div>
+    </Grid>
   );
 }

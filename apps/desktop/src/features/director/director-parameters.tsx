@@ -1,8 +1,9 @@
+import { Grid, Input, Field, HelpMarker, Select } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { RefObject } from "react";
 import type { DirectorToolState } from "@/bindings/workbench";
 import { PromptTextEditor } from "@/features/prompt/prompt-text-editor";
-import { Field, HelpMarker, Select } from "@/shared/ui";
 
 export function DirectorParameters({
   state,
@@ -30,7 +31,13 @@ export function DirectorParameters({
   };
 
   return (
-    <div className="director-parameters">
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="director-parameters grid gap-space-4"
+    >
       {text && (
         <>
           <Field
@@ -52,7 +59,7 @@ export function DirectorParameters({
               state.tool === "emotion" ? t("director.emotionLevel") : t("director.colorizeDefry")
             }
           >
-            <input
+            <Input
               data-director-field="defry"
               type="number"
               step="1"
@@ -66,7 +73,10 @@ export function DirectorParameters({
           </Field>
         </>
       )}
-      <details className="director-advanced" ref={advancedRef}>
+      <details
+        className="director-advanced [&_>_summary]:cursor-pointer [&_>_summary]:text-muted [&_>_summary]:text-label [&_>_.ui-field]:mt-space-4"
+        ref={advancedRef}
+      >
         <summary>
           {t("director.advancedSettings")}
           {state.policy === "reject" ? t("director.strictSuffix") : ""}
@@ -88,6 +98,6 @@ export function DirectorParameters({
           {t("director.emotionInputHelp")}
         </HelpMarker>
       )}
-    </div>
+    </Grid>
   );
 }

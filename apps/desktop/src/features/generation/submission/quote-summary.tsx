@@ -1,6 +1,7 @@
+import { HelpMarker, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { GenerationQuote } from "@/bindings/generation";
-import { HelpMarker } from "@/shared/ui";
 
 export function QuoteHelp() {
   useTranslation();
@@ -16,7 +17,11 @@ export function QuoteSummary({ quote }: { quote: GenerationQuote }) {
   useTranslation();
 
   return (
-    <span className="generation-estimate">
+    <Row
+      gap={0}
+      as="span"
+      className="generation-estimate [&_strong]:text-accent [&_strong]:tabular-nums inline-flex items-center flex-wrap gap-[5px]"
+    >
       <span>
         {quote.estimatedAnlas === null ? (
           <strong>{t("generation.costUnknown")}</strong>
@@ -29,8 +34,8 @@ export function QuoteSummary({ quote }: { quote: GenerationQuote }) {
       </span>
       <QuoteHelp />
       {quote.tooExpensive && (
-        <span className="generation-danger">{t("generation.costLimitExceeded")}</span>
+        <span className="generation-danger text-danger">{t("generation.costLimitExceeded")}</span>
       )}
-    </span>
+    </Row>
   );
 }

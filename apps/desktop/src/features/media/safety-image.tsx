@@ -10,7 +10,6 @@ import type { ApplicationPreferences } from "@/bindings/settings";
 import { t, useTranslation } from "@/shared/i18n";
 import { safetyApi } from "./safety-api";
 import { shouldBlurImage } from "./safety-display";
-import "./safety.css";
 
 export const SafetyPreferencesContext = createContext<ApplicationPreferences["safety"]>({
   autoScan: true,
@@ -75,7 +74,7 @@ export function SafetyImage({
   return (
     <img
       {...props}
-      className={`${props.className ?? ""}${display.blurred ? " image-safety-blurred" : ""}`}
+      className={`${props.className ?? ""}${display.blurred ? " image-safety-blurred [filter:blur(24px)] cursor-pointer [user-select:none]" : ""}`}
       title={display.blurred ? t("safety.reveal") : props.title}
       aria-label={display.blurred ? t("safety.reveal") : props["aria-label"]}
       role={display.blurred ? "button" : props.role}

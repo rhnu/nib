@@ -1,8 +1,10 @@
+import { IconButton } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import type { Composition, InstanceOverride, Resource } from "@/bindings/workbench";
-import { IconButton } from "@/shared/ui";
+
 import { PromptTextEditor } from "./prompt-text-editor";
 import { PromptBlock } from "./prompt-block";
 import { PromptEditorScope } from "./prompt-editor-state";
@@ -61,7 +63,9 @@ export function PresetOverrides({
           >
             <PromptEditorScope path={[scope]}>
               <h3>{scope === "positive" ? t("prompt.basePrompt") : t("prompt.negativePrompt")}</h3>
-              {composition[scope].length === 0 && <p className="muted">{t("prompt.noContent")}</p>}
+              {composition[scope].length === 0 && (
+                <p className="muted text-muted">{t("prompt.noContent")}</p>
+              )}
               {composition[scope].map((node, index) => {
                 const local = overrides.find((item) => item.nodeId === node.id) ?? {
                   nodeId: node.id,
@@ -89,7 +93,9 @@ export function PresetOverrides({
                             : t("prompt.text")}
                         </span>
                         {(local.text !== null || local.enabled !== null) && (
-                          <span className="tag">{t("prompt.instanceOverride")}</span>
+                          <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+                            {t("prompt.instanceOverride")}
+                          </span>
                         )}
                       </>
                     }

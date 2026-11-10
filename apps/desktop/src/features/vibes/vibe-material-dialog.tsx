@@ -1,8 +1,21 @@
+import {
+  ButtonGroup,
+  Col,
+  Grid,
+  Row,
+  Input,
+  ActionsMenu,
+  Button,
+  FilePicker,
+  Modal,
+  Notice,
+} from "@/shared/ui";
+
 import { t, useTranslation, deferMessage, MessageError } from "@/shared/i18n";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { MediaAsset, VibeDocumentInspection } from "@/bindings/media";
 import type { ModelCapabilities, VibeReferenceInput } from "@/bindings/workbench";
-import { ActionsMenu, Button, FilePicker, Modal, Notice } from "@/shared/ui";
+
 import { ImagePickerDialog } from "@/features/media";
 import { mediaApi } from "@/features/media/api";
 import { ImageExportActions } from "@/features/media/image-export";
@@ -11,7 +24,6 @@ import { VibeAssetInformation } from "./vibe-asset-details";
 import { vibeMaterialName } from "./model";
 import { saveExportFile } from "@/shared/host/file-export";
 import { useVibeAction } from "./use-vibe-action";
-import "./vibes.css";
 
 type DocumentSelection =
   | { entryIndex: number; kind: "image" }
@@ -187,8 +199,12 @@ function Materials({
       }}
       wide
     >
-      <div className="vibe-dialog" aria-busy={action.busy}>
-        <div className="vibe-toolbar">
+      <Col
+        gap={0}
+        className="vibe-dialog flex gap-space-3 min-w-0 flex-1 flex-col min-h-0 p-space-5 overflow-hidden"
+        aria-busy={action.busy}
+      >
+        <div className="vibe-toolbar flex items-center gap-[5px] flex-wrap">
           <FilePicker
             label={t("vibes.importDocument")}
             disabled={action.busy}
@@ -245,17 +261,32 @@ function Materials({
             {assets.error}
           </Notice>
         )}
-        <div className="vibe-material-grid">
-          <div className="vibe-material-list">
+        <Grid
+          columns={1}
+          align="stretch"
+          gap={0}
+          minColumnWidth="0px"
+          className="vibe-material-grid max-[700px]:grid-cols-[1fr] grid flex-1 grid-cols-[minmax(180px,_1fr)_minmax(0,_2fr)] gap-space-5 min-h-0"
+        >
+          <Grid
+            align="stretch"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="vibe-material-list max-[700px]:max-h-[24vh] grid content-start gap-space-3 min-w-0 overflow-auto"
+          >
             {assets.loading && <output>{t("vibes.loadingMaterials")}</output>}
-            {assets.value?.length === 0 && <p className="muted">{t("vibes.noMaterials")}</p>}
+            {assets.value?.length === 0 && (
+              <p className="muted text-muted">{t("vibes.noMaterials")}</p>
+            )}
             {assets.value?.map((asset) => (
-              <div
-                className={`vibe-material-option ${selectedId === asset.id ? "is-selected" : ""}`}
+              <Row
+                gap={0}
+                className={`vibe-material-option [&.is-selected]:border-accent [&_>_button]:flex-1 [&_>_button]:grid [&_>_button]:gap-[3px] [&_>_button]:min-w-0 [&_>_button]:p-[9px] [&_>_button]:bg-transparent [&_>_button]:text-left [&_>_button]:[color:inherit] [&_>_button]:[border:0] [&_>_button]:cursor-pointer [&_>_button]:wrap-anywhere [&_small]:text-muted [&_>_input]:ml-space-3 [&_>_input]:w-[16px] [&_>_input]:h-[16px] [&_>_input]:min-h-0 [&_>_input]:p-0 [&_>_input]:[flex:none] [&_>_input]:accent-accent flex items-center gap-[5px] [border:1px_solid_var(--line-subtle)] rounded-control ${selectedId === asset.id ? "is-selected" : ""}`}
                 key={asset.id}
               >
                 {asset.kind === "vibeDocument" && (
-                  <input
+                  <Input
                     type="checkbox"
                     aria-label={t("vibes.bundleMaterial", { value0: vibeMaterialName(asset) })}
                     checked={bundleIds.includes(asset.id)}
@@ -269,7 +300,7 @@ function Materials({
                     }
                   />
                 )}
-                <button
+                <Button
                   type="button"
                   disabled={action.busy || !asset.available}
                   onClick={() => selectAsset(asset.id)}
@@ -283,11 +314,17 @@ function Materials({
                         : t("vibes.originalImage")}
                     {!asset.available && t("vibes.fileUnavailableTag")}
                   </small>
-                </button>
-              </div>
+                </Button>
+              </Row>
             ))}
-          </div>
-          <div className="vibe-document-view">
+          </Grid>
+          <Grid
+            align="stretch"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="vibe-document-view grid content-start gap-space-3 min-w-0 overflow-auto"
+          >
             {selected ? (
               <>
                 <h3>{vibeMaterialName(selected)}</h3>
@@ -312,7 +349,7 @@ function Materials({
                         onExportEntry={exportEntry}
                       />
                     )}
-                    <div className="button-group">
+                    <ButtonGroup gap={0} className="button-group">
                       <Button
                         disabled={action.busy || !document.value}
                         onClick={() =>
@@ -329,9 +366,9 @@ function Materials({
                       <Button disabled={action.busy} onClick={() => setImageAction("embed")}>
                         {t("vibes.embedInPng")}
                       </Button>
-                    </div>
+                    </ButtonGroup>
                     {embeddedOutput && (
-                      <div className="button-group">
+                      <ButtonGroup gap={0} className="button-group">
                         <span>{t("media.embeddedImage")}</span>
                         <ImageExportActions
                           key={embeddedOutput.id}
@@ -340,7 +377,7 @@ function Materials({
                           available={!action.busy && embeddedOutput.available}
                           filename="nib-vibe.png"
                         />
-                      </div>
+                      </ButtonGroup>
                     )}
                   </>
                 ) : selected.kind === "vibe" ? (
@@ -381,33 +418,36 @@ function Materials({
                   </>
                 ) : (
                   <>
-                    <p className="vibe-status">
+                    <p className="vibe-status text-label text-muted wrap-anywhere">
                       {t("vibes.originalImagePrefix")}
                       {selected.width} × {selected.height}
                     </p>
                     {capabilities?.vibeInputPath !== "image" && (
-                      <p className="vibe-message">{t("vibes.originalEncodingHelp")}</p>
+                      <p className="vibe-message m-0 text-danger text-label wrap-anywhere">
+                        {t("vibes.originalEncodingHelp")}
+                      </p>
                     )}
                   </>
                 )}
               </>
             ) : (
-              <p className="muted">{t("vibes.selectOrImport")}</p>
+              <p className="muted text-muted">{t("vibes.selectOrImport")}</p>
             )}
-          </div>
-        </div>
-        <footer className="vibe-toolbar">
+          </Grid>
+        </Grid>
+        <footer className="vibe-toolbar flex items-center gap-[5px] flex-wrap">
           <Button disabled={action.busy} onClick={onClose}>
             {t("vibes.off")}
           </Button>
-          <span className="spacer" />
+          <span className="flex-1" />
           {!single && (
             <Button disabled={action.busy || !canChoose} onClick={() => choose("replace")}>
               {t("vibes.replaceReferenceGroup")}
             </Button>
           )}
           <Button
-            className="primary"
+            variant="primary"
+            className=""
             disabled={action.busy || !canChoose}
             onClick={() => choose("append")}
           >
@@ -418,7 +458,7 @@ function Materials({
                 : t("vibes.appendReferences")}
           </Button>
         </footer>
-      </div>
+      </Col>
       <ImagePickerDialog
         open={imageAction !== null}
         title={imageAction === "embed" ? t("vibes.chooseDocumentPng") : t("vibes.chooseImage")}
@@ -451,8 +491,12 @@ function DocumentEntries({
   const key = (value: DocumentSelection) => JSON.stringify(value);
 
   const option = (value: DocumentSelection, label: string) => (
-    <label className="vibe-cache-option">
-      <input
+    <Row
+      as="label"
+      gap={0}
+      className="vibe-cache-option [&_>_input]:w-[16px] [&_>_input]:h-[16px] [&_>_input]:min-h-0 [&_>_input]:p-0 [&_>_input]:[flex:none] [&_>_input]:accent-accent [&_>_input]:m-[2px_0_0] flex items-start gap-space-2 p-[5px_0] text-body wrap-anywhere"
+    >
+      <Input
         autoComplete="off"
         type={single ? "radio" : "checkbox"}
         name={t("vibes.vibeCache")}
@@ -469,14 +513,20 @@ function DocumentEntries({
         }
       />
       <span>{label}</span>
-    </label>
+    </Row>
   );
 
   return (
-    <div className="vibe-document-entries">
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="vibe-document-entries [&_>_section]:p-[8px_0] [&_>_section]:[border-bottom:1px_solid_var(--line-subtle)] [&_h4]:m-[0_0_7px] grid gap-space-3 min-w-0"
+    >
       {view.entries.map((entry) => (
         <section key={entry.entryIndex}>
-          <div className="vibe-toolbar">
+          <div className="vibe-toolbar flex items-center gap-[5px] flex-wrap">
             <h4>{entry.name || t("vibes.entryNumber", { value0: entry.entryIndex + 1 })}</h4>
             <Button
               disabled={disabled || (!entry.hasImage && !entry.caches.length)}
@@ -496,7 +546,9 @@ function DocumentEntries({
               }),
             )
           ) : (
-            <p className="vibe-status">{t("vibes.noOriginalImage")}</p>
+            <p className="vibe-status text-label text-muted wrap-anywhere">
+              {t("vibes.noOriginalImage")}
+            </p>
           )}
           {entry.caches.map((cache) => (
             <div key={JSON.stringify([cache.modelKey, cache.parameterKey])}>
@@ -519,9 +571,13 @@ function DocumentEntries({
               )}
             </div>
           ))}
-          {!entry.caches.length && <p className="vibe-status">{t("vibes.noEncoding")}</p>}
+          {!entry.caches.length && (
+            <p className="vibe-status text-label text-muted wrap-anywhere">
+              {t("vibes.noEncoding")}
+            </p>
+          )}
         </section>
       ))}
-    </div>
+    </Grid>
   );
 }

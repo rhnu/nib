@@ -1,3 +1,5 @@
+import { Button, IconButton, Modal, Notice, notify, Grid, Row } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState, errorMessage } from "@/shared/i18n";
 import { useFeedback } from "./feedback-context";
 import { useJobData } from "./job-context";
@@ -5,7 +7,7 @@ import { jobsApi } from "./api";
 import { useRef, useState } from "react";
 import { Eye, ListOrdered, RotateCw, Square, X } from "lucide-react";
 import type { JobSummary } from "@/bindings/generation";
-import { Button, IconButton, Modal, Notice, notify } from "@/shared/ui";
+
 import { JobRetryDialog } from "./job-retry-dialog";
 import { operationSummaryLabel } from "./summary";
 import { jobFeedbackText } from "./feedback-state";
@@ -78,13 +80,18 @@ export function JobQueue({
         }}
         showClose={false}
         title={t("generation.taskQueue")}
-        className="queue-drawer"
+        className="queue-drawer [&.modal]:inset-[var(--titlebar-height)_0_0_auto] [&.modal]:[transform:none] [&.modal]:w-[min(460px,_95vw)] [&.modal]:max-w-[95vw] [&.modal]:h-[calc(100dvh_-_var(--titlebar-height))] [&.modal]:max-h-[calc(100dvh_-_var(--titlebar-height))] [&.modal]:rounded-[0] [&_.generation-job-description_>_span]:w-auto [&.modal]:py-space-3 [&.modal]:px-[10px] [&_.generation-job_+_.generation-job]:border-t [&_.generation-job_+_.generation-job]:border-line-subtle [&_.generation-job-list]:max-h-[none] [&_.generation-job-list]:overflow-visible [&_.generation-job-list]:gap-0 [&_.generation-job]:border-0 [&_.generation-job]:rounded-[0] [&_.generation-job]:bg-transparent [&_.generation-job]:py-space-2 [&_.generation-job]:px-0 [&_.generation-job]:gap-space-1 [&_.generation-job-description]:gap-y-[3px] [&_.generation-job-description]:gap-x-space-3 [&_.generation-job-cost]:text-caption"
       >
-        <div className="queue-drawer-body">
+        <Grid
+          gap={0}
+          align="stretch"
+          columns={1}
+          className="queue-drawer-body overflow-auto p-0 grid content-start gap-space-3"
+        >
           {!jobs ? (
             <output>{queryError ?? t("generation.loadingTasks")}</output>
           ) : !jobs.length ? (
-            <p className="generation-muted">{t("generation.noTasks")}</p>
+            <p className="generation-muted text-muted">{t("generation.noTasks")}</p>
           ) : (
             groups.map((group) => {
               const ordered = [...group].sort((a, b) => a.requestIndex - b.requestIndex);
@@ -92,8 +99,15 @@ export function JobQueue({
               const running = ordered.some((job) => job.status === "running");
               const batchId = ordered[0]!.batchId;
               return (
-                <section className="queue-batch" key={ordered[0]!.batchId}>
-                  <header>
+                <Grid
+                  gap={0}
+                  align="stretch"
+                  columns={1}
+                  as="section"
+                  className="queue-batch [&_>_header]:items-center [&_>_header]:text-label [&_>_header_>_span]:flex-1 [&_>_header_>_span]:text-muted [&_>_header_>_span]:text-caption [&_>_header]:min-h-[26px] [&_>_header]:flex [&_>_header]:gap-space-3 grid gap-space-2"
+                  key={ordered[0]!.batchId}
+                >
+                  <Row gap={0} as="header">
                     <strong>{operationSummaryLabel(ordered[0]!.operation)}</strong>
                     <span>{t("generation.requestCount", { count: ordered[0]!.requestCount })}</span>
                     {queued.length > 0 && (
@@ -117,11 +131,24 @@ export function JobQueue({
                         <Square size={13} fill="currentColor" />
                       </IconButton>
                     )}
-                  </header>
-                  <ol className="generation-job-list">
+                  </Row>
+                  <Grid
+                    gap={0}
+                    align="stretch"
+                    columns={1}
+                    as="ol"
+                    className="generation-job-list grid gap-space-2 list-none p-0 m-0 max-h-[220px] overflow-auto"
+                  >
                     {ordered.map((job) => (
-                      <li key={job.id} className={`generation-job generation-job-${job.status}`}>
-                        <div className="generation-job-description">
+                      <li
+                        key={job.id}
+                        className={`generation-job [&.generation-job-running]:border-[color-mix(in_srgb,var(--accent)_40%,var(--line))] [&.generation-job-queued]:border-[color-mix(in_srgb,var(--accent)_40%,var(--line))] flex items-start gap-space-3 py-space-2 px-space-3 border border-line-subtle rounded-control bg-background generation-job-${job.status}`}
+                      >
+                        <Row
+                          gap={0}
+                          align="stretch"
+                          className="generation-job-description [&_strong]:text-label [&_time]:text-caption [&_time]:text-muted [&_>_span]:text-caption [&_>_span]:text-muted [&_small]:text-caption [&_small]:text-muted [&_>_span]:w-full [&_small]:w-full [&_.generation-danger]:text-danger flex flex-wrap gap-y-[3px] gap-x-space-3 flex-1 min-w-0 wrap-anywhere"
+                        >
                           <strong>
                             {job.requestIndex + 1}. {jobFeedbackText(job, feedback[job.id])}
                           </strong>
@@ -131,7 +158,9 @@ export function JobQueue({
                             </span>
                           )}
                           {job.error && (
-                            <span className="generation-danger">{errorMessage(job.error)}</span>
+                            <span className="generation-danger text-danger">
+                              {errorMessage(job.error)}
+                            </span>
                           )}
                           <JobCostSummary
                             job={
@@ -140,7 +169,7 @@ export function JobQueue({
                                 : job
                             }
                           />
-                        </div>
+                        </Row>
                         {onViewJob && job.operation.kind !== "encodeVibe" && (
                           <IconButton
                             label={t("generation.viewRequest")}
@@ -170,8 +199,8 @@ export function JobQueue({
                         )}
                       </li>
                     ))}
-                  </ol>
-                </section>
+                  </Grid>
+                </Grid>
               );
             })
           )}
@@ -181,7 +210,7 @@ export function JobQueue({
             </Button>
           )}
           {error && <Notice>{error}</Notice>}
-        </div>
+        </Grid>
         {retryJob && <JobRetryDialog job={retryJob} onClose={() => setRetryJob(null)} />}
       </Modal>
     </>

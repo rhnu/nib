@@ -25,7 +25,7 @@ export const promptEditorTheme = EditorView.theme({
   },
   ".cm-tooltip": {
     border: "1px solid var(--line)",
-    borderRadius: "var(--radius-overlay)",
+    borderRadius: "var(--overlay-radius)",
     backgroundColor: "var(--raised)",
     color: "var(--text)",
     boxShadow: "var(--shadow)",

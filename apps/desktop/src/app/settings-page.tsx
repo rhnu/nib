@@ -1,3 +1,17 @@
+import {
+  Button,
+  HelpMarker,
+  Notice,
+  Toggle,
+  Select,
+  SettingRow,
+  SettingsGroup,
+  Grid,
+  Input,
+  Row,
+  Col,
+} from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import type { Language } from "@/bindings/settings";
 import { useState } from "react";
@@ -7,7 +21,7 @@ import { Moon, Sun } from "lucide-react";
 import { ExploreConnectionSettings } from "@/features/explore/connection-settings";
 import { AccountSettings } from "@/features/generation";
 import { DownloadsSettings } from "@/features/downloads/downloads-settings";
-import { Button, HelpMarker, Notice, Toggle, Select, SettingRow, SettingsGroup } from "@/shared/ui";
+
 import type { ApplicationSettingsState } from "./use-application-settings";
 import type { ApplicationUpdates } from "./use-application-updates";
 import { ApplicationUpdateSettings } from "./application-updates";
@@ -20,11 +34,11 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
   const execution = value.execution;
   return (
     <SettingsGroup>
-      <details className="execution-settings">
+      <details className="execution-settings [border-top:1px_solid_var(--line)] [&_summary]:cursor-pointer [&_summary]:font-semibold [&_summary]:py-space-4">
         <summary>{t("app.advancedExecution")}</summary>
-        <div className="execution-settings-fields">
+        <Grid align="stretch" gap={0} columns={1} className="execution-settings-fields">
           <SettingRow label={t("app.apiBaseUrl")} htmlFor="settings-endpoint" controlWidth="wide">
-            <input
+            <Input
               autoComplete="off"
               id="settings-endpoint"
               type="url"
@@ -75,7 +89,7 @@ function ExecutionSettings({ settings }: { settings: ApplicationSettingsState })
               }
             />
           </SettingRow>
-        </div>
+        </Grid>
       </details>
     </SettingsGroup>
   );
@@ -126,7 +140,11 @@ function StorageSettings({
       title={t("app.storageLocation")}
       headingLevel={2}
       actions={
-        storage.development && <span className="tag">{t("app.developmentEnvironment")}</span>
+        storage.development && (
+          <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+            {t("app.developmentEnvironment")}
+          </span>
+        )
       }
     >
       <SettingRow
@@ -151,14 +169,14 @@ function StorageSettings({
           {t("app.openLocation")}
         </Button>
       </SettingRow>
-      <div className="settings-actions">
+      <Row gap={3} align="center" wrap className="settings-actions pt-space-4">
         <Button disabled={saving || storage.restartRequired} onClick={() => void choose()}>
           {saving ? t("app.migrating") : t("app.changeLocation")}
         </Button>
         <HelpMarker label={t("app.changeStorageHelpLabel")}>
           {t("app.changeStorageHelp")}
         </HelpMarker>
-      </div>
+      </Row>
       {storage.restartRequired && <Notice>{t("app.locationChanged")}</Notice>}
       {error && <Notice>{error}</Notice>}
       {settings.storageError && (
@@ -236,37 +254,65 @@ export function SettingsPage({
   const { preferences, writer } = settings;
   const theme = preferences.value?.theme;
   return (
-    <main className="settings-page" aria-label={t("app.settings")}>
-      <div className="settings-layout">
-        <nav className="settings-navigation" aria-label={t("app.settingsCategories")}>
+    <Col
+      gap={0}
+      as="main"
+      className="settings-page flex-1 min-h-0 min-w-0 overflow-auto bg-background"
+      aria-label={t("app.settings")}
+    >
+      <Grid
+        align="stretch"
+        gap={0}
+        columns={1}
+        className="settings-layout flex-1 [grid-template-columns:180px_minmax(0,_1fr)] max-[760px]:[grid-template-columns:1fr] max-[760px]:[grid-template-rows:auto_1fr]"
+      >
+        <Col
+          gap={2}
+          as="nav"
+          className="settings-navigation py-space-5 px-space-4 [border-right:1px_solid_var(--line-subtle)] [&_>_button]:[justify-content:flex-start] [&_>_button]:text-left [&_>_button]:[border:1px_solid_transparent] [&_>_button]:[background:transparent] [&_>_button]:text-muted [&_>_button]:rounded-control [&_>_button]:py-space-3 [&_>_button]:px-space-4 [&_>_button]:cursor-pointer [&_>_button[aria-current='page']]:text-foreground [&_>_button[aria-current='page']]:bg-panel [&_>_button[aria-current='page']]:[border-color:var(--line-subtle)] max-[760px]:flex-row max-[760px]:flex-wrap max-[760px]:[border-right:0] max-[760px]:[border-bottom:1px_solid_var(--line-subtle)]"
+          aria-label={t("app.settingsCategories")}
+        >
           {sections.map((item) => (
-            <button
+            <Button
               key={item.id}
               type="button"
               aria-current={section === item.id ? "page" : undefined}
               onClick={() => onSectionChange(item.id)}
             >
               {item.name}
-            </button>
+            </Button>
           ))}
-        </nav>
-        <div className="settings-page-content">
-          <section className="settings-category" hidden={section !== "updates"}>
-            <h2 className="settings-category-title">{t("updates.title")}</h2>
+        </Col>
+        <div className="settings-page-content min-w-0 w-full [max-width:1080px] p-space-6 max-[760px]:p-space-5">
+          <section
+            className="settings-category [&_>_.settings-group_+_.settings-group]:mt-space-6 [&_>_div_+_.settings-group]:mt-space-6"
+            hidden={section !== "updates"}
+          >
+            <h2 className="settings-category-title text-title mb-space-5">{t("updates.title")}</h2>
             <ApplicationUpdateSettings updates={updates} />
           </section>
-          <div className="settings-category" hidden={section !== "account"}>
+          <div
+            className="settings-category [&_>_.settings-group_+_.settings-group]:mt-space-6 [&_>_div_+_.settings-group]:mt-space-6"
+            hidden={section !== "account"}
+          >
             {showAccount && (
               <div>
-                <h2 className="settings-category-title">{t("app.accountConnection")}</h2>
+                <h2 className="settings-category-title text-title mb-space-5">
+                  {t("app.accountConnection")}
+                </h2>
                 <AccountSettings onOpenTasks={onOpenTasks} />
               </div>
             )}
             <ExploreConnectionSettings />
             <ExecutionSettings settings={settings} />
           </div>
-          <section className="settings-category" hidden={section !== "generation"}>
-            <h2 className="settings-category-title">{t("app.generationPreview")}</h2>
+          <section
+            className="settings-category [&_>_.settings-group_+_.settings-group]:mt-space-6 [&_>_div_+_.settings-group]:mt-space-6"
+            hidden={section !== "generation"}
+          >
+            <h2 className="settings-category-title text-title mb-space-5">
+              {t("app.generationPreview")}
+            </h2>
             {preferences.value && (
               <>
                 <SettingsGroup>
@@ -275,7 +321,7 @@ export function SettingsPage({
                     htmlFor="settings-recent-images"
                     controlWidth="short"
                   >
-                    <input
+                    <Input
                       id="settings-recent-images"
                       type="number"
                       min={1}
@@ -326,8 +372,11 @@ export function SettingsPage({
               </>
             )}
           </section>
-          <section className="settings-category" hidden={section !== "appearance"}>
-            <h2 className="settings-category-title">{t("app.appearance")}</h2>
+          <section
+            className="settings-category [&_>_.settings-group_+_.settings-group]:mt-space-6 [&_>_div_+_.settings-group]:mt-space-6"
+            hidden={section !== "appearance"}
+          >
+            <h2 className="settings-category-title text-title mb-space-5">{t("app.appearance")}</h2>
             <SettingsGroup>
               <SettingRow label={t("language.label")} htmlFor="settings-language">
                 <Select
@@ -410,7 +459,7 @@ export function SettingsPage({
             <DownloadsSettings />
           </div>
         </div>
-      </div>
-    </main>
+      </Grid>
+    </Col>
   );
 }

@@ -1,7 +1,8 @@
+import { Button, Field, Notice, Select, Row, Col, RecoveryBoundary } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
-import { Button, Field, Notice, Select } from "@/shared/ui";
-import { RecoveryBoundary } from "@/shared/ui/recovery-boundary";
+
 import { PromptWorkspace } from "@/features/workbench/prompt-workspace";
 import { CharacterContext } from "@/features/workbench/character-context";
 import { ContextRail } from "@/features/workbench/context-rail";
@@ -132,14 +133,19 @@ export function CreatePage() {
               }}
             />
           )}
-          <div className="workspace-body image-drop-page" {...drop.bindings}>
+          <Row
+            gap={0}
+            align="stretch"
+            className="workspace-body grid grid-cols-[var(--sidebar-width)_minmax(0,_1fr)] flex-1 min-h-0 overflow-hidden max-[760px]:grid-cols-[minmax(0,_1fr)] max-[760px]:overflow-auto max-[760px]:content-start image-drop-page relative"
+            {...drop.bindings}
+          >
             {(drop.dragging || drop.busy) && (
-              <output className="page-image-drop">
+              <output className="page-image-drop absolute inset-[8px] z-20 grid place-content-center [border:2px_dashed_var(--accent)] rounded-control bg-accent-soft text-foreground font-semibold pointer-events-none">
                 {t(drop.busy ? "media.importing" : "media.dropHere")}
               </output>
             )}
             {drop.error && (
-              <div className="page-image-drop-error">
+              <div className="page-image-drop-error absolute top-[8px] right-[12px] z-21 max-w-[420px]">
                 <Notice actions={<Button onClick={drop.clearError}>{t("common.close")}</Button>}>
                   {drop.error}
                 </Notice>
@@ -174,8 +180,13 @@ export function CreatePage() {
               />
             )}
 
-            <aside className="generation-sidebar" aria-label={t("workbench.generationSidebar")}>
-              <div className="generation-sidebar-scroll">
+            <Col
+              gap={0}
+              as="aside"
+              className="generation-sidebar flex flex-col min-w-0 min-h-0 [border-right:1px_solid_var(--line)] bg-panel max-[760px]:min-h-[min(640px,_calc(100dvh_-_var(--titlebar-height)))] max-[760px]:[border-right:0] max-[760px]:[border-bottom:1px_solid_var(--line)]"
+              aria-label={t("workbench.generationSidebar")}
+            >
+              <div className="generation-sidebar-scroll flex-1 min-h-0 overflow-auto [scrollbar-gutter:stable] [overscroll-behavior:contain] max-[760px]:overflow-visible">
                 {draft.inputs.operation.kind !== "upscale" && (
                   <PromptWorkspace
                     draft={draft}
@@ -246,7 +257,7 @@ export function CreatePage() {
                   outputIssues={outputIssues}
                 />
               </div>
-              <div className="generation-actions-slot">
+              <div className="generation-actions-slot shrink-0 p-[8px_12px] [border-top:1px_solid_var(--line-subtle)] bg-panel">
                 <GenerationActions
                   draft={draft}
                   readCurrentDraft={readCurrentDraft}
@@ -304,14 +315,19 @@ export function CreatePage() {
                   }
                 />
               </div>
-            </aside>
-            <main className="main-workspace flex min-h-0 min-w-0 flex-col">
-              <div
-                className="flex min-h-0 min-w-0 flex-1 flex-col"
-                style={{ display: mask.active || positioning ? "none" : undefined }}
+            </Col>
+            <Col
+              gap={0}
+              as="main"
+              className="main-workspace flex min-h-0 min-w-0 flex-col max-[760px]:min-h-[440px]"
+            >
+              <Col
+                gap={0}
+                className="min-h-0 min-w-0 flex-1"
+                hidden={Boolean(mask.active || positioning)}
               >
                 <ResultPanel />
-              </div>
+              </Col>
               <RecoveryBoundary
                 label={t("workbench.canvas")}
                 resetKeys={[mask.active?.sourceAssetId, Boolean(positioning)]}
@@ -362,8 +378,8 @@ export function CreatePage() {
                   </div>
                 )}
               </RecoveryBoundary>
-            </main>
-          </div>
+            </Col>
+          </Row>
         </PromptEditorStateProvider>
       </PromptTransferProvider>
     </PromptFormattingProvider>

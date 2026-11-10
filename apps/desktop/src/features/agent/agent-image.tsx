@@ -1,7 +1,9 @@
+import { Button, IconButton, Modal, Notice, Row } from "@/shared/ui";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ImageOff, RefreshCw } from "lucide-react";
-import { Button, IconButton, Modal, Notice } from "@/shared/ui";
+
 import { t } from "@/shared/i18n";
 import { useMediaContent } from "@/features/media/use-media-content";
 import { SafetyImage } from "@/features/media/safety-image";
@@ -23,9 +25,9 @@ export function AgentImage({ id }: { id: string }) {
     asset.data?.available ?? false,
   );
   return (
-    <div className="agent-image-item">
+    <div className="agent-image-item min-w-0 [width:84px]">
       <Button
-        className="agent-image"
+        className="agent-image [width:84px] [height:84px] p-0 overflow-hidden [&_img]:w-full [&_img]:h-full [&_img]:object-contain"
         onClick={() => setOpen(true)}
         aria-label={t("agent.viewImage")}
       >
@@ -43,17 +45,23 @@ export function AgentImage({ id }: { id: string }) {
         )}
       </Button>
       {thumbnail.error && (
-        <output className="agent-image-error">
+        <Row
+          gap={1}
+          align="center"
+          justify="between"
+          as="output"
+          className="agent-image-error text-caption text-danger"
+        >
           <span title={thumbnail.error}>{t("generation.loadFailed")}</span>
           <IconButton label={t("media.retryRead")} onClick={thumbnail.retry}>
             <RefreshCw size={13} aria-hidden />
           </IconButton>
-        </output>
+        </Row>
       )}
       <Modal open={open} onClose={() => setOpen(false)} title={t("agent.viewImage")} wide>
         {original.url ? (
           <SafetyImage
-            className="agent-image-full"
+            className="agent-image-full block [max-width:100%] [max-height:75vh] object-contain mx-auto"
             assetId={id}
             details
             src={original.url}

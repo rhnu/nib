@@ -1,10 +1,12 @@
+import { Button, IconButton, Notice, Row, Col, Grid } from "@/shared/ui";
+
 import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Expand, ImageOff } from "lucide-react";
 import type { JobSummary, ResultSummary } from "@/bindings/generation";
-import { Button, IconButton, Notice } from "@/shared/ui";
+
 import { useMediaContent } from "@/features/media/use-media-content";
 import { useFeedback } from "../jobs/feedback-context";
 import { jobFeedbackText, type FeedbackSample } from "../jobs/feedback-state";
@@ -30,7 +32,7 @@ export function PreviewImage({ sample }: { sample: FeedbackSample }) {
   return url && url !== failed ? (
     <SafetyImage
       assetId={null}
-      className="generation-live-image"
+      className="generation-live-image w-full h-full min-w-0 min-h-0 object-contain"
       src={url}
       alt={t("generation.samplePreview", { value0: sample.sampleIndex + 1 })}
       onError={() => setFailed(url)}
@@ -63,7 +65,7 @@ function SampleCell({
   const { releasePreview } = useFeedback();
   return (
     <section
-      className="request-sample"
+      className="request-sample [&_>_img]:inset-0 [&_.image-overlay]:left-auto [&_.image-overlay]:right-[5px] [&_.image-overlay]:top-[5px] [&_.image-overlay]:[transform:none] [&_>_img]:absolute relative min-w-0 min-h-0 bg-background border border-line-subtle overflow-hidden"
       aria-label={t("generation.sampleNumber", { value0: index + 1 })}
     >
       {!decoded && sample?.bytes && <PreviewImage sample={sample} />}
@@ -75,7 +77,7 @@ function SampleCell({
         >
           <SafetyImage
             assetId={result.assetId}
-            className="generation-live-image"
+            className="generation-live-image w-full h-full min-w-0 min-h-0 object-contain"
             src={image.url}
             alt={t("generation.sampleNumber", { value0: index + 1 })}
             style={{ opacity: decoded ? 1 : 0 }}
@@ -88,26 +90,31 @@ function SampleCell({
         </ImageContextActions>
       )}
       {!decoded && !sample?.bytes && (
-        <output className="request-sample-status">
+        <output className="request-sample-status flex flex-col items-center justify-center gap-[7px] h-full text-muted text-caption p-space-4 text-center">
           <ImageOff size={22} />
           {image.error ?? jobFeedbackText(job, sample ? [sample] : [])}
         </output>
       )}
       {image.error && (
-        <Button className="sample-retry" onClick={image.retry}>
+        <Button className="sample-retry absolute bottom-[6px] right-[6px]" onClick={image.retry}>
           {t("generation.retryLoad")}
         </Button>
       )}
-      <span className="request-sample-number">{index + 1}</span>
+      <span className="request-sample-number absolute bottom-[5px] left-[5px] py-[2px] px-[5px] text-caption bg-panel text-muted">
+        {index + 1}
+      </span>
       {result && (
-        <div className="image-overlay image-overlay-top">
+        <Row
+          gap={0}
+          className="image-overlay [&_.icon-button]:w-[30px] [&_.icon-button]:h-[30px] [&_.icon-button]:min-h-[30px] [&_.icon-button]:[flex:0_0_30px] [&_.icon-button]:inline-flex [&_.icon-button]:items-center [&_.icon-button]:justify-center [&_.icon-button]:text-inherit [&_.icon-button]:border-0 [&_.icon-button]:bg-transparent [&_.icon-button]:rounded-control [&_.icon-button]:no-underline [&_.generation-image-actions]:contents absolute z-[2] flex items-center gap-[2px] p-[3px] border border-line rounded-control bg-[color-mix(in_srgb,_var(--surface)_92%,_transparent)] [box-shadow:0_2px_12px_#0003] image-overlay-top left-[50%] top-[10px] [transform:translateX(-50%)] max-w-[calc(100%_-_16px)] whitespace-nowrap overflow-x-auto"
+        >
           <IconButton
             label={t("generation.viewSample", { value0: index + 1 })}
             onClick={() => onSelect(result)}
           >
             <Expand size={17} />
           </IconButton>
-        </div>
+        </Row>
       )}
     </section>
   );
@@ -142,7 +149,7 @@ export function RequestCanvas({
   const first = results.find((result) => result.sampleIndex === 0);
   const preview = samples.find((sample) => sample.sampleIndex === 0);
   return (
-    <div className="request-view">
+    <Col gap={0} align="stretch" className="request-view flex flex-col flex-1 min-h-0 min-w-0">
       {query.error && (
         <Notice
           actions={
@@ -162,8 +169,11 @@ export function RequestCanvas({
           onImageLoaded={() => releasePreview(job.id, 0)}
         />
       ) : (
-        <div
-          className="request-grid"
+        <Grid
+          gap={0}
+          align="stretch"
+          columns={1}
+          className="request-grid grid [grid-auto-rows:minmax(0,_1fr)] gap-space-2 p-space-2 flex-1 min-h-0"
           style={{
             gridTemplateColumns: `repeat(${count <= 1 ? 1 : count <= 4 ? 2 : 3}, minmax(0, 1fr))`,
           }}
@@ -178,9 +188,9 @@ export function RequestCanvas({
               onSelect={onSelect}
             />
           ))}
-        </div>
+        </Grid>
       )}
       {job.error && <Notice>{errorMessage(job.error)}</Notice>}
-    </div>
+    </Col>
   );
 }

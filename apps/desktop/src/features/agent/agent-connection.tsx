@@ -1,3 +1,15 @@
+import {
+  AutocompleteInput,
+  Button,
+  Field,
+  InputRow,
+  Grid,
+  IconButton,
+  Select,
+  Input,
+  Row,
+} from "@/shared/ui";
+
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type {
@@ -6,7 +18,7 @@ import type {
   AgentPermission,
   AgentProvider,
 } from "@/bindings/agent";
-import { AutocompleteInput, Button, Field, IconButton, Select } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 import { t } from "@/shared/i18n";
 import { agentApi } from "./api";
@@ -102,7 +114,7 @@ export function AgentConnection({
   return (
     <form
       id="agent-connection"
-      className="agent-connection"
+      className="agent-connection [max-height:55%] overflow-auto py-space-3 px-space-4 [border-block:1px_solid_var(--line-subtle)] [&_legend]:mb-space-3 [&_legend]:font-semibold"
       hidden={!visible}
       onSubmit={(event) => {
         event.preventDefault();
@@ -120,7 +132,14 @@ export function AgentConnection({
           });
       }}
     >
-      <fieldset disabled={disabled || agent.connectionBusy}>
+      <Grid
+        align="stretch"
+        as="fieldset"
+        columns={1}
+        gap={3}
+        className="m-0 min-w-0 border-0 p-0"
+        disabled={disabled || agent.connectionBusy}
+      >
         <legend>{t("agent.connection")}</legend>
         <Field label={t("agent.provider")}>
           <Select
@@ -141,22 +160,18 @@ export function AgentConnection({
         </Field>
         {provider.kind === "custom" && (
           <>
-            <Field label={t("agent.endpoint")}>
-              <input
+            <Field required label={t("agent.endpoint")} description={t("agent.endpointHelp")}>
+              <Input
                 autoComplete="off"
                 type="url"
-                required
+
                 value={provider.endpoint}
                 placeholder="https://api.openai.com/v1"
                 onChange={(event) =>
                   change({ ...config, provider: { ...provider, endpoint: event.target.value } })
                 }
-                aria-describedby="agent-endpoint-help"
               />
             </Field>
-            <p id="agent-endpoint-help" className="agent-help">
-              {t("agent.endpointHelp")}
-            </p>
             <Field label={t("agent.protocol")}>
               <Select
                 value={provider.api}
@@ -171,36 +186,50 @@ export function AgentConnection({
             </Field>
           </>
         )}
-        <Field label={t("agent.apiKey")}>
-          <input
+        <Field
+          required={!agent.connection?.configured || !sameDestination}
+          label={t("agent.apiKey")}
+          description={t(
+            agent.connection?.configured && sameDestination
+              ? "agent.keyStored"
+              : "agent.keyRequired",
+          )}
+        >
+          <Input
             ref={password}
             type="password"
             autoComplete="new-password"
-            required={!agent.connection?.configured || !sameDestination}
-            aria-describedby="agent-key-help"
+
             onChange={() => {
               setSaved(false);
             }}
             onBlur={() => setRevision((value) => value + 1)}
           />
         </Field>
-        <p id="agent-key-help" className="agent-help">
-          {t(
-            agent.connection?.configured && sameDestination
-              ? "agent.keyStored"
-              : "agent.keyRequired",
-          )}
-        </p>
-        <Field label={t("agent.model")}>
-          <div className="agent-model-input">
+        <Field
+          required
+          label={t("agent.model")}
+          htmlFor="agent-model"
+          description={
+            <span aria-live="polite">{t(loading ? "agent.loadingModels" : "agent.modelHelp")}</span>
+          }
+          error={
+            modelError !== null ? (
+              <>
+                {t("agent.modelsFailed")} {errorMessage(modelError)}
+              </>
+            ) : undefined
+          }
+        >
+          <InputRow>
             <AutocompleteInput
-              required
+              id="agent-model"
+
               disabled={disabled || agent.connectionBusy}
               suggestions={models}
               value={config.model}
               onValueChange={(model) => change({ ...config, model })}
               aria-label={t("agent.model")}
-              aria-describedby="agent-model-help"
             />
             <IconButton
               label={t("agent.refreshModels")}
@@ -209,17 +238,9 @@ export function AgentConnection({
             >
               <RefreshCw size={14} className={loading ? "spin" : undefined} aria-hidden />
             </IconButton>
-          </div>
+          </InputRow>
         </Field>
-        <p id="agent-model-help" className="agent-help" aria-live="polite">
-          {t(loading ? "agent.loadingModels" : "agent.modelHelp")}
-        </p>
-        {modelError !== null && (
-          <p className="agent-failure" role="alert">
-            {t("agent.modelsFailed")} {errorMessage(modelError)}
-          </p>
-        )}
-        <Field label={t("agent.generationPermission")}>
+        <Field label={t("agent.generationPermission")} description={t("agent.permissionHelp")}>
           <Select
             value={agent.connection?.generationPermission ?? "ask"}
             onValueChange={(value) => void agent.savePermission(value as AgentPermission)}
@@ -230,14 +251,18 @@ export function AgentConnection({
             ]}
           />
         </Field>
-        <p className="agent-help">{t("agent.permissionHelp")}</p>
-        <div className="agent-connection-actions">
+        <Row
+          gap={2}
+          align="center"
+          justify="end"
+          className="agent-connection-actions [&_output]:text-accent [&_output]:text-label"
+        >
           {saved && <output>{t("agent.connectionSaved")}</output>}
           <Button type="submit" disabled={agent.connectionBusy}>
             {t("agent.saveConnection")}
           </Button>
-        </div>
-      </fieldset>
+        </Row>
+      </Grid>
     </form>
   );
 }

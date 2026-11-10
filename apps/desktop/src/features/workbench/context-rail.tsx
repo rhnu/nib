@@ -1,9 +1,11 @@
+import { HelpMarker, IconButton, Row, Grid, Button } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useState, type DragEvent } from "react";
 import { GripVertical, Plus } from "lucide-react";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { GenerationQuote, ParameterDiagnostic } from "@/bindings/generation";
-import { HelpMarker, IconButton } from "@/shared/ui";
+
 import { PresetEditor } from "@/features/prompt/preset-editor";
 import { SettingsEditor } from "@/features/prompt/settings-editor";
 import { moveItem } from "@/features/prompt/model";
@@ -81,13 +83,21 @@ export function ContextRail({
   };
 
   return (
-    <div className="context-rail">
+    <div className="context-rail min-w-0 [&_>_section]:py-space-3 [&_>_section]:px-space-4 [&_>_section]:border-b [&_>_section]:border-line-subtle">
       {draft.inputs.operation.kind !== "upscale" && (
         <section className="preset-context">
-          <header className="section-heading">
+          <Row
+            align="center"
+            justify="between"
+            gap={3}
+            as="header"
+            className="flex items-center justify-between gap-space-3 min-w-0 min-h-control mb-space-2 [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+          >
             <h2>
               {t("workbench.presets")}
-              <span className="count">{draft.presets.length}</span>
+              <span className="count ml-space-3 text-caption text-muted font-[450]">
+                {draft.presets.length}
+              </span>
               <HelpMarker label={t("workbench.presetsHelp")}>
                 {t("workbench.presetsDescription")}
               </HelpMarker>
@@ -95,9 +105,13 @@ export function ContextRail({
             <IconButton label={t("workbench.addPreset")} onClick={onAddPreset}>
               <Plus size={16} />
             </IconButton>
-          </header>
+          </Row>
           <div
-            className={presetDropBefore === "end" ? "prompt-drop-end" : undefined}
+            className={
+              presetDropBefore === "end"
+                ? "prompt-drop-end [box-shadow:0_2px_0_var(--accent)]"
+                : undefined
+            }
             onDragOver={(event) => {
               if (!event.dataTransfer.types.includes(presetDragType)) return;
               event.preventDefault();
@@ -114,7 +128,7 @@ export function ContextRail({
             {draft.presets.map((instance, index) => (
               <div
                 key={instance.id}
-                className={`preset-drop-slot${presetDropBefore === instance.id ? " prompt-drop-before" : ""}`}
+                className={`preset-drop-slot [&_+_.preset-drop-slot]:mt-space-3 [&_>_.preset-instance]:mb-0${presetDropBefore === instance.id ? " prompt-drop-before [box-shadow:0_-2px_0_var(--accent)]" : ""}`}
                 onDragOver={(event) => {
                   if (!event.dataTransfer.types.includes(presetDragType)) return;
                   event.preventDefault();
@@ -137,8 +151,11 @@ export function ContextRail({
                   part="content"
                   instance={instance}
                   dragHandle={
-                    <span
-                      className="prompt-drag-handle"
+                    <Row
+                      gap={0}
+                      align="stretch"
+                      as="span"
+                      className="prompt-drag-handle [&:active]:cursor-grabbing cursor-grab inline-flex shrink-0"
                       draggable
                       title={t("prompt.dragPreset")}
                       aria-label={t("prompt.dragPreset")}
@@ -149,7 +166,7 @@ export function ContextRail({
                       onDragEnd={() => setPresetDropBefore(null)}
                     >
                       <GripVertical size={14} aria-hidden />
-                    </span>
+                    </Row>
                   }
                   resources={resources}
                   models={models}
@@ -281,9 +298,15 @@ export function ContextRail({
             </section>
           )}
           <section className="settings-context">
-            <header className="section-heading">
+            <Row
+              align="center"
+              justify="between"
+              gap={3}
+              as="header"
+              className="flex items-center justify-between gap-space-3 min-w-0 min-h-control mb-space-2 [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+            >
               <h2>{t("workbench.imageSettings")}</h2>
-            </header>
+            </Row>
             <SettingsEditor
               fields="image"
               value={draft.settings}
@@ -294,14 +317,25 @@ export function ContextRail({
               resolved={resolved?.settings}
               onChange={(settings) => edit({ ...draft, settings })}
             />
-            <div className="request-count-control">
+            <Grid
+              gap={0}
+              align="stretch"
+              columns={1}
+              className="request-count-control [&_>_span]:items-center [&_>_span]:text-muted [&_>_span]:flex [&_>_span]:gap-space-1 grid gap-[5px] mt-space-3 text-caption"
+            >
               <span>
                 {t("workbench.generationRequests")}{" "}
                 <HelpMarker>{t("workbench.requestCountHelp")}</HelpMarker>
               </span>
-              <fieldset className="sample-options" aria-label={t("workbench.requestCount")}>
+              <Row
+                gap={0}
+                align="stretch"
+                as="fieldset"
+                className="sample-options [&_>_button]:[flex:1_0_28px] [&_>_button]:px-[5px] [&_>_button[aria-pressed=true]]:bg-accent-soft [&_>_button[aria-pressed=true]]:text-accent [&_>_button[aria-pressed=true]]:border-accent [&_.sample-inherit]:[flex:0_0_auto] flex flex-wrap gap-[3px]"
+                aria-label={t("workbench.requestCount")}
+              >
                 {Array.from({ length: 8 }, (_, index) => index + 1).map((count) => (
-                  <button
+                  <Button
                     type="button"
                     key={count}
                     aria-pressed={draft.inputs.requestCount === count}
@@ -311,10 +345,10 @@ export function ContextRail({
                     }}
                   >
                     {count}
-                  </button>
+                  </Button>
                 ))}
-              </fieldset>
-            </div>
+              </Row>
+            </Grid>
           </section>
         </>
       )}

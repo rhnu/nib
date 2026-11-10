@@ -1,6 +1,8 @@
+import { notify } from "@/shared/ui";
+
 import { useEffect } from "react";
 import { t } from "@/shared/i18n";
-import { notify } from "@/shared/ui";
+
 import { useJobData } from "./job-context";
 
 /** Native notifications own background delivery; foreground feedback uses the shared viewport. */

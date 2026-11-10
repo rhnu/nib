@@ -1,3 +1,5 @@
+import { Button, Modal, Notice, Select, notify, Row, Grid, ButtonGroup, Col } from "@/shared/ui";
+
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
@@ -28,8 +30,6 @@ import {
   deferMessage,
   errorMessage,
 } from "@/shared/i18n";
-import { Button, Modal, Notice, Select, notify } from "@/shared/ui";
-import "@/features/explore/styles.css";
 
 function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
   useTranslation();
@@ -271,8 +271,12 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
 
   return (
     <>
-      <div className="explore-toolbar">
-        <div className="explore-source-row">
+      <div className="explore-toolbar py-space-4 px-space-5 [border-bottom:1px_solid_var(--line)] bg-panel">
+        <Row
+          gap={0}
+          align="center"
+          className="explore-source-row gap-[10px] mb-space-4 [&_>_.select-trigger]:[min-width:160px] [&_>_.select-trigger]:[width:auto] max-[700px]:flex-wrap max-[700px]:[&_>_.muted]:w-full"
+        >
           <Select
             aria-label={t("explore.source")}
             value={source}
@@ -283,7 +287,7 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
             ]}
           />
           {source === "danbooru" && (
-            <span className="muted">
+            <span className="muted text-muted">
               {connection.data?.state === "connected"
                 ? t("explore.connectedAs", { username: connection.data.username ?? "" })
                 : connection.data?.state === "invalid"
@@ -291,7 +295,7 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
                   : t("explore.anonymousBrowsing")}
             </span>
           )}
-        </div>
+        </Row>
         <ExploreQueryFields
           query={view.query}
           onChange={(query) =>
@@ -313,8 +317,16 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
           {error}
         </Notice>
       )}
-      <div className={`explore-content ${selected ? "has-inspector" : ""}`}>
-        <div ref={scroller} className="explore-grid-scroll" aria-busy={search.isFetching}>
+      <Row
+        gap={0}
+        align="stretch"
+        className={`explore-content flex-1 min-w-0 min-h-0 max-[700px]:[&.has-inspector_>_.explore-grid-scroll]:hidden ${selected ? "has-inspector" : ""}`}
+      >
+        <div
+          ref={scroller}
+          className="explore-grid-scroll flex-1 min-w-0 overflow-auto p-space-5 [scrollbar-gutter:stable]"
+          aria-busy={search.isFetching}
+        >
           {connection.error && source === "danbooru" && (
             <Notice
               actions={
@@ -340,20 +352,35 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
             </Notice>
           )}
           {search.isPending && !search.error && !connection.error && (
-            <div className="explore-state">
+            <Grid
+              align="stretch"
+              gap={0}
+              columns={1}
+              className="explore-state [min-height:280px] [place-content:center] text-muted"
+            >
               <output>{t("explore.loading")}</output>
-            </div>
+            </Grid>
           )}
           {search.isSuccess && !items.length && (
-            <div className="explore-state">
+            <Grid
+              align="stretch"
+              gap={0}
+              columns={1}
+              className="explore-state [min-height:280px] [place-content:center] text-muted"
+            >
               <p>{t("explore.empty")}</p>
-            </div>
+            </Grid>
           )}
           {items.length > 0 && (
-            <div className="explore-grid">
+            <Grid
+              gap={4}
+              align="start"
+              columns={1}
+              className="explore-grid [grid-template-columns:repeat(auto-fill,_minmax(190px,_1fr))] max-[960px]:[grid-template-columns:repeat(auto-fill,_minmax(155px,_1fr))] max-[960px]:gap-[9px]"
+            >
               {items.map((item) => (
                 <article
-                  className={`explore-card ${selected?.key.id === item.key.id ? "is-selected" : ""}`}
+                  className={`explore-card relative min-w-0 overflow-hidden [border:1px_solid_var(--line-subtle)] rounded-control bg-panel [&.is-selected]:[outline:2px_solid_var(--accent)] [&.is-selected]:[outline-offset:1px] [&:hover_>_.explore-image-actions]:[opacity:1] [&:focus-within_>_.explore-image-actions]:[opacity:1] ${selected?.key.id === item.key.id ? "is-selected" : ""}`}
                   key={JSON.stringify(item.key)}
                 >
                   <ExploreImage item={item} onOpen={() => setSelected(item)} />
@@ -362,20 +389,30 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
                     actions={actions}
                     onInspect={() => setSelected(item)}
                   />
-                  <div className="explore-card-caption">
+                  <Row
+                    gap={3}
+                    align="stretch"
+                    justify="between"
+                    className="explore-card-caption [min-height:29px] py-[5px] px-space-3 text-muted text-caption [&_>_span:first-child]:overflow-hidden [&_>_span:first-child]:text-ellipsis [&_>_span:first-child]:whitespace-nowrap [&_>_span:last-child]:shrink-0"
+                  >
                     <span title={item.author ?? item.title}>{item.author ?? item.title}</span>
                     <span>{item.rating ? t(`explore.rating_${item.rating}`) : ""}</span>
-                  </div>
+                  </Row>
                 </article>
               ))}
-            </div>
+            </Grid>
           )}
           {search.hasNextPage && (
-            <div className="explore-load-more">
+            <Row
+              gap={0}
+              align="stretch"
+              justify="center"
+              className="explore-load-more [padding:24px_0_12px]"
+            >
               <Button disabled={search.isFetching} onClick={() => void search.fetchNextPage()}>
                 {search.isFetchingNextPage ? t("explore.loading") : t("explore.loadMore")}
               </Button>
-            </div>
+            </Row>
           )}
         </div>
         {selected && (
@@ -411,10 +448,15 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
             }}
           />
         )}
-      </div>
+      </Row>
       {restore && (
         <Modal open onClose={() => setRestore(null)} title={t("explore.replaceTitle")} wide>
-          <div className="explore-restore-preview">
+          <Grid
+            align="stretch"
+            gap={4}
+            columns={1}
+            className="explore-restore-preview [&_h3]:[margin:0_0_7px] [&_h3]:text-label [&_h3]:font-semibold overflow-y-auto p-space-5"
+          >
             <p>{t("explore.replaceHelp")}</p>
             {restore.notices.map((notice, index) => (
               <Notice key={index}>{errorMessage(notice)}</Notice>
@@ -424,14 +466,20 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
                 <h3>
                   {t(part === "positive" ? "prompt.positivePrompt" : "prompt.negativePrompt")}
                 </h3>
-                <p className="explore-prompt-text">
+                <p className="explore-prompt-text m-0 [max-height:230px] overflow-auto p-space-3 [border:1px_solid_var(--line-subtle)] bg-input font-mono text-label whitespace-pre-wrap [overflow-wrap:anywhere]">
                   {restore.draft.composition[part]
                     .map((node) => (node.kind === "text" ? node.text : ""))
                     .join("\n")}
                 </p>
               </section>
             ))}
-            <dl className="explore-parameters">
+            <Grid
+              align="stretch"
+              gap={0}
+              columns={1}
+              as="dl"
+              className="explore-parameters [grid-template-columns:1fr_1fr] [gap:8px_12px] [margin:8px_0_14px] [&_>_div]:min-w-0 [&_dt]:text-caption [&_dt]:text-muted [&_dd]:[margin:2px_0_0] [&_dd]:[overflow-wrap:anywhere] [&_dd]:text-label"
+            >
               {Object.entries(restore.draft.settings)
                 .filter(([, value]) => value !== null)
                 .map(([key, value]) => (
@@ -440,12 +488,15 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
                     <dd>{settingValue(key as SettingKey, value)}</dd>
                   </div>
                 ))}
-            </dl>
+            </Grid>
             {restore.draft.characters.map((character, index) => (
               <section key={character.id}>
                 <h3>{t("explore.characterPositive", { index: index + 1 })}</h3>
                 {(["positive", "negative"] as const).map((part) => (
-                  <p className="explore-prompt-text" key={part}>
+                  <p
+                    className="explore-prompt-text m-0 [max-height:230px] overflow-auto p-space-3 [border:1px_solid_var(--line-subtle)] bg-input font-mono text-label whitespace-pre-wrap [overflow-wrap:anywhere]"
+                    key={part}
+                  >
                     {character.composition[part]
                       .map((node) => (node.kind === "text" ? node.text : ""))
                       .join("\n")}
@@ -453,10 +504,15 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
                 ))}
               </section>
             ))}
-            <div className="ui-actions">
+            <ButtonGroup
+              gap={3}
+              wrap
+              justify="end"
+              className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+            >
               <Button onClick={() => setRestore(null)}>{t("app.cancel")}</Button>
               <Button
-                className="primary"
+                variant="primary"
                 onClick={() => {
                   controller.guardedRestore(restore.draft);
                   setRestore(null);
@@ -464,8 +520,8 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
               >
                 {t("explore.applyReplace")}
               </Button>
-            </div>
-          </div>
+            </ButtonGroup>
+          </Grid>
         </Modal>
       )}
     </>
@@ -478,8 +534,13 @@ export function ExplorePage() {
   const { exploreSession } = useWorkbenchContext();
   const source = useStore(exploreSession, (state) => state.source);
   return (
-    <main className="explore-page" aria-label={t("explore.title")}>
+    <Col
+      gap={0}
+      as="main"
+      className="explore-page flex-1 min-w-0 min-h-0 overflow-hidden"
+      aria-label={t("explore.title")}
+    >
       <ExploreSourceBrowser key={source} source={source} />
-    </main>
+    </Col>
   );
 }

@@ -1,8 +1,20 @@
+import {
+  ActionsMenu,
+  Button,
+  ContextActions,
+  IconButton,
+  type ActionMenuItem,
+  Row,
+  Grid,
+  Input,
+  Col,
+} from "@/shared/ui";
+
 import { ArrowLeft, ArrowRight, ArrowUp, ChevronRight, Folder, Check, X } from "lucide-react";
 import { useEffect, useRef, type ReactNode, type DragEvent } from "react";
 import type { ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
-import { ActionsMenu, Button, ContextActions, IconButton, type ActionMenuItem } from "@/shared/ui";
+
 import { folderAncestry } from "./resource-location";
 
 /** Shared location controls for the library, resource picker and destination browser. */
@@ -20,7 +32,7 @@ export function ResourceBreadcrumb({
   useTranslation();
   const path = folderAncestry(folderId, folders);
   return (
-    <div className="resource-location">
+    <Row gap={0} className="resource-location flex items-center gap-space-2 flex-1 min-w-0">
       {history && (
         <>
           <IconButton
@@ -46,9 +58,15 @@ export function ResourceBreadcrumb({
       >
         <ArrowUp size={15} />
       </IconButton>
-      <nav className="resource-breadcrumb" aria-label={t("library.path")}>
+      <Row
+        gap={0}
+        as="nav"
+        className="resource-breadcrumb [&_>_span]:shrink-0 [&_.ui-button]:shrink-0 [&_.ui-button]:max-w-[220px] [&_.ui-button]:py-0 [&_.ui-button]:px-space-2 [&_.ui-button]:overflow-hidden [&_.ui-button]:text-ellipsis [&_.ui-button]:whitespace-nowrap [&_[aria-current=location]]:font-semibold [&_svg]:shrink-0 [&_svg]:text-muted [&_>_span]:flex [&_>_span]:items-center flex items-center min-w-0 overflow-x-auto [scrollbar-width:thin]"
+        aria-label={t("library.path")}
+      >
         <Button
-          className="quiet"
+          variant="quiet"
+          className=""
           aria-current={!folderId ? "location" : undefined}
           onClick={() => onNavigate(null)}
         >
@@ -58,7 +76,8 @@ export function ResourceBreadcrumb({
           <span key={folder.id}>
             <ChevronRight size={12} aria-hidden />
             <Button
-              className="quiet"
+              variant="quiet"
+              className=""
               title={folder.name}
               aria-current={folder.id === folderId ? "location" : undefined}
               onClick={() => onNavigate(folder.id)}
@@ -67,8 +86,8 @@ export function ResourceBreadcrumb({
             </Button>
           </span>
         ))}
-      </nav>
-    </div>
+      </Row>
+    </Row>
   );
 }
 
@@ -93,11 +112,17 @@ export function ResourceDirectoryItems({
   useTranslation();
   if (!folders.length && !children) return null;
   return (
-    <div className="resource-directory-items" aria-label={t("library.folders")}>
+    <Grid
+      gap={0}
+      align="stretch"
+      className="resource-directory-items [&_>_*]:min-w-0 grid col-span-full grid-cols-[repeat(auto-fill,_minmax(165px,_1fr))] gap-space-3 mb-space-2"
+      aria-label={t("library.folders")}
+    >
       {folders.map((folder) => {
         const row = (
-          <div
-            className="resource-directory-item"
+          <Row
+            gap={0}
+            className="resource-directory-item [&:hover]:border-line [&:hover]:bg-hover flex items-center min-w-0 min-h-[52px] p-space-1 border border-line-subtle rounded-control bg-panel"
             data-folder-id={folder.id}
             onFocus={onFocusFolder}
             draggable={!!onDragStart}
@@ -108,7 +133,7 @@ export function ResourceDirectoryItems({
             onDrop={(event) => onDrop?.(event, folder)}
           >
             <Button
-              className="resource-directory-open"
+              className="resource-directory-open [&_svg]:shrink-0 [&_svg]:text-accent [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap flex-1 min-w-0 justify-start gap-space-3 border-0 bg-transparent p-space-2"
               title={folder.name}
               onDoubleClick={() => onNavigate(folder.id)}
               onKeyDown={(event) => {
@@ -122,7 +147,7 @@ export function ResourceDirectoryItems({
               <span>{folder.name}</span>
             </Button>
             {actions && <ActionsMenu label={t("library.manageFolder")} items={actions(folder)} />}
-          </div>
+          </Row>
         );
         return actions ? (
           <ContextActions key={folder.id} items={actions(folder)}>
@@ -133,7 +158,7 @@ export function ResourceDirectoryItems({
         );
       })}
       {children}
-    </div>
+    </Grid>
   );
 }
 
@@ -155,15 +180,17 @@ export function ResourceNewFolder({
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
   return (
-    <form
-      className="resource-new-folder"
+    <Row
+      as="form"
+      gap={2}
+      className="resource-new-folder [&_>_input]:min-w-0 [&_>_input]:flex-1 [&_>_svg]:shrink-0 [&_>_svg]:text-accent flex items-center col-span-full gap-space-2 p-space-2 border border-accent rounded-control max-w-[440px]"
       onSubmit={(event) => {
         event.preventDefault();
         if (!busy && name.trim()) onSave();
       }}
     >
       <Folder size={22} aria-hidden />
-      <input
+      <Input
         autoComplete="off"
         ref={input}
         aria-label={t("library.folderName")}
@@ -183,7 +210,7 @@ export function ResourceNewFolder({
       <IconButton label={t("library.cancel")} disabled={busy} onClick={onCancel}>
         <X size={14} />
       </IconButton>
-    </form>
+    </Row>
   );
 }
 
@@ -200,9 +227,20 @@ export function ResourceDestination({
   useTranslation();
   const children = folders.filter((folder) => folder.parentId === folderId);
   return (
-    <section className="resource-destination" aria-label={t("library.destinationFolder")}>
+    <Col
+      gap={0}
+      align="stretch"
+      as="section"
+      className="resource-destination [&_>_.resource-location]:p-space-2 [&_>_.resource-location]:border-b [&_>_.resource-location]:border-line-subtle [&_>_.resource-location]:flex-none flex flex-col min-h-[260px] border border-line-subtle rounded-control"
+      aria-label={t("library.destinationFolder")}
+    >
       <ResourceBreadcrumb folderId={folderId} folders={folders} onNavigate={onChange} />
-      <div className="resource-destination-children">
+      <Grid
+        gap={0}
+        align="stretch"
+        columns={1}
+        className="resource-destination-children [&_>_button]:justify-start [&_>_button_span]:flex-1 [&_>_button_span]:text-ellipsis [&_>_button_span]:whitespace-nowrap [&_>_button_span]:text-left [&_>_button_span]:overflow-hidden grid content-start gap-space-1 p-space-2 max-h-[310px] overflow-auto"
+      >
         {children.length ? (
           children.map((folder) => (
             <Button key={folder.id} onClick={() => onChange(folder.id)}>
@@ -212,9 +250,11 @@ export function ResourceDestination({
             </Button>
           ))
         ) : (
-          <p className="empty-note">{t("library.noSubfolders")}</p>
+          <p className="empty-note text-muted text-label leading-[1.75] m-[3px_0]">
+            {t("library.noSubfolders")}
+          </p>
         )}
-      </div>
-    </section>
+      </Grid>
+    </Col>
   );
 }

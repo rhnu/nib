@@ -1,3 +1,5 @@
+import { Grid, IconButton } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { RotateCcw } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
@@ -6,11 +8,10 @@ import type {
   VibeReferenceInput,
   VibeReferenceOverride,
 } from "@/bindings/workbench";
-import { IconButton } from "@/shared/ui";
+
 import { VibeReferenceRow } from "./vibe-reference-row";
 import { VibeNormalize } from "./vibe-reference-editor";
 import { applyVibeOverride, patchVibeOverride, showVibeReferences, type VibeIssues } from "./model";
-import "./vibes.css";
 
 export interface VibeOutputOverridesProps {
   value: VibeReferenceInput[];
@@ -55,7 +56,15 @@ function Overrides({
 
   const stale = overrides.filter((item) => !value.some((source) => source.id === item.id));
   return (
-    <section className="vibe-editor" aria-label={t("vibes.presetVibeOverrides")}>
+    <Grid
+      align="stretch"
+      as="section"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="vibe-editor [&_>_h3]:m-0 [&_>_h3]:text-foreground [&_>_h3]:text-body [&_>_h3]:font-semibold grid gap-space-3 min-w-0"
+      aria-label={t("vibes.presetVibeOverrides")}
+    >
       <h3>
         {t("vibes.vibeHeading")}
         {value.length}
@@ -97,7 +106,11 @@ function Overrides({
         );
       })}
       {stale.map((item) => (
-        <div key={item.id} data-vibe-id={item.id} className="vibe-message">
+        <div
+          key={item.id}
+          data-vibe-id={item.id}
+          className="vibe-message m-0 text-danger text-label wrap-anywhere"
+        >
           {t("vibes.originalVibeMissing")}
           <IconButton
             label={t("vibes.removeStaleVibeOverride")}
@@ -107,6 +120,6 @@ function Overrides({
           </IconButton>
         </div>
       ))}
-    </section>
+    </Grid>
   );
 }

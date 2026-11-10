@@ -1,9 +1,10 @@
+import { Button, Field, Modal, Notice, Input, Col, Toolbar } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useAccount } from "./account-context";
 import { accountApi } from "./api";
 import { useState } from "react";
 import { KeyRound, Trash2 } from "lucide-react";
-import { Button, Field, Modal, Notice } from "@/shared/ui";
 
 export function AccountDialog({
   id = null,
@@ -71,34 +72,35 @@ export function AccountDialog({
       }}
       title={id ? t("generation.editAccount") : t("generation.addAccount")}
     >
-      <form
-        className="generation-dialog-body"
+      <Col
+        gap={0}
+        align="stretch"
+        as="form"
+        className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto [&_button]:shrink-0 [&_p]:m-0"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <Field label={t("generation.accountName")}>
-          <input
+        <Field required label={t("generation.accountName")}>
+          <Input
             autoComplete="off"
             value={name}
             onChange={(event) => setName(event.target.value)}
             disabled={pending}
-            required
           />
         </Field>
-        <Field label={id ? t("generation.newApiKey") : t("generation.apiKeyLabel")}>
-          <input
+        <Field required={!id} label={id ? t("generation.newApiKey") : t("generation.apiKeyLabel")}>
+          <Input
             type="password"
             value={key}
             onChange={(event) => setKey(event.target.value)}
             autoComplete="off"
             spellCheck={false}
             disabled={pending}
-            required={!id}
           />
         </Field>
-        <p className="generation-muted">{t("generation.credentialStorageHelp")}</p>
+        <p className="generation-muted text-muted">{t("generation.credentialStorageHelp")}</p>
         {error && (
           <Notice
             actions={
@@ -125,7 +127,11 @@ export function AccountDialog({
                 <Button disabled={pending} onClick={() => setConfirmDelete(false)}>
                   {t("generation.cancelDeletion")}
                 </Button>
-                <Button className="danger" disabled={pending} onClick={() => void remove()}>
+                <Button
+                  className="danger text-danger"
+                  disabled={pending}
+                  onClick={() => void remove()}
+                >
                   {t("generation.confirmDeletion")}
                 </Button>
               </>
@@ -134,14 +140,22 @@ export function AccountDialog({
             {t("generation.deleteAccountConfirmation", { name })}
           </Notice>
         )}
-        <footer className="ui-actions">
+        <Toolbar
+          gap={2}
+          as="footer"
+          className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+        >
           {id && (
-            <Button className="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>
+            <Button
+              className="danger text-danger"
+              disabled={pending}
+              onClick={() => setConfirmDelete(true)}
+            >
               <Trash2 size={14} />
               {t("generation.deleteAccount")}
             </Button>
           )}
-          <span className="generation-spacer" />
+          <span className="generation-spacer flex-1" />
           <Button
             disabled={pending}
             onClick={() => {
@@ -152,15 +166,16 @@ export function AccountDialog({
             {t("generation.cancel")}
           </Button>
           <Button
+            variant="primary"
             type="submit"
-            className="primary"
+            className=""
             disabled={pending || !name.trim() || (!id && !key.trim())}
           >
             <KeyRound size={14} />
             {pending ? t("generation.saving") : t("generation.save")}
           </Button>
-        </footer>
-      </form>
+        </Toolbar>
+      </Col>
     </Modal>
   );
 }

@@ -1,8 +1,21 @@
+import {
+  ButtonGroup,
+  Col,
+  Row,
+  Grid,
+  Input,
+  Button,
+  HelpMarker,
+  IconButton,
+  Notice,
+  Select,
+} from "@/shared/ui";
+
 import { t, useTranslation, useMessageState, MessageError, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Eraser, Hand, Minus, Paintbrush, Plus, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import type { MaskPoint, MaskSession } from "@/bindings/workbench";
-import { Button, HelpMarker, IconButton, Notice, Select } from "@/shared/ui";
+
 import {
   appendCommand,
   appendStrokePoints,
@@ -278,13 +291,19 @@ export function InpaintCanvasWorkspace({
   };
 
   return (
-    <section
-      className="inpaint-workspace"
+    <Col
+      as="section"
+      gap={0}
+      className="inpaint-workspace flex flex-col min-w-0 min-h-0 h-full flex-1"
       aria-label={t("inpaint.editorTitle")}
       aria-busy={pending}
     >
-      <header className="inpaint-toolbar">
-        <div className="button-group">
+      <Row
+        as="header"
+        gap={0}
+        className="inpaint-toolbar [&_.ui-button[aria-pressed='true']]:border-accent [&_.ui-button[aria-pressed='true']]:text-accent [&_.ui-button[aria-pressed='true']]:bg-accent-soft max-[680px]:p-[7px_8px] flex items-center flex-wrap gap-space-3 p-[8px_12px] [border-bottom:1px_solid_var(--line-subtle)] shrink-0"
+      >
+        <ButtonGroup gap={0} className="button-group">
           <Button
             aria-pressed={tool === "paint"}
             disabled={pending}
@@ -309,14 +328,21 @@ export function InpaintCanvasWorkspace({
             <Hand size={14} />
             {t("inpaint.pan")}
           </Button>
-        </div>
-        <label className="inpaint-brush">
+        </ButtonGroup>
+        <Grid
+          align="stretch"
+          as="label"
+          gap={0}
+          columns={1}
+          minColumnWidth="0px"
+          className="inpaint-brush [&_input[type='range']]:h-[15px] [&_input[type='range']]:p-0 [&_input[type='range']]:[border:0] [&_input[type='range']]:min-h-0 [&_input[type='range']]:w-full [&_input[type='range']]:accent-accent grid gap-[3px] min-w-[120px] max-w-[200px] flex-1 text-caption text-muted"
+        >
           <span>
             {t("inpaint.brushPrefix")}
             {value.brushSize}
             {t("inpaint.pixels")}
           </span>
-          <input
+          <Input
             type="range"
             min={1}
             max={512}
@@ -327,8 +353,8 @@ export function InpaintCanvasWorkspace({
               change({ ...latest.current.value, brushSize: Number(event.target.value) })
             }
           />
-        </label>
-        <div className="button-group">
+        </Grid>
+        <ButtonGroup gap={0} className="button-group">
           <IconButton
             label={t("inpaint.undo")}
             disabled={pending || value.cursor === 0}
@@ -349,10 +375,13 @@ export function InpaintCanvasWorkspace({
           >
             {t("inpaint.clear")}
           </Button>
-        </div>
+        </ButtonGroup>
         <HelpMarker label={t("inpaint.canvasActions")}>{t("inpaint.canvasHelp")}</HelpMarker>
-      </header>
-      <div className="inpaint-view-toolbar">
+      </Row>
+      <Row
+        gap={0}
+        className="inpaint-view-toolbar [&_>_label]:flex [&_>_label]:gap-[7px] [&_>_label]:items-center [&_>_label]:text-muted [&_>_label]:text-label [&_.select-trigger]:h-control [&_.select-trigger]:w-auto [&_output]:min-w-[40px] [&_output]:text-center [&_output]:text-label [&_output]:text-muted max-[680px]:p-[7px_8px] flex items-center flex-wrap gap-space-3 p-[8px_12px] [border-bottom:1px_solid_var(--line-subtle)] shrink-0 justify-between pt-[5px] pb-[5px]"
+      >
         <label>
           <span>{t("inpaint.preview")}</span>
           <Select
@@ -371,7 +400,7 @@ export function InpaintCanvasWorkspace({
             ]}
           />
         </label>
-        <div className="button-group">
+        <ButtonGroup gap={0} className="button-group">
           <IconButton label={t("inpaint.zoomOut")} disabled={pending} onClick={() => zoom(0.8)}>
             <Minus size={15} />
           </IconButton>
@@ -386,11 +415,11 @@ export function InpaintCanvasWorkspace({
             <RotateCcw size={14} />
             {t("inpaint.fitCanvas")}
           </Button>
-        </div>
-        <span className="muted">
+        </ButtonGroup>
+        <span className="muted text-muted">
           {value.width} × {value.height}
         </span>
-      </div>
+      </Row>
       {(images.error || renderError) && (
         <Notice actions={<Button onClick={images.retry}>{t("inpaint.retryLoad")}</Button>}>
           {images.error ?? renderError}
@@ -400,7 +429,7 @@ export function InpaintCanvasWorkspace({
       {/* oxlint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div
         ref={viewport}
-        className={`inpaint-viewport tool-${tool}`}
+        className={`inpaint-viewport [&.tool-pan]:cursor-grab [&.tool-pan:active]:cursor-grabbing [&:focus-visible]:[outline:2px_solid_var(--accent)] [&:focus-visible]:outline-offset-[-2px] flex-1 min-h-[220px] min-w-0 relative overflow-hidden [touch-action:none] bg-background cursor-crosshair tool-${tool}`}
         role="application"
         aria-label={t("inpaint.canvasLabel")}
         tabIndex={0}
@@ -448,7 +477,9 @@ export function InpaintCanvasWorkspace({
         }}
       >
         {images.loading && (
-          <output className="inpaint-loading">{t("inpaint.loadingSourceMask")}</output>
+          <output className="inpaint-loading block p-[20px] text-muted">
+            {t("inpaint.loadingSourceMask")}
+          </output>
         )}
         <ImageContextActions
           id={value.sourceAssetId}
@@ -471,7 +502,11 @@ export function InpaintCanvasWorkspace({
           ]}
         >
           <canvas
-            className={safety.blurred ? "image-safety-blurred" : undefined}
+            className={
+              safety.blurred
+                ? "image-safety-blurred [filter:blur(24px)] cursor-pointer [user-select:none]"
+                : undefined
+            }
             title={safety.blurred ? t("safety.reveal") : undefined}
             ref={canvas}
             aria-label={
@@ -489,7 +524,7 @@ export function InpaintCanvasWorkspace({
         </ImageContextActions>
         {ready && pointer && tool !== "pan" && preview !== "original" && (
           <span
-            className="inpaint-brush-cursor"
+            className="inpaint-brush-cursor absolute [transform:translate(-50%,_-50%)] [border:1px_solid_white] [box-shadow:0_0_0_1px_black] rounded-full pointer-events-none"
             style={{
               left: pointer.x,
               top: pointer.y,
@@ -500,25 +535,29 @@ export function InpaintCanvasWorkspace({
         )}
       </div>
       {/* oxlint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-      <footer className="inpaint-footer">
+      <Row
+        as="footer"
+        gap={0}
+        className="inpaint-footer [&_>_div:first-child]:min-w-0 [&_>_div:first-child]:text-label max-[680px]:p-[7px_8px] max-[680px]:[&_>_.button-group]:flex-wrap flex items-center flex-wrap gap-space-3 p-[8px_12px] [border-bottom:0] shrink-0 justify-between [border-top:1px_solid_var(--line-subtle)]"
+      >
         <div>
           {value.revision !== value.appliedRevision && (
-            <span className="muted">{t("inpaint.unappliedChanges")}</span>
+            <span className="muted text-muted">{t("inpaint.unappliedChanges")}</span>
           )}
           {error && <Notice>{error}</Notice>}
         </div>
-        <div className="button-group">
+        <ButtonGroup gap={0} className="button-group">
           <Button disabled={pending} onClick={onClose}>
             {t("inpaint.exitEditor")}
           </Button>
-          <Button className="danger" disabled={pending} onClick={onDiscard}>
+          <Button className="danger text-danger" disabled={pending} onClick={onDiscard}>
             {t("inpaint.discardChanges")}
           </Button>
-          <Button className="primary" disabled={!ready} onClick={onApply}>
+          <Button variant="primary" className="" disabled={!ready} onClick={onApply}>
             {pending ? t("inpaint.applying") : t("inpaint.apply")}
           </Button>
-        </div>
-      </footer>
-    </section>
+        </ButtonGroup>
+      </Row>
+    </Col>
   );
 }

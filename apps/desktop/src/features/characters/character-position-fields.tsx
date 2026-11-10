@@ -1,9 +1,10 @@
+import { Row, Input, Button, Field, HelpMarker, IconButton, Select } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useRef } from "react";
 import type { CharacterComposition, ModelCapabilities } from "@/bindings/workbench";
 import { LocateFixed, RotateCcw } from "lucide-react";
-import { Button, Field, HelpMarker, IconButton, Select } from "@/shared/ui";
-import "./characters.css";
+
 import type { CharacterFieldIssue } from "./model";
 
 export function CharacterPositionPolicy({
@@ -23,15 +24,25 @@ export function CharacterPositionPolicy({
 
   const effective = value ?? inherited;
   return (
-    <div className="character-position-policy" data-setting-field="useCoords">
-      <fieldset className="character-position-options" aria-label={t("characters.positionTitle")}>
-        <button type="button" aria-pressed={effective === false} onClick={() => onChange(false)}>
+    <Row
+      gap={0}
+      className="character-position-policy [&_>_.ui-field]:flex-1 flex items-center gap-space-2 m-[8px_0]"
+      data-setting-field="useCoords"
+    >
+      <Row
+        align="stretch"
+        as="fieldset"
+        gap={0}
+        className="character-position-options [&_button]:min-h-[28px] [&_button]:p-[4px_9px] [&_button]:text-caption [&_button]:[border:0] [&_button]:bg-panel [&_button_+_button]:[border-left:1px_solid_var(--line)] [&_button[aria-pressed='true']]:bg-accent-soft [&_button[aria-pressed='true']]:text-accent flex p-0 m-0 [border:1px_solid_var(--line)] rounded-control overflow-hidden"
+        aria-label={t("characters.positionTitle")}
+      >
+        <Button type="button" aria-pressed={effective === false} onClick={() => onChange(false)}>
           {t("characters.aiChoice")}
-        </button>
-        <button type="button" aria-pressed={effective === true} onClick={() => onChange(true)}>
+        </Button>
+        <Button type="button" aria-pressed={effective === true} onClick={() => onChange(true)}>
           {t("characters.custom")}
-        </button>
-      </fieldset>
+        </Button>
+      </Row>
       {onPosition && (
         <IconButton
           label={t("characters.positionOnCanvas")}
@@ -41,7 +52,7 @@ export function CharacterPositionPolicy({
           <LocateFixed size={14} />
         </IconButton>
       )}
-      <span className="spacer" />
+      <span className="flex-1" />
       <IconButton
         label={t("characters.resetPositionMode")}
         disabled={value === null}
@@ -50,7 +61,7 @@ export function CharacterPositionPolicy({
         <RotateCcw size={14} />
       </IconButton>
       <HelpMarker label={t("characters.positionMode")}>{t("characters.positionHelp")}</HelpMarker>
-    </div>
+    </Row>
   );
 }
 
@@ -84,12 +95,22 @@ export function CharacterPositionFields({
   const options = capabilities?.characterPositionOptions;
   const grid = options?.gridCoordinates;
   return (
-    <details className="character-position-fields" ref={details}>
+    <details
+      className="character-position-fields [&_>_summary]:p-[5px_0] [&_>_summary_>_.tag]:ml-[7px]"
+      ref={details}
+    >
       <summary>
         {t("characters.position")}
-        {overridden && <span className="tag">{t("characters.currentOverride")}</span>}
+        {overridden && (
+          <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+            {t("characters.currentOverride")}
+          </span>
+        )}
       </summary>
-      <div className="character-position-controls">
+      <Row
+        gap={0}
+        className="character-position-controls [&_>_.ui-field]:[flex:1_1_70px] flex items-end flex-wrap gap-[7px] p-[5px_0]"
+      >
         {(["x", "y"] as const).map((axis) => (
           <Field key={axis} label={axis.toUpperCase()}>
             {grid ? (
@@ -114,7 +135,7 @@ export function CharacterPositionFields({
                 ]}
               />
             ) : (
-              <input
+              <Input
                 aria-invalid={issues.some((issue) => issue.field === axis) || undefined}
                 data-character-field={axis}
                 type="number"
@@ -153,7 +174,7 @@ export function CharacterPositionFields({
             {t("characters.placeOnCanvas")}
           </Button>
         )}
-      </div>
+      </Row>
     </details>
   );
 }

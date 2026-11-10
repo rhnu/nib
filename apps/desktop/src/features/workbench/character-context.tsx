@@ -71,7 +71,11 @@ export function CharacterContext({
       return total + (resource?.content.kind === "preset" ? resource.content.characters.length : 0);
     }, 0);
   return (
-    <section className="character-context" data-draft-outputs data-setting-field="characters">
+    <section
+      className="character-context p-[0_12px_8px] [border-bottom:1px_solid_var(--line-subtle)]"
+      data-draft-outputs
+      data-setting-field="characters"
+    >
       {count >= 2 && (
         <CharacterPositionPolicy
           value={draft.settings.useCoords}

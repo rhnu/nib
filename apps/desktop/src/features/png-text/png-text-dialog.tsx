@@ -1,10 +1,12 @@
+import { Row, Grid, Input, Textarea, Button, Field, HelpMarker, Modal, Notice } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useRef, useState } from "react";
 import type { MediaAsset, PngTextInspection } from "@/bindings/media";
 import type { PngTextEditorState, PngTextSession, PngTextValue } from "@/bindings/workbench";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { errorMessage } from "@/shared/host/error";
-import { Button, Field, HelpMarker, Modal, Notice } from "@/shared/ui";
+
 import { mediaApi } from "@/features/media/api";
 import { imageName, imageUnavailableReason } from "@/features/media/model";
 import { useMediaAsset } from "@/features/media/use-media-asset";
@@ -12,7 +14,6 @@ import { useMediaQuery } from "@/features/media/use-media-query";
 import { ImageExportActions } from "@/features/media/image-export";
 import { pngTextApi } from "./api";
 import { editPngTextEntry, pngTextSession, storePngTextSession } from "./model";
-import "./png-text.css";
 
 export type PngTextController = {
   readState: () => PngTextEditorState;
@@ -38,19 +39,22 @@ function TextInspection({
   useTranslation();
 
   return (
-    <div className="png-text-inspection">
+    <div className="png-text-inspection mt-[9px]">
       {report.warnings.length > 0 && (
-        <ul className="media-notices" aria-label={t("png-text.notice")}>
+        <ul className="media-notices pl-[20px] wrap-anywhere" aria-label={t("png-text.notice")}>
           {report.warnings.map((warning, index) => (
             <li key={index}>{errorMessage(warning)}</li>
           ))}
         </ul>
       )}
       {report.entries.length === 0 ? (
-        <p className="muted">{t("png-text.noEntries")}</p>
+        <p className="muted text-muted">{t("png-text.noEntries")}</p>
       ) : (
         report.entries.map((entry, index) => (
-          <details className="png-text-inspection-entry" key={index}>
+          <details
+            className="png-text-inspection-entry [&_summary]:wrap-anywhere [&_pre]:max-h-[300px] [&_pre]:overflow-auto [&_pre]:whitespace-pre-wrap [&_pre]:wrap-anywhere [&_pre]:p-[9px] [&_pre]:[border:1px_solid_var(--line-subtle)] [&_pre]:rounded-control [&_pre]:bg-background p-[7px_0] [border-bottom:1px_solid_var(--line-subtle)]"
+            key={index}
+          >
             <summary>{entry.keyword}</summary>
             <pre>{entry.text === "" ? t("png-text.emptyText") : entry.text}</pre>
             {onEdit && (
@@ -159,8 +163,8 @@ function PngTextDialogContent({
 
   return (
     <Modal open onClose={onClose} title={t("png-text.title")} wide>
-      <div className="png-text-dialog">
-        <p className="media-asset-heading">{imageName(asset)}</p>
+      <div className="png-text-dialog [&_>_section_+_section]:mt-[18px] [&_h3]:m-0 min-h-0 overflow-auto p-[14px_17px]">
+        <p className="media-asset-heading wrap-anywhere">{imageName(asset)}</p>
         {unavailable && <Notice>{unavailable}</Notice>}
         <section aria-label={t("png-text.sourcePngText")}>
           <h3>{t("png-text.sourceText")}</h3>
@@ -175,17 +179,34 @@ function PngTextDialogContent({
           )}
         </section>
         <section aria-label={t("png-text.writeContentLabel")}>
-          <div className="png-text-heading">
+          <Row
+            gap={0}
+            className="png-text-heading flex flex-wrap items-center gap-space-3 mb-[9px]"
+          >
             <h3>{t("png-text.writeContent")}</h3>
             <HelpMarker label={t("png-text.writeRules")}>
               {t("png-text.writeRulesDescription")}
             </HelpMarker>
-          </div>
-          <div className="png-text-editor" ref={editor}>
+          </Row>
+          <Grid
+            align="stretch"
+            gap={0}
+            columns={1}
+            minColumnWidth="0px"
+            className="png-text-editor grid gap-space-4 mb-space-4"
+            ref={editor}
+          >
             {session.entries.map((entry, index) => (
-              <div className="png-text-editor-entry" key={index}>
+              <Grid
+                align="stretch"
+                gap={0}
+                columns={1}
+                minColumnWidth="0px"
+                className="png-text-editor-entry [&_textarea]:resize-y [&_textarea]:min-h-[85px] [&_>_button]:[justify-self:start] grid gap-space-3 pb-space-4 [border-bottom:1px_solid_var(--line-subtle)]"
+                key={index}
+              >
                 <Field label={t("png-text.keywordLabel", { value0: index + 1 })}>
-                  <input
+                  <Input
                     autoComplete="off"
                     value={entry.keyword}
                     disabled={busy}
@@ -199,7 +220,7 @@ function PngTextDialogContent({
                   />
                 </Field>
                 <Field label={t("png-text.textLabel", { value0: index + 1 })}>
-                  <textarea
+                  <Textarea
                     autoComplete="off"
                     rows={4}
                     value={entry.text}
@@ -221,10 +242,10 @@ function PngTextDialogContent({
                 >
                   {t("png-text.removeWriteEntry")}
                 </Button>
-              </div>
+              </Grid>
             ))}
-          </div>
-          <div className="png-text-actions">
+          </Grid>
+          <Row gap={0} className="png-text-actions flex flex-wrap items-center gap-space-3">
             <Button
               disabled={busy || !!unavailable}
               onClick={() => edit([...readSession().entries, { keyword: "", text: "" }])}
@@ -232,25 +253,32 @@ function PngTextDialogContent({
               {t("png-text.addKeyword")}
             </Button>
             <Button
-              className="primary"
+              variant="primary"
+              className=""
               disabled={busy || !!unavailable || !original.value || session.entries.length === 0}
               onClick={() => void write()}
             >
               {busy ? t("png-text.processing") : t("png-text.writeNewImage")}
             </Button>
-          </div>
+          </Row>
         </section>
         {error && <Notice>{error}</Notice>}
         {session.selectedOutputAssetId && (
-          <section className="png-text-output" aria-label={t("png-text.writtenPng")}>
-            <div className="png-text-heading">
+          <section
+            className="png-text-output [border-top:1px_solid_var(--line)] pt-[14px]"
+            aria-label={t("png-text.writtenPng")}
+          >
+            <Row
+              gap={0}
+              className="png-text-heading flex flex-wrap items-center gap-space-3 mb-[9px]"
+            >
               <h3>{t("png-text.lastWrittenImage")}</h3>
               {output.asset && (
                 <Button disabled={busy || written.loading} onClick={written.retry}>
                   {t("png-text.inspectAgain")}
                 </Button>
               )}
-            </div>
+            </Row>
             {output.loading && <output>{t("png-text.loadingNewImage")}</output>}
             {output.error && (
               <Notice actions={<Button onClick={output.retry}>{t("png-text.retryRead")}</Button>}>
@@ -260,7 +288,7 @@ function PngTextDialogContent({
             {outputUnavailable && <Notice>{outputUnavailable}</Notice>}
             {output.asset && !outputUnavailable && (
               <>
-                <div className="png-text-actions">
+                <Row gap={0} className="png-text-actions flex flex-wrap items-center gap-space-3">
                   <ImageExportActions
                     key={output.asset.id}
                     id={output.asset.id}
@@ -281,7 +309,7 @@ function PngTextDialogContent({
                       {t("png-text.useAsSource")}
                     </Button>
                   )}
-                </div>
+                </Row>
                 {written.loading && <output>{t("png-text.inspectingNewText")}</output>}
                 {written.error && (
                   <Notice

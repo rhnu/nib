@@ -2,7 +2,6 @@ import { ResultViewsProvider } from "./results/result-view-state";
 import type { ReactNode } from "react";
 import { SubmissionProvider } from "./submission/submission-provider";
 import { JobProvider } from "./jobs/job-provider";
-import "./generation.css";
 
 /** Each lifecycle owns its updates; preview frames do not invalidate account or durable queries. */
 export function GenerationProvider({

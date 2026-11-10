@@ -1,3 +1,5 @@
+import { Button, IconButton, Notice } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useContext, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -11,7 +13,7 @@ import { errorMessage } from "@/shared/host/error";
 import { hasPendingWork, trackPendingWork } from "@/shared/host/pending-work";
 import { WriteAccessContext } from "@/shared/host/write-access";
 import { useDebouncedValue } from "@/shared/query/use-debounced-value";
-import { Button, IconButton, Notice } from "@/shared/ui";
+
 import { useAccount } from "@/features/generation/account/account-context";
 import { useJobData } from "@/features/generation/jobs/job-context";
 import { jobsApi } from "@/features/generation/jobs/api";
@@ -183,7 +185,7 @@ export function InlineVibeEncoding({
       {working ? <LoaderCircle size={14} className="spin" /> : <Binary size={14} />}
     </IconButton>,
     <>
-      <output className="vibe-status" aria-live="polite">
+      <output className="vibe-status text-label text-muted wrap-anywhere" aria-live="polite">
         {working
           ? job.data?.status === "running"
             ? t("vibes.encodingProgress")

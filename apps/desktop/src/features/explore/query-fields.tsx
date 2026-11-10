@@ -1,3 +1,5 @@
+import { Button, Field, IconButton, HelpMarker, Select, Input, Grid, Row } from "@/shared/ui";
+
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
@@ -5,8 +7,7 @@ import type { ExploreQuery, ExploreRating } from "@/bindings/explore";
 import { lexiconApi, isCurrentLexicon, lexiconRevision } from "@/features/lexicon/api";
 import { useLexiconStatus } from "@/features/lexicon/use-lexicon-status";
 import { useDebouncedValue } from "@/shared/query/use-debounced-value";
-import { Button, HelpMarker, Select } from "@/shared/ui";
-import { IconButton } from "@/shared/ui/button";
+
 import { t, useTranslation } from "@/shared/i18n";
 
 /** Danbooru completion inserts canonical tag names, keeping its query syntax intact. */
@@ -42,12 +43,12 @@ function TagQuery({
       : [];
   return (
     <div
-      className="explore-query-input"
+      className="explore-query-input relative flex-1 [min-width:150px] [&_>_input]:w-full [&_>_input]:font-mono max-[960px]:[flex-basis:45%]"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
     >
-      <input
+      <Input
         ref={input}
         aria-label={t(exact ? "explore.exactTag" : "explore.query")}
         value={value}
@@ -59,9 +60,12 @@ function TagQuery({
         autoComplete="off"
       />
       {focused && matches.length > 0 && (
-        <div className="explore-completions" aria-label={t("explore.completions")}>
+        <div
+          className="explore-completions absolute [z-index:12] [top:calc(100%_+_4px)] [left:0] [right:0] p-space-1 [border:1px_solid_var(--line)] rounded-overlay bg-raised [box-shadow:var(--shadow)] [&_button]:flex [&_button]:justify-between [&_button]:gap-space-3 [&_button]:w-full [&_button]:[border:0] [&_button]:py-[5px] [&_button]:px-space-3 [&_button]:text-left [&_button]:[background:transparent] [&_button:hover]:bg-hover [&_button:focus-visible]:bg-hover"
+          aria-label={t("explore.completions")}
+        >
           {matches.map(({ term }) => (
-            <button
+            <Button
               key={term.key}
               type="button"
               onClick={() => {
@@ -76,8 +80,8 @@ function TagQuery({
               }}
             >
               <span>{term.name}</span>
-              <span className="muted">{term.translation}</span>
-            </button>
+              <span className="muted text-muted">{term.translation}</span>
+            </Button>
           ))}
         </div>
       )}
@@ -107,15 +111,23 @@ export function ExploreQueryFields({
   };
 
   return (
-    <form
-      className="explore-search-form"
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      as="form"
+      className="explore-search-form gap-[10px]"
       onSubmit={(event) => {
         event.preventDefault();
         if (!random && tag.trim()) addTag();
         onSubmit();
       }}
     >
-      <div className="explore-search-row">
+      <Row
+        gap={0}
+        align="center"
+        className="explore-search-row gap-[10px] [&_>_button[type=submit]]:shrink-0 [&_>_button[type=submit]]:min-w-[84px] max-[960px]:flex-wrap"
+      >
         {query.source === "danbooru" ? (
           <TagQuery value={query.tags} onChange={(tags) => onChange({ ...query, tags })} />
         ) : (
@@ -124,9 +136,11 @@ export function ExploreQueryFields({
             <Button disabled={random || !tag.trim()} onClick={addTag}>
               {t("explore.addTag")}
             </Button>
-            <label className="explore-creator">
-              <span>{t("explore.creator")}</span>
-              <input
+            <Field
+              label={t("explore.creator")}
+              className="grid-cols-[auto_minmax(0,1fr)] items-center gap-space-2 [&_.select-trigger]:min-w-[100px]"
+            >
+              <Input
                 autoComplete="off"
                 value={query.creatorId ?? ""}
                 disabled={random}
@@ -135,20 +149,31 @@ export function ExploreQueryFields({
                 }
                 placeholder={t("explore.creatorHint")}
               />
-            </label>
+            </Field>
           </>
         )}
-        <Button className="primary" type="submit" disabled={loading}>
+        <Button variant="primary" type="submit" disabled={loading}>
           <Search size={15} aria-hidden />
           {t("explore.search")}
         </Button>
-      </div>
-      <div className="explore-filter-row">
+      </Row>
+      <Row
+        gap={0}
+        align="center"
+        wrap
+        className="explore-filter-row gap-[10px] [min-height:26px] text-label"
+      >
         {query.source === "danbooru" ? (
           <>
-            <span className="muted">{t("explore.rating")}</span>
+            <span className="muted text-muted">{t("explore.rating")}</span>
             {(["general", "sensitive", "questionable", "explicit"] as const).map((rating) => (
-              <label className="explore-rating" key={rating}>
+              <Row
+                gap={2}
+                align="center"
+                as="label"
+                className="explore-rating [&_input]:[accent-color:var(--accent)] inline-flex"
+                key={rating}
+              >
                 <input
                   type="checkbox"
                   checked={query.ratings.includes(rating)}
@@ -160,14 +185,16 @@ export function ExploreQueryFields({
                   }}
                 />
                 {t(`explore.rating_${rating}`)}
-              </label>
+              </Row>
             ))}
             <HelpMarker label={t("explore.queryHelpLabel")}>{t("explore.queryHelp")}</HelpMarker>
           </>
         ) : (
           <>
-            <label className="explore-inline-field">
-              <span>{t("explore.sort")}</span>
+            <Field
+              label={t("explore.sort")}
+              className="grid-cols-[auto_minmax(0,1fr)] items-center gap-space-2 [&_.select-trigger]:min-w-[100px]"
+            >
               <Select
                 value={query.sort}
                 onValueChange={(sort) => onChange({ ...query, sort: sort as typeof query.sort })}
@@ -176,10 +203,12 @@ export function ExploreQueryFields({
                   label: t(`explore.sort_${value}`),
                 }))}
               />
-            </label>
+            </Field>
             {(query.sort === "top" || query.sort === "hot") && (
-              <label className="explore-inline-field">
-                <span>{t("explore.period")}</span>
+              <Field
+                label={t("explore.period")}
+                className="grid-cols-[auto_minmax(0,1fr)] items-center gap-space-2 [&_.select-trigger]:min-w-[100px]"
+              >
                 <Select
                   value={query.period ?? "week"}
                   onValueChange={(period) =>
@@ -190,10 +219,15 @@ export function ExploreQueryFields({
                     label: t(`explore.period_${value}`),
                   }))}
                 />
-              </label>
+              </Field>
             )}
             {query.tags.map((name) => (
-              <span className={`explore-query-tag ${random ? "muted" : ""}`} key={name}>
+              <Row
+                gap={0}
+                as="span"
+                className={`explore-query-tag items-center gap-space-1 [max-width:100%] py-[2px] px-space-2 [border:1px_solid_var(--line)] rounded-control bg-raised [overflow-wrap:anywhere] [&_.icon-button]:[width:20px] [&_.icon-button]:[height:20px] [&_.icon-button]:[min-width:20px] [&_.icon-button]:p-0 [&_.icon-button]:[border:0] ${random ? "muted text-muted" : ""}`}
+                key={name}
+              >
                 {name}
                 <IconButton
                   disabled={random}
@@ -204,12 +238,14 @@ export function ExploreQueryFields({
                 >
                   <X size={12} aria-hidden />
                 </IconButton>
-              </span>
+              </Row>
             ))}
-            <span className="muted">{t(random ? "explore.randomHelp" : "explore.exactHelp")}</span>
+            <span className="muted text-muted">
+              {t(random ? "explore.randomHelp" : "explore.exactHelp")}
+            </span>
           </>
         )}
-      </div>
-    </form>
+      </Row>
+    </Grid>
   );
 }

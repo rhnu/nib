@@ -1,3 +1,5 @@
+import { Button, Modal, Notice, Col, Toolbar } from "@/shared/ui";
+
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
 import { useAccount } from "../account/account-context";
@@ -5,7 +7,7 @@ import { useJobData } from "./job-context";
 import { jobsApi } from "./api";
 import { useEffect, useRef, useState } from "react";
 import type { JobRecord } from "@/bindings/generation";
-import { Button, Modal, Notice } from "@/shared/ui";
+
 import { SubmissionSummary } from "../submission/submission-summary";
 
 function JobRetryDialogContent({ job, onClose }: { job: JobRecord; onClose: () => void }) {
@@ -42,23 +44,32 @@ function JobRetryDialogContent({ job, onClose }: { job: JobRecord; onClose: () =
 
   return (
     <Modal open onClose={onClose} title={t("generation.resubmitTitle")}>
-      <div className="generation-dialog-body">
+      <Col
+        gap={0}
+        align="stretch"
+        className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto [&_button]:shrink-0 [&_p]:m-0"
+      >
         <p>{t("generation.resubmitContentHelp")}</p>
         <SubmissionSummary submission={job.submission} />
-        <p className="generation-muted">{t("generation.resubmitChargeWarning")}</p>
+        <p className="generation-muted text-muted">{t("generation.resubmitChargeWarning")}</p>
         {!account?.configured && <Notice>{t("generation.configureCredentialsHint")}</Notice>}
         {error && <Notice>{error}</Notice>}
-        <footer className="ui-actions">
+        <Toolbar
+          gap={2}
+          as="footer"
+          className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+        >
           <Button onClick={onClose}>{t("generation.cancel")}</Button>
           <Button
-            className="primary"
+            variant="primary"
+            className=""
             disabled={pending || !account?.configured}
             onClick={() => void retry()}
           >
             {pending ? t("generation.submitting") : t("generation.confirmResubmit")}
           </Button>
-        </footer>
-      </div>
+        </Toolbar>
+      </Col>
     </Modal>
   );
 }
@@ -76,7 +87,11 @@ export function JobRetryDialog({
   if (detail.value) return <JobRetryDialogContent job={detail.value} onClose={onClose} />;
   return (
     <Modal open onClose={onClose} title={t("generation.resubmitTitle")}>
-      <div className="generation-dialog-body">
+      <Col
+        gap={0}
+        align="stretch"
+        className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto [&_button]:shrink-0 [&_p]:m-0"
+      >
         {detail.error ? (
           <Notice actions={<Button onClick={detail.retry}>{t("generation.retryLoad")}</Button>}>
             {detail.error}
@@ -84,7 +99,7 @@ export function JobRetryDialog({
         ) : (
           <output>{t("generation.loadingOriginalTask")}</output>
         )}
-      </div>
+      </Col>
     </Modal>
   );
 }

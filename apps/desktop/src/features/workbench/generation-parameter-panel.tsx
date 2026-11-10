@@ -1,10 +1,10 @@
+import { Button, Grid, Col } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useId, useState } from "react";
 import { ChevronUp } from "lucide-react";
 import { SettingsEditor, type SettingsEditorProps } from "@/features/prompt/settings-editor";
 import { diagnosticSetting, settingLabels, settingValue } from "@/features/prompt/settings";
-import { Button } from "@/shared/ui";
-import "./generation-parameter-panel.css";
 
 /** The dock owns disclosure state; sparse parameter edits remain with the draft. */
 export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "fields">) {
@@ -53,26 +53,38 @@ export function GenerationParameterPanel(props: Omit<SettingsEditorProps, "field
     if (hasParameterIssue) setOpen(true);
   }
   return (
-    <section className="generation-parameter-panel" data-open={open || undefined}>
-      <div id={contentId} className="generation-parameter-content" hidden={!open}>
+    <section
+      className="generation-parameter-panel min-w-0 [.generation-actions:has(&[data-open])_>_.generation-account-balance]:hidden"
+      data-open={open || undefined}
+    >
+      <div
+        id={contentId}
+        className="generation-parameter-content [&_.form-label]:min-h-[21px] [&_.settings-fields]:gap-y-[5px] [&_.settings-fields]:gap-x-space-3 [&_.advanced-settings]:pt-[7px] max-h-[min(52dvh,_480px)] overflow-y-auto py-space-3 px-0 [scrollbar-gutter:stable]"
+        hidden={!open}
+      >
         <SettingsEditor {...props} fields="parameters" />
       </div>
       <Button
-        className="generation-parameter-toggle"
+        className="generation-parameter-toggle [&[aria-expanded=true]_>_svg]:[transform:rotate(180deg)] w-full justify-between py-[3px] px-[2px] border-transparent bg-transparent"
         data-parameter-toggle
         aria-label={t("workbench.generationParameters")}
         aria-expanded={open}
         aria-controls={contentId}
         onClick={() => setOpen(!open)}
       >
-        <span className="generation-parameter-summary">
+        <Grid
+          gap={0}
+          align="stretch"
+          as="span"
+          className="generation-parameter-summary [&_>_span_>_span]:text-muted [&_>_span_>_span]:font-normal [&_strong]:overflow-hidden [&_strong]:text-ellipsis [&_strong]:tabular-nums [&_>_span]:grid [&_>_span]:gap-0 [&_>_span]:min-w-0 grid grid-cols-[0.6fr_0.9fr_1fr_1.25fr] gap-space-3 flex-1 min-w-0 text-left text-label leading-[16px]"
+        >
           {summary.map((item) => (
-            <span key={item.key}>
+            <Col gap={0} as="span" key={item.key}>
               <span>{item.label}</span>
               <strong title={item.value}>{item.value}</strong>
-            </span>
+            </Col>
           ))}
-        </span>
+        </Grid>
         <ChevronUp size={14} aria-hidden />
       </Button>
     </section>

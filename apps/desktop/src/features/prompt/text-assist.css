@@ -1,196 +1,69 @@
-.prompt-text-editor {
-  position: relative;
-  min-width: 0;
-  --prompt-weight-up: #f0b89b;
-  --prompt-weight-down: #a0c4ed;
-  --prompt-weight-negative: #e7a3d5;
-}
-:root[data-theme="light"] .prompt-text-editor {
-  --prompt-weight-up: #914119;
-  --prompt-weight-down: #275d94;
-  --prompt-weight-negative: #9c347e;
-}
-.prompt-text-editor[data-sizing="content"] {
-  --prompt-editor-min-height: 62px;
-  --prompt-editor-padding-y: 4px;
-  --prompt-editor-max-height: none;
-}
-.prompt-editor-surface {
-  position: relative;
-  min-width: 0;
-}
-.prompt-editor-host {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.prompt-editor-host:focus-within {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
-}
-.prompt-editor-host:has([aria-disabled="true"]) {
-  opacity: 0.55;
-}
-.prompt-editor-description {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.prompt-weight-up {
-  color: var(--prompt-weight-up);
-}
-.prompt-weight-down {
-  color: var(--prompt-weight-down);
-}
-.prompt-weight-negative {
-  color: var(--prompt-weight-negative);
-  text-decoration: underline dashed;
-  text-underline-offset: 3px;
-}
-.prompt-weight-zero {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-.prompt-weight-uncertain {
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-.prompt-syntax {
-  font-weight: 600;
-}
-.prompt-syntax-textMarker,
-.prompt-syntax-weightReset,
-.prompt-syntax-interaction,
-.prompt-syntax-characterSeparator {
-  color: var(--accent);
-}
-.prompt-comment {
-  color: var(--muted);
-  font-style: italic;
-}
-.prompt-diagnostic {
-  text-decoration: underline wavy var(--danger);
-  text-underline-offset: 4px;
-}
-.prompt-editor-actions {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.prompt-text-editor[data-formattable] {
-  --prompt-editor-min-height: 90px;
-}
-.prompt-text-editor .prompt-editor-action.icon-button {
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  color: var(--muted);
-  background: var(--input);
-}
-.prompt-text-editor .prompt-editor-action.icon-button:hover:not(:disabled) {
-  background: var(--hover);
-}
-.prompt-text-editor .prompt-editor-action.danger {
-  color: var(--danger);
-}
-.prompt-editor-preview {
-  display: flex;
-  justify-content: flex-start;
-  width: 100%;
-  min-width: 0;
-  height: 34px;
-  min-height: 34px;
-  padding: 4px 36px 4px 9px;
-  text-align: left;
-  color: var(--muted);
-  background: var(--input);
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-.prompt-editor-preview > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.prompt-completion-popup ul {
-  max-width: min(620px, calc(100vw - 30px));
-}
-.prompt-completion-pending li {
-  opacity: 0.6;
-  pointer-events: none;
-}
-.prompt-completion-popup .cm-completionLabel {
-  font-family: var(--font-mono);
-}
-.prompt-completion-popup .cm-completionDetail {
-  color: var(--muted);
-  font-size: 11px;
-  font-style: normal;
-  margin-left: 10px;
-}
-.prompt-completion-popup li[aria-selected="true"] {
-  color: var(--text) !important;
-  background: var(--accent-soft) !important;
-}
-.prompt-token-popup {
-  max-width: min(360px, calc(100vw - 24px));
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-overlay);
-  background: var(--raised);
-  color: var(--text);
-  box-shadow: var(--shadow);
-  font-size: 12px;
-}
-.prompt-token-popup p {
-  margin: 0;
-}
-.prompt-token-popup .prompt-selection-detail {
-  margin-top: 5px;
-  color: var(--muted);
-}
-.prompt-diagnostic-list {
-  list-style: none;
-  padding: 0;
-  margin: 6px 0 0;
-  max-height: 200px;
-  overflow: auto;
-}
-.prompt-diagnostic-list button {
-  display: flex;
-  gap: 5px;
-  align-items: baseline;
-  width: 100%;
-  height: auto;
-  text-align: left;
-  white-space: normal;
-}
-.prompt-analysis-error {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  color: var(--danger);
-  font-size: 11px;
-}
-.prompt-analysis-error span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.prompt-semantic-tooltip {
-  max-width: 320px;
-  padding: 5px 8px;
-  font-size: 12px;
+@layer components {
+  .prompt-weight-up {
+    color: var(--prompt-weight-up);
+  }
+  .prompt-weight-down {
+    color: var(--prompt-weight-down);
+  }
+  .prompt-weight-negative {
+    color: var(--prompt-weight-negative);
+    text-decoration: underline dashed;
+    text-underline-offset: 3px;
+  }
+  .prompt-weight-zero {
+    color: var(--muted);
+    text-decoration: line-through;
+  }
+  .prompt-weight-uncertain {
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+  }
+  .prompt-syntax {
+    font-weight: 600;
+  }
+  .prompt-syntax-textMarker {
+    color: var(--accent);
+  }
+  .prompt-syntax-weightReset {
+    color: var(--accent);
+  }
+  .prompt-syntax-interaction {
+    color: var(--accent);
+  }
+  .prompt-syntax-characterSeparator {
+    color: var(--accent);
+  }
+  .prompt-comment {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .prompt-diagnostic {
+    text-decoration: underline wavy var(--danger);
+    text-underline-offset: 4px;
+  }
+  .prompt-completion-popup ul {
+    max-width: min(620px, calc(100vw - 30px));
+  }
+  .prompt-completion-pending li {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .prompt-completion-popup .cm-completionLabel {
+    font-family: var(--font-mono);
+  }
+  .prompt-completion-popup .cm-completionDetail {
+    color: var(--muted);
+    font-size: 11px;
+    font-style: normal;
+    margin-left: 10px;
+  }
+  .prompt-completion-popup li[aria-selected="true"] {
+    color: var(--text) !important;
+    background: var(--accent-soft) !important;
+  }
+  .prompt-semantic-tooltip {
+    max-width: 320px;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
 }

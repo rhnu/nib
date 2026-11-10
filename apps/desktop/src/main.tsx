@@ -1,3 +1,5 @@
+import { Notice, Notifications, disableDefaultContextMenu, TextContextMenu } from "@/shared/ui";
+
 import { t, useTranslation, MessageError, deferMessage } from "@/shared/i18n";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -6,9 +8,9 @@ import { ErrorBoundary } from "react-error-boundary";
 import { queryClient } from "@/shared/query/client";
 import App from "@/app/app";
 import "@/app/styles.css";
-import { Notice, Notifications } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
-import { disableDefaultContextMenu, TextContextMenu } from "@/shared/ui/text-context-menu";
+
 import { installNavigationInput } from "@/shared/navigation/navigation-input";
 
 const restoreContextMenu = disableDefaultContextMenu();

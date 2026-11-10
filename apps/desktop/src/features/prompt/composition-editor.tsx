@@ -1,9 +1,11 @@
+import { Button, IconButton, notify, Row, ButtonGroup } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import { Link2, Plus } from "lucide-react";
 import type { Composition, PromptNode, Resource } from "@/bindings/workbench";
-import { Button, IconButton, notify } from "@/shared/ui";
+
 import { ResourcePicker } from "@/features/library/resource-picker";
 import { moveItem, textNode } from "./model";
 import { NodeEditor } from "./node-editor";
@@ -89,10 +91,17 @@ export function CompositionEditor({
         if (scope === "positive" || (scope === "negative" && negativeSupported))
           setActiveScope(scope);
       }}
-      className={`composition ${compact ? "compact-composition" : ""}`}
+      className={`composition min-w-0 [&_.icon-button]:w-[30px] [&_.icon-button]:min-h-[30px] ${compact ? "compact-composition" : ""}`}
     >
-      <header className="composition-toolbar">
-        <Tabs.List className="prompt-tabs" aria-label={t("prompt.scope")}>
+      <Row
+        gap={0}
+        as="header"
+        className="composition-toolbar flex flex-wrap items-center justify-between gap-space-2 mb-space-3 [&_>_.button-group]:ml-auto"
+      >
+        <Tabs.List
+          className="prompt-tabs [&_>_button]:min-h-[30px] [&_>_button]:border [&_>_button]:border-transparent [&_>_button]:rounded-control [&_>_button]:bg-transparent [&_>_button]:text-muted [&_>_button]:py-[3px] [&_>_button]:px-space-3 [&_>_button]:text-label [&_>_button[data-active]]:text-accent [&_>_button[data-active]]:border-line [&_>_button[data-active]]:bg-accent-soft [&_>_button:disabled]:opacity-[0.45] [&_>_button:disabled]:cursor-not-allowed flex shrink-0 items-center gap-[3px]"
+          aria-label={t("prompt.scope")}
+        >
           <Tabs.Tab value="positive" data-prompt-tab="positive">
             {t("prompt.prompt")}
           </Tabs.Tab>
@@ -100,7 +109,7 @@ export function CompositionEditor({
             {t("prompt.negativeContent")}
           </Tabs.Tab>
         </Tabs.List>
-        <div className="button-group">
+        <ButtonGroup className="button-group">
           {allowChunk && (
             <IconButton label={t("prompt.addChunk")} onClick={() => setPickerScope(visibleScope)}>
               <Link2 size={14} />
@@ -115,13 +124,13 @@ export function CompositionEditor({
             <Plus size={14} />
           </IconButton>
           {toolbarActions}
-        </div>
-      </header>
+        </ButtonGroup>
+      </Row>
       {(["positive", "negative"] as const)
         .filter((scope) => scope === "positive" || negativeSupported)
         .map((scope) => (
           <Tabs.Panel
-            className={`prompt-scope${canDrop && dropBefore === "end" ? " prompt-drop-end" : ""}`}
+            className={`prompt-scope min-w-0${canDrop && dropBefore === "end" ? " prompt-drop-end [box-shadow:0_2px_0_var(--accent)]" : ""}`}
             onDragOver={(event) => {
               if (!canDrop || !event.dataTransfer.types.includes(promptDragType)) return;
               event.preventDefault();
@@ -146,10 +155,14 @@ export function CompositionEditor({
           >
             <PromptEditorScope path={[scope]}>
               {value[scope].length === 0 && (
-                <div className="scope-empty">
+                <Row
+                  gap={0}
+                  className="scope-empty flex items-center justify-center min-h-[38px] border border-line rounded-control text-muted bg-background"
+                >
                   <Button
+                    variant="quiet"
                     type="button"
-                    className="quiet"
+                    className=""
                     onClick={() => update(scope, [textNode()])}
                   >
                     <Plus size={14} />
@@ -157,12 +170,12 @@ export function CompositionEditor({
                       ? t("prompt.writePositivePrompt")
                       : t("prompt.writeNegativePrompt")}
                   </Button>
-                </div>
+                </Row>
               )}
               {value[scope].map((node, index) => (
                 <div
                   key={node.id}
-                  className={`prompt-drop-slot${canDrop && dropBefore === node.id ? " prompt-drop-before" : ""}`}
+                  className={`prompt-drop-slot [&_+_.prompt-drop-slot]:mt-space-3${canDrop && dropBefore === node.id ? " prompt-drop-before [box-shadow:0_-2px_0_var(--accent)]" : ""}`}
                   onDragOver={(event) => {
                     if (!canDrop || !event.dataTransfer.types.includes(promptDragType)) return;
                     event.preventDefault();

@@ -1,7 +1,21 @@
+import {
+  overlayStyles,
+  ActionsMenu,
+  Button,
+  Toolbar,
+  HelpMarker,
+  Modal,
+  Notice,
+  SettingsGroup,
+  Row,
+  Grid,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DownloadableResourceStatus } from "@/bindings/downloads";
-import { ActionsMenu, Button, HelpMarker, Modal, Notice, SettingsGroup } from "@/shared/ui";
+
 import { t, useMessageState, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { downloadsApi, downloadStatusKey, isDownloadActive } from "./api";
@@ -13,7 +27,6 @@ import {
   resourceName,
 } from "./labels";
 import { initialComponents, selectComponents } from "./selection";
-import "./styles.css";
 
 /** The host owns downloads; local state only holds the next explicit component selection. */
 function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }) {
@@ -119,7 +132,12 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
         )
       }
     >
-      <div className="download-versions">
+      <Row
+        gap={0}
+        align="stretch"
+        wrap
+        className="download-versions [gap:var(--space-2)_var(--space-5)] text-muted text-label"
+      >
         <span>
           {resource.installedVersion
             ? t("downloads.installedVersion", { version: resource.installedVersion })
@@ -130,11 +148,21 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
                 : t("downloads.notInstalled")}
         </span>
         <span>{t("downloads.availableVersion", { version: resource.version })}</span>
-      </div>
-      <fieldset className="download-components" disabled={unavailable}>
+      </Row>
+      <fieldset
+        className="download-components m-0 p-0 [border:0] min-w-0 [&_>_legend]:p-0 [&_>_legend]:mb-space-1 [&_>_legend]:text-label"
+        disabled={unavailable}
+      >
         <legend>{t("downloads.components")}</legend>
         {resource.components.map((component) => (
-          <label className="download-component" key={component.id}>
+          <Grid
+            gap={3}
+            align="start"
+            columns={1}
+            as="label"
+            className="download-component [grid-template-columns:16px_minmax(0,_1fr)_auto] py-space-4 px-space-3 [border-bottom:1px_solid_var(--line-subtle)] text-label cursor-pointer [&:hover]:bg-hover [&_>_input]:[width:16px] [&_>_input]:[height:16px] [&_>_input]:[margin:2px_0_0] [&_>_input]:p-0 [&_>_input]:[accent-color:var(--accent)] max-[480px]:[grid-template-columns:16px_minmax(0,_1fr)]"
+            key={component.id}
+          >
             <input
               type="checkbox"
               checked={selected.includes(component.id)}
@@ -149,29 +177,41 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
                 )
               }
             />
-            <span className="download-component-body">
-              <span className="download-component-heading">
+            <Grid
+              align="stretch"
+              gap={1}
+              columns={1}
+              as="span"
+              className="download-component-body min-w-0 [overflow-wrap:anywhere]"
+            >
+              <Row gap={3} align="center" wrap as="span" className="download-component-heading">
                 <strong>{componentLabel(component.id)}</strong>
-                {component.installed && <span className="tag">{t("downloads.installed")}</span>}
-              </span>
-              <span className="download-component-description">
+                {component.installed && (
+                  <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+                    {t("downloads.installed")}
+                  </span>
+                )}
+              </Row>
+              <span className="download-component-description text-muted">
                 {componentDescription(resource.id, component.id, component.description)}
               </span>
               {component.requires.length > 0 && (
-                <span className="download-dependencies">
+                <span className="download-dependencies text-label text-muted">
                   {t("downloads.requires", {
                     names: component.requires.map(componentLabel).join(", "),
                   })}
                 </span>
               )}
+            </Grid>
+            <span className="download-component-size text-muted whitespace-nowrap max-[480px]:[grid-column:2]">
+              {formatBytes(component.bytes)}
             </span>
-            <span className="download-component-size">{formatBytes(component.bytes)}</span>
-          </label>
+          </Grid>
         ))}
       </fieldset>
-      <div className="download-actions">
+      <Toolbar gap={4} align="center" justify="end" wrap className="download-actions">
         {!active && (
-          <span className="download-selection-size">
+          <span className="download-selection-size text-label text-muted mr-auto">
             {t("downloads.selectedSize", {
               count: selected.length,
               size: formatBytes(selectedBytes),
@@ -187,18 +227,25 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           </Button>
         ) : actionable ? (
           <Button
-            className="primary"
+            variant="primary"
             disabled={unavailable || !selected.length}
             onClick={() => (removed.length ? setConfirm("replace") : void install())}
           >
             {action}
           </Button>
         ) : null}
-      </div>
+      </Toolbar>
       {resource.loading && <output aria-live="polite">{t("downloads.restoring")}</output>}
       {resource.error && <Notice>{resource.error}</Notice>}
       {resource.install && resource.install.state !== "complete" && (
-        <output className="download-progress" aria-live="polite">
+        <Grid
+          align="stretch"
+          gap={2}
+          columns={1}
+          as="output"
+          className="download-progress mt-0 text-label [&_>_progress]:w-full [&_>_progress]:[accent-color:var(--accent)]"
+          aria-live="polite"
+        >
           <span>{states[resource.install.state]}</span>
           {active && (
             <>
@@ -218,7 +265,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
             </>
           )}
           {resource.install.message && <Notice>{resource.install.message}</Notice>}
-        </output>
+        </Grid>
       )}
       {error && <Notice>{error}</Notice>}
       <Modal
@@ -230,12 +277,12 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
             : t("downloads.replaceTitle")
         }
       >
-        <p className="confirm-copy">
+        <p className={`confirm-copy ${overlayStyles["confirm-copy"]}`}>
           {confirm === "uninstall"
             ? t("downloads.uninstallImpact", { name })
             : t("downloads.replaceImpact")}
         </p>
-        <ul className="download-impact">
+        <ul className="download-impact pl-[20px] text-label [&_>_li]:my-space-3 [&_>_li]:mx-0">
           {(confirm === "uninstall"
             ? resource.components.filter((component) => component.installed)
             : removed
@@ -246,10 +293,15 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
             </li>
           ))}
         </ul>
-        <div className="dialog-actions">
+        <ButtonGroup
+          gap={3}
+          wrap
+          justify="end"
+          className="dialog-actions flex items-center justify-end flex-wrap gap-space-3 mt-space-4"
+        >
           <Button onClick={() => setConfirm(null)}>{t("app.cancel")}</Button>
           <Button
-            className="danger-button"
+            variant="danger"
             disabled={unavailable}
             onClick={() => {
               const operation =
@@ -262,7 +314,7 @@ function ResourceDownload({ resource }: { resource: DownloadableResourceStatus }
           >
             {confirm === "uninstall" ? t("downloads.uninstall") : t("downloads.applyComponents")}
           </Button>
-        </div>
+        </ButtonGroup>
       </Modal>
     </SettingsGroup>
   );
@@ -292,13 +344,24 @@ export function DownloadsSettings() {
   });
 
   return (
-    <div className="downloads-settings">
-      <header className="settings-group-heading downloads-heading">
+    <Grid
+      align="stretch"
+      gap={6}
+      columns={1}
+      className="downloads-settings w-full min-w-0 [align-content:start]"
+    >
+      <Row
+        gap={0}
+        align="center"
+        justify="between"
+        as="header"
+        className="settings-group-heading downloads-heading [&_>_h2]:[font-size:15px]"
+      >
         <h2>{t("downloads.title")}</h2>
         <Button disabled={catalog.isFetching} onClick={() => void catalog.refetch()}>
           {catalog.isFetching ? t("downloads.refreshing") : t("downloads.refresh")}
         </Button>
-      </header>
+      </Row>
       {status.isPending && <output>{t("downloads.loading")}</output>}
       {status.error && (
         <Notice
@@ -320,11 +383,16 @@ export function DownloadsSettings() {
         />
       ))}
       {status.data?.directory && (
-        <div className="download-directory">
+        <Grid
+          align="stretch"
+          gap={1}
+          columns={1}
+          className="download-directory min-w-0 mt-0 pt-space-4 [border-top:1px_solid_var(--line-subtle)] text-label [&_>_span]:text-muted [&_>_code]:[overflow-wrap:anywhere]"
+        >
           <span>{t("downloads.directory")}</span>
           <code>{status.data.directory}</code>
-        </div>
+        </Grid>
       )}
-    </div>
+    </Grid>
   );
 }

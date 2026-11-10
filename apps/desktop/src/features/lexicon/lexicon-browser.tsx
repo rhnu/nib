@@ -1,6 +1,8 @@
+import { Modal } from "@/shared/ui";
+
 import { useState } from "react";
 import type { PromptSyntaxProfile } from "@/bindings/prompt";
-import { Modal } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 import { createLexiconSessionStore } from "./lexicon-session";
@@ -34,7 +36,7 @@ export function LexiconBrowser({
       }}
       title={t("lexicon.title")}
       wide
-      className="lexicon-modal"
+      className="lexicon-modal w-[min(1120px,calc(100vw-32px))] h-[min(760px,calc(100dvh-32px))] flex flex-col overflow-hidden"
       finalFocus={returnFocus}
       showClose={!busy}
     >

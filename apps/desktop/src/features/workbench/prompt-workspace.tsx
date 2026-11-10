@@ -1,10 +1,12 @@
+import { IconButton, Modal, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import type { Draft, ModelCapabilities, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { ParameterDiagnostic, TokenFieldUsage } from "@/bindings/generation";
 import { ScanText, Settings2, ListChecks, X } from "lucide-react";
-import { IconButton, Modal } from "@/shared/ui";
+
 import { CompositionEditor } from "@/features/prompt/composition-editor";
 import { SettingsEditor, focusSetting } from "@/features/prompt/settings-editor";
 import { diagnosticSetting } from "@/features/prompt/settings";
@@ -76,7 +78,7 @@ export function PromptWorkspace({
     }
   }, [optionIssue, diagnosticSignature, showOptions]);
   return (
-    <section className="prompt-workspace">
+    <section className="prompt-workspace min-w-0 p-[8px_12px_4px] [&_>_.composition]:mt-space-3 [padding:8px_12px_4px]">
       <SettingsEditor
         fields="modelOnly"
         value={draft.settings}
@@ -103,6 +105,7 @@ export function PromptWorkspace({
               }}
             >
               <Popover.Trigger
+                render={<IconButton label={t("workbench.promptSettings")} />}
                 className="icon-button"
                 aria-label={t("workbench.promptSettings")}
                 title={t("workbench.promptSettings")}
@@ -115,18 +118,22 @@ export function PromptWorkspace({
                   side="bottom"
                   align="end"
                   sideOffset={6}
-                  className="prompt-options-positioner"
+                  className="prompt-options-positioner z-[65]"
                 >
-                  <Popover.Popup className="prompt-options-popup" initialFocus={false}>
-                    <header>
+                  <Popover.Popup
+                    className="prompt-options-popup [&_>_header]:flex [&_>_header]:items-center [&_>_header]:justify-between [&_>_header]:gap-space-3 [&_>_header]:mb-space-2 [&_h2]:text-body w-[min(340px,_calc(100vw_-_24px))] [padding:10px_12px_12px] border border-line rounded-overlay bg-raised text-foreground shadow-[var(--shadow)]"
+                    initialFocus={false}
+                  >
+                    <Row gap={0} as="header">
                       <Popover.Title>{t("workbench.promptSettings")}</Popover.Title>
                       <Popover.Close
+                        render={<IconButton label={t("workbench.closePromptSettings")} />}
                         className="icon-button"
                         aria-label={t("workbench.closePromptSettings")}
                       >
                         <X size={14} aria-hidden />
                       </Popover.Close>
-                    </header>
+                    </Row>
                     <SettingsEditor
                       fields="promptOptions"
                       value={draft.settings}
@@ -149,12 +156,14 @@ export function PromptWorkspace({
                     ? t("workbench.viewResolutionIssues", { value0: issueCount })
                     : t("workbench.viewResolutionSources")
               }
-              className={`resolution-trigger ${resolveError || issueCount ? "danger" : ""}`}
+              className={`resolution-trigger relative ${resolveError || issueCount ? "danger text-danger" : ""}`}
               onClick={() => setInspector(true)}
             >
               <ScanText size={15} />
               {(resolveError || issueCount > 0) && (
-                <span className="resolution-count">{resolveError ? "!" : issueCount}</span>
+                <span className="resolution-count absolute top-[-2px] right-[-2px] min-w-[13px] py-0 px-[2px] rounded-control bg-danger text-panel text-[9px] leading-[13px]">
+                  {resolveError ? "!" : issueCount}
+                </span>
               )}
             </IconButton>
             <TokenUsageIndicator
@@ -175,10 +184,12 @@ export function PromptWorkspace({
         }}
       />
       {capabilities?.customNegativePrompts === false && Boolean(resolved?.negative.trim()) && (
-        <output className="inline-warning">{t("workbench.customNegativeUnsupported")}</output>
+        <output className="inline-warning text-danger text-label leading-[1.7]">
+          {t("workbench.customNegativeUnsupported")}
+        </output>
       )}
       {resolveError && (
-        <p className="inline-warning" role="alert">
+        <p className="inline-warning text-danger text-label leading-[1.7]" role="alert">
           {resolveError}
         </p>
       )}
@@ -190,11 +201,11 @@ export function PromptWorkspace({
         }}
         title={t("workbench.resolutionSources")}
         wide
-        className="resolution-modal"
+        className="resolution-modal [&_.modal-header]:shrink-0 [&_.modal-header]:py-space-4 [&_.modal-header]:px-space-5 [&_.modal-header_h2]:flex-1 [&_.resolution-diagnostics-toggle]:w-auto [&_.resolution-diagnostics-toggle]:gap-space-1 [&_.resolution-diagnostics-toggle]:px-space-2"
         actions={
           diagnostics.length > 0 && (
             <IconButton
-              className="resolution-diagnostics-toggle"
+              className="resolution-diagnostics-toggle [&[aria-expanded=true]]:text-accent [&[aria-expanded=true]]:bg-accent-soft"
               label={t("generation.sdkAdjustmentCount", { count: diagnostics.length })}
               aria-expanded={diagnosticsOpen}
               aria-controls="resolution-diagnostics"

@@ -1,7 +1,9 @@
+import { Grid, Field, NumberSlider } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { GenerationQuote } from "@/bindings/generation";
 import type { CreationOperation, ModelCapabilities } from "@/bindings/workbench";
-import { FormField, FormGrid, NumberSlider } from "@/shared/ui";
+
 import { ImageToImageAdvancedSettings } from "./image-to-image-advanced-settings";
 import type { ImageOperationFeedback } from "./image-operation-feedback";
 
@@ -41,16 +43,29 @@ export function ImageToImageSettings({
   };
 
   return (
-    <div className="image-operation-fields">
+    <Grid
+      align="stretch"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="image-operation-fields [&_input]:w-full [&_input]:h-control [&_input]:min-w-0 [&_input]:text-label [&_input]:rounded-control grid gap-[10px] min-w-0"
+    >
       {operation.maxEnhance && (
         <>
           {capabilities?.maxEnhance === false && (
-            <p className="inline-warning" role="alert">
+            <p className="inline-warning text-danger text-label leading-[1.7]" role="alert">
               {t("inputs.maxEnhanceUnsupported")}
             </p>
           )}
           {geometry ? (
-            <dl className="image-operation-geometry">
+            <Grid
+              align="stretch"
+              as="dl"
+              gap={0}
+              columns={1}
+              minColumnWidth="0px"
+              className="image-operation-geometry [&_>_div]:flex [&_>_div]:justify-between [&_>_div]:gap-[10px] [&_dt]:text-muted [&_dd]:m-0 [&_dd]:tabular-nums grid gap-space-1 m-0 text-caption"
+            >
               <div>
                 <dt>{t("inputs.input")}</dt>
                 <dd>
@@ -69,9 +84,9 @@ export function ImageToImageSettings({
                   {geometry.pricing_size.width} × {geometry.pricing_size.height}
                 </dd>
               </div>
-            </dl>
+            </Grid>
           ) : (
-            <p className="image-operation-note">
+            <p className="image-operation-note text-muted text-caption leading-[1.6]">
               {estimate &&
               effectiveOperation?.kind === "imageToImage" &&
               !effectiveOperation.maxEnhance
@@ -81,14 +96,14 @@ export function ImageToImageSettings({
           )}
         </>
       )}
-      <FormGrid>
+      <Grid align="stretch" columns={2} minColumnWidth="110px" gap={3}>
         {(["strength", "noise"] as const).map((field) => {
           const range =
             capabilities?.ranges[field === "strength" ? "img2imgStrength" : "img2imgNoise"];
           const label = field === "strength" ? t("inputs.strength") : t("inputs.noise");
           return (
             <div key={field} data-setting-field={field}>
-              <FormField label={label} htmlFor={`${prefix}-${field}`} feedback={messages(field)}>
+              <Field label={label} htmlFor={`${prefix}-${field}`} feedback={messages(field)}>
                 <NumberSlider
                   id={`${prefix}-${field}`}
                   label={label}
@@ -99,16 +114,16 @@ export function ImageToImageSettings({
                   describedBy={controlProps(field)["aria-describedby"]}
                   onChange={(value) => numeric(field, String(value))}
                 />
-              </FormField>
+              </Field>
             </div>
           );
         })}
-      </FormGrid>
+      </Grid>
       <ImageToImageAdvancedSettings
         operation={operation}
         feedback={feedback}
         updateOperation={updateOperation}
       />
-    </div>
+    </Grid>
   );
 }

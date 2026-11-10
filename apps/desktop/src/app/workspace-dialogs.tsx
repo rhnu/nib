@@ -1,5 +1,7 @@
+import { Col, Button, Modal, ButtonGroup } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
-import { Button, Modal } from "@/shared/ui";
+
 import { operationLabel, operationSourceId } from "@/features/inputs/image-operation";
 import { PngTextDialog } from "@/features/png-text";
 import { VibeEncoderPanel } from "@/features/vibes/vibe-encoder-panel";
@@ -42,7 +44,7 @@ export function WorkspaceDialogs() {
         open={encoderOpen}
         onClose={() => afterInputs(() => setEncoderOpen(false))}
         title={t("app.encodeVibe")}
-        className="vibe-encoder-modal"
+        className="vibe-encoder-modal [&_>_.modal-header]:p-[12px_16px] [&_>_.modal-header]:m-0 [&_>_.modal-header]:[border-bottom:1px_solid_var(--line-subtle)]"
       >
         <VibeEncoderPanel
           onAddReference={extension.onAddVibeReference}
@@ -53,7 +55,7 @@ export function WorkspaceDialogs() {
         />
       </Modal>
       {(imageOperation.busy || pendingInputs > 0) && (
-        <output className="generation-muted image-operation-progress">
+        <output className="generation-muted text-muted image-operation-progress absolute bottom-[10px] right-[12px] p-[var(--space-2)_10px] bg-panel [border:1px_solid_var(--line)] rounded-control">
           {t("app.preparingInputs")}
         </output>
       )}
@@ -63,7 +65,10 @@ export function WorkspaceDialogs() {
         title={t("app.changeOperationTitle")}
       >
         {imageOperation.candidate && (
-          <div className="generation-dialog-body">
+          <Col
+            gap={0}
+            className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto"
+          >
             <p>
               {t("app.switchImageOperation", {
                 operation: operationLabel(imageOperation.candidate.operation),
@@ -71,19 +76,33 @@ export function WorkspaceDialogs() {
             </p>
             {imageOperation.candidate.operation.kind === "imageToImage" &&
               imageOperation.candidate.operation.maxEnhance && <p>{t("app.useSourceSize")}</p>}
-            <footer className="ui-actions">
+            <ButtonGroup
+              gap={0}
+              justify="end"
+              as="footer"
+              className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+            >
               <Button onClick={imageOperation.cancel}>{t("app.keepOperation")}</Button>
-              <Button className="primary" onClick={() => afterInputs(imageOperation.confirm)}>
+              <Button
+                variant="primary"
+
+                onClick={() => afterInputs(imageOperation.confirm)}
+              >
                 {t("app.applyChanges")}
               </Button>
-            </footer>
-          </div>
+            </ButtonGroup>
+          </Col>
         )}
       </Modal>
       <Modal open={mask.transition !== null} onClose={mask.cancel} title={t("app.maskNotApplied")}>
-        <div className="generation-dialog-body">
+        <Col gap={0} className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto">
           <p>{t("app.keepMaskHelp")}</p>
-          <footer className="ui-actions">
+          <ButtonGroup
+            gap={0}
+            justify="end"
+            as="footer"
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+          >
             <Button disabled={mask.pending} onClick={mask.cancel}>
               {t("app.cancel")}
             </Button>
@@ -94,7 +113,7 @@ export function WorkspaceDialogs() {
               {t("app.keepEdits")}
             </Button>
             <Button
-              className="primary"
+              variant="primary"
               disabled={mask.pending}
               onClick={() => {
                 void mask.applyAndContinue();
@@ -102,15 +121,15 @@ export function WorkspaceDialogs() {
             >
               {mask.pending ? t("app.applying") : t("app.applyMask")}
             </Button>
-          </footer>
-        </div>
+          </ButtonGroup>
+        </Col>
       </Modal>
       <Modal
         open={mask.applyConfirmation !== null}
         onClose={() => mask.confirmApply(false)}
         title={t("app.switchToInpaintTitle")}
       >
-        <div className="generation-dialog-body">
+        <Col gap={0} className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto">
           <p>
             {mask.applyConfirmation &&
               t(
@@ -120,23 +139,33 @@ export function WorkspaceDialogs() {
                 { operation: operationLabel(mask.applyConfirmation.operation) },
               )}
           </p>
-          <footer className="ui-actions">
+          <ButtonGroup
+            gap={0}
+            justify="end"
+            as="footer"
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+          >
             <Button onClick={() => mask.confirmApply(false)}>{t("app.cancel")}</Button>
-            <Button className="primary" onClick={() => mask.confirmApply(true)}>
+            <Button variant="primary" onClick={() => mask.confirmApply(true)}>
               {t("app.applyMaskAndSwitch")}
             </Button>
-          </footer>
-        </div>
+          </ButtonGroup>
+        </Col>
       </Modal>
       <Modal open={mask.discarding} onClose={mask.cancelDiscard} title={t("app.discardMaskTitle")}>
-        <div className="generation-dialog-body">
-          <footer className="ui-actions">
+        <Col gap={0} className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto">
+          <ButtonGroup
+            gap={0}
+            justify="end"
+            as="footer"
+            className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+          >
             <Button onClick={mask.cancelDiscard}>{t("app.cancel")}</Button>
-            <Button className="primary" onClick={mask.confirmDiscard}>
+            <Button variant="primary" onClick={mask.confirmDiscard}>
               {t("app.discardEdits")}
             </Button>
-          </footer>
-        </div>
+          </ButtonGroup>
+        </Col>
       </Modal>
     </>
   );

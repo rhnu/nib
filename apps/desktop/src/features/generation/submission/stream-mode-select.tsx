@@ -1,5 +1,6 @@
-import { t, useTranslation } from "@/shared/i18n";
 import { Field, Select } from "@/shared/ui";
+
+import { t, useTranslation } from "@/shared/i18n";
 
 const modeLabel = (mode: string) =>
   mode === "sse"
@@ -50,7 +51,9 @@ export function StreamModeSelect({
           ]}
         />
       </Field>
-      {invalid && <span className="generation-danger">{t("generation.streamUnsupported")}</span>}
+      {invalid && (
+        <span className="generation-danger text-danger">{t("generation.streamUnsupported")}</span>
+      )}
     </div>
   );
 }

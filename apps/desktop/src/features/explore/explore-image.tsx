@@ -1,10 +1,11 @@
+import { Col, Button, IconButton } from "@/shared/ui";
+
 import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { MediaContentStore, type ContentSnapshot } from "@/features/media/content-store";
 import { ImageOff, RotateCcw } from "lucide-react";
 import type { ExploreMediaVariant, ExploreSummary } from "@/bindings/explore";
 import { SafetyPreferencesContext } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
-import { IconButton } from "@/shared/ui/button";
 import { exploreApi } from "./api";
 
 const contents = new MediaContentStore((url) => URL.revokeObjectURL(url));
@@ -68,9 +69,17 @@ export function ExploreImage({
   const blurred =
     unsafe && preferences.blurNsfw && (!details || preferences.blurDetails) && !revealed;
   return (
-    <div ref={root} className={`explore-image ${details ? "is-detail" : ""}`}>
+    <div
+      ref={root}
+      className={`explore-image relative overflow-hidden [aspect-ratio:4_/_5] bg-input [&_img]:block [&_img]:w-full [&_img]:h-full [&_img.image-safety-blurred]:[filter:blur(24px)] ${details ? "is-detail [&_img]:object-contain" : "[&_img]:object-cover"}`}
+    >
       {media.error ? (
-        <div className="explore-media-failure">
+        <Col
+          gap={3}
+          align="center"
+          justify="center"
+          className="explore-media-failure h-full text-muted"
+        >
           <ImageOff size={24} aria-hidden />
           <span>{t("explore.mediaFailed")}</span>
           <IconButton
@@ -81,10 +90,10 @@ export function ExploreImage({
           >
             <RotateCcw size={16} aria-hidden />
           </IconButton>
-        </div>
+        </Col>
       ) : (
-        <button
-          className="explore-image-button"
+        <Button
+          className="explore-image-button block relative w-full h-full p-0 [border:0] [border-radius:0] [background:transparent] [&:disabled]:[opacity:1]"
           type="button"
           disabled={!onOpen && !blurred}
           onClick={() => (blurred ? setRevealed(true) : onOpen?.())}
@@ -101,14 +110,25 @@ export function ExploreImage({
               alt={item.title}
               width={item.width || undefined}
               height={item.height || undefined}
-              className={blurred ? "image-safety-blurred" : undefined}
+              className={
+                blurred
+                  ? "image-safety-blurred [filter:blur(24px)] cursor-pointer [user-select:none]"
+                  : undefined
+              }
               onError={resource?.failed}
             />
           ) : (
-            <span className="explore-image-loading" aria-label={t("explore.loadingMedia")} />
+            <span
+              className="explore-image-loading block w-full h-full [background:linear-gradient(130deg,_var(--surface),_var(--raised),_var(--surface))]"
+              aria-label={t("explore.loadingMedia")}
+            />
           )}
-          {blurred && <span className="explore-blur-label">{t("safety.reveal")}</span>}
-        </button>
+          {blurred && (
+            <span className="explore-blur-label absolute [left:50%] [top:50%] [transform:translate(-50%,_-50%)] py-space-2 px-[10px] rounded-control [color:white] [background:#0009] whitespace-nowrap">
+              {t("safety.reveal")}
+            </span>
+          )}
+        </Button>
       )}
     </div>
   );

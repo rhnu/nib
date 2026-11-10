@@ -2,13 +2,8 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@/shared/styles/tokens.css";
-@import "@/shared/styles/base.css";
-@import "@/shared/ui/styles.css";
-@import "@/shared/ui/media-input.css";
+@import "@/shared/styles/base.css" layer(base);
 @import "./startup.css";
-@import "./titlebar.css";
-@import "./settings.css";
-@import "@/features/workbench/styles.css";
 @import "@/features/prompt/styles.css";
 @import "@/features/library/styles.css";
 @source "../../node_modules/streamdown/dist/*.js";
@@ -17,9 +12,37 @@
 /* Preserve nib's pixel density while exposing existing theme tokens to utilities. */
 @theme inline {
   --spacing: 4px;
+  --spacing-space-1: var(--space-1);
+  --spacing-space-2: var(--space-2);
+  --spacing-space-3: var(--space-3);
+  --spacing-space-4: var(--space-4);
+  --spacing-space-5: var(--space-5);
+  --spacing-space-6: var(--space-6);
+  --spacing-control: var(--control-height);
+  --spacing-control-compact: var(--control-height-compact);
+  --spacing-control-prominent: var(--control-height-prominent);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
   --color-panel: var(--surface);
   --color-raised: var(--raised);
+  --color-input: var(--input);
+  --color-hover: var(--hover);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
   --color-line: var(--line);
+  --color-line-subtle: var(--line-subtle);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --text-caption: var(--font-size-caption);
+  --text-label: var(--font-size-label);
+  --text-body: var(--font-size-body);
+  --text-section: var(--font-size-section);
+  --text-title: var(--font-size-title);
+  --text-page: var(--font-size-page);
+  --radius-control: var(--radius);
+  --radius-overlay: var(--overlay-radius);
+  --shadow-overlay: var(--shadow);
 }

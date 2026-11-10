@@ -1,7 +1,20 @@
+import {
+  Button,
+  Toolbar,
+  HelpMarker,
+  IconButton,
+  Notice,
+  Col,
+  Row,
+  Input,
+  Grid,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LexiconFormatTerm, PromptSyntaxProfile } from "@/bindings/prompt";
 import { BookOpen, Search, X } from "lucide-react";
-import { Button, HelpMarker, IconButton, Notice } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { kindLabel, lexiconKinds } from "./labels";
@@ -9,7 +22,6 @@ import { toggleLexiconTerm, type LexiconSessionStore } from "./lexicon-session";
 import { LexiconTermRow } from "./lexicon-term-row";
 import { LexiconComposer } from "./lexicon-composer";
 import { useLexiconSearch } from "./use-lexicon-search";
-import "./styles.css";
 
 export type LexiconInsert = (
   terms: LexiconFormatTerm[],
@@ -77,11 +89,22 @@ export function LexiconWorkspace({
     ));
 
   return (
-    <fieldset className="lexicon-workspace" disabled={busy} aria-label={t("lexicon.title")}>
-      <div className="lexicon-toolbar">
-        <div className="lexicon-search-field">
+    <Col
+      gap={0}
+      as="fieldset"
+      className="lexicon-workspace flex-1 min-h-0 min-w-0"
+      disabled={busy}
+      aria-label={t("lexicon.title")}
+    >
+      <Toolbar
+        gap={3}
+        align="center"
+        wrap
+        className="lexicon-toolbar py-[10px] px-[14px] [border-bottom:1px_solid_var(--line)]"
+      >
+        <div className="lexicon-search-field relative flex-1 [min-width:200px] [&_>_svg]:absolute [&_>_svg]:[left:9px] [&_>_svg]:[top:8px] [&_>_svg]:text-muted [&_>_input]:pl-[31px]">
           <Search size={15} aria-hidden />
-          <input
+          <Input
             autoComplete="off"
             aria-label={t("lexicon.search")}
             placeholder={t("lexicon.search")}
@@ -90,7 +113,13 @@ export function LexiconWorkspace({
             spellCheck={false}
           />
         </div>
-        <fieldset className="lexicon-modes" aria-label={t("lexicon.searchMode")}>
+        <Row
+          gap={0}
+          align="stretch"
+          as="fieldset"
+          className="lexicon-modes gap-[2px] [&_>_button[aria-pressed='true']]:[background:var(--accent-soft)] [&_>_button[aria-pressed='true']]:text-accent [&_>_button[aria-pressed='true']]:[border-color:var(--accent)]"
+          aria-label={t("lexicon.searchMode")}
+        >
           <Button
             aria-pressed={state.mode === "lexical"}
             onClick={() => store.setState({ mode: "lexical" })}
@@ -105,23 +134,47 @@ export function LexiconWorkspace({
           >
             {t("lexicon.semantic")}
           </Button>
-        </fieldset>
+        </Row>
         {generation && !status.data?.semanticAvailable && (
           <HelpMarker label={t("lexicon.semantic")}>{semanticHint}</HelpMarker>
         )}
-      </div>
+      </Toolbar>
       {notInstalled ? (
-        <section className="lexicon-empty" aria-label={t("lexicon.results")}>
+        <Col
+          gap={5}
+          align="center"
+          justify="center"
+          as="section"
+          className="lexicon-empty flex-1 [min-height:240px] py-[32px] px-[20px] text-center [&_>_svg]:text-muted"
+          aria-label={t("lexicon.results")}
+        >
           <BookOpen size={32} aria-hidden />
           <h2>{t("lexicon.notInstalled")}</h2>
-          <Button className="primary" onClick={onOpenDownloads}>
+          <Button variant="primary" onClick={onOpenDownloads}>
             {t("lexicon.openDownloads")}
           </Button>
-        </section>
+        </Col>
       ) : (
-        <div className="lexicon-body">
-          <section className="lexicon-browse" aria-label={t("lexicon.results")}>
-            <fieldset className="lexicon-kinds" aria-label={t("lexicon.all")}>
+        <Grid
+          align="stretch"
+          gap={0}
+          columns={1}
+          className="lexicon-body [grid-template-columns:minmax(0,_1fr)_clamp(320px,_30%,_420px)] flex-1 min-h-0 max-[850px]:flex max-[850px]:flex-col max-[850px]:overflow-auto"
+        >
+          <Col
+            gap={0}
+            as="section"
+            className="lexicon-browse min-h-0 min-w-0 max-[850px]:[flex:1_0_260px] max-[850px]:[max-height:60dvh]"
+            aria-label={t("lexicon.results")}
+          >
+            <Row
+              gap={0}
+              align="stretch"
+              wrap
+              as="fieldset"
+              className="lexicon-kinds gap-[2px] [&_>_button[aria-pressed='true']]:[background:var(--accent-soft)] [&_>_button[aria-pressed='true']]:text-accent [&_>_button[aria-pressed='true']]:[border-color:var(--accent)] py-space-3 px-[14px] [border-bottom:1px_solid_var(--line-subtle)] [&_>_button]:[border-color:transparent] [&_>_button]:[background:transparent]"
+              aria-label={t("lexicon.all")}
+            >
               <Button aria-pressed={state.kind === ""} onClick={() => store.setState({ kind: "" })}>
                 {t("lexicon.all")}
               </Button>
@@ -134,8 +187,8 @@ export function LexiconWorkspace({
                   {kindLabel(kind)}
                 </Button>
               ))}
-            </fieldset>
-            <div className="lexicon-browse-scroll">
+            </Row>
+            <div className="lexicon-browse-scroll overflow-auto min-h-0 flex-1 [padding:0_14px_14px] [&_>_.empty-note]:py-[20px] [&_>_.empty-note]:px-0">
               {restoring && !generation ? (
                 <output>{t("lexicon.restoring")}</output>
               ) : status.error ? (
@@ -170,12 +223,17 @@ export function LexiconWorkspace({
                   {meaningCurrent && meaning.error && (
                     <Notice
                       actions={
-                        <div className="ui-actions">
+                        <ButtonGroup
+                          gap={3}
+                          wrap
+                          justify="end"
+                          className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+                        >
                           <Button onClick={() => void meaning.refetch()}>
                             {t("lexicon.retry")}
                           </Button>
                           <Button onClick={onOpenDownloads}>{t("lexicon.openDownloads")}</Button>
-                        </div>
+                        </ButtonGroup>
                       }
                     >
                       {errorMessage(meaning.error)}
@@ -188,10 +246,12 @@ export function LexiconWorkspace({
                     matches.length === 0 &&
                     !lexical.error &&
                     !(meaningCurrent && meaning.error) && (
-                      <p className="empty-note">{t("lexicon.noMatches")}</p>
+                      <p className="empty-note text-muted text-label leading-[1.75] m-[3px_0]">
+                        {t("lexicon.noMatches")}
+                      </p>
                     )}
                   <ul
-                    className="lexicon-results"
+                    className="lexicon-results list-none m-0 p-0 [&_>_li]:py-[7px] [&_>_li]:px-space-1 [&_>_li]:[border-bottom:1px_solid_var(--line-subtle)] [&_>_li.selected]:[background:var(--accent-soft)] [&_>_li_>_.icon-button]:mt-[1px] [&_>_li.selected_>_.icon-button]:text-accent"
                     aria-label={t("lexicon.results")}
                     aria-busy={loading}
                   >
@@ -200,10 +260,15 @@ export function LexiconWorkspace({
                   {relatedTerm && (
                     <section
                       ref={relatedRef}
-                      className="lexicon-related"
+                      className="lexicon-related mt-space-5 pt-space-3 [border-top:1px_solid_var(--line)]"
                       aria-label={t("lexicon.relatedHeading", { name: relatedTerm.name })}
                     >
-                      <div className="section-heading">
+                      <Row
+                        gap={0}
+                        align="center"
+                        justify="between"
+                        className="flex items-center justify-between gap-space-3 min-w-0 min-h-control mb-space-2 [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+                      >
                         <h3>{t("lexicon.relatedHeading", { name: relatedTerm.name })}</h3>
                         <IconButton
                           label={t("common.close")}
@@ -211,7 +276,7 @@ export function LexiconWorkspace({
                         >
                           <X size={14} aria-hidden />
                         </IconButton>
-                      </div>
+                      </Row>
                       {related.isFetching && <output>{t("lexicon.loading")}</output>}
                       {related.error && (
                         <Notice
@@ -225,10 +290,12 @@ export function LexiconWorkspace({
                         </Notice>
                       )}
                       {!related.isPending && !related.error && relatedMatches.length === 0 && (
-                        <p className="empty-note">{t("lexicon.noRelated")}</p>
+                        <p className="empty-note text-muted text-label leading-[1.75] m-[3px_0]">
+                          {t("lexicon.noRelated")}
+                        </p>
                       )}
                       <ul
-                        className="lexicon-results"
+                        className="lexicon-results list-none m-0 p-0 [&_>_li]:py-[7px] [&_>_li]:px-space-1 [&_>_li]:[border-bottom:1px_solid_var(--line-subtle)] [&_>_li.selected]:[background:var(--accent-soft)] [&_>_li_>_.icon-button]:mt-[1px] [&_>_li.selected_>_.icon-button]:text-accent"
                         aria-label={t("lexicon.relatedHeading", { name: relatedTerm.name })}
                       >
                         {renderTerms(relatedMatches)}
@@ -238,7 +305,7 @@ export function LexiconWorkspace({
                 </>
               )}
             </div>
-          </section>
+          </Col>
           <LexiconComposer
             store={store}
             generation={generation}
@@ -252,8 +319,8 @@ export function LexiconWorkspace({
               onBusy?.(value);
             }}
           />
-        </div>
+        </Grid>
       )}
-    </fieldset>
+    </Col>
   );
 }

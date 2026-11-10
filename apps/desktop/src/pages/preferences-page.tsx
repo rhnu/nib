@@ -1,9 +1,11 @@
+import { Row } from "@/shared/ui";
+
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
 export function PreferencesPage() {
   const { options, state } = useWorkbenchContext();
   return (
-    <div className="settings-page-slot">
+    <Row gap={0} align="stretch" className="settings-page-slot flex-1 min-h-0">
       {options.renderSettings({
         beforeMigrate: state.prepareMigration,
         onOpenTasks: () => {
@@ -14,6 +16,6 @@ export function PreferencesPage() {
           });
         },
       })}
-    </div>
+    </Row>
   );
 }

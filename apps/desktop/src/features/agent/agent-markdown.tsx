@@ -1,8 +1,10 @@
+import { notify } from "@/shared/ui";
+
 import { memo, type ComponentProps } from "react";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { notify } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 
 const plugins = { cjk };

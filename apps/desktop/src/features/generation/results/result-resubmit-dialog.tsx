@@ -1,3 +1,5 @@
+import { Button, Modal, Notice, Col, Toolbar } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { resultsApi } from "./api";
@@ -7,7 +9,7 @@ import { useSubmission } from "../submission/submission-context";
 import { submissionApi } from "../submission/api";
 import { useEffect, useRef, useState } from "react";
 import type { GenerationResult } from "@/bindings/generation";
-import { Button, Modal, Notice } from "@/shared/ui";
+
 import { errorMessage } from "@/shared/host/error";
 import { QuoteSummary } from "../submission/quote-summary";
 import { SubmissionSummary } from "../submission/submission-summary";
@@ -92,7 +94,11 @@ export function ResultResubmitDialog({
           : t("generation.regenerateResultTitle")
       }
     >
-      <div className="generation-dialog-body">
+      <Col
+        gap={0}
+        align="stretch"
+        className="generation-dialog-body flex flex-col gap-space-4 p-0 overflow-auto [&_button]:shrink-0 [&_p]:m-0"
+      >
         <p>{t("generation.regenerateResultHelp")}</p>
         <SubmissionSummary submission={result.submission} />
         {prepared ? (
@@ -122,10 +128,15 @@ export function ResultResubmitDialog({
             {error}
           </Notice>
         )}
-        <footer className="ui-actions">
+        <Toolbar
+          gap={2}
+          as="footer"
+          className="ui-actions flex items-center justify-end flex-wrap gap-space-3"
+        >
           <Button onClick={onClose}>{t("generation.cancel")}</Button>
           <Button
-            className="primary"
+            variant="primary"
+            className=""
             disabled={
               pending ||
               submissionBlocked ||
@@ -145,8 +156,8 @@ export function ResultResubmitDialog({
                   ? t("generation.confirmProcess")
                   : t("generation.confirmGenerate")}
           </Button>
-        </footer>
-      </div>
+        </Toolbar>
+      </Col>
     </Modal>
   );
 }

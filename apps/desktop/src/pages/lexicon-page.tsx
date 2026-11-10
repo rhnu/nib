@@ -1,3 +1,5 @@
+import { Button, Field, Notice, Select, Col } from "@/shared/ui";
+
 import { useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "zustand";
@@ -9,7 +11,7 @@ import { formatLexiconTerms } from "@/features/prompt/format-runtime";
 import { textNode } from "@/features/prompt/model";
 import { trackPendingWork } from "@/shared/host/pending-work";
 import { errorMessage } from "@/shared/host/error";
-import { Button, Notice, Select } from "@/shared/ui";
+
 import { t, useTranslation, MessageError, deferMessage } from "@/shared/i18n";
 
 /** Full-page combinations append a new text fragment, leaving existing prompt content intact. */
@@ -57,7 +59,12 @@ export function LexiconPage() {
   };
 
   return (
-    <section className="lexicon-page" aria-label={t("lexicon.title")}>
+    <Col
+      gap={0}
+      as="section"
+      className="lexicon-page flex-1 min-h-0 overflow-hidden bg-background"
+      aria-label={t("lexicon.title")}
+    >
       {syntax.error && (
         <Notice
           actions={<Button onClick={() => void syntax.refetch()}>{t("lexicon.retry")}</Button>}
@@ -71,8 +78,10 @@ export function LexiconPage() {
         onInsert={insert}
         onOpenDownloads={() => void openDownloads()}
         targetSelector={
-          <label className="lexicon-target">
-            {t("lexicon.target")}
+          <Field
+            label={t("lexicon.target")}
+            className="grid-cols-[auto_minmax(0,1fr)] items-center gap-space-3"
+          >
             <Select
               value={target}
               onValueChange={(value) =>
@@ -83,9 +92,9 @@ export function LexiconPage() {
                 { value: "negative", label: t("prompt.negativePrompt") },
               ]}
             />
-          </label>
+          </Field>
         }
       />
-    </section>
+    </Col>
   );
 }

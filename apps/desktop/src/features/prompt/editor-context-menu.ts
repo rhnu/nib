@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { Transaction } from "@codemirror/state";
 import { undo, redo, undoDepth, redoDepth, selectAll } from "@codemirror/commands";
-import { registerTextEditor } from "@/shared/ui/text-context-menu";
+import { registerTextEditor } from "@/shared/ui";
 
 /** Menu commands use CodeMirror transactions, including its existing multi-selection history. */
 export function registerPromptContextMenu(view: EditorView) {

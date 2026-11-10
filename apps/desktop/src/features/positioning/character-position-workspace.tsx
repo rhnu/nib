@@ -1,12 +1,13 @@
+import { Col, Row, Grid, Button, Field, HelpMarker, Notice, Select } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useLayoutEffect, useRef, type PointerEvent } from "react";
 import type { ModelCapabilities, ResolvedCharacter } from "@/bindings/workbench";
-import { Button, HelpMarker, Notice, Select } from "@/shared/ui";
+
 import { AssetImage } from "@/features/media/asset-image";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import { CharacterPositionPolicy } from "@/features/characters";
 import { characterKey, normalizePosition, type Position } from "./model";
-import "./positioning.css";
 import { useSafetyDisplay } from "@/features/media/safety-image";
 
 export function CharacterPositionWorkspace({
@@ -92,10 +93,18 @@ export function CharacterPositionWorkspace({
     `${index + 1} · ${character.positive.trim().split(/[,\n]/)[0]?.slice(0, 24) || t("positioning.character")}${character.enabled ? "" : t("positioning.disabledSuffix")}`;
 
   return (
-    <section className="character-position-workspace" aria-label={t("positioning.canvas")}>
-      <header className="character-position-toolbar">
-        <label className="field">
-          <span>{t("positioning.character")}</span>
+    <Col
+      as="section"
+      gap={0}
+      className="character-position-workspace flex flex-1 flex-col min-h-0 min-w-0"
+      aria-label={t("positioning.canvas")}
+    >
+      <Row
+        as="header"
+        gap={0}
+        className="character-position-toolbar [&_.ui-field]:min-w-[150px] [&_.ui-field]:max-w-[260px] [&_>_[data-variant=quiet]]:ml-auto flex flex-wrap items-end gap-[10px] p-[10px_12px] [border-bottom:1px_solid_var(--line-subtle)]"
+      >
+        <Field label={t("positioning.character")}>
           <Select
             aria-label={t("positioning.positionCharacters")}
             value={selected ? characterKey(selected) : ""}
@@ -105,7 +114,7 @@ export function CharacterPositionWorkspace({
               label: label(character, index),
             }))}
           />
-        </label>
+        </Field>
         <CharacterPositionPolicy
           value={useCoords}
           inherited={effectiveUseCoords}
@@ -114,10 +123,10 @@ export function CharacterPositionWorkspace({
         <HelpMarker label={t("positioning.canvasControls")}>
           {t("positioning.canvasHelp")}
         </HelpMarker>
-        <Button className="quiet" onClick={onClose}>
+        <Button variant="quiet" className="" onClick={onClose}>
           {t("positioning.backToImage")}
         </Button>
-      </header>
+      </Row>
       {!supported && (
         <Notice>
           {capabilities ? t("positioning.positioningUnsupported") : t("positioning.loadingOptions")}
@@ -128,12 +137,17 @@ export function CharacterPositionWorkspace({
           {media.error}
         </Notice>
       )}
-      <div className="character-position-stage">
+      <Grid
+        gap={0}
+        columns={1}
+        minColumnWidth="0px"
+        className="character-position-stage flex-1 min-h-[220px] min-w-0 grid place-items-center p-[18px] overflow-hidden"
+      >
         {/* A two-dimensional canvas needs keyboard focus independently of its marker buttons. */}
         {/* oxlint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <div
           ref={surface}
-          className="character-position-surface"
+          className="character-position-surface relative max-w-full max-h-full bg-background [border:1px_solid_var(--line)] [touch-action:none] outline-offset-[3px]"
           role="application"
           aria-label={t("positioning.characterPositions")}
           tabIndex={0}
@@ -212,17 +226,21 @@ export function CharacterPositionWorkspace({
               asset={media.asset}
               safetyDisabled
               alt={t("positioning.backgroundImage")}
-              className={`character-position-underlay${safety.blurred ? " image-safety-blurred" : ""}`}
+              className={`character-position-underlay absolute inset-0 w-full h-full object-contain opacity-60 pointer-events-none${safety.blurred ? " image-safety-blurred [filter:blur(24px)] cursor-pointer [user-select:none]" : ""}`}
             />
           )}
           {grid && (
-            <div
-              className="character-position-grid"
+            <Grid
+              align="stretch"
+              gap={0}
+              columns={1}
+              minColumnWidth="0px"
+              className="character-position-grid [&_button]:bg-transparent [&_button]:[border:1px_solid_var(--line-subtle)] [&_button]:cursor-crosshair [&_button:hover]:bg-accent-soft absolute inset-0 grid"
               style={{ gridTemplateColumns: `repeat(${grid.length}, 1fr)` }}
             >
               {grid.flatMap((y) =>
                 grid.map((x) => (
-                  <button
+                  <Button
                     type="button"
                     key={`${x}:${y}`}
                     aria-label={t("positioning.positionCoordinates", { value0: x, value1: y })}
@@ -233,13 +251,13 @@ export function CharacterPositionWorkspace({
                   />
                 )),
               )}
-            </div>
+            </Grid>
           )}
           {characters.map((character, index) => (
-            <button
+            <Button
               type="button"
               key={characterKey(character)}
-              className={`character-position-marker ${characterKey(character) === (selected && characterKey(selected)) ? "selected" : ""}`}
+              className={`character-position-marker [&.selected]:border-accent [&.selected]:bg-accent [&.selected]:text-background [&:disabled]:opacity-40 [&:disabled]:cursor-default absolute [transform:translate(-50%,_-50%)] z-1 w-[30px] h-[30px] rounded-full [border:1px_solid_var(--line)] bg-panel text-foreground cursor-move ${characterKey(character) === (selected && characterKey(selected)) ? "selected" : ""}`}
               data-position-marker={characterKey(character)}
               aria-label={t("positioning.selectCharacter", { value0: label(character, index) })}
               aria-pressed={characterKey(character) === (selected && characterKey(selected))}
@@ -251,12 +269,17 @@ export function CharacterPositionWorkspace({
               onClick={() => onSelect(characterKey(character))}
             >
               {index + 1}
-            </button>
+            </Button>
           ))}
         </div>
         {/* oxlint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-      </div>
-      <footer className="character-position-footer">
+      </Grid>
+      <Row
+        align="stretch"
+        as="footer"
+        gap={0}
+        className="character-position-footer flex flex-wrap justify-between gap-space-3 p-[10px_12px] [border-top:1px_solid_var(--line-subtle)] text-label"
+      >
         {selected && (
           <output>
             {label(selected, characters.indexOf(selected))}
@@ -265,10 +288,10 @@ export function CharacterPositionWorkspace({
             {t("positioning.yCoordinate")} {selected.position.y.toFixed(3)}
           </output>
         )}
-        <span className="muted">
+        <span className="muted text-muted">
           {size.width} × {size.height}
         </span>
-      </footer>
-    </section>
+      </Row>
+    </Col>
   );
 }

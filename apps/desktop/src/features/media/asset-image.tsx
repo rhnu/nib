@@ -1,10 +1,11 @@
+import { Button, Notice } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { MediaAsset } from "@/bindings/media";
-import { Button, Notice } from "@/shared/ui";
+
 import { useMediaContent } from "./use-media-content";
 import { imageUnavailableReason } from "./model";
 import { ImageContextActions } from "./image-context-actions";
-import "./media.css";
 import { SafetyImage } from "./safety-image";
 
 /** Immutable original content is shared with other mounted viewers. */
@@ -40,7 +41,12 @@ export function AssetImage({
         {image.error}
       </Notice>
     );
-  if (!image.url) return <output className="media-loading">{t("media.loadingImage")}</output>;
+  if (!image.url)
+    return (
+      <output className="media-loading block p-space-4 text-muted">
+        {t("media.loadingImage")}
+      </output>
+    );
   return (
     <ImageContextActions
       id={asset.id}
@@ -51,7 +57,9 @@ export function AssetImage({
       <SafetyImage
         assetId={asset.id}
         safetyDisabled={safetyDisabled}
-        className={className ?? "media-image"}
+        className={
+          className ?? "media-image block max-w-full max-h-[360px] object-contain m-[0_auto]"
+        }
         src={image.url}
         alt={alt}
         onError={image.failed}

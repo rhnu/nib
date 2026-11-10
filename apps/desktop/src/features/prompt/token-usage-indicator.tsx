@@ -1,3 +1,5 @@
+import { IconButton, overlayStyles, Grid } from "@/shared/ui";
+
 import { useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
@@ -40,7 +42,8 @@ export function TokenUsageIndicator({
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
-        className="icon-button token-usage-indicator"
+        render={<IconButton label={`${label} · ${summary}${status ? ` · ${status}` : ""}`} />}
+        className="icon-button token-usage-indicator w-[30px] h-[30px] min-h-[30px] p-[1px]"
         aria-label={`${label} · ${summary}${status ? ` · ${status}` : ""}`}
         aria-busy={pending}
         openOnHover
@@ -52,7 +55,7 @@ export function TokenUsageIndicator({
           {scopes.map(({ key, radius }) => (
             <g
               key={key}
-              className={`token-scope-${key}${usage[key]?.overLimit ? " over-limit" : ""}`}
+              className={`token-scope-${key}${usage[key]?.overLimit ? " over-limit [&_.token-usage-count]:text-danger" : ""}`}
             >
               <circle
                 className={`token-ring-track${usage[key] ? "" : " unavailable"}`}
@@ -74,34 +77,50 @@ export function TokenUsageIndicator({
         </svg>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Positioner sideOffset={6} align="end" className="help-positioner">
-          <Popover.Popup className="help-popup token-usage-popup" initialFocus={false}>
+        <Popover.Positioner
+          sideOffset={6}
+          align="end"
+          className={`help-positioner ${overlayStyles["help-positioner"]}`}
+        >
+          <Popover.Popup
+            className={`help-popup token-usage-popup w-[min(360px,_calc(100vw_-_24px))] ${overlayStyles["help-popup"]}`}
+            initialFocus={false}
+          >
             <header>
               <Popover.Title>{label}</Popover.Title>
-              <Popover.Close className="icon-button" aria-label={t("common.closeHelp")}>
+              <Popover.Close
+                render={<IconButton label={t("common.closeHelp")} />}
+                className="icon-button"
+                aria-label={t("common.closeHelp")}
+              >
                 <X size={14} aria-hidden />
               </Popover.Close>
             </header>
             <Popover.Description render={<div />}>
               {scopes.map(({ key, title, ring }) => (
-                <div
+                <Grid
+                  gap={0}
                   key={key}
-                  className={`token-usage-row token-scope-${key}${usage[key]?.overLimit ? " over-limit" : ""}`}
+                  className={`token-usage-row grid grid-cols-[auto_minmax(32px,_1fr)_auto] items-center gap-[10px] mt-space-3 token-scope-${key}${usage[key]?.overLimit ? " over-limit [&_.token-usage-count]:text-danger" : ""}`}
                 >
-                  <span className="token-usage-label" title={ring}>
+                  <span className="token-usage-label text-[var(--token-color)]" title={ring}>
                     {title}
                   </span>
                   <progress
-                    className="token-usage-bar"
+                    className="token-usage-bar [&::-webkit-progress-bar]:bg-line [&::-webkit-progress-value]:[background:var(--token-color)] [&::-moz-progress-bar]:[background:var(--token-color)] appearance-none w-full h-[6px] overflow-hidden border-0 rounded-[3px] bg-line"
                     aria-label={`${label} · ${title} · ${ring}`}
                     max={usage[key]?.limit ?? 1}
                     value={usage[key] ? Math.min(usage[key].used, usage[key].limit) : undefined}
                     aria-valuetext={usageText(usage[key])}
                   />
-                  <span className="token-usage-count">{usageText(usage[key])}</span>
-                </div>
+                  <span className="token-usage-count tabular-nums text-foreground">
+                    {usageText(usage[key])}
+                  </span>
+                </Grid>
               ))}
-              {status && <p className="token-usage-status">{status}</p>}
+              {status && (
+                <p className="token-usage-status [margin:8px_0_0] wrap-anywhere">{status}</p>
+              )}
             </Popover.Description>
           </Popover.Popup>
         </Popover.Positioner>

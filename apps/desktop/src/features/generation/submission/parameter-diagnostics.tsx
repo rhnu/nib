@@ -1,6 +1,8 @@
+import { Button } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import type { ParameterDiagnostic } from "@/bindings/generation";
-import { Button } from "@/shared/ui";
+
 import {
   diagnosticSetting,
   settingLabels,
@@ -28,7 +30,7 @@ export function ParameterDiagnostics({
               {key ? settingLabels[key] : diagnostic.field}:{" "}
               {settingDiagnosticMessage(diagnostic.field, diagnostic.change)}
               {onLocate && (
-                <Button className="quiet" onClick={() => onLocate(diagnostic.field)}>
+                <Button variant="quiet" className="" onClick={() => onLocate(diagnostic.field)}>
                   {t("generation.locate")}
                 </Button>
               )}

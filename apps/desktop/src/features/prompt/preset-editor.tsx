@@ -1,3 +1,13 @@
+import {
+  ActionsMenu,
+  Button,
+  ConfirmIconButton,
+  IconButton,
+  IconCheckbox,
+  Row,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { t, useTranslation, deferMessage } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, FileText, Link2, Trash2 } from "lucide-react";
@@ -13,7 +23,7 @@ import { SettingsEditor } from "./settings-editor";
 import { PresetOverrides } from "./preset-overrides";
 import { PromptEditorScope } from "./prompt-editor-state";
 import { promptApi } from "./api";
-import { ActionsMenu, Button, ConfirmIconButton, IconButton, IconCheckbox } from "@/shared/ui";
+
 import { useModelCapabilities } from "@/features/model/use-model-capabilities";
 import { settingsWithDefaults } from "./settings";
 import {
@@ -220,7 +230,7 @@ export function PresetEditor({
       (binding.kind === "linked" && binding.outputOverrides.characters.length) ? (
       <PromptEditorScope path={["preset", instance.id]}>
         <section
-          className={`preset-character-context ${instance.enabled ? "" : "node-disabled"}`}
+          className={`preset-character-context [&_>_h4]:m-[10px_0_0] [&_>_h4]:text-caption [&_>_h4]:text-muted [&_>_h4]:font-medium ${instance.enabled ? "" : "node-disabled [&_.prompt-editor-host]:opacity-55 [&_.node-label]:opacity-[0.55] [&_.prompt-editor-preview]:opacity-[0.55]"}`}
           data-preset-instance-id={instance.id}
         >
           <h4>{name}</h4>
@@ -231,17 +241,25 @@ export function PresetEditor({
   return (
     <PromptEditorScope path={["preset", instance.id]}>
       <article
-        className={`preset-instance ${instance.enabled ? "" : "node-disabled"}`}
+        className={`preset-instance [&_.node-heading_.button-group]:gap-space-1 [&_.node-heading_.tag]:text-[9px] [&_.node-heading_.tag]:py-0 [&_.node-heading_.tag]:px-space-1 [&_>_details_>_summary]:[padding:4px_8px_7px] [&_>_details_>_summary]:text-caption [&_.inline-warning]:py-space-3 [&_.inline-warning]:px-[10px] [&_.inline-warning]:m-0 [&_.node-heading]:gap-space-1 [&_.node-heading]:py-0 [&_.node-heading]:px-space-2 bg-panel border border-line rounded-control mb-space-3 overflow-hidden ${instance.enabled ? "" : "node-disabled [&_.prompt-editor-host]:opacity-55 [&_.node-label]:opacity-[0.55] [&_.prompt-editor-preview]:opacity-[0.55]"}`}
         data-preset-instance-id={instance.id}
       >
-        <header className="node-heading">
-          <span className="node-label">
+        <Row
+          gap={0}
+          as="header"
+          className="node-heading [&_>_.button-group]:shrink-0 [&_.icon-button]:w-[26px] [&_.icon-button]:h-[26px] [&_.icon-button]:min-h-[26px] [&_.icon-button]:p-[3px] flex items-center justify-between gap-space-2 py-0 px-space-2 min-h-[32px]"
+        >
+          <Row
+            gap={0}
+            as="span"
+            className="node-label [&_>_svg]:text-muted [&_>_svg]:shrink-0 [&_>_span:not(.tag)]:overflow-hidden [&_>_span:not(.tag)]:text-ellipsis [&_>_span:not(.tag)]:whitespace-nowrap [&_.tag]:shrink-0 [&_.tag]:text-[9px] [&_.tag]:px-[3px] flex items-center gap-[7px] text-label min-w-0 wrap-anywhere"
+          >
             {dragHandle}
             {binding.kind === "linked" ? <Link2 size={15} /> : <FileText size={15} />}
             <span title={name}>{name}</span>
-          </span>
-          <div className="button-group">
-            <span className="tag">
+          </Row>
+          <ButtonGroup className="button-group">
+            <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
               {binding.kind === "linked" ? t("prompt.linked") : t("prompt.expanded")}
             </span>
             <IconCheckbox
@@ -283,12 +301,12 @@ export function PresetEditor({
                 ]}
               />
             )}
-          </div>
-        </header>
+          </ButtonGroup>
+        </Row>
         {composition ? (
           <details ref={details}>
             <summary>{t("prompt.instanceContentSettings")}</summary>
-            <div className="preset-detail">
+            <div className="preset-detail [&_h3]:mt-space-5 border-t border-line-subtle p-space-3">
               {binding.kind === "linked" ? (
                 <PresetOverrides
                   negativeSupported={outputCapabilities?.customNegativePrompts}
@@ -419,7 +437,7 @@ export function PresetEditor({
               {part !== "content" && characterEditor}
               {staleText.map((item) => (
                 <div
-                  className="character-stale-override"
+                  className="character-stale-override flex items-center flex-wrap gap-space-3 m-[8px_0] text-danger"
                   data-prompt-node-id={item.nodeId}
                   key={item.nodeId}
                 >
@@ -441,12 +459,12 @@ export function PresetEditor({
                     : t("prompt.presetDefaults")}
                 </h3>
                 {capabilityState.loading && (
-                  <output className="muted">{t("prompt.loadingModelOptions")}</output>
+                  <output className="muted text-muted">{t("prompt.loadingModelOptions")}</output>
                 )}
                 {capabilityState.error && (
-                  <div className="inline-warning" role="alert">
+                  <div className="inline-warning text-danger text-label leading-[1.7]" role="alert">
                     {capabilityState.error}
-                    <Button className="quiet" onClick={capabilityState.retry}>
+                    <Button variant="quiet" className="" onClick={capabilityState.retry}>
                       {t("prompt.retry")}
                     </Button>
                   </div>
@@ -463,7 +481,9 @@ export function PresetEditor({
             </div>
           </details>
         ) : (
-          <p className="inline-warning">{t("prompt.referencedPresetMissing")}</p>
+          <p className="inline-warning text-danger text-label leading-[1.7]">
+            {t("prompt.referencedPresetMissing")}
+          </p>
         )}
       </article>
     </PromptEditorScope>

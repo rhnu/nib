@@ -1,3 +1,22 @@
+import {
+  Grid,
+  Button,
+  Field,
+  HelpMarker,
+  IconButton,
+  Modal,
+  Notice,
+  NumberSlider,
+  Toggle,
+} from "@/shared/ui";
+
+import {
+  MediaInputLayout,
+  MediaInputPreview,
+  MediaInputTools,
+  MediaInputSettings,
+} from "@/features/media/media-input-layout";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useId, useState, type ReactNode } from "react";
 import { Binary, ImagePlus, Info, RotateCcw } from "lucide-react";
@@ -6,16 +25,7 @@ import type {
   VibeReferenceInput,
   VibeReferenceOverride,
 } from "@/bindings/workbench";
-import {
-  Button,
-  FormField,
-  HelpMarker,
-  IconButton,
-  Modal,
-  Notice,
-  NumberSlider,
-  Toggle,
-} from "@/shared/ui";
+
 import { AssetImage, useMediaAsset } from "@/features/media";
 import { mediaApi } from "@/features/media/api";
 import { useMediaQuery } from "@/features/media/use-media-query";
@@ -80,17 +90,18 @@ export function VibeReferenceRow({
 
   const renderMaterial = (encodingAction?: ReactNode, encodingFeedback?: ReactNode) => (
     <>
-      <div className="media-input-layout">
-        <div className="media-input-preview" data-vibe-field="input">
+      <MediaInputLayout>
+        <MediaInputPreview data-vibe-field="input">
           {preview?.kind === "image" ? (
-            <AssetImage asset={preview} alt={label} className="vibe-thumbnail" />
+            <AssetImage
+              asset={preview}
+              alt={label}
+              className="vibe-thumbnail block w-[108px] h-[92px] object-contain"
+            />
           ) : (
             <Binary size={28} aria-label={t("vibes.encodingMaterial")} />
           )}
-          <fieldset
-            className="media-input-tools"
-            aria-label={t("vibes.materialActions", { value0: label })}
-          >
+          <MediaInputTools aria-label={t("vibes.materialActions", { value0: label })}>
             <IconButton
               label={t("vibes.replaceMaterial", { value0: label })}
               onClick={() => setPicking(true)}
@@ -106,11 +117,11 @@ export function VibeReferenceRow({
             >
               <Info size={14} />
             </IconButton>
-          </fieldset>
-        </div>
-        <div className="media-input-settings">
+          </MediaInputTools>
+        </MediaInputPreview>
+        <MediaInputSettings>
           <div data-vibe-field="strength">
-            <FormField
+            <Field
               label={t("vibes.strengthLabel")}
               htmlFor={`${id}-strength`}
               help={
@@ -128,11 +139,11 @@ export function VibeReferenceRow({
                 describedBy={issues.length ? id : undefined}
                 onChange={(strength) => onChange({ strength })}
               />
-            </FormField>
+            </Field>
           </div>
           {value.input.kind === "image" && (
             <div data-vibe-field="informationExtracted">
-              <FormField
+              <Field
                 label={t("vibes.informationExtracted")}
                 htmlFor={`${id}-information`}
                 help={
@@ -155,14 +166,18 @@ export function VibeReferenceRow({
                       onChange({ input: { ...value.input, informationExtracted } });
                   }}
                 />
-              </FormField>
+              </Field>
             </div>
           )}
-        </div>
-      </div>
-      {media.loading && <output className="vibe-status">{t("vibes.loadingMaterials")}</output>}
+        </MediaInputSettings>
+      </MediaInputLayout>
+      {media.loading && (
+        <output className="vibe-status text-label text-muted wrap-anywhere">
+          {t("vibes.loadingMaterials")}
+        </output>
+      )}
       {media.asset && !media.asset.available && (
-        <p className="vibe-message" role="alert">
+        <p className="vibe-message m-0 text-danger text-label wrap-anywhere" role="alert">
           {t("vibes.materialUnavailable")}
         </p>
       )}
@@ -176,17 +191,22 @@ export function VibeReferenceRow({
   );
 
   return (
-    <article
-      className="vibe-row media-input-container"
+    <Grid
+      align="stretch"
+      as="article"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="vibe-row [&_>_header]:flex [&_>_header]:items-center [&_>_header]:gap-[5px] [&_h4]:m-0 [&_>_header_>_strong]:text-label [&_>_header_.icon-button]:w-[26px] [&_>_header_.icon-button]:min-h-[26px] [&[data-disabled]_>_header_>_strong]:text-muted grid gap-space-3 p-space-3 [border:1px_solid_var(--line)] rounded-control bg-panel min-w-0 media-input-container [container-type:inline-size]"
       data-vibe-id={value.id}
       data-disabled={!value.enabled || undefined}
     >
       <header data-vibe-field="enabled">
         <strong>{label}</strong>
-        <span className="vibe-status">
+        <span className="vibe-status text-label text-muted wrap-anywhere">
           {value.input.kind === "encoded" ? t("vibes.encoded") : t("vibes.originalImage")}
         </span>
-        <span className="spacer" />
+        <span className="flex-1" />
         <Toggle
           label={t("vibes.enableVibe", { value0: label })}
           checked={value.enabled}
@@ -205,7 +225,7 @@ export function VibeReferenceRow({
       {capabilities?.vibeInputPath &&
         ((value.input.kind === "image" && capabilities.vibeInputPath !== "image") ||
           (value.input.kind === "encoded" && capabilities.vibeInputPath === "image")) && (
-          <p className="vibe-message">
+          <p className="vibe-message m-0 text-danger text-label wrap-anywhere">
             {t("vibes.unsupportedMaterial", {
               material:
                 capabilities.vibeInputPath === "image"
@@ -215,7 +235,11 @@ export function VibeReferenceRow({
           </p>
         )}
       {issues.length > 0 && (
-        <output id={id} className="vibe-message" role="alert">
+        <output
+          id={id}
+          className="vibe-message m-0 text-danger text-label wrap-anywhere"
+          role="alert"
+        >
           {issues.map((issue, index) => (
             <p key={index}>{issue.message}</p>
           ))}
@@ -227,7 +251,7 @@ export function VibeReferenceRow({
         title={t("vibes.materialInfoTitle", { value0: label })}
       >
         {details && (
-          <div className="vibe-material-details">
+          <div className="vibe-material-details [&_img]:max-w-full [&_img]:max-h-[60vh] [&_img]:object-contain min-w-0 wrap-anywhere">
             {media.asset && <p>{vibeMaterialName(media.asset)}</p>}
             {value.input.kind === "encoded" ? (
               <VibeAssetDetails id={value.input.assetId} />
@@ -247,6 +271,6 @@ export function VibeReferenceRow({
         }}
         single
       />
-    </article>
+    </Grid>
   );
 }

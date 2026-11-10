@@ -1,4 +1,5 @@
-import { Button } from "@/shared/ui";
+import { Button, ButtonGroup } from "@/shared/ui";
+
 import { t } from "@/shared/i18n";
 import { QuoteSummary } from "@/features/generation/submission/quote-summary";
 import { ParameterDiagnostics } from "@/features/generation/submission/parameter-diagnostics";
@@ -17,7 +18,10 @@ export function AgentApprovalCard({
   const { quote } = request;
   const resolved = quote.resolved;
   return (
-    <section className="agent-approval" aria-label={t("agent.approvalTitle")}>
+    <section
+      className="agent-approval shrink-0 [max-height:40%] overflow-auto py-[10px] px-space-4 [border-top:1px_solid_var(--accent)] bg-panel text-label [&_p]:my-space-2 [&_p]:[overflow-wrap:anywhere] [&_p]:whitespace-pre-wrap [&_.button-group]:justify-end [&_.button-group]:mt-space-3"
+      aria-label={t("agent.approvalTitle")}
+    >
       <strong>{t("agent.approvalTitle")}</strong>
       <p>{t("agent.approvalAccount", { name: request.accountName })}</p>
       {resolved && (
@@ -51,8 +55,8 @@ export function AgentApprovalCard({
       )}
       <QuoteSummary quote={quote} />
       <ParameterDiagnostics diagnostics={quote.diagnostics} />
-      <p className="agent-help">{t("agent.approvalHelp")}</p>
-      <div className="button-group">
+      <p className="agent-help m-0 text-muted text-label">{t("agent.approvalHelp")}</p>
+      <ButtonGroup gap={1} className="button-group">
         <Button
           disabled={readOnly || agent.approvalBusy || agent.cancelling}
           onClick={() => void agent.approve(request.id, false)}
@@ -60,13 +64,13 @@ export function AgentApprovalCard({
           {t("agent.reject")}
         </Button>
         <Button
-          className="primary"
+          variant="primary"
           disabled={readOnly || agent.approvalBusy || agent.cancelling}
           onClick={() => void agent.approve(request.id, true)}
         >
           {t("agent.approve")}
         </Button>
-      </div>
+      </ButtonGroup>
     </section>
   );
 }

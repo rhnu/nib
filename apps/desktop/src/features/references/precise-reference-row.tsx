@@ -1,14 +1,7 @@
-import { t, useTranslation } from "@/shared/i18n";
-import { useId, useState, type ReactNode } from "react";
-import { ImagePlus, Info, RotateCcw } from "lucide-react";
-import type {
-  ModelCapabilities,
-  PreciseReferenceInput,
-  PreciseReferenceOverride,
-} from "@/bindings/workbench";
 import {
+  Grid,
   Button,
-  FormField,
+  Field,
   HelpMarker,
   IconButton,
   Modal,
@@ -17,6 +10,23 @@ import {
   Select,
   Toggle,
 } from "@/shared/ui";
+
+import {
+  MediaInputLayout,
+  MediaInputPreview,
+  MediaInputTools,
+  MediaInputSettings,
+} from "@/features/media/media-input-layout";
+
+import { t, useTranslation } from "@/shared/i18n";
+import { useId, useState, type ReactNode } from "react";
+import { ImagePlus, Info, RotateCcw } from "lucide-react";
+import type {
+  ModelCapabilities,
+  PreciseReferenceInput,
+  PreciseReferenceOverride,
+} from "@/bindings/workbench";
+
 import { AssetImage, ImagePickerDialog, useMediaAsset } from "@/features/media";
 import { imageName } from "@/features/media/model";
 import {
@@ -76,7 +86,10 @@ export function PreciseReferenceRow({
 
   const messages = (field: string) =>
     hasIssue(field) ? (
-      <output id={`${prefix}-${field}-issues`} className="precise-reference-message">
+      <output
+        id={`${prefix}-${field}-issues`}
+        className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]"
+      >
         {issues
           .filter((issue) => issue.field === field)
           .map((issue, index) => (
@@ -100,8 +113,8 @@ export function PreciseReferenceRow({
     name: string,
     help: string,
   ) => (
-    <div className="precise-reference-field" data-reference-field={field}>
-      <FormField
+    <div className="precise-reference-field min-w-0" data-reference-field={field}>
+      <Field
         label={name}
         htmlFor={`${prefix}-${field}`}
         help={
@@ -123,21 +136,30 @@ export function PreciseReferenceRow({
           describedBy={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
           onChange={(number) => onChange({ [field]: number })}
         />
-      </FormField>
+      </Field>
     </div>
   );
 
   const savedTypeUnsupported = !!options && !options.referenceTypes.includes(value.referenceType);
   return (
-    <article
-      className="precise-reference-row media-input-container"
+    <Grid
+      align="stretch"
+      as="article"
+      gap={0}
+      columns={1}
+      minColumnWidth="0px"
+      className="precise-reference-row [&_>_header]:flex [&_>_header]:items-center [&_>_header]:gap-[5px] [&_>_header]:min-w-0 [&_>_header_>_strong]:text-label [&[data-disabled]_>_header_>_strong]:text-muted [&_>_header_.icon-button]:w-[26px] [&_>_header_.icon-button]:min-h-[26px] [&_:is(input,_select)[aria-invalid='true']]:border-danger grid min-w-0 gap-space-3 p-space-3 [border:1px_solid_var(--line)] rounded-control bg-panel media-input-container [container-type:inline-size]"
       data-reference-id={value.id}
       data-disabled={!value.enabled || undefined}
     >
       <header>
         <strong>{label}</strong>
-        {override && <span className="tag">{t("references.override")}</span>}
-        <span className="spacer" />
+        {override && (
+          <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+            {t("references.override")}
+          </span>
+        )}
+        <span className="flex-1" />
         <Toggle
           label={t("references.enableReference", { value0: label })}
           checked={value.enabled}
@@ -147,13 +169,10 @@ export function PreciseReferenceRow({
         {actions}
       </header>
       {messages("enabled")}
-      <div className="media-input-layout">
-        <div className="media-input-preview" data-reference-field="assetId">
+      <MediaInputLayout>
+        <MediaInputPreview data-reference-field="assetId">
           {media.asset && <AssetImage asset={media.asset} alt={label} />}
-          <fieldset
-            className="media-input-tools"
-            aria-label={t("references.imageActions", { value0: label })}
-          >
+          <MediaInputTools aria-label={t("references.imageActions", { value0: label })}>
             <IconButton
               label={t("references.replaceImage", { value0: label })}
               aria-invalid={hasIssue("assetId") || undefined}
@@ -169,11 +188,11 @@ export function PreciseReferenceRow({
             >
               <Info size={14} />
             </IconButton>
-          </fieldset>
-        </div>
-        <div className="media-input-settings">
+          </MediaInputTools>
+        </MediaInputPreview>
+        <MediaInputSettings>
           <div data-reference-field="referenceType">
-            <FormField
+            <Field
               label={t("references.purpose")}
               htmlFor={`${prefix}-type`}
               actions={reset("referenceType", t("references.purpose"))}
@@ -202,7 +221,7 @@ export function PreciseReferenceRow({
                   })) ?? []),
                 ]}
               />
-            </FormField>
+            </Field>
           </div>
           {numeric("strength", t("references.strengthLabel"), t("references.strengthHelp"))}
           {numeric("fidelity", t("references.fidelityLabel"), t("references.fidelityHelp"))}
@@ -211,8 +230,8 @@ export function PreciseReferenceRow({
             t("references.informationExtracted"),
             t("references.informationHelp"),
           )}
-        </div>
-      </div>
+        </MediaInputSettings>
+      </MediaInputLayout>
       {media.loading && <output>{t("references.loadingImage")}</output>}
       {media.error && (
         <Notice actions={<Button onClick={media.retry}>{t("references.retryRead")}</Button>}>
@@ -221,7 +240,9 @@ export function PreciseReferenceRow({
       )}
       {messages("assetId")}
       {savedTypeUnsupported && (
-        <p className="precise-reference-message">{t("references.savedPurposeUnsupported")}</p>
+        <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">
+          {t("references.savedPurposeUnsupported")}
+        </p>
       )}
       <Modal
         open={details}
@@ -229,7 +250,7 @@ export function PreciseReferenceRow({
         title={t("references.imageInfoTitle", { value0: label })}
       >
         {media.asset && (
-          <div className="precise-reference-details">
+          <div className="precise-reference-details [&_img]:max-w-full [&_img]:max-h-[60vh] [&_img]:object-contain min-w-0 wrap-anywhere">
             <AssetImage asset={media.asset} alt={label} />
             <p>{imageName(media.asset)}</p>
             <p>
@@ -244,7 +265,7 @@ export function PreciseReferenceRow({
         onClose={() => setPicking(false)}
         onSelect={(asset) => onChange({ assetId: asset.id })}
       />
-    </article>
+    </Grid>
   );
 }
 
@@ -257,14 +278,22 @@ export function PreciseReferenceAvailability({
 
   if (!capabilities)
     return (
-      <output className="precise-reference-status">{t("references.loadingCapabilities")}</output>
+      <output className="precise-reference-status m-0 text-muted text-caption leading-[1.6] wrap-anywhere">
+        {t("references.loadingCapabilities")}
+      </output>
     );
   const messages = preciseReferenceMessages(capabilities);
   return (
     <>
-      {messages.precise && <p className="precise-reference-message">{messages.precise}</p>}
+      {messages.precise && (
+        <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">
+          {messages.precise}
+        </p>
+      )}
       {messages.vibe && capabilities.vibeReference.reason !== "conflictWithPreciseReference" && (
-        <p className="precise-reference-message">{messages.vibe}</p>
+        <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">
+          {messages.vibe}
+        </p>
       )}
     </>
   );

@@ -1,7 +1,11 @@
+import { Row, Button, HelpMarker, IconButton, Select } from "@/shared/ui";
+
+import { MediaInputLayout, MediaInputSettings } from "@/features/media/media-input-layout";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { Popover } from "@base-ui/react/popover";
 import { X } from "lucide-react";
-import { Button, HelpMarker, IconButton, Select } from "@/shared/ui";
+
 import { ImageImporter } from "@/features/media/image-importer";
 import { ImagePickerDialog } from "@/features/media/image-picker-dialog";
 import { ImageMetadataDialog } from "@/features/media/image-metadata-dialog";
@@ -15,7 +19,6 @@ import { useImageOperationFeedback } from "./ui/image-operation-feedback";
 import { AppliedMaskInput, ImageSourceInput } from "./ui/image-source-input";
 import { ImageToImageSettings } from "./ui/image-to-image-settings";
 import { UpscaleSettings } from "./ui/upscale-settings";
-import "./image-operation.css";
 
 /** Composes source selection and operation settings while the draft owns all input values. */
 export function ImageOperationPanel(props: ImageOperationPanelProps) {
@@ -59,8 +62,12 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
   const { controlProps, messages } = feedback;
   return (
     <Popover.Root open={feedback.showAdvanced} onOpenChange={feedback.setAdvancedOpen}>
-      <section className="image-operation-panel media-input-container">
-        <header className="section-heading">
+      <section className="image-operation-panel [&_>_*_+_*]:mt-[10px] [&_[aria-invalid='true']]:[outline:1px_solid_var(--danger)] [&_[aria-invalid='true']]:outline-offset-[1px] media-input-container [container-type:inline-size]">
+        <Row
+          as="header"
+          gap={0}
+          className="flex items-center justify-between gap-space-3 min-w-0 min-h-control mb-space-2 [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+        >
           <h2>
             {t("inputs.imageInput")}
             <HelpMarker label={t("inputs.imageInputHelpTitle")}>
@@ -78,11 +85,15 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
               <X size={14} />
             </IconButton>
           )}
-        </header>
+        </Row>
         {draft.maskEditor.sessions.some(
           (session) => session.revision !== session.appliedRevision,
         ) && (
-          <div className="image-source-actions" aria-label={t("inputs.unfinishedMasks")}>
+          <Row
+            gap={0}
+            className="image-source-actions [&_.image-importer]:[flex:1_1_auto] flex items-center flex-wrap gap-space-2"
+            aria-label={t("inputs.unfinishedMasks")}
+          >
             {draft.maskEditor.sessions
               .filter((session) => session.revision !== session.appliedRevision)
               .map((session, index) => (
@@ -94,10 +105,13 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
                   {index + 1} · {session.width} × {session.height}
                 </Button>
               ))}
-          </div>
+          </Row>
         )}
         {!sourceId && (
-          <div className="image-source-actions">
+          <Row
+            gap={0}
+            className="image-source-actions [&_.image-importer]:[flex:1_1_auto] flex items-center flex-wrap gap-space-2"
+          >
             <ImageImporter
               key={JSON.stringify([
                 operation.kind,
@@ -110,10 +124,10 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
               label={t("inputs.chooseFile")}
               onChooseExisting={() => setPickerOpen(true)}
             />
-          </div>
+          </Row>
         )}
         {sourceId && (
-          <div className="media-input-layout">
+          <MediaInputLayout>
             <ImageSourceInput
               media={media}
               sourceId={sourceId}
@@ -123,8 +137,8 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
               onEditMask={onEditMask}
               onReplace={() => setPickerOpen(true)}
             />
-            <div className="media-input-settings">
-              <div className="image-source-operation" data-setting-field="maxEnhance">
+            <MediaInputSettings>
+              <div className="image-source-operation min-w-0" data-setting-field="maxEnhance">
                 <Select
                   {...controlProps("maxEnhance")}
                   aria-label={t("inputs.imageOperation")}
@@ -187,8 +201,8 @@ export function ImageOperationPanel(props: ImageOperationPanelProps) {
                   updateOperation={updateOperation}
                 />
               )}
-            </div>
-          </div>
+            </MediaInputSettings>
+          </MediaInputLayout>
         )}
         {operation.kind === "inpainting" && <AppliedMaskInput mask={mask} feedback={feedback} />}
         <ImagePickerDialog

@@ -1,6 +1,8 @@
+import { Button, Toolbar, Field, FilePicker, IconButton, Grid, Row, Textarea } from "@/shared/ui";
+
 import { useLayoutEffect, useRef, useState } from "react";
 import { ClipboardPaste, Send, X } from "lucide-react";
-import { Button, Field, FilePicker, IconButton } from "@/shared/ui";
+
 import { t } from "@/shared/i18n";
 import { errorMessage } from "@/shared/host/error";
 import { mediaApi } from "@/features/media/api";
@@ -84,18 +86,26 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
   };
 
   return (
-    <form
-      className="agent-composer"
+    <Grid
+      align="stretch"
+      gap={3}
+      columns={1}
+      as="form"
+      className="agent-composer [padding:8px_12px_12px] [border-top:1px_solid_var(--line-subtle)] [max-height:45%] overflow-auto [&_textarea]:[min-height:80px] [&_textarea]:[max-height:200px] [&_textarea]:text-body [&_textarea]:[line-height:1.5]"
       onSubmit={(event) => {
         event.preventDefault();
         void send();
       }}
     >
-      <div className="agent-message-images">
+      <Row gap={2} align="stretch" wrap className="agent-message-images [&:empty]:hidden">
         {assetIds.map((id) => (
-          <div className="agent-attachment" key={id}>
+          <div className="agent-attachment relative" key={id}>
             <AgentImage id={id} />
-            <div className="agent-image-actions">
+            <Row
+              gap={0}
+              align="stretch"
+              className="agent-image-actions absolute [right:2px] [top:2px] [border-radius:var(--radius-sm)] bg-panel"
+            >
               <IconButton
                 label={t("agent.removeImage")}
                 disabled={disabled || busy}
@@ -106,12 +116,12 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
               >
                 <X size={13} aria-hidden />
               </IconButton>
-            </div>
+            </Row>
           </div>
         ))}
-      </div>
+      </Row>
       <Field label={t("agent.prompt")}>
-        <textarea
+        <Textarea
           autoComplete="off"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -130,12 +140,14 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
         />
       </Field>
       {error !== null && (
-        <p className="agent-failure" role="alert">
+        <p className="agent-failure text-danger" role="alert">
           {errorMessage(error)}
         </p>
       )}
-      {assetIds.length > 0 && <p className="agent-help">{t("agent.imageHelp")}</p>}
-      <div className="agent-composer-actions">
+      {assetIds.length > 0 && (
+        <p className="agent-help m-0 text-muted text-label">{t("agent.imageHelp")}</p>
+      )}
+      <Toolbar gap={2} align="center" justify="end" wrap className="agent-composer-actions ">
         <FilePicker
           label={t("agent.attachImage")}
           accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
@@ -150,7 +162,8 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
           <ClipboardPaste size={14} aria-hidden />
         </IconButton>
         <Button
-          className="primary"
+          variant="primary"
+          className="ml-auto"
           type="submit"
           disabled={
             disabled ||
@@ -164,7 +177,7 @@ export function AgentComposer({ agent, disabled }: { agent: AgentController; dis
           <Send size={14} aria-hidden />
           {t(busy ? "agent.preparing" : "agent.send")}
         </Button>
-      </div>
-    </form>
+      </Toolbar>
+    </Grid>
   );
 }

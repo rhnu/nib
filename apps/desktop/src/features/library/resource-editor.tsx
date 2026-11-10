@@ -1,8 +1,10 @@
+import { ActionsMenu, Button, Field, HelpMarker, Col, Row, Input, Grid } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { Resource, ResourceFolder } from "@/bindings/workbench";
-import { ActionsMenu, Button, Field, HelpMarker } from "@/shared/ui";
+
 import { PromptTransferProvider } from "@/features/prompt/prompt-transfer-context";
 import { transferPromptNode } from "@/features/prompt/prompt-transfer";
 import { CompositionEditor } from "@/features/prompt/composition-editor";
@@ -93,16 +95,27 @@ export function ResourceEditor({
         })
       }
     >
-      <section className="resource-editor">
-        <header className="ui-heading resource-editor-heading">
-          <Button className="quiet" onClick={() => leave(dismiss)}>
+      <Col
+        gap={0}
+        align="stretch"
+        as="section"
+        className="resource-editor [&_>_fieldset]:gap-[14px] [&_>_fieldset]:flex-1 [&_>_fieldset]:content-start [&_>_fieldset]:w-full [&_>_fieldset]:max-w-[1120px] [&_>_fieldset]:self-center [&_>_fieldset]:grid overflow-auto [padding:var(--space-4)_20px_0] flex flex-col min-w-0"
+      >
+        <Row
+          align="center"
+          justify="between"
+          gap={3}
+          as="header"
+          className="ui-heading flex items-center justify-between gap-space-3 min-w-0 min-h-control [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold resource-editor-heading [margin:0_0_var(--space-4)]"
+        >
+          <Button variant="quiet" className="" onClick={() => leave(dismiss)}>
             <ArrowLeft size={14} />
             {t("library.list")}
           </Button>
-          <span className="tag">
+          <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
             {editor.content.kind === "chunk" ? t("library.chunk") : t("library.preset")}
           </span>
-          <span className="spacer" />
+          <span className="flex-1" />
           {persisted && (
             <ActionsMenu
               label={t("library.manageResource")}
@@ -116,10 +129,10 @@ export function ResourceEditor({
               ]}
             />
           )}
-        </header>
-        <fieldset disabled={busy}>
+        </Row>
+        <Grid gap={0} columns={1} as="fieldset" disabled={busy}>
           <Field label={t("library.resourceName")}>
-            <input
+            <Input
               autoComplete="off"
               value={editor.name}
               placeholder={t("library.namePlaceholder")}
@@ -224,11 +237,15 @@ export function ResourceEditor({
               />
               <details>
                 <summary>{t("library.presetDefaults")}</summary>
-                <div className="resource-settings-help">
+                <Row
+                  gap={0}
+                  align="stretch"
+                  className="resource-settings-help flex justify-end mt-[-6px]"
+                >
                   <HelpMarker label={t("library.presetDefaultsHelp")}>
                     {t("library.presetDefaultsDescription")}
                   </HelpMarker>
-                </div>
+                </Row>
                 <SettingsEditor
                   value={editor.content.defaults}
                   models={models}
@@ -237,7 +254,7 @@ export function ResourceEditor({
                   onChange={(defaults) => updatePreset({ defaults })}
                 />
                 {model.error && (
-                  <p className="inline-warning" role="alert">
+                  <p className="inline-warning text-danger text-label leading-[1.7]" role="alert">
                     {model.error}
                     <Button onClick={model.retry}>{t("library.retryModelQuery")}</Button>
                   </p>
@@ -245,20 +262,24 @@ export function ResourceEditor({
               </details>
             </>
           )}
-        </fieldset>
-        <footer className="resource-editor-footer">
-          <span className="muted">
+        </Grid>
+        <Row
+          gap={0}
+          as="footer"
+          className="resource-editor-footer [&_.muted]:text-caption py-[10px] px-0 mt-[14px] sticky bottom-0 bg-background flex justify-between items-center gap-[10px] border-t border-line-subtle"
+        >
+          <span className="muted text-muted">
             {dirty
               ? t("library.unsaved")
               : persisted
                 ? t("library.saved")
                 : t("library.newResource")}
           </span>
-          <Button className="primary" disabled={busy} onClick={() => void save()}>
+          <Button variant="primary" className="" disabled={busy} onClick={() => void save()}>
             {busy ? t("library.saving") : t("library.saveResource")}
           </Button>
-        </footer>
-      </section>
+        </Row>
+      </Col>
     </PromptTransferProvider>
   );
 }

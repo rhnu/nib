@@ -1,8 +1,9 @@
+import { Button, IconButton } from "@/shared/ui";
+
 import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight, Folder, FolderOpen } from "lucide-react";
 import type { ResourceFolder } from "@/bindings/workbench";
 import { t, useTranslation } from "@/shared/i18n";
-import { Button, IconButton } from "@/shared/ui";
 
 type FolderRowState = {
   depth: number;
@@ -43,7 +44,7 @@ export function ResourceFolderTree({
         );
       });
 
-  return <div className="resource-folder-tree">{render(null)}</div>;
+  return <div className="resource-folder-tree mt-[7px]">{render(null)}</div>;
 }
 
 /** Navigation controls contain no mutation, drag or context-menu behaviour. */
@@ -74,10 +75,10 @@ export function ResourceFolderControls({
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </IconButton>
       ) : (
-        <span className="folder-indent" />
+        <span className="folder-indent w-[22px] shrink-0" />
       )}
       <Button
-        className="resource-folder-select"
+        className="resource-folder-select [&_span]:whitespace-nowrap [&_span]:overflow-hidden [&_span]:text-ellipsis [&_svg]:shrink-0 [&_svg]:text-muted justify-start min-w-0 flex-1 py-0 px-[3px] border-0 bg-transparent gap-[7px]"
         aria-current={selected ? "location" : undefined}
         onClick={onSelect}
       >

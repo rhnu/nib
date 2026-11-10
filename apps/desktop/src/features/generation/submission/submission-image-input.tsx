@@ -1,3 +1,5 @@
+import { Button, Col, Grid } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import type { CreationOperation } from "@/bindings/workbench";
@@ -5,14 +7,17 @@ import { SourceImageView } from "../results/source-image-view";
 import { operationLabel } from "@/features/inputs/image-operation";
 import { AssetImage } from "@/features/media/asset-image";
 import { useMediaAsset } from "@/features/media/use-media-asset";
-import { Button } from "@/shared/ui";
 
 function SubmittedMask({ id }: { id: string }) {
   useTranslation();
 
   const media = useMediaAsset(id);
   return (
-    <div className="generation-source-view">
+    <Col
+      gap={0}
+      align="stretch"
+      className="generation-source-view flex flex-1 min-w-0 min-h-0 flex-col gap-[10px] overflow-auto p-space-4"
+    >
       {media.error ? (
         <div role="alert">
           {media.error}
@@ -20,20 +25,20 @@ function SubmittedMask({ id }: { id: string }) {
         </div>
       ) : media.asset ? (
         <>
-          <div className="generation-canvas-metadata generation-muted">
+          <div className="generation-canvas-metadata overflow-hidden whitespace-nowrap text-ellipsis generation-muted text-muted">
             {t("generation.appliedMaskPrefix")}
             {media.asset.width} × {media.asset.height}
           </div>
           <AssetImage
             asset={media.asset}
             alt={t("generation.submittedMask")}
-            className="generation-source-image"
+            className="generation-source-image block w-full min-h-0 flex-1 object-contain"
           />
         </>
       ) : (
         <output>{t("generation.loadingSubmittedMask")}</output>
       )}
-    </div>
+    </Col>
   );
 }
 
@@ -93,7 +98,7 @@ export function SubmissionImageInput({
   if (operation.kind === "textToImage") return null;
   return (
     <details
-      className="generation-input-details"
+      className="generation-input-details [&_>_.generation-source-view]:h-[240px] my-space-4 mx-0 text-label"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>
@@ -102,7 +107,13 @@ export function SubmissionImageInput({
           ? t("generation.sourceMaskParameters")
           : t("generation.sourceParameters")}
       </summary>
-      <dl className="generation-metadata">
+      <Grid
+        gap={0}
+        align="stretch"
+        columns={1}
+        as="dl"
+        className="generation-metadata [&_>_div]:grid-cols-[76px_minmax(0,_1fr)] [&_dt]:text-muted [&_dd]:wrap-anywhere [&_>_div]:grid [&_>_div]:gap-space-3 [&_dd]:m-0 grid gap-space-3 m-0 text-label"
+      >
         {operation.kind === "imageToImage" && (
           <>
             <ConditioningMetadata
@@ -112,22 +123,22 @@ export function SubmissionImageInput({
               noiseSeed={operation.extraNoiseSeed}
               seed={seed}
             />
-            <div>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.keepOriginal")}</dt>
               <dd>{operation.addOriginalImage ? t("generation.on") : t("generation.off")}</dd>
-            </div>
+            </Grid>
           </>
         )}
         {operation.kind === "inpainting" && (
           <>
-            <div>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.regionalConditioning")}</dt>
               <dd>
                 {operation.img2img
                   ? t("generation.regionalImageToImage")
                   : t("generation.pureInpainting")}
               </dd>
-            </div>
+            </Grid>
             {operation.img2img && (
               <ConditioningMetadata
                 strength={operation.img2img.strength}
@@ -137,25 +148,25 @@ export function SubmissionImageInput({
                 seed={seed}
               />
             )}
-            <div>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.keepOutsideMask")}</dt>
               <dd>{operation.addOriginalImage ? t("generation.on") : t("generation.off")}</dd>
-            </div>
+            </Grid>
           </>
         )}
         {operation.kind === "upscale" && (
           <>
-            <div>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.model")}</dt>
               <dd>{operation.model}</dd>
-            </div>
-            <div>
+            </Grid>
+            <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
               <dt>{t("generation.blurSigma")}</dt>
               <dd>{operation.declaredBlurSigma}</dd>
-            </div>
+            </Grid>
           </>
         )}
-      </dl>
+      </Grid>
       {open && <SourceImageView id={operation.assetId} />}
       {open && operation.kind === "inpainting" && <SubmittedMask id={operation.maskAssetId} />}
     </details>

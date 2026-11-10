@@ -1,3 +1,5 @@
+import { Col, Row, Grid, ActionsMenu, Button, IconButton, Notice } from "@/shared/ui";
+
 import { SafetyImage } from "@/features/media/safety-image";
 import { t, useTranslation } from "@/shared/i18n";
 import { useMediaQuery } from "@/features/media/use-media-query";
@@ -8,7 +10,7 @@ import { useState } from "react";
 import { Columns2 } from "lucide-react";
 import type { ResultSummary } from "@/bindings/generation";
 import type { DirectorToolKind, Draft } from "@/bindings/workbench";
-import { ActionsMenu, Button, IconButton, Notice } from "@/shared/ui";
+
 import { AssetImage } from "@/features/media/asset-image";
 import { useMediaAsset } from "@/features/media/use-media-asset";
 import { ResultCanvas } from "@/features/generation/results/result-gallery";
@@ -24,25 +26,38 @@ function SourceFrame({ id, title }: { id: string | null; title: string }) {
 
   const media = useMediaAsset(id);
   return (
-    <section className="director-image-frame">
+    <Col
+      as="section"
+      gap={0}
+      className="director-image-frame [&_+_.director-image-frame]:[border-left:1px_solid_var(--line-subtle)] [&_>_header]:shrink-0 [&_>_header]:p-[var(--space-3)_var(--space-4)] [&_>_header]:text-muted [&_>_header]:text-caption max-[760px]:[&_+_.director-image-frame]:[border-left:0] max-[760px]:[&_+_.director-image-frame]:[border-top:1px_solid_var(--line-subtle)] relative flex flex-col min-h-0 min-w-0"
+    >
       <header>
         {title}
         {media.asset
           ? ` · ${imageName(media.asset)} · ${media.asset.width} × ${media.asset.height}`
           : ""}
       </header>
-      <div className="director-image-surface">
+      <Row
+        gap={0}
+        className="director-image-surface flex items-center justify-center flex-1 min-h-0 min-w-0 p-space-4 overflow-auto"
+      >
         {media.error ? (
           <Notice actions={<Button onClick={media.retry}>{t("director.retryLoad")}</Button>}>
             {media.error}
           </Notice>
         ) : media.asset ? (
-          <AssetImage asset={media.asset} alt={title} className="director-image" />
+          <AssetImage
+            asset={media.asset}
+            alt={title}
+            className="director-image block max-w-full max-h-full object-contain"
+          />
         ) : (
-          <p className="muted">{id ? t("director.loadingInput") : t("director.noInput")}</p>
+          <p className="muted text-muted">
+            {id ? t("director.loadingInput") : t("director.noInput")}
+          </p>
         )}
-      </div>
-    </section>
+      </Row>
+    </Col>
   );
 }
 
@@ -66,7 +81,7 @@ function OutputThumbnail({
       available={result.available}
     >
       <Button
-        className={`director-thumbnail ${selected ? "is-selected" : ""}`}
+        className={`director-thumbnail [&.is-selected]:border-accent [&.is-selected]:text-accent [&_>_img]:w-full [&_>_img]:h-[64px] [&_>_img]:object-contain [&_>_span]:max-w-full [&_>_span]:overflow-hidden [&_>_span]:text-ellipsis [&_>_span]:whitespace-nowrap flex flex-col shrink-0 gap-space-1 w-[110px] p-space-1 [border:1px_solid_var(--line)] bg-panel text-[10px] ${selected ? "is-selected" : ""}`}
         aria-pressed={selected}
         aria-label={label}
         title={label}
@@ -156,7 +171,12 @@ export function DirectorResults({
   const [detail, setDetail] = useState<ResultSummary | null>(null);
   const available = selected?.available ?? false;
   return (
-    <section className="director-results" aria-label={t("director.inputOutput")}>
+    <Col
+      as="section"
+      gap={0}
+      className="director-results flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden bg-background"
+      aria-label={t("director.inputOutput")}
+    >
       {retained.error && (
         <Notice
           actions={<Button onClick={retained.retry}>{t("director.retrySelectedOutput")}</Button>}
@@ -173,7 +193,13 @@ export function DirectorResults({
           {generation.queryError}
         </Notice>
       )}
-      <div className={`director-comparison ${compare && selected ? "is-comparing" : ""}`}>
+      <Grid
+        columns={1}
+        align="stretch"
+        gap={0}
+        minColumnWidth="0px"
+        className={`director-comparison [&.is-comparing]:grid-cols-2 max-[760px]:[&.is-comparing]:grid-cols-[minmax(0,_1fr)] max-[760px]:[&.is-comparing]:grid-rows-[repeat(2,_minmax(180px,_1fr))] [&_>_.image-viewer]:min-w-0 [&_>_.image-viewer]:min-h-0 grid flex-1 min-h-[180px] min-w-0 overflow-auto ${compare && selected ? "is-comparing" : ""}`}
+      >
         {(!selected || compare) && (
           <SourceFrame
             id={submittedSource}
@@ -227,10 +253,15 @@ export function DirectorResults({
             }
           />
         )}
-      </div>
-      <div className="director-output-strip" aria-label={t("director.allOutputs")}>
+      </Grid>
+      <Row
+        align="stretch"
+        gap={0}
+        className="director-output-strip [&:empty]:hidden flex shrink-0 gap-space-3 max-h-[125px] p-[10px_var(--space-4)] overflow-auto [border-top:1px_solid_var(--line-subtle)]"
+        aria-label={t("director.allOutputs")}
+      >
         {generation.results === null ? (
-          <output className="muted">{t("director.loadingResults")}</output>
+          <output className="muted text-muted">{t("director.loadingResults")}</output>
         ) : (
           outputs
             .slice(0, visibleCount)
@@ -256,7 +287,7 @@ export function DirectorResults({
             {generation.loadingMoreResults ? t("director.loadingMore") : t("director.loadEarlier")}
           </Button>
         )}
-      </div>
+      </Row>
       {detail && (
         <ResultDetail
           result={detail}
@@ -267,6 +298,6 @@ export function DirectorResults({
           canInpaint={canInpaint}
         />
       )}
-    </section>
+    </Col>
   );
 }

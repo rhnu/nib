@@ -1,8 +1,10 @@
+import { ActionsMenu, Button, ContextActions, type ActionMenuItem, Col, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useRef, useEffect, type DragEvent, type ReactElement } from "react";
 import { FolderRoot } from "lucide-react";
 import type { ResourceFolder, ResourceSelection } from "@/bindings/workbench";
-import { ActionsMenu, Button, ContextActions, type ActionMenuItem } from "@/shared/ui";
+
 import { resourceDragType } from "./resource-list";
 import { ResourceFolderControls, ResourceFolderTree } from "./resource-folder-tree";
 
@@ -75,14 +77,27 @@ export function ResourceFolders({
   };
 
   return (
-    <aside ref={element} className="resource-folders" aria-label={t("library.folders")}>
-      <header className="ui-heading">
+    <Col
+      gap={0}
+      align="stretch"
+      as="aside"
+      ref={element}
+      className="resource-folders flex flex-col min-h-0 p-[var(--space-3)_var(--space-2)] [border-right:1px_solid_var(--line-subtle)] overflow-auto [&_>_header]:mb-space-3 [&_>_header]:py-0 [&_>_header]:px-[7px] py-space-3 px-space-2 border-r border-line-subtle"
+      aria-label={t("library.folders")}
+    >
+      <Row
+        align="center"
+        justify="between"
+        gap={3}
+        as="header"
+        className="ui-heading flex items-center justify-between gap-space-3 min-w-0 min-h-control [&_>_:is(h2,_h3)]:m-0 [&_>_:is(h2,_h3)]:min-w-0 [&_>_:is(h2,_h3)]:text-section [&_>_:is(h2,_h3)]:font-semibold"
+      >
         <strong>{t("library.folders")}</strong>
-      </header>
+      </Row>
       <FolderContext items={actions?.(null)}>
         <div onDragOver={accepts} onDrop={(event) => drop(event, null)}>
           <Button
-            className={`resource-folder-root ${!folderId ? "selected" : ""}`}
+            className={`resource-folder-root [&.selected]:bg-accent-soft [&.selected:hover]:bg-accent-soft [&:hover]:bg-hover flex justify-start w-full py-0 px-[10px] border-0 bg-transparent gap-space-3 mb-[2px] ${!folderId ? "selected" : ""}`}
             aria-current={!folderId ? "location" : undefined}
             onClick={() => onSelect(null)}
           >
@@ -97,9 +112,10 @@ export function ResourceFolders({
         onCollapsedChange={onCollapsedChange}
         renderRow={(folder, { depth, expanded, hasChildren, toggle }) => (
           <FolderContext items={actions?.(folder)}>
-            <div
+            <Row
+              gap={0}
               data-folder-id={folder.id}
-              className={`resource-folder-row ${folder.id === folderId ? "selected" : ""}`}
+              className={`resource-folder-row [&:hover]:bg-hover [&.selected]:bg-accent-soft [&.selected:hover]:bg-accent-soft [&_>_.icon-button]:w-[22px] [&_>_.icon-button]:min-w-[22px] [&_>_.icon-button]:p-0 [&_>_[data-base-ui-menu-trigger]]:ml-auto flex items-center gap-0 min-h-[32px] rounded-control ${folder.id === folderId ? "selected" : ""}`}
               style={{ paddingLeft: 8 + depth * 15 }}
               onDragOver={accepts}
               onDrop={(event) => drop(event, folder.id)}
@@ -125,10 +141,10 @@ export function ResourceFolders({
                 onSelect={() => onSelect(folder.id)}
               />
               {actions && <ActionsMenu label={t("library.manageFolder")} items={actions(folder)} />}
-            </div>
+            </Row>
           </FolderContext>
         )}
       />
-    </aside>
+    </Col>
   );
 }

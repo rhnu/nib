@@ -1,8 +1,10 @@
+import { ActionsMenu, ConfirmIconButton, IconButton, Row } from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Link2, Trash2, Type } from "lucide-react";
 import type { PromptNode, Resource } from "@/bindings/workbench";
-import { ActionsMenu, ConfirmIconButton, IconButton } from "@/shared/ui";
+
 import { PromptTextEditor } from "./prompt-text-editor";
 import type { PromptTarget } from "./prompt-transfer";
 import { promptDragType, usePromptTransfer } from "./prompt-transfer-context";
@@ -65,8 +67,11 @@ export function NodeEditor({
       title={
         <>
           {transfer && transferTarget && (
-            <span
-              className="prompt-drag-handle"
+            <Row
+              gap={0}
+              align="stretch"
+              as="span"
+              className="prompt-drag-handle [&:active]:cursor-grabbing cursor-grab inline-flex shrink-0"
               draggable
               title={t("prompt.dragSegment")}
               aria-label={t("prompt.dragSegment")}
@@ -78,7 +83,7 @@ export function NodeEditor({
               onDragEnd={() => transfer.start(null)}
             >
               <GripVertical size={14} aria-hidden />
-            </span>
+            </Row>
           )}
           {node.kind === "chunk" ? <Link2 size={14} /> : <Type size={14} />}
           <span title={node.kind === "chunk" ? resource?.name : undefined}>
@@ -87,7 +92,9 @@ export function NodeEditor({
               : t("prompt.text")}
           </span>
           {node.kind === "chunk" && node.overrideText !== null && (
-            <span className="tag">{t("prompt.instanceOverride")}</span>
+            <span className="tag inline-flex items-center p-[1px_5px] leading-[19px] text-[10px] rounded-control bg-accent-soft text-accent whitespace-nowrap">
+              {t("prompt.instanceOverride")}
+            </span>
           )}
         </>
       }

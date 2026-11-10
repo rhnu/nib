@@ -1,3 +1,21 @@
+import {
+  overlayStyles,
+  ActionsMenu,
+  Button,
+  ContextActions,
+  Field,
+  IconButton,
+  Modal,
+  Notice,
+  TagInput,
+  type ActionMenuItem,
+  Col,
+  Row,
+  Input,
+  Grid,
+  ButtonGroup,
+} from "@/shared/ui";
+
 import { t, useTranslation } from "@/shared/i18n";
 import { useEffect, useState, useRef, type MouseEvent, type DragEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,18 +34,7 @@ import type {
   ResourceBatchAction,
   ResourceImpact,
 } from "@/bindings/workbench";
-import {
-  ActionsMenu,
-  Button,
-  ContextActions,
-  Field,
-  FormField,
-  IconButton,
-  Modal,
-  Notice,
-  TagInput,
-  type ActionMenuItem,
-} from "@/shared/ui";
+
 import { ResourceEditor } from "./resource-editor";
 import { ResourceList, resourceDragType } from "./resource-list";
 import { ResourcePagination, ResourceSortControl, ResourceViewSwitch } from "./resource-browser";
@@ -528,16 +535,25 @@ export function ResourceLibrary({
   });
   return (
     <>
-      <section
-        className="library-page"
+      <Col
+        gap={0}
+        align="stretch"
+        as="section"
+        className="library-page flex flex-1 flex-col min-h-0 min-w-0 bg-background"
         ref={libraryElement}
         hidden={!open}
         aria-label={t("library.title")}
       >
-        <div className="library-toolbar">
-          <div className="library-search-field">
+        <Row
+          gap={0}
+          className="library-toolbar flex gap-[7px] items-center py-[9px] px-space-4 border-b border-line-subtle max-[1050px]:flex-wrap"
+        >
+          <Row
+            gap={0}
+            className="library-search-field [&_>_svg]:left-[9px] [&_>_svg]:text-muted [&_>_input]:pl-[31px] [&_>_svg]:absolute relative flex items-center flex-1 min-w-[160px]"
+          >
             <Search size={15} />
-            <input
+            <Input
               autoComplete="off"
               aria-label={t("library.searchResources")}
               placeholder={t("library.searchPlaceholder")}
@@ -547,7 +563,7 @@ export function ResourceLibrary({
                 filter({ query: event.target.value });
               }}
             />
-          </div>
+          </Row>
           <ResourceFilters
             kind={kind}
             model={model}
@@ -593,7 +609,7 @@ export function ResourceLibrary({
               },
             ]}
           />
-        </div>
+        </Row>
         {(error || queryError || folderQuery.error || tagQuery.error) && (
           <Notice
             actions={
@@ -612,8 +628,10 @@ export function ResourceLibrary({
             {error || queryError || errorMessage(folderQuery.error ?? tagQuery.error)}
           </Notice>
         )}
-        <div
-          className={`library-body ${editor ? "is-editing" : ""} ${inspector ? "has-inspector" : ""}`}
+        <Grid
+          gap={0}
+          align="stretch"
+          className={`library-body [&.has-inspector]:grid-cols-[215px_minmax(0,_1fr)_270px] [&.is-editing]:grid-cols-[215px_minmax(0,_1fr)] max-[1400px]:[&.has-inspector]:grid-cols-[215px_minmax(0,_1fr)_240px] max-[1050px]:[&.has-inspector]:grid-cols-[180px_minmax(0,_1fr)] max-[1050px]:[&.is-editing]:grid-cols-[180px_minmax(0,_1fr)] flex-1 min-h-0 grid grid-cols-[215px_minmax(0,_1fr)] max-[1050px]:grid-cols-[180px_minmax(0,_1fr)] max-[1050px]:relative ${editor ? "is-editing" : ""}  ${inspector ? "has-inspector" : ""}`}
         >
           <ResourceFolders
             folders={folders}
@@ -656,8 +674,17 @@ export function ResourceLibrary({
           ) : (
             <>
               <ContextActions items={blankActions}>
-                <div className="resource-browser" ref={browser}>
-                  <header className="resource-browser-heading">
+                <Col
+                  gap={0}
+                  align="stretch"
+                  className="resource-browser flex flex-col min-w-0 min-h-0 outline-offset-[-2px] [container-type:inline-size] [container-name:resource-browser]"
+                  ref={browser}
+                >
+                  <Row
+                    gap={0}
+                    as="header"
+                    className="resource-browser-heading [&_>_.select-trigger]:w-[130px] [&_>_.select-trigger]:min-w-[100px] flex items-center gap-space-4 py-[7px] px-space-4 border-b border-line-subtle min-h-[44px]"
+                  >
                     <ResourceBreadcrumb
                       folderId={folderId}
                       folders={folders}
@@ -671,11 +698,13 @@ export function ResourceLibrary({
                         forward: () => moveHistory("forward"),
                       }}
                     />
-                    <span className="spacer" />
+                    <span className="flex-1" />
                     <ResourceSortControl sort={sort} descending={descending} onChange={filter} />
-                  </header>
+                  </Row>
                   {searching && (
-                    <div className="resource-search-scope">{t("library.searchScope")}</div>
+                    <div className="resource-search-scope py-space-2 px-space-4 text-caption text-muted border-b border-line-subtle">
+                      {t("library.searchScope")}
+                    </div>
                   )}
 
                   <ResourceList
@@ -729,7 +758,10 @@ export function ResourceLibrary({
                     onChange={(offset) => store.setState({ offset, selectedIds: [] })}
                   >
                     {selected.length > 0 && (
-                      <div className="resource-selection-toolbar">
+                      <Row
+                        gap={0}
+                        className="resource-selection-toolbar @max-[650px]/resource-browser:[&_>_.ui-button]:hidden [&_strong]:text-label [&_strong]:whitespace-nowrap [&_>_.ui-button]:shrink-0 flex items-center gap-space-2 min-h-[32px] min-w-0 overflow-hidden"
+                      >
                         <strong aria-live="polite">
                           {t("library.selectedCount", { count: selected.length })}
                         </strong>
@@ -749,10 +781,10 @@ export function ResourceLibrary({
                         >
                           <X size={14} />
                         </IconButton>
-                      </div>
+                      </Row>
                     )}
                   </ResourcePagination>
-                </div>
+                </Col>
               </ContextActions>
               {inspector && (
                 <ResourceInspector
@@ -765,18 +797,21 @@ export function ResourceLibrary({
               )}
             </>
           )}
-        </div>
-      </section>
+        </Grid>
+      </Col>
       <Modal
         open={confirm !== null}
         onClose={() => setConfirm(null)}
         title={t("library.confirmAction")}
       >
-        <p className="confirm-copy">{confirm && errorMessage(confirm.title)}</p>
-        <div className="dialog-actions">
+        <p className={`confirm-copy ${overlayStyles["confirm-copy"]}`}>
+          {confirm && errorMessage(confirm.title)}
+        </p>
+        <ButtonGroup className="dialog-actions flex items-center justify-end flex-wrap gap-space-3 mt-space-4">
           <Button onClick={() => setConfirm(null)}>{t("library.cancel")}</Button>
           <Button
-            className="danger-button"
+            variant="danger"
+            className=""
             onClick={() => {
               const action = confirm?.action;
               setConfirm(null);
@@ -785,7 +820,7 @@ export function ResourceLibrary({
           >
             {t("library.confirm")}
           </Button>
-        </div>
+        </ButtonGroup>
       </Modal>
       <Modal
         open={dialog !== null}
@@ -809,17 +844,24 @@ export function ResourceLibrary({
         }
       >
         {error && (
-          <p className="inline-warning" role="alert">
+          <p className="inline-warning text-danger text-label leading-[1.7]" role="alert">
             {error}
           </p>
         )}
         {dialog && (
-          <fieldset disabled={busy} className="resource-organize-form">
+          <Grid
+            gap={0}
+            align="stretch"
+            columns={1}
+            as="fieldset"
+            disabled={busy}
+            className="resource-organize-form grid gap-space-4"
+          >
             {dialog.kind === "rename" || dialog.kind === "tag" ? (
               <Field
                 label={dialog.kind === "tag" ? t("library.tagName") : t("library.resourceName")}
               >
-                <input
+                <Input
                   autoComplete="off"
                   value={dialog.name}
                   onChange={(event) => setDialog({ ...dialog, name: event.target.value })}
@@ -834,7 +876,7 @@ export function ResourceLibrary({
             ) : dialog.kind === "folder" ? (
               <>
                 <Field label={t("library.folderName")}>
-                  <input
+                  <Input
                     autoComplete="off"
                     value={dialog.folder.name}
                     onChange={(event) =>
@@ -847,7 +889,7 @@ export function ResourceLibrary({
                 </Field>
               </>
             ) : dialog.kind === "tags" ? (
-              <FormField label={t("library.replaceTags")} htmlFor="library-batch-tags">
+              <Field label={t("library.replaceTags")} htmlFor="library-batch-tags">
                 <TagInput
                   id="library-batch-tags"
                   value={dialog.tags}
@@ -856,7 +898,7 @@ export function ResourceLibrary({
                   removeLabel={(value) => t("common.removeTag", { value })}
                   placeholder={t("common.tagInputPlaceholder")}
                 />
-              </FormField>
+              </Field>
             ) : (
               <ResourceDestination
                 folderId={dialog.folderId || null}
@@ -864,10 +906,11 @@ export function ResourceLibrary({
                 onChange={(id) => setDialog({ ...dialog, folderId: id ?? "" })}
               />
             )}
-            <div className="dialog-actions">
+            <ButtonGroup className="dialog-actions flex items-center justify-end flex-wrap gap-space-3 mt-space-4">
               <Button onClick={() => setDialog(null)}>{t("library.cancel")}</Button>
               <Button
-                className="primary"
+                variant="primary"
+                className=""
                 disabled={
                   (dialog.kind === "folder" && !dialog.folder.name.trim()) ||
                   ((dialog.kind === "rename" || dialog.kind === "tag") && !dialog.name.trim())
@@ -914,8 +957,8 @@ export function ResourceLibrary({
               >
                 {busy ? t("library.saving") : t("library.confirm")}
               </Button>
-            </div>
-          </fieldset>
+            </ButtonGroup>
+          </Grid>
         )}
       </Modal>
       <Modal
@@ -926,7 +969,7 @@ export function ResourceLibrary({
         title={t("library.confirmDeleteTitle")}
       >
         {error && (
-          <p className="inline-warning" role="alert">
+          <p className="inline-warning text-danger text-label leading-[1.7]" role="alert">
             {error}
           </p>
         )}
@@ -938,12 +981,14 @@ export function ResourceLibrary({
                 folders: deletion.impact.folders.length,
               })}
             </p>
-            <p className="inline-warning">{t("library.deleteReferencesWarning")}</p>
+            <p className="inline-warning text-danger text-label leading-[1.7]">
+              {t("library.deleteReferencesWarning")}
+            </p>
             {deletion.impact.currentCreation && <p>{t("library.currentCreationAffected")}</p>}
             {deletion.impact.referencingResources.length > 0 && (
               <>
                 <p>{t("library.referencingResources")}</p>
-                <ul className="resource-impact-list">
+                <ul className="resource-impact-list max-h-[220px] overflow-auto">
                   {deletion.impact.referencingResources.map((resource) => (
                     <li key={resource.id}>{resource.name}</li>
                   ))}
@@ -952,21 +997,26 @@ export function ResourceLibrary({
             )}
             {deletion.impact.currentCreation === false &&
               deletion.impact.referencingResources.length === 0 && (
-                <p className="muted">{t("library.noReferences")}</p>
+                <p className="muted text-muted">{t("library.noReferences")}</p>
               )}
-            {dirty && <p className="inline-warning">{t("library.unsaved")}</p>}
-            <div className="dialog-actions">
+            {dirty && (
+              <p className="inline-warning text-danger text-label leading-[1.7]">
+                {t("library.unsaved")}
+              </p>
+            )}
+            <ButtonGroup className="dialog-actions flex items-center justify-end flex-wrap gap-space-3 mt-space-4">
               <Button disabled={busy} onClick={() => setDeletion(null)}>
                 {t("library.cancel")}
               </Button>
               <Button
-                className="danger-button"
+                variant="danger"
+                className=""
                 disabled={busy}
                 onClick={() => batch(deletion.selection, { kind: "delete" })}
               >
                 {t("library.deleteResource")}
               </Button>
-            </div>
+            </ButtonGroup>
           </>
         )}
       </Modal>
