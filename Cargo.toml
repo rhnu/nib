@@ -18,7 +18,7 @@ nib-image-analysis = { path = "modules/image-analysis" }
 nib-inference-runtime = { path = "modules/inference-runtime" }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 csv = "1.4.0"
-flate2 = "1.1.10"
+flate2 = "1.1.11"
 half = "2.7.1"
 sha2 = "0.11.1"
 wide = "1.7.1"
@@ -27,28 +27,28 @@ ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "blocking", "json"] }
 anyhow = "1.0.104"
 async-trait = "0.1.92"
-clap = { version = "4.6.7", features = ["derive"] }
+clap = { version = "4.6.8", features = ["derive"] }
 clipboard-win = { version = "5.4.3", features = ["std"] }
-novelai-bridge = { version = "0.8.1", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
+novelai-bridge = { version = "0.8.2", default-features = false, features = ["reqwest-transport", "bundled-assets"] }
 novelai-bridge-prompt = "0.1.0"
 futures-util = "0.3.34"
 rig-core = { version = "0.46.0", default-features = false, features = ["reqwest", "rustls"] }
 rig-agent = { version = "0.46.0", default-features = false }
 rig-rmcp = { version = "0.46.0", default-features = false }
-rmcp = { version = "3.9.0", default-features = false, features = ["client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"] }
+rmcp = { version = "3.11.0", default-features = false, features = ["client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 serde_yaml_ng = "0.10.0"
 keyring-core = "1.0.1"
 windows-native-keyring-store = { version = "1.1.0", default-features = false }
 secrecy = "0.10.3"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.43.0", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
-tauri = "2.12.4"
-tauri-build = "2.7.3"
+tauri = "2.12.7"
+tauri-build = "2.7.6"
 webview2-com = "0.39.1"
 tauri-plugin-dialog = "2.8.4"
-tauri-plugin-opener = "2.7.2"
-tauri-plugin-notification = "2.8.0"
+tauri-plugin-opener = "2.7.3"
+tauri-plugin-notification = "2.8.1"
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2.14.1"
 sys-locale = "0.3.2"
@@ -57,7 +57,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tokio = { version = "1.54.1", features = ["rt", "sync", "macros", "time"] }
 ts-rs = "12.0.1"
 thiserror = "2.0.21"
-uuid = { version = "1.29.0", features = ["v4"] }
+uuid = { version = "1.29.3", features = ["v4"] }
 wasm-bindgen = "0.2.130"
 serde-wasm-bindgen = "0.6.5"
 
