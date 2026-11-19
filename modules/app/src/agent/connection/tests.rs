@@ -26,7 +26,7 @@ fn compatible_model_aliases_keep_images_in_the_model_input() {
         let encoded = adapt(&messages, &wire);
         assert_eq!(encoded.iter().flat_map(Message::images).count(), 1);
         let mut responses =
-            rig_core::providers::openai::responses_api::wire::Responses::new(config.clone(), model);
+            rig_core::providers::openai::responses_api::wire::Responses::new(config, model);
         responses.facts = image_facts(&responses.facts, responses.provider.dialect.name, model);
         let encoded = adapt(&messages, &responses);
         assert_eq!(encoded.iter().flat_map(Message::images).count(), 1);

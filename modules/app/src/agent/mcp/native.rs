@@ -472,7 +472,7 @@ pub(crate) async fn runtime_tools(
             let admit = Arc::clone(&admit);
             let hidden = hidden.clone();
             tools.push(DynamicTool::new(
-                name.clone(),
+                name,
                 format!(
                     "MCP server {} / {}. {}",
                     server.config.name, remote_name, definition.description

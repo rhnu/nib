@@ -42,30 +42,26 @@ pub fn restore_generation(request: &GenerateImageRequest, inputs: CreationInputs
             request.core.model.descriptor().prompt().syntax,
         ),
         settings: ResolvedSettings::from_request(request).explicit(),
-        characters: request
-            .characters
-            .as_ref()
-            .map(|set| {
-                set.characters
-                    .iter()
-                    .enumerate()
-                    .map(|(index, character)| {
-                        let id = format!("restored-character-{index}");
-                        CharacterComposition {
-                            composition: composition(
-                                &id,
-                                &character.prompt,
-                                character.negative_prompt.as_deref().unwrap_or_default(),
-                                request.core.model.descriptor().prompt().syntax,
-                            ),
-                            id,
-                            enabled: character.enabled,
-                            position: character.position,
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
+        characters: request.characters.as_ref().map_or_default(|set| {
+            set.characters
+                .iter()
+                .enumerate()
+                .map(|(index, character)| {
+                    let id = format!("restored-character-{index}");
+                    CharacterComposition {
+                        composition: composition(
+                            &id,
+                            &character.prompt,
+                            character.negative_prompt.as_deref().unwrap_or_default(),
+                            request.core.model.descriptor().prompt().syntax,
+                        ),
+                        id,
+                        enabled: character.enabled,
+                        position: character.position,
+                    }
+                })
+                .collect()
+        }),
         inputs,
         ..Draft::default()
     }

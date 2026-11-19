@@ -476,8 +476,7 @@ impl ResourceStore {
             let components = state
                 .progress
                 .get(id)
-                .map(|progress| progress.components.clone())
-                .unwrap_or_default();
+                .map_or_default(|progress| progress.components.clone());
             state.progress.insert(
                 id.to_owned(),
                 DownloadProgress {
@@ -508,8 +507,7 @@ impl ResourceStore {
         let components = state
             .progress
             .get(id)
-            .map(|p| p.components.clone())
-            .unwrap_or_default();
+            .map_or_default(|progress| progress.components.clone());
         state.progress.insert(
             id.to_owned(),
             DownloadProgress {
