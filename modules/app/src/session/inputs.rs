@@ -1,6 +1,9 @@
 //! Recoverable input selections refer to immutable application media, never source paths.
 
-use novelai_bridge::{CharacterReferenceType, DirectorCommand, Model};
+use novelai_bridge::{
+    CharacterReferenceType, DirectorCommand, GenerationMode, Model, ReferenceAvailability,
+    ReferenceIntent, ReferenceResolution,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -330,24 +333,58 @@ pub struct ReferenceInputs {
 }
 
 impl ReferenceInputs {
+    /// Counts enabled rows whose type and operation are supported by the SDK.
+    pub(crate) fn active_precise_count(&self, model: Model, mode: GenerationMode) -> usize {
+        let descriptor = model.descriptor().effective_model_for(mode).descriptor();
+        let Some(profile) = descriptor.support().character_reference else {
+            return 0;
+        };
+        if !profile.modes.allows(mode) {
+            return 0;
+        }
+        self.precise
+            .iter()
+            .filter(|row| row.enabled && profile.resolve_type(row.reference_type).is_some())
+            .count()
+    }
+
+    /// Resolves generation model selection with the applicable enabled reference rows.
+    pub(crate) fn effective_model(&self, model: Model, mode: GenerationMode) -> Model {
+        model.descriptor().effective_model_for_references(
+            mode,
+            ReferenceIntent {
+                character: self.active_precise_count(model, mode) != 0,
+                ..Default::default()
+            },
+        )
+    }
+
     /// Resolves retained reference intent before any media is read.
     /// Unsupported precise references must not suppress an otherwise usable Vibe.
-    pub(crate) fn resolution(
-        &self,
-        model: Model,
-        mode: novelai_bridge::GenerationMode,
-    ) -> novelai_bridge::ReferenceResolution {
-        model
-            .descriptor()
-            .effective_model_for(mode)
-            .descriptor()
-            .resolve_references(
-                mode,
-                novelai_bridge::ReferenceIntent {
-                    character: self.precise.iter().any(|reference| reference.enabled),
-                    vibe: self.vibes.iter().any(|reference| reference.enabled),
-                },
-            )
+    pub(crate) fn resolution(&self, model: Model, mode: GenerationMode) -> ReferenceResolution {
+        let descriptor = model.descriptor();
+        let intent = ReferenceIntent {
+            character: self.active_precise_count(model, mode) != 0,
+            vibe: self.vibes.iter().any(|reference| reference.enabled),
+        };
+        let mut resolution = descriptor.resolve_references(mode, intent);
+        if !intent.character && self.precise.iter().any(|reference| reference.enabled) {
+            let availability = descriptor
+                .resolve_references(
+                    mode,
+                    ReferenceIntent {
+                        character: true,
+                        ..intent
+                    },
+                )
+                .character;
+            resolution.character = if availability.is_available() {
+                ReferenceAvailability::Unsupported
+            } else {
+                availability
+            };
+        }
+        resolution
     }
 
     /// Adds recipe outputs in order and overlays their optional strength normalization.

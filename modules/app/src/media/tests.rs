@@ -173,6 +173,28 @@ fn restore_is_independent_and_preserves_sample_seed_without_repeating_sdk_prompt
 }
 
 #[test]
+fn result_reuse_retains_the_selected_medium_model_and_effective_parameters() {
+    let mut submitted = crate::jobs::tests::submission();
+    let FrozenSubmission::Generation {
+        selected_model,
+        request,
+        ..
+    } = &mut submitted
+    else {
+        panic!("the fixture is a generation submission");
+    };
+    *selected_model = Some(novelai_bridge::Model::NaiDiffusion5FullMedium);
+    assert_eq!(request.core.model, novelai_bridge::Model::NaiDiffusion5Full);
+    let restored =
+        restore_submission(&submitted, Some(42), Draft::default(), "restored-result").unwrap();
+    assert_eq!(
+        restored.settings.model,
+        Some(novelai_bridge::Model::NaiDiffusion5FullMedium)
+    );
+    assert_eq!(restored.settings.steps, Some(23));
+}
+
+#[test]
 fn non_generation_restore_preserves_the_applicable_operation_and_source() {
     let director = FrozenSubmission::Director {
         policy: novelai_bridge::ValidationPolicy::Reject,

@@ -1,6 +1,8 @@
 //! Application identities and SDK-effective inputs survive freezing and restoration.
 
-use novelai_bridge::{GenerationInput, InpaintImageToImage, Model, UpscaleBlurSigma};
+use novelai_bridge::{
+    CharacterReferenceType, GenerationInput, InpaintImageToImage, Model, UpscaleBlurSigma,
+};
 
 use super::*;
 use crate::session::{CreationOperation, VibeInput, VibeReferenceInput};
@@ -496,7 +498,7 @@ fn precise_references_freeze_signed_parameters_and_restore_the_same_assets() {
             id: "reference".into(),
             enabled: true,
             asset_id: "source".into(),
-            reference_type: novelai_bridge::CharacterReferenceType::Costume,
+            reference_type: CharacterReferenceType::Style,
             strength: -2.0,
             fidelity: 1.5,
             information_extracted: 1.5,
@@ -512,10 +514,7 @@ fn precise_references_freeze_signed_parameters_and_restore_the_same_assets() {
     assert_eq!(reference.strength.to_bits(), (-2f32).to_bits());
     assert_eq!(reference.fidelity.to_bits(), 1.5_f32.to_bits());
     assert_eq!(reference.information_extracted.to_bits(), 1f32.to_bits());
-    assert_eq!(
-        reference.reference_type,
-        novelai_bridge::CharacterReferenceType::Costume
-    );
+    assert_eq!(reference.reference_type, CharacterReferenceType::Style);
     assert_eq!(restored.inputs.references.precise[0].asset_id, "source");
     assert!(!encoded.contains("iVBOR"));
 }
@@ -600,6 +599,166 @@ fn precise_reference_indices_skip_disabled_images_and_keep_the_enabled_entry_ide
         frozen
             .diagnostics()
             .iter()
-            .any(|diagnostic| diagnostic.field == sdk_field)
+            .any(|diagnostic| diagnostic.field == sdk_field
+                && diagnostic.input_id.as_deref() == Some("enabled-reference"))
     );
+}
+
+struct ReferenceAssets;
+
+impl crate::media::AssetReader for ReferenceAssets {
+    fn image(&self, _id: &str) -> Result<novelai_bridge::EncodedImage, PersistenceError> {
+        ImageAssets.image("source")
+    }
+
+    fn vibe(&self, _id: &str) -> Result<novelai_bridge::VibeEncoding, PersistenceError> {
+        Ok(novelai_bridge::VibeEncoding::from_bytes(vec![1]).unwrap())
+    }
+}
+
+fn precise_input(
+    id: &str,
+    reference_type: CharacterReferenceType,
+) -> crate::session::PreciseReferenceInput {
+    crate::session::PreciseReferenceInput {
+        id: id.to_owned(),
+        asset_id: format!("asset-{id}"),
+        enabled: true,
+        reference_type,
+        strength: 1.0,
+        fidelity: 1.0,
+        information_extracted: 1.0,
+    }
+}
+
+#[test]
+fn filtered_precise_and_vibe_rows_freeze_the_matching_asset_and_diagnostic_identity() {
+    let mut precise = submission().resolved().unwrap().clone();
+    precise.settings.model = Model::NaiDiffusion45Full;
+    precise.inputs.references.precise = vec![
+        precise_input("first", CharacterReferenceType::Style),
+        precise_input("rest", CharacterReferenceType::Costume),
+        precise_input("last", CharacterReferenceType::CharacterMainOutfit),
+    ];
+    let frozen = prepare_submission(precise, &ReferenceAssets).unwrap();
+    let reopened = sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+    let effective = &reopened.resolved().unwrap().inputs.references.precise;
+    assert_eq!(
+        effective
+            .iter()
+            .map(|row| row.asset_id.as_str())
+            .collect::<Vec<_>>(),
+        ["asset-first", "asset-last"]
+    );
+    assert_eq!(
+        effective[1].reference_type,
+        CharacterReferenceType::Character
+    );
+    assert!(
+        reopened
+            .diagnostics()
+            .iter()
+            .any(|item| item.input_id.as_deref() == Some("last")
+                && item.change
+                    == UserMessage::ReferenceTypeFallback {
+                        reference_type: "character".to_owned()
+                    })
+    );
+
+    let mut vibe = submission().resolved().unwrap().clone();
+    vibe.settings.model = Model::NaiDiffusion45Full;
+    vibe.inputs.references.vibes = vec![
+        VibeReferenceInput {
+            id: "encoded-first".to_owned(),
+            input: VibeInput::Encoded {
+                asset_id: "encoding-first".to_owned(),
+            },
+            enabled: true,
+            strength: 1.0,
+        },
+        VibeReferenceInput {
+            id: "wrong-raw".to_owned(),
+            input: VibeInput::Image {
+                asset_id: "raw".to_owned(),
+                information_extracted: 0.5,
+            },
+            enabled: true,
+            strength: 1.0,
+        },
+        VibeReferenceInput {
+            id: "encoded-last".to_owned(),
+            input: VibeInput::Encoded {
+                asset_id: "encoding-last".to_owned(),
+            },
+            enabled: true,
+            strength: -1.0,
+        },
+    ];
+    let frozen = prepare_submission(vibe, &ReferenceAssets).unwrap();
+    let reopened = sqlite::decode_submission(&sqlite::encode_submission(&frozen).unwrap()).unwrap();
+    let effective = &reopened.resolved().unwrap().inputs.references.vibes;
+    assert_eq!(
+        effective
+            .iter()
+            .map(|row| row.input.asset_id())
+            .collect::<Vec<_>>(),
+        ["encoding-first", "encoding-last"]
+    );
+    assert_eq!(effective[1].strength.to_bits(), (-0.5_f32).to_bits());
+    assert!(
+        reopened
+            .diagnostics()
+            .iter()
+            .any(|item| item.input_id.as_deref() == Some("wrong-raw"))
+    );
+}
+
+#[test]
+fn medium_selection_and_effective_high_request_survive_freeze_and_legacy_open() {
+    let (mut queue, _) = memory_queue(Arc::new(MemoryJobs::default()), false);
+    let queue_mut = Arc::get_mut(&mut queue).unwrap();
+    queue_mut.assets = Arc::new(ReferenceAssets);
+    queue_mut.tokenizers = Arc::new(Tokenizers::bundled().unwrap());
+    let mut draft = Draft::default();
+    draft.settings.model = Some(Model::NaiDiffusion5FullMedium);
+    draft
+        .inputs
+        .references
+        .precise
+        .push(precise_input("ref", CharacterReferenceType::Style));
+    let quote = queue.quote(&draft).unwrap();
+    assert_eq!(
+        quote.resolved.unwrap().settings.model,
+        Model::NaiDiffusion5Full
+    );
+    let frozen = queue.freeze(&draft).unwrap();
+    let encoded = sqlite::encode_submission(&frozen).unwrap();
+    let reopened = sqlite::decode_submission(&encoded).unwrap();
+    assert_eq!(reopened, frozen);
+    assert_eq!(request(&reopened).core.model, Model::NaiDiffusion5Full);
+    assert_eq!(request(&reopened).sampling.steps, 23);
+    assert!(matches!(
+        reopened,
+        FrozenSubmission::Generation {
+            selected_model: Some(Model::NaiDiffusion5FullMedium),
+            ..
+        }
+    ));
+    let mut legacy: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+    assert!(
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("selected_model")
+            .is_some()
+    );
+    let reopened = sqlite::decode_submission(&legacy.to_string()).unwrap();
+    assert!(matches!(
+        reopened,
+        FrozenSubmission::Generation {
+            selected_model: None,
+            ..
+        }
+    ));
+    assert_eq!(request(&reopened).core.model, Model::NaiDiffusion5Full);
 }

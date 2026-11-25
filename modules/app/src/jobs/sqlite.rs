@@ -21,6 +21,8 @@ use crate::{
 enum StoredSubmission {
     Generation {
         request: Box<novelai_bridge::GenerateImageRequest>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selected_model: Option<novelai_bridge::Model>,
         diagnostics: Vec<ParameterDiagnostic>,
         fragments: Vec<crate::prompt::ResolvedFragment>,
         provenance: Box<crate::prompt::SettingsProvenance>,
@@ -70,11 +72,13 @@ pub(crate) fn encode_submission(submission: &FrozenSubmission) -> Result<String,
     encode(&match submission {
         FrozenSubmission::Generation {
             request,
+            selected_model,
             resolved,
             diagnostics,
             ..
         } => StoredSubmission::Generation {
             request: request.clone(),
+            selected_model: *selected_model,
             diagnostics: diagnostics.clone(),
             fragments: resolved.fragments.clone(),
             provenance: Box::new(resolved.provenance.clone()),
@@ -145,6 +149,7 @@ pub(crate) fn decode_submission(content: &str) -> Result<FrozenSubmission, Persi
     Ok(match decode(content)? {
         StoredSubmission::Generation {
             request,
+            selected_model,
             fragments,
             provenance,
             characters,
@@ -174,6 +179,7 @@ pub(crate) fn decode_submission(content: &str) -> Result<FrozenSubmission, Persi
             resolved.analyze_sources();
             FrozenSubmission::Generation {
                 seed: request.core.seed,
+                selected_model,
                 resolved: Box::new(resolved),
                 request,
                 diagnostics,

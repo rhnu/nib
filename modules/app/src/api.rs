@@ -79,6 +79,7 @@ pub fn request_error_fields(error: &novelai_bridge::InvalidRequest) -> Vec<Strin
         | InvalidRequest::InvalidDataUrl { field, .. }
         | InvalidRequest::InvalidBase64 { field, .. }
         | InvalidRequest::UndecodableImage { field, .. }
+        | InvalidRequest::TooManyCharacterReferences { field, .. }
         | InvalidRequest::RequiredFieldForContext { field, .. }
         | InvalidRequest::ZeroImageDimension { field } => vec![field.to_string()],
         InvalidRequest::UnsupportedModelFeature { feature, .. } => vec![feature.to_string()],

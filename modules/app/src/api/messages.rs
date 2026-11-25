@@ -97,6 +97,12 @@ pub enum UserMessage {
     CharacterLimit {
         limit: usize,
     },
+    ReferenceLimit {
+        limit: usize,
+    },
+    ReferenceTypeFallback {
+        reference_type: String,
+    },
     ProviderHttpFailure {
         status: u16,
     },

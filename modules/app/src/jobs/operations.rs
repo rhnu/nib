@@ -1,8 +1,9 @@
 //! Resolve application asset identities into SDK inputs at local preparation boundaries.
 
 use novelai_bridge::{
-    CharacterReference, EncodeVibeRequest, GenerateImageRequest, GenerationDelivery,
-    GenerationInput, ImageToImageInput, InpaintingInput, ReferenceSet, RunDirectorToolRequest,
+    CharacterReference, CharacterReferenceField, EncodeVibeRequest, GenerateImageRequest,
+    GenerationDelivery, GenerationField, GenerationInput, ImageToImageInput, InpaintingInput,
+    Model, NormalizationChange, NormalizedGeneration, ReferenceSet, RunDirectorToolRequest,
     UpscaleImageRequest, VibeReference, VibeTransferConfig,
 };
 
@@ -11,7 +12,9 @@ use crate::{
     api::UserMessage,
     media::AssetReader,
     prompt::{ResolvedDraft, ResolvedSettings},
-    session::{CreationInputs, CreationOperation, Draft, VibeInput, validate_draft},
+    session::{
+        CreationInputs, CreationOperation, Draft, ReferenceInputs, VibeInput, validate_draft,
+    },
 };
 
 mod quote;
@@ -27,6 +30,7 @@ enum QuoteBasis {
 /// Shared SDK validation and effective fields; persistence-only data is built on submission.
 struct GenerationPreparation {
     resolved: ResolvedDraft,
+    selected_model: Option<Model>,
     prepared: novelai_bridge::PreparedGeneration,
     diagnostics: Vec<ParameterDiagnostic>,
     stream_body: Option<Vec<u8>>,
@@ -49,6 +53,7 @@ impl GenerationPreparation {
         let submission = FrozenSubmission::Generation {
             seed: request.core.seed,
             resolved: Box::new(self.resolved),
+            selected_model: self.selected_model,
             request: Box::new(request),
             diagnostics: self.diagnostics,
         };
@@ -217,45 +222,16 @@ fn prepare_generation(
         .map(|mode| prepared.encode(GenerationDelivery::Stream(mode)))
         .transpose()?;
     let normalized = prepared.normalized();
-    let diagnostics = normalized
-        .diagnostics()
-        .iter()
-        .map(|diagnostic| ParameterDiagnostic {
-            field: diagnostic.field.to_string(),
-            change: match &diagnostic.change {
-                novelai_bridge::NormalizationChange::Adjusted { from, to } => {
-                    UserMessage::NumericAdjusted {
-                        from: from.to_string(),
-                        to: to.to_string(),
-                    }
-                },
-                novelai_bridge::NormalizationChange::Unsupported => {
-                    UserMessage::UnsupportedParameterRemoved
-                },
-                novelai_bridge::NormalizationChange::Fallback => {
-                    if diagnostic.field == novelai_bridge::GenerationField::Model {
-                        UserMessage::ModelFallback {
-                            model: normalized.request().core.model.as_str().to_owned(),
-                        }
-                    } else {
-                        UserMessage::ParameterFallback
-                    }
-                },
-                novelai_bridge::NormalizationChange::Conflict { retained_field } => {
-                    UserMessage::ParameterConflict {
-                        retained_field: retained_field.to_string(),
-                    }
-                },
-                novelai_bridge::NormalizationChange::CharacterLimit { limit, .. } => {
-                    UserMessage::CharacterLimit {
-                        limit: (*limit) as usize,
-                    }
-                },
-                _ => UserMessage::ParameterNormalized,
-            },
-        })
-        .collect();
+    let diagnostics = generation_diagnostics(normalized, &resolved.inputs.references);
     let request = normalized.request();
+    let selected = resolved.settings.model;
+    let selected_model = selected
+        .descriptor()
+        .support()
+        .character_reference
+        .and_then(|profile| profile.required_model)
+        .filter(|&model| model == request.core.model)
+        .map(|_| selected);
     resolved
         .positive
         .clone_from(&normalized.resolved_prompts().prompt);
@@ -284,13 +260,83 @@ fn prepare_generation(
             source.negative.clone_from(&effective.negative_prompt);
         }
     }
-    sync_inputs(&mut resolved.inputs, request);
+    sync_inputs(&mut resolved.inputs, normalized);
     Ok(GenerationPreparation {
         resolved,
+        selected_model,
         prepared,
         diagnostics,
         stream_body,
     })
+}
+
+fn generation_diagnostics(
+    normalized: &NormalizedGeneration,
+    original: &ReferenceInputs,
+) -> Vec<ParameterDiagnostic> {
+    let precise: Vec<_> = original.precise.iter().filter(|row| row.enabled).collect();
+    let vibes: Vec<_> = original.vibes.iter().filter(|row| row.enabled).collect();
+    let request = normalized.request();
+    let profile = request.descriptor().support().character_reference;
+    normalized
+        .diagnostics()
+        .iter()
+        .map(|diagnostic| {
+            let input_id = match diagnostic.field {
+                GenerationField::CharacterReference { index, .. } => {
+                    precise.get(index).map(|row| row.id.clone())
+                },
+                GenerationField::VibeReference { index, .. } => {
+                    vibes.get(index).map(|row| row.id.clone())
+                },
+                _ => None,
+            };
+            let change = match diagnostic.change {
+                NormalizationChange::Adjusted { from, to } => UserMessage::NumericAdjusted {
+                    from: from.to_string(),
+                    to: to.to_string(),
+                },
+                NormalizationChange::Unsupported => UserMessage::UnsupportedParameterRemoved,
+                NormalizationChange::Fallback => match diagnostic.field {
+                    GenerationField::Model => UserMessage::ModelFallback {
+                        model: request.core.model.as_str().to_owned(),
+                    },
+                    GenerationField::CharacterReference {
+                        index,
+                        field: CharacterReferenceField::ReferenceType,
+                    } => profile
+                        .and_then(|profile| {
+                            precise
+                                .get(index)
+                                .and_then(|row| profile.resolve_type(row.reference_type))
+                        })
+                        .map_or(UserMessage::ParameterFallback, |reference_type| {
+                            UserMessage::ReferenceTypeFallback {
+                                reference_type: reference_type.as_str().to_owned(),
+                            }
+                        }),
+                    _ => UserMessage::ParameterFallback,
+                },
+                NormalizationChange::Conflict { retained_field } => {
+                    UserMessage::ParameterConflict {
+                        retained_field: retained_field.to_string(),
+                    }
+                },
+                NormalizationChange::CharacterLimit { limit, .. } => UserMessage::CharacterLimit {
+                    limit: limit as usize,
+                },
+                NormalizationChange::ReferenceLimit { limit } => {
+                    UserMessage::ReferenceLimit { limit }
+                },
+                _ => UserMessage::ParameterNormalized,
+            };
+            ParameterDiagnostic {
+                field: diagnostic.field.to_string(),
+                input_id,
+                change,
+            }
+        })
+        .collect()
 }
 
 /// Rejects editable source failures before preparing media or SDK parameters.
@@ -336,6 +382,7 @@ fn adjustments(values: &[novelai_bridge::ValidationAdjustment]) -> Vec<Parameter
         .iter()
         .map(|value| ParameterDiagnostic {
             field: value.field.to_string(),
+            input_id: None,
             change: UserMessage::NumericAdjusted {
                 from: value.from.to_string(),
                 to: value.to.to_string(),
@@ -494,7 +541,8 @@ pub(super) fn hydrate(
     Ok(request)
 }
 
-fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
+fn sync_inputs(inputs: &mut CreationInputs, normalized: &NormalizedGeneration) {
+    let request = normalized.request();
     match (&mut inputs.operation, &request.operation) {
         (
             CreationOperation::ImageToImage {
@@ -528,27 +576,33 @@ fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
         },
         _ => {},
     }
-    let references = request.references.as_ref();
-    inputs.references.precise.retain(|item| item.enabled);
-    inputs.references.vibes.retain(|item| item.enabled);
-    if let Some(references) = references {
-        if references.character_references.is_empty() {
-            inputs.references.precise.clear();
-        }
-        for (item, value) in inputs
-            .references
-            .precise
-            .iter_mut()
-            .zip(&references.character_references)
-        {
+    let references = &mut inputs.references;
+    let Some(effective) = request.references.as_ref() else {
+        references.precise.clear();
+        references.vibes.clear();
+        references.normalize_vibe_strength = None;
+        return;
+    };
+    retain_effective_references(
+        &mut references.precise,
+        normalized.character_reference_source_indices(),
+        &effective.character_references,
+        |item| item.enabled,
+        |item, value| {
             item.strength = value.strength;
             item.fidelity = value.fidelity;
             item.reference_type = value.reference_type;
             item.information_extracted = value.information_extracted;
-        }
-        if let Some(vibe) = &references.vibe_transfer {
-            inputs.references.normalize_vibe_strength = Some(vibe.normalize_strength);
-            for (item, value) in inputs.references.vibes.iter_mut().zip(&vibe.references) {
+        },
+    );
+    if let Some(vibe) = &effective.vibe_transfer {
+        references.normalize_vibe_strength = Some(vibe.normalize_strength);
+        retain_effective_references(
+            &mut references.vibes,
+            normalized.vibe_reference_source_indices(),
+            &vibe.references,
+            |item| item.enabled,
+            |item, value| {
                 item.strength = value.strength;
                 if let (
                     VibeInput::Image {
@@ -563,16 +617,32 @@ fn sync_inputs(inputs: &mut CreationInputs, request: &GenerateImageRequest) {
                 {
                     *information_extracted = *effective;
                 }
-            }
-        } else {
-            inputs.references.vibes.clear();
-            inputs.references.normalize_vibe_strength = None;
-        }
+            },
+        );
     } else {
-        inputs.references.precise.clear();
-        inputs.references.vibes.clear();
-        inputs.references.normalize_vibe_strength = None;
+        references.vibes.clear();
+        references.normalize_vibe_strength = None;
     }
+}
+
+/// Preserves asset and composition identities while projecting the SDK's effective parameters.
+fn retain_effective_references<T, U>(
+    rows: &mut Vec<T>,
+    indices: &[usize],
+    effective: &[U],
+    enabled: impl Fn(&T) -> bool,
+    apply: impl Fn(&mut T, &U),
+) {
+    let mut source = std::mem::take(rows).into_iter().filter(enabled);
+    let mut cursor = 0;
+    rows.extend(indices.iter().zip(effective).map(|(&index, value)| {
+        let mut row = source
+            .nth(index - cursor)
+            .expect("SDK source indices identify the submitted enabled rows");
+        cursor = index + 1;
+        apply(&mut row, value);
+        row
+    }));
 }
 
 pub(super) fn image(

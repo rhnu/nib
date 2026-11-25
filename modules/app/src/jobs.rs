@@ -43,6 +43,9 @@ use crate::{
 pub enum FrozenSubmission {
     Generation {
         resolved: Box<ResolvedDraft>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "typegen", ts(optional, type = "string"))]
+        selected_model: Option<novelai_bridge::Model>,
         diagnostics: Vec<ParameterDiagnostic>,
         #[cfg_attr(feature = "typegen", ts(type = "number"))]
         seed: i64,
@@ -127,6 +130,9 @@ impl FrozenSubmission {
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ParameterDiagnostic {
     pub field: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "typegen", ts(optional))]
+    pub input_id: Option<String>,
     pub change: UserMessage,
 }
 

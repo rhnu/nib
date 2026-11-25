@@ -17,6 +17,17 @@ fn fixed_model_options_and_numeric_limits_are_projected_for_the_editor() {
     assert_eq!(capabilities.ranges.cfg_rescale.max, 0.0);
     assert_eq!(capabilities.defaults.steps, 14);
     assert_eq!(capabilities.defaults.model, Model::NaiDiffusion5FullMedium);
+    assert_eq!(
+        capabilities.selected_model,
+        Model::NaiDiffusion5FullMedium.as_str()
+    );
+    assert_eq!(
+        capabilities
+            .precise_reference_options
+            .required_model
+            .as_deref(),
+        Some(Model::NaiDiffusion5Full.as_str())
+    );
 }
 
 #[test]
@@ -178,9 +189,10 @@ fn curated_capabilities_follow_the_sdk_effective_model_for_each_operation() {
                 .as_deref(),
             effective_model.vibe_model_key()
         );
+        assert!(capabilities.can_add_precise_reference);
         assert_eq!(
-            capabilities.can_add_precise_reference,
-            effective_model == Model::NaiDiffusion45Curated
+            capabilities.selected_model,
+            Model::NaiDiffusion5Curated.as_str()
         );
         assert_eq!(
             capabilities
@@ -209,7 +221,7 @@ fn character_position_hints_follow_sdk_profiles_and_defaults() {
     assert_eq!(v5.character_positioning.as_deref(), Some("freeform"));
     assert!(v5.character_position_options.grid_coordinates.is_none());
     assert!(v5.max_characters > 0);
-    assert!(!v5.can_add_precise_reference);
+    assert!(v5.can_add_precise_reference);
     assert!(v4.can_add_precise_reference);
     let v3 = model_defaults_capabilities(Model::NaiDiffusion3, None);
     assert_eq!(v3.max_characters, 0);
@@ -217,12 +229,17 @@ fn character_position_hints_follow_sdk_profiles_and_defaults() {
 }
 
 #[test]
-fn precise_reference_hints_do_not_invent_signed_bounds_or_a_count_limit() {
+fn precise_reference_hints_distinguish_sliders_from_signed_strength_input() {
     let capabilities = model_defaults_capabilities(Model::NaiDiffusion5Full, None);
     let options = capabilities.precise_reference_options;
     assert!(options.strength.is_none());
     assert!(options.fidelity.is_none());
-    assert!(options.max_references.is_none());
+    assert_eq!(options.max_references, Some(16));
+    assert_eq!(options.strength_slider.unwrap().max, 5.0);
+    assert_eq!(
+        options.default_reference_type,
+        Some(CharacterReferenceType::CharacterAndStyle)
+    );
     assert_eq!(options.information_extracted.min, 0.0);
     assert_eq!(options.information_extracted.max, 1.0);
     assert!(
@@ -231,8 +248,52 @@ fn precise_reference_hints_do_not_invent_signed_bounds_or_a_count_limit() {
             .contains(&novelai_bridge::CharacterReferenceType::Costume)
     );
     assert!(
-        options
+        !options
             .reference_types
-            .contains(&novelai_bridge::CharacterReferenceType::Delta)
+            .contains(&CharacterReferenceType::Delta)
     );
+
+    let legacy = model_defaults_capabilities(Model::NaiDiffusion45Full, None);
+    let options = legacy.precise_reference_options;
+    assert_eq!(options.fidelity.unwrap().max, 1.0);
+    assert_eq!(options.strength_slider.unwrap().max, 1.0);
+    assert!(options.type_fallbacks.iter().any(|fallback| fallback.from
+        == CharacterReferenceType::CharacterMainOutfit
+        && fallback.to == CharacterReferenceType::Character));
+}
+
+#[test]
+fn enabled_compatible_references_switch_medium_capabilities_to_high() {
+    let mut resolved = crate::jobs::tests::submission().resolved().unwrap().clone();
+    resolved.settings.model = Model::NaiDiffusion5FullMedium;
+    resolved.settings.steps = 14;
+    let references = &mut resolved.inputs.references;
+    references
+        .precise
+        .push(crate::session::PreciseReferenceInput {
+            id: "reference".to_owned(),
+            asset_id: "source".to_owned(),
+            enabled: true,
+            reference_type: CharacterReferenceType::Delta,
+            strength: 1.0,
+            fidelity: 1.0,
+            information_extracted: 1.0,
+        });
+    let unsupported = model_capabilities(&resolved).unwrap();
+    assert_eq!(unsupported.model, Model::NaiDiffusion5FullMedium.as_str());
+    assert_eq!(
+        unsupported.precise_reference_options.active_reference_count,
+        0
+    );
+    resolved.inputs.references.precise[0].reference_type = CharacterReferenceType::Costume;
+    let high = model_capabilities(&resolved).unwrap();
+    assert_eq!(high.model, Model::NaiDiffusion5Full.as_str());
+    assert_eq!(high.selected_model, Model::NaiDiffusion5FullMedium.as_str());
+    assert_eq!(high.defaults.steps, 23);
+    assert_eq!(high.precise_reference_options.active_reference_count, 1);
+    assert!(high.precise_reference.available);
+    resolved.inputs.references.precise[0].enabled = false;
+    let disabled = model_capabilities(&resolved).unwrap();
+    assert_eq!(disabled.model, Model::NaiDiffusion5FullMedium.as_str());
+    assert_eq!(disabled.precise_reference_options.active_reference_count, 0);
 }

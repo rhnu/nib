@@ -70,15 +70,15 @@ fn target(
 impl ResolvedDraft {
     /// Rebuilds display analysis from editable sources, without rewriting frozen native values.
     pub(crate) fn analyze_sources(&mut self) {
-        let mode = if matches!(
-            self.inputs.operation,
-            crate::session::CreationOperation::Inpainting { .. }
-        ) {
-            GenerationMode::Inpainting
-        } else {
-            GenerationMode::TextToImage
+        let mode = match self.inputs.operation {
+            crate::session::CreationOperation::ImageToImage { .. } => GenerationMode::ImageToImage,
+            crate::session::CreationOperation::Inpainting { .. } => GenerationMode::Inpainting,
+            _ => GenerationMode::TextToImage,
         };
-        let model = self.settings.model.descriptor().effective_model_for(mode);
+        let model = self
+            .inputs
+            .references
+            .effective_model(self.settings.model, mode);
         let profile = model.descriptor().prompt().syntax;
         self.prompt_analysis = [PromptScope::Positive, PromptScope::Negative]
             .into_iter()

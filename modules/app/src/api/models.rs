@@ -3,7 +3,7 @@
 use novelai_bridge::{
     AlphaMode, CharacterPosition, CharacterPositionProfile, CharacterReferenceType, CharacterSet,
     GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule, QualityPreset,
-    ReferenceAvailability, Sampler, UcPreset,
+    ReferenceAvailability, ReferenceProfile, Sampler, UcPreset,
 };
 use serde::Serialize;
 
@@ -21,7 +21,9 @@ use crate::{
 )]
 pub struct ModelCapabilities {
     pub size_presets: Vec<SizePreset>,
+    /// Effective model used for the current operation and reference inputs.
     pub model: String,
+    pub selected_model: String,
     pub tokenizer: String,
     pub token_limit: u32,
     pub max_characters: u32,
@@ -135,17 +137,32 @@ pub struct CharacterPositionOptions {
     pub use_coords_default: Option<bool>,
 }
 
-/// A missing numeric bound means the SDK accepts finite signed values, not a unit interval.
+/// Model-specific controls and display hints for precise references.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct PreciseReferenceOptions {
     #[cfg_attr(feature = "typegen", ts(type = "string[]"))]
     pub reference_types: Vec<CharacterReferenceType>,
+    #[cfg_attr(feature = "typegen", ts(type = "string | null"))]
+    pub default_reference_type: Option<CharacterReferenceType>,
     pub strength: Option<NumericRange>,
+    pub strength_slider: Option<NumericRange>,
     pub fidelity: Option<NumericRange>,
     pub information_extracted: NumericRange,
     pub max_references: Option<u32>,
+    pub required_model: Option<String>,
+    #[cfg_attr(feature = "typegen", ts(type = "number"))]
+    pub active_reference_count: usize,
+    #[cfg_attr(feature = "typegen", ts(type = "Array<{ from: string; to: string }>"))]
+    pub type_fallbacks: Vec<PreciseReferenceTypeFallback>,
+}
+
+/// A V5 reference preference that can be represented by an effective earlier model.
+#[derive(Debug, Clone, Serialize)]
+pub struct PreciseReferenceTypeFallback {
+    pub from: CharacterReferenceType,
+    pub to: CharacterReferenceType,
 }
 
 /// SDK Vibe editor hints; an absent strength bound means finite signed values.
@@ -235,18 +252,28 @@ fn project_capabilities(
     mode: GenerationMode,
     inputs: &ReferenceInputs,
 ) -> ModelCapabilities {
-    let model = settings.model.descriptor().effective_model_for(mode);
+    let selected_model = settings.model;
+    let selected_descriptor = selected_model.descriptor();
+    let model = inputs.effective_model(selected_model, mode);
+    let reference_profile = selected_descriptor
+        .effective_model_for(mode)
+        .descriptor()
+        .support()
+        .character_reference
+        .filter(|profile| profile.modes.allows(mode));
     let settings = ResolvedSettings {
         model,
+        steps: selected_descriptor.steps_for_effective_model(model, settings.steps),
         ..settings.clone()
     };
     let descriptor = model.descriptor();
-    let references = inputs.resolution(model, mode);
+    let references = inputs.resolution(selected_model, mode);
     let profile = descriptor.sampling();
     let (sampler, samplers, noise_schedules) = sampling_options(&settings, mode);
     ModelCapabilities {
         size_presets: size_presets(),
         model: model.as_str().to_owned(),
+        selected_model: selected_model.as_str().to_owned(),
         tokenizer: descriptor.prompt().tokenizer.as_str().to_owned(),
         token_limit: descriptor.prompt().token_limit,
         max_characters: descriptor.prompt().max_characters(),
@@ -264,7 +291,10 @@ fn project_capabilities(
                 .characters
                 .map(|profile| profile.positioning),
         ),
-        precise_reference_options: precise_reference_options(),
+        precise_reference_options: precise_reference_options(
+            reference_profile,
+            inputs.active_precise_count(selected_model, mode),
+        ),
         vibe_reference_options: vibe_reference_options(model),
         streaming: descriptor.support().streaming,
         stream_modes: stream_modes(descriptor.support().streaming),
@@ -384,21 +414,33 @@ fn vibe_reference_options(model: Model) -> VibeReferenceOptions {
     }
 }
 
-fn precise_reference_options() -> PreciseReferenceOptions {
+fn precise_reference_options(
+    profile: Option<ReferenceProfile>,
+    active_reference_count: usize,
+) -> PreciseReferenceOptions {
+    let unit = || NumericRange { min: 0.0, max: 1.0 };
     PreciseReferenceOptions {
-        reference_types: vec![
-            CharacterReferenceType::Character,
-            CharacterReferenceType::Style,
-            CharacterReferenceType::CharacterAndStyle,
-            CharacterReferenceType::Costume,
-            CharacterReferenceType::Delta,
-        ],
+        reference_types: profile.map_or_else(Vec::new, |profile| profile.types.to_vec()),
+        default_reference_type: profile.map(|profile| profile.default_type),
         strength: None,
-        fidelity: None,
-        // CharacterReference documents extraction in 0..1, but exposes no range descriptor.
-        // Strength/fidelity are finite signed values and the SDK declares no count limit.
-        information_extracted: NumericRange { min: 0.0, max: 1.0 },
-        max_references: None,
+        strength_slider: profile.map(|profile| NumericRange {
+            min: 0.0,
+            max: f64::from(profile.strength_slider_max),
+        }),
+        fidelity: profile.filter(|profile| profile.fidelity).map(|_| unit()),
+        information_extracted: unit(),
+        max_references: profile.and_then(|profile| u32::try_from(profile.max_references).ok()),
+        required_model: profile
+            .and_then(|profile| profile.required_model)
+            .map(|model| model.as_str().to_owned()),
+        active_reference_count,
+        type_fallbacks: profile.map_or_else(Vec::new, |profile| {
+            profile
+                .type_fallbacks
+                .iter()
+                .map(|&(from, to)| PreciseReferenceTypeFallback { from, to })
+                .collect()
+        }),
     }
 }
 

@@ -537,9 +537,15 @@ fn restore_submission(
 ) -> Result<Draft, PersistenceError> {
     let mut draft = match submission {
         FrozenSubmission::Generation {
-            request, resolved, ..
+            request,
+            resolved,
+            selected_model,
+            ..
         } => {
             let mut draft = crate::session::restore_generation(request, resolved.inputs.clone());
+            if let Some(model) = selected_model {
+                draft.settings.model = Some(*model);
+            }
             // Without a known sample seed this restores the original submission's seed;
             // it does not claim to reproduce the selected sample.
             draft.settings.seed = seed.or(Some(request.core.seed));
