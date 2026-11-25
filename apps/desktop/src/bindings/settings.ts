@@ -10,7 +10,8 @@ export type ImageRequestEncoding = "json" | "multipart";
 
 export type ExecutionPreferences = {
 /**
- * Absence uses the SDK default for image operations and account/tag queries.
+ * In application settings, absence selects the environment or the official endpoint.
+ * In a task written before endpoint capture, absence denotes the historical official endpoint.
  */
 imageBaseUrl: string | null, imageRequestEncoding: ImageRequestEncoding, serverImageCache: boolean, };
 

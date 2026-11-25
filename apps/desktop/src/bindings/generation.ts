@@ -18,7 +18,7 @@ tierName: string | null, expiresAtMs: number | null, v5Usage: AllowanceSummary |
 
 export type AllowanceSummary = { isNegative: boolean, percent: number, purchasedPercent: number, secondsUntilNextPercent: number, };
 
-export type FrozenSubmission = { "kind": "generation", resolved: ResolvedDraft, diagnostics: Array<ParameterDiagnostic>, seed: number, } | { "kind": "director", assetId: string, policy: "normalize" | "reject", diagnostics: Array<ParameterDiagnostic>, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe", assetId: string, policy: "normalize" | "reject", diagnostics: Array<ParameterDiagnostic>, model: string, informationExtracted: number, maskAssetId: string | null, cropToMask: boolean | null, focusSeed: number | null, infoExtractSeed: number | null, } | { "kind": "upscale", assetId: string, diagnostics: Array<ParameterDiagnostic>, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
+export type FrozenSubmission = { "kind": "generation", resolved: ResolvedDraft, selectedModel?: string, diagnostics: Array<ParameterDiagnostic>, seed: number, } | { "kind": "director", assetId: string, policy: "normalize" | "reject", diagnostics: Array<ParameterDiagnostic>, command: "lineart" | "sketch" | "bg_removal" | "declutter" | "declutter_keep_bubbles" | { emotion: { prompt: string; defry: number } } | { colorize: { prompt: string | null; defry: number } }, } | { "kind": "encodeVibe", assetId: string, policy: "normalize" | "reject", diagnostics: Array<ParameterDiagnostic>, model: string, informationExtracted: number, maskAssetId: string | null, cropToMask: boolean | null, focusSeed: number | null, infoExtractSeed: number | null, } | { "kind": "upscale", assetId: string, diagnostics: Array<ParameterDiagnostic>, model: string, declaredBlurSigma: 0 | 0.3 | 0.35 | 0.4 | 0.45 | 0.5, };
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
@@ -56,7 +56,7 @@ export type OperationKind = "generation" | "director" | "encodeVibe" | "upscale"
 
 export type TokenFieldUsage = { field: string, used: number, limit: number, overLimit: boolean, };
 
-export type ParameterDiagnostic = { field: string, change: UserMessage, };
+export type ParameterDiagnostic = { field: string, inputId?: string, change: UserMessage, };
 
 export type JobFeedback = { "kind": "resyncRequired" } | { "kind": "started", jobId: string, } | { "kind": "preview", jobId: string, sampleIndex: number, stepIndex: number, imageBytes: Array<number>, mimeType: string | null, } | { "kind": "finalReceived", jobId: string, sampleIndex: number, } | { "kind": "finished", jobId: string, status: JobStatus, error: UserMessage | null, observation: JobObservation | null, } | { "kind": "observation", jobId: string, observation: JobObservation, };
 
