@@ -9,7 +9,12 @@ import { trackPendingWork } from "@/shared/host/pending-work";
 import { ImagePickerDialog } from "@/features/media";
 import { moveItem } from "@/features/prompt/model";
 import { referenceApi } from "./api";
-import { patchPreciseReference, showPreciseReferences, type PreciseReferenceIssues } from "./model";
+import {
+  newPreciseReferenceType,
+  patchPreciseReference,
+  showPreciseReferences,
+  type PreciseReferenceIssues,
+} from "./model";
 import { PreciseReferenceAvailability, PreciseReferenceRow } from "./precise-reference-row";
 
 export interface PreciseReferenceEditorProps {
@@ -36,7 +41,7 @@ function EditorContent({
 }: Omit<PreciseReferenceEditorProps, "contextKey">) {
   useTranslation();
 
-  const [pickingType, setPickingType] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useMessageState();
   const latest = useRef({ active: true, locked: false, value, onChange });
@@ -94,6 +99,7 @@ function EditorContent({
   }
 
   if (!showPreciseReferences(capabilities, value.length)) return null;
+  const referenceType = newPreciseReferenceType(capabilities);
 
   return (
     <Grid
@@ -128,14 +134,8 @@ function EditorContent({
         </IconButton>
         <IconButton
           label={t("references.addPreciseImage")}
-          disabled={
-            busy ||
-            !capabilities?.canAddPreciseReference ||
-            !capabilities.preciseReferenceOptions.referenceTypes.length
-          }
-          onClick={() =>
-            setPickingType(capabilities?.preciseReferenceOptions.referenceTypes[0] ?? null)
-          }
+          disabled={busy || referenceType === null}
+          onClick={() => setPicking(true)}
         >
           <ImagePlus size={14} />
         </IconButton>
@@ -195,11 +195,11 @@ function EditorContent({
         />
       ))}
       <ImagePickerDialog
-        open={pickingType !== null}
+        open={picking}
         title={t("references.addPreciseImage")}
-        onClose={() => setPickingType(null)}
+        onClose={() => setPicking(false)}
         onSelect={(asset) => {
-          if (pickingType !== null) void add(asset.id, pickingType);
+          if (referenceType !== null) void add(asset.id, referenceType);
         }}
       />
     </Grid>

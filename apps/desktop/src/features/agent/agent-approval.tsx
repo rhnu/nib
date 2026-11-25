@@ -1,6 +1,6 @@
 import { Button, ButtonGroup } from "@/shared/ui";
 
-import { t } from "@/shared/i18n";
+import { preciseReferenceTypeLabel, t } from "@/shared/i18n";
 import { QuoteSummary } from "@/features/generation/submission/quote-summary";
 import { ParameterDiagnostics } from "@/features/generation/submission/parameter-diagnostics";
 import type { AgentController } from "./use-agent";
@@ -50,6 +50,18 @@ export function AgentApprovalCard({
                   {character.negative}
                 </p>
               ))}
+            {resolved.inputs.references.precise.some((reference) => reference.enabled) && (
+              <ul aria-label={t("references.preciseReference")}>
+                {resolved.inputs.references.precise
+                  .filter((reference) => reference.enabled)
+                  .map((reference) => (
+                    <li key={reference.id}>
+                      {preciseReferenceTypeLabel(reference.referenceType)} ·{" "}
+                      {t("references.strengthLabel")} {reference.strength}
+                    </li>
+                  ))}
+              </ul>
+            )}
           </details>
         </>
       )}

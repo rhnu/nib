@@ -48,7 +48,7 @@ export function PromptWorkspace({
   readCurrentDraft: () => Draft;
   edit: (draft: Draft) => void;
   setError: (message: unknown) => void;
-  onFocusField?: (field: string) => void;
+  onFocusField?: (field: string, inputId?: string | null) => void;
 }) {
   useTranslation();
 
@@ -226,10 +226,13 @@ export function PromptWorkspace({
           tokenModel={capabilities?.model}
           diagnostics={diagnostics}
           diagnosticsOpen={diagnosticsOpen}
-          onFocusField={(field) => {
+          onFocusField={(field, inputId) => {
             setInspector(false);
             setDiagnosticsOpen(false);
-            requestAnimationFrame(() => (onFocusField ?? focusSetting)(field));
+            requestAnimationFrame(() => {
+              if (onFocusField) onFocusField(field, inputId);
+              else focusSetting(field);
+            });
           }}
         />
       </Modal>

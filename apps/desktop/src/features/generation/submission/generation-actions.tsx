@@ -26,7 +26,7 @@ export function GenerationActions({
   parameters,
   estimate,
   operationPending,
-  onFocusField = focusSetting,
+  onFocusField = (field) => focusSetting(field),
 }: {
   draft: Draft;
   readCurrentDraft: () => Draft;
@@ -34,7 +34,7 @@ export function GenerationActions({
   parameters?: ReactNode;
   estimate: ReturnType<typeof useGenerationQuote>;
   operationPending: boolean;
-  onFocusField?: (field: string) => void;
+  onFocusField?: (field: string, inputId?: string | null) => void;
 }) {
   useTranslation();
 

@@ -31,6 +31,7 @@ import {
 import { mediaApi } from "@/features/media/api";
 import { promptApi } from "@/features/prompt/api";
 import { referenceApi } from "@/features/references/api";
+import { newPreciseReferenceType } from "@/features/references/model";
 import { createExploreSession } from "@/features/explore/session";
 import { canLeaveWorkbench } from "./navigation-guard";
 
@@ -96,7 +97,10 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     retry: state.retryResolution,
   };
   const generationTarget = useModelCapabilities(
-    draft.settings.model ?? resolved?.settings.model ?? workspace.info.defaultModelId,
+    draft.settings.model ??
+      model.capabilities?.selectedModel ??
+      resolved?.settings.model ??
+      workspace.info.defaultModelId,
     resolved?.settings ?? draft.settings,
     draft.inputs.operation.kind === "upscale" || positioning !== null,
   );
@@ -269,7 +273,7 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
     });
 
   const prepareImportedReference = async (assetId: string, kind: "precise" | "vibe") => {
-    const referenceType = editorCapabilities?.preciseReferenceOptions.referenceTypes[0];
+    const referenceType = newPreciseReferenceType(editorCapabilities);
     if (kind === "precise" && !referenceType)
       throw new MessageError(deferMessage(() => t("workbench.preciseReferenceUnsupported")));
     const reference =
@@ -321,8 +325,8 @@ export function useWorkbenchController(options: WorkbenchControllerOptions) {
       ).catch((cause: unknown) => setError(cause));
     });
 
-  const focusField = (field: string) => {
-    focusOutputField(field, readCurrentDraft(), resources, resolved);
+  const focusField = (field: string, inputId?: string | null) => {
+    focusOutputField(field, readCurrentDraft(), resources, resolved, inputId);
   };
 
   const openPositions = (id?: string, instanceId?: string) =>

@@ -7,6 +7,8 @@ import {
   patchPreciseReference,
   patchPreciseReferenceOverride,
   preciseReferenceMessages,
+  preciseReferenceOutfitTypes,
+  preciseReferencePurposes,
   showPreciseReferences,
 } from "./model";
 
@@ -26,6 +28,34 @@ beforeAll(() => i18n.changeLanguage("zh-CN"));
 afterAll(() => i18n.changeLanguage(previousLanguage));
 
 describe("precise reference editing", () => {
+  it("groups the V5 captions by purpose and retains the opposite outfit selection", () => {
+    const referenceTypes = [
+      "character&style_anyoutfit",
+      "character&style",
+      "character_mainoutfit",
+      "character",
+      "style",
+      "costume",
+    ];
+    expect([...preciseReferencePurposes(referenceTypes)]).toEqual([
+      ["character&style", "character&style"],
+      ["character", "character"],
+      ["style", "style"],
+      ["costume", "costume"],
+    ]);
+    expect(preciseReferenceOutfitTypes("character_mainoutfit", { referenceTypes })).toEqual([
+      "character",
+      "character_mainoutfit",
+    ]);
+    expect(preciseReferenceOutfitTypes("character&style_anyoutfit", { referenceTypes })).toEqual([
+      "character&style_anyoutfit",
+      "character&style",
+    ]);
+    expect(
+      preciseReferenceOutfitTypes("character&style", { referenceTypes: ["character&style"] }),
+    ).toBe(null);
+  });
+
   it("hides unsupported empty sections while retaining inputs and capability loading", () => {
     expect(showPreciseReferences({ canAddPreciseReference: false }, 0)).toBe(false);
     expect(showPreciseReferences({ canAddPreciseReference: false }, 1)).toBe(true);

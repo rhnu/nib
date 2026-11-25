@@ -35,7 +35,7 @@ export function ResolutionInspector({
   tokenModel?: string;
   diagnostics?: ParameterDiagnostic[];
   diagnosticsOpen?: boolean;
-  onFocusField?: (field: string) => void;
+  onFocusField?: (field: string, inputId?: string | null) => void;
 }) {
   useTranslation();
 
@@ -85,7 +85,7 @@ export function ResolutionInspector({
                         <Button
                           variant="quiet"
                           className=""
-                          onClick={() => onFocusField(diagnostic.field)}
+                          onClick={() => onFocusField(diagnostic.field, diagnostic.inputId)}
                         >
                           {t("generation.locate")}
                         </Button>

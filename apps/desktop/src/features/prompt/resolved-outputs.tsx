@@ -1,16 +1,19 @@
 import { Button, Notice, Grid, Row } from "@/shared/ui";
 
-import { t, useTranslation } from "@/shared/i18n";
+import { preciseReferenceTypeLabel, t, useTranslation } from "@/shared/i18n";
 import { useState } from "react";
 import type {
   InputProvenance,
   PreciseReferenceInput,
+  PreciseReferenceOptions,
   ResolvedCharacter,
   ResolvedDraft,
 } from "@/bindings/workbench";
 
 import { AssetImage, useMediaAsset } from "@/features/media";
 import { imageName } from "@/features/media/model";
+import { useModelCapabilities } from "@/features/model/use-model-capabilities";
+import { preciseReferenceOutfitTypes, preciseReferencePurpose } from "@/features/references/model";
 import { PromptTextEditor } from "./prompt-text-editor";
 import { ContentSources } from "./resolution-sources";
 import { ResolvedVibes } from "@/features/vibes";
@@ -160,36 +163,21 @@ function ReferenceMaterial({ id }: { id: string }) {
   );
 }
 
-const referenceTypes: Record<string, string> = {
-  get character() {
-    return t("prompt.character");
-  },
-  get style() {
-    return t("prompt.style");
-  },
-  get "character&style"() {
-    return t("prompt.characterStyle");
-  },
-  get costume() {
-    return t("prompt.clothing");
-  },
-  get delta() {
-    return t("prompt.difference");
-  },
-};
-
 function ResolvedReferenceDetails({
   reference,
   index,
   source,
+  options,
 }: {
   reference: PreciseReferenceInput;
   index: number;
   source: InputProvenance | undefined;
+  options?: PreciseReferenceOptions;
 }) {
   useTranslation();
 
   const [open, setOpen] = useState(false);
+  const outfitTypes = preciseReferenceOutfitTypes(reference.referenceType, options);
   return (
     <Grid
       gap={0}
@@ -216,16 +204,32 @@ function ResolvedReferenceDetails({
       >
         <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
           <dt>{t("prompt.purpose")}</dt>
-          <dd>{referenceTypes[reference.referenceType] ?? reference.referenceType}</dd>
+          <dd>
+            {preciseReferenceTypeLabel(
+              outfitTypes
+                ? preciseReferencePurpose(reference.referenceType)
+                : reference.referenceType,
+            )}
+          </dd>
         </Grid>
+        {outfitTypes && (
+          <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
+            <dt>{t("references.preferSameOutfit")}</dt>
+            <dd>
+              {t(reference.referenceType === outfitTypes[1] ? "prompt.enabled" : "prompt.disabled")}
+            </dd>
+          </Grid>
+        )}
         <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
           <dt>{t("prompt.strength")}</dt>
           <dd>{reference.strength}</dd>
         </Grid>
-        <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
-          <dt>{t("prompt.fidelity")}</dt>
-          <dd>{reference.fidelity}</dd>
-        </Grid>
+        {options?.fidelity && (
+          <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
+            <dt>{t("references.fidelityLabel")}</dt>
+            <dd>{reference.fidelity}</dd>
+          </Grid>
+        )}
         <Grid gap={3} columns={1} className="grid-cols-[80px_minmax(0,1fr)]">
           <dt>{t("prompt.informationExtracted")}</dt>
           <dd>{reference.informationExtracted}</dd>
@@ -249,6 +253,9 @@ export function ResolvedOutputs({
   tokenModel?: string;
 }) {
   useTranslation();
+
+  const precise = resolved.inputs.references.precise;
+  const { capabilities } = useModelCapabilities(tokenModel, undefined, precise.length > 0);
 
   if (
     !resolved.characters.length &&
@@ -289,18 +296,19 @@ export function ResolvedOutputs({
           ))}
         </section>
       )}
-      {resolved.inputs.references.precise.length > 0 && (
+      {precise.length > 0 && (
         <section>
           <h3>
             {t("prompt.preciseReferencesHeading")}
-            {resolved.inputs.references.precise.length}
+            {precise.length}
           </h3>
-          {resolved.inputs.references.precise.map((reference, index) => (
+          {precise.map((reference, index) => (
             <ResolvedReferenceDetails
               key={reference.id}
               reference={reference}
               index={index}
               source={resolved.inputSources.find((source) => source.id === reference.id)}
+              options={capabilities?.preciseReferenceOptions}
             />
           ))}
         </section>

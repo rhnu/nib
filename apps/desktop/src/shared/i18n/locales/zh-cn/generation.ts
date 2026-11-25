@@ -245,6 +245,7 @@ export const generation = {
   pureInpainting: "纯补绘",
   keepOutsideMask: "保留遮罩外原图",
   model: "模型",
+  selectedModel: "原选模型",
   blurSigma: "Blur Sigma",
   operation: "操作",
   informationExtraction: "信息提取",

@@ -120,6 +120,8 @@ export const messages = {
   parameterConflict: "与 {{retainedField}} 冲突，已移除。",
   characterLimit_one: "超过模型的 {{limit}} 个角色上限，已停用。",
   characterLimit_other: "超过模型的 {{limit}} 个角色上限，已停用。",
+  referenceLimit: "当前模型每次生成最多可使用 {{limit}} 张精确参考图片。",
+  referenceTypeFallback: "当前模型按「{{purpose}}」使用此参考。",
   validation: "{{field}}：{{detail}}",
   providerHttpFailure: "NovelAI 拒绝了请求（HTTP {{status}}）。",
   providerTransportFailure: "无法连接 NovelAI，请求可能已被服务端处理并扣费。",

@@ -4,7 +4,7 @@ import type { Draft, Resource, ResolvedDraft } from "@/bindings/workbench";
 import type { ParameterDiagnostic } from "@/bindings/generation";
 import { characterDefinition } from "@/features/positioning/model";
 import { focusSetting } from "@/features/prompt/settings";
-import { outputIdentity } from "@/features/prompt/output-identity";
+import { outputIdentity, outputInstanceId } from "@/features/prompt/output-identity";
 import { focusPromptEditor } from "@/features/prompt/editor-focus";
 
 export type OutputFieldIssue = { field: string; message: string };
@@ -31,6 +31,7 @@ export function outputTarget(
   resolved: ResolvedDraft | null,
   draft: Draft,
   resources: Map<string, Resource>,
+  inputId?: string | null,
 ): Target | null {
   const characterMatch = /^(?:characters\.)?characters\[(\d+)\](?:\.(.*))?$/.exec(field);
   if (characterMatch) {
@@ -56,12 +57,15 @@ export function outputTarget(
   const referenceMatch = preciseMatch ?? vibeMatch;
   const referenceKind = preciseMatch ? "precise" : "vibes";
   if (referenceMatch) {
-    const reference = resolved?.inputs.references[referenceKind].filter((item) => item.enabled)[
-      Number(referenceMatch[1])
-    ];
-    if (!reference) return null;
-    const source = resolved?.inputSources.find((item) => item.id === reference.id);
-    const instance = draft.presets.find((item) => item.id === source?.presetInstanceId);
+    const referenceId =
+      inputId ??
+      resolved?.inputs.references[referenceKind].filter((item) => item.enabled)[
+        Number(referenceMatch[1])
+      ]?.id;
+    if (!referenceId) return null;
+    const source = resolved?.inputSources.find((item) => item.id === referenceId);
+    const instanceId = source?.presetInstanceId ?? outputInstanceId(referenceId);
+    const instance = draft.presets.find((item) => item.id === instanceId);
     const binding = instance?.binding;
     const resource = binding?.kind === "linked" ? resources.get(binding.resourceId) : null;
     const definitions =
@@ -71,14 +75,14 @@ export function outputTarget(
           ? resource.content.references[referenceKind]
           : draft.inputs.references[referenceKind];
     const definition = definitions.find(
-      (item) => outputIdentity(instance?.id ?? null, item.id) === reference.id,
+      (item) => outputIdentity(instance?.id ?? null, item.id) === referenceId,
     );
     if (!definition) return null;
     const tail = referenceMatch[2] ?? "entry";
     return {
       kind: preciseMatch ? "reference" : "vibe",
       id: definition.id,
-      presetInstanceId: source?.presetInstanceId ?? null,
+      presetInstanceId: instance?.id ?? null,
       field:
         tail === "information_extracted" || tail === "input.information_extracted"
           ? "informationExtracted"
@@ -86,7 +90,9 @@ export function outputTarget(
             ? "input"
             : tail === "image"
               ? "assetId"
-              : tail,
+              : tail === "reference_type"
+                ? "referenceType"
+                : tail,
     };
   }
   return null;
@@ -101,10 +107,18 @@ export function collectOutputIssues(
 ): ScopedOutputIssues {
   const result: ScopedOutputIssues = { draft: empty(), presets: {} };
   for (const issue of [
-    ...diagnostics.map((item) => ({ field: item.field, message: errorMessage(item.change) })),
-    ...rejected.map((field) => ({ field, message: t("workbench.validationFailed") })),
+    ...diagnostics.map((item) => ({
+      field: item.field,
+      inputId: item.inputId,
+      message: errorMessage(item.change),
+    })),
+    ...rejected.map((field) => ({
+      field,
+      inputId: undefined,
+      message: t("workbench.validationFailed"),
+    })),
   ]) {
-    const target = outputTarget(issue.field, resolved, draft, resources);
+    const target = outputTarget(issue.field, resolved, draft, resources, issue.inputId);
     if (!target) continue;
     const scope = target.presetInstanceId
       ? (result.presets[target.presetInstanceId] ??= empty())
@@ -126,6 +140,7 @@ export function focusOutputField(
   draft: Draft,
   resources: Map<string, Resource>,
   resolved: ResolvedDraft | null,
+  inputId?: string | null,
 ): boolean {
   const collection =
     field === "characters"
@@ -150,7 +165,7 @@ export function focusOutputField(
       ?.focus();
     return true;
   }
-  let target = outputTarget(field, resolved, draft, resources);
+  let target = outputTarget(field, resolved, draft, resources, inputId);
   for (const kind of ["character", "reference", "vibe"] as const) {
     if (!field.startsWith(`${kind}:`)) continue;
     try {

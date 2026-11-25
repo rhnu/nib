@@ -61,6 +61,27 @@ function mediaKindLabel(kind: string): string {
   }
 }
 
+export function preciseReferenceTypeLabel(type: string): string {
+  switch (type) {
+    case "character":
+      return t("references.character");
+    case "style":
+      return t("references.style");
+    case "character&style":
+      return t("references.characterStyle");
+    case "character_mainoutfit":
+      return t("references.characterSameOutfit");
+    case "character&style_anyoutfit":
+      return t("references.characterStyleAnyOutfit");
+    case "costume":
+      return t("references.clothing");
+    case "delta":
+      return t("references.difference");
+    default:
+      return type;
+  }
+}
+
 /** Typed nib messages are localized; SDK and platform details remain intact. */
 export function formatUserMessage(message: UserMessage): string {
   switch (message.kind) {
@@ -139,6 +160,12 @@ export function formatUserMessage(message: UserMessage): string {
       return t("messages.parameterConflict", message);
     case "characterLimit":
       return t("messages.characterLimit", { ...message, count: message.limit });
+    case "referenceLimit":
+      return t("messages.referenceLimit", { limit: message.limit });
+    case "referenceTypeFallback":
+      return t("messages.referenceTypeFallback", {
+        purpose: preciseReferenceTypeLabel(message.referenceType),
+      });
     case "providerHttpFailure":
       return t("messages.providerHttpFailure", message);
     default:
@@ -290,6 +317,8 @@ const messageKinds = new Set<string>([
   "modelFallback",
   "parameterConflict",
   "characterLimit",
+  "referenceLimit",
+  "referenceTypeFallback",
   "providerHttpFailure",
   "providerTransportFailure",
   "providerStreamFailure",

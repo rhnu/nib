@@ -7,6 +7,7 @@ import type { Draft, ModelCapabilities, VibeReferenceInput } from "@/bindings/wo
 import { t, useTranslation, errorMessage, MessageError, deferMessage } from "@/shared/i18n";
 
 import { VibeMaterialDialog } from "@/features/vibes/vibe-material-dialog";
+import { newPreciseReferenceType } from "@/features/references/model";
 import { showVibeReferences } from "@/features/vibes/model";
 import { useVibeAction } from "@/features/vibes/use-vibe-action";
 import { AssetImage } from "./asset-image";
@@ -138,7 +139,7 @@ export function ImageImportDialog({
               </IconButton>
               <IconButton
                 label={t("explore.usePrecise")}
-                disabled={!capabilities?.canAddPreciseReference || action.busy}
+                disabled={newPreciseReferenceType(capabilities) === null || action.busy}
                 onClick={() => choose(() => onReference("precise"))}
               >
                 <ScanFace size={18} aria-hidden />

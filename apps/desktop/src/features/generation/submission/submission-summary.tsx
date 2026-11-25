@@ -94,7 +94,7 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
         <ParameterDiagnostics diagnostics={submission.diagnostics} />
       </div>
     );
-  const { resolved, seed } = submission;
+  const { resolved, seed, selectedModel } = submission;
   return (
     <div className="generation-submission">
       <ParameterDiagnostics diagnostics={submission.diagnostics} />
@@ -118,6 +118,12 @@ export function SubmissionSummary({ submission }: { submission: JobRecord["submi
           <dt>{t("generation.model")}</dt>
           <dd>{resolved.settings.model}</dd>
         </Grid>
+        {selectedModel && selectedModel !== resolved.settings.model && (
+          <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
+            <dt>{t("generation.selectedModel")}</dt>
+            <dd>{selectedModel}</dd>
+          </Grid>
+        )}
         <Grid gap={3} columns={1} className="grid-cols-[76px_minmax(0,1fr)]">
           <dt>{t("generation.dimensions")}</dt>
           <dd>

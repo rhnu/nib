@@ -91,7 +91,12 @@ export function SettingsEditor({
 
   const inherited = (key: SettingKey) =>
     t("prompt.inheritedValue", {
-      value0: effective ? settingValue(key, effective[key]) : t("prompt.default"),
+      value0: effective
+        ? settingValue(
+            key,
+            key === "model" ? (capabilities?.selectedModel ?? effective.model) : effective[key],
+          )
+        : t("prompt.default"),
     });
 
   const diagnosticsFor = (key: SettingKey) =>

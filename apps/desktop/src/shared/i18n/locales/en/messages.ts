@@ -145,6 +145,8 @@ export const messages = {
   parameterConflict: "Removed because it conflicts with {{retainedField}}.",
   characterLimit_one: "Disabled because the model supports at most {{limit}} character.",
   characterLimit_other: "Disabled because the model supports at most {{limit}} characters.",
+  referenceLimit: "This model can use up to {{limit}} precise reference images per request.",
+  referenceTypeFallback: "This reference is used as {{purpose}} by the current model.",
   validation: "{{field}}: {{detail}}",
   providerHttpFailure: "NovelAI rejected the request (HTTP {{status}}).",
   providerTransportFailure:

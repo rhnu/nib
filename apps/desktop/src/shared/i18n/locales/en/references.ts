@@ -25,7 +25,10 @@ export const references = {
   character: "Character",
   style: "Style",
   characterStyle: "Character and style",
-  clothing: "Clothing",
+  characterSameOutfit: "Character · Prefer same outfit",
+  characterStyleAnyOutfit: "Character and style · Any outfit",
+  clothing: "Outfit",
+  preferSameOutfit: "Prefer same outfit",
   difference: "Difference",
   namedPreciseReference: "Precise reference {{value0}}",
   revertOverride: "Revert {{value0}} override",
@@ -40,7 +43,7 @@ export const references = {
   purpose: "Purpose",
   savedTag: " · Saved",
   strengthHelp:
-    "Controls how much the reference image influences the result. The slider covers the usual 0–1 range. You can also enter signed values outside this range.",
+    "Controls how much the reference image influences the result. The slider ranges from {{min}} to {{max}}. You can also enter signed values outside that range.",
   fidelityHelp:
     "Controls the precision of the reference constraints. The slider covers the usual 0–1 range. You can also enter signed values outside this range.",
   informationExtracted: "Information extracted",
@@ -49,6 +52,10 @@ export const references = {
   loadingImage: "Loading image…",
   retryRead: "Retry loading",
   savedPurposeUnsupported: "The current model does not support the saved purpose.",
+  savedPurposeFallback: "The current model uses {{purpose}} for this saved purpose.",
+  highEffortRequired: "Enabled precise references use High effort for this request.",
+  referenceLimit:
+    "{{active}} applicable references are enabled. The model can use up to {{limit}}.",
   imageInfoTitle: "{{value0}} · Image information",
   choosePreciseImage: "Choose precise reference image",
   loadingCapabilities: "Loading reference capabilities…",

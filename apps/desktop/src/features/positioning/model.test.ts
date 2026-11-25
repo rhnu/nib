@@ -403,4 +403,26 @@ describe("SDK output field ownership", () => {
       field: "strength",
     });
   });
+
+  it("locates a saved reference by its scoped identity after the quote omits that row", () => {
+    const draft = creation();
+    const resolved = preview();
+    const inputId = outputIdentity("first:instance", "ref:local");
+    resolved.inputs.references.precise = [];
+    resolved.inputSources = [];
+    expect(
+      outputTarget(
+        "references.character_references[0].reference_type",
+        resolved,
+        draft,
+        resources,
+        inputId,
+      ),
+    ).toEqual({
+      kind: "reference",
+      id: "ref:local",
+      presetInstanceId: "first:instance",
+      field: "referenceType",
+    });
+  });
 });

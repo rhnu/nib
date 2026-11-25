@@ -7,6 +7,7 @@ import {
   Modal,
   Notice,
   NumberSlider,
+  Row,
   Select,
   Toggle,
 } from "@/shared/ui";
@@ -18,7 +19,7 @@ import {
   MediaInputSettings,
 } from "@/features/media/media-input-layout";
 
-import { t, useTranslation } from "@/shared/i18n";
+import { preciseReferenceTypeLabel, t, useTranslation } from "@/shared/i18n";
 import { useId, useState, type ReactNode } from "react";
 import { ImagePlus, Info, RotateCcw } from "lucide-react";
 import type {
@@ -31,27 +32,12 @@ import { AssetImage, ImagePickerDialog, useMediaAsset } from "@/features/media";
 import { imageName } from "@/features/media/model";
 import {
   preciseReferenceMessages,
+  preciseReferenceOutfitTypes,
+  preciseReferencePurpose,
+  preciseReferencePurposes,
   type PreciseReferenceField,
   type PreciseReferencePatch,
 } from "./model";
-
-const typeLabels: Record<string, string> = {
-  get character() {
-    return t("references.character");
-  },
-  get style() {
-    return t("references.style");
-  },
-  get "character&style"() {
-    return t("references.characterStyle");
-  },
-  get costume() {
-    return t("references.clothing");
-  },
-  get delta() {
-    return t("references.difference");
-  },
-};
 
 /** Drafts, resources and linked overrides use the same retained reference controls. */
 export function PreciseReferenceRow({
@@ -81,6 +67,14 @@ export function PreciseReferenceRow({
   const media = useMediaAsset(value.assetId);
   const options = capabilities?.preciseReferenceOptions;
   const label = t("references.namedPreciseReference", { value0: index + 1 });
+  const availableTypes = options?.referenceTypes ?? [];
+  const purposes = preciseReferencePurposes(availableTypes);
+  const supported = availableTypes.includes(value.referenceType);
+  const selectedPurpose = supported
+    ? preciseReferencePurpose(value.referenceType)
+    : value.referenceType;
+  const outfitTypes = preciseReferenceOutfitTypes(value.referenceType, options);
+  const fallback = options?.typeFallbacks.find(({ from }) => from === value.referenceType);
 
   const hasIssue = (field: string) => issues.some((issue) => issue.field === field);
 
@@ -128,9 +122,14 @@ export function PreciseReferenceRow({
           label={`${label}${name}`}
           value={value[field]}
           range={
-            field === "informationExtracted"
-              ? (options?.informationExtracted ?? { min: 0, max: 1 })
-              : undefined
+            field === "strength"
+              ? options?.strength
+              : field === "informationExtracted"
+                ? (options?.informationExtracted ?? { min: 0, max: 1 })
+                : undefined
+          }
+          sliderRange={
+            (field === "strength" ? options?.strengthSlider : options?.[field]) ?? undefined
           }
           invalid={hasIssue(field)}
           describedBy={hasIssue(field) ? `${prefix}-${field}-issues` : undefined}
@@ -140,7 +139,7 @@ export function PreciseReferenceRow({
     </div>
   );
 
-  const savedTypeUnsupported = !!options && !options.referenceTypes.includes(value.referenceType);
+  const savedTypeUnsupported = availableTypes.length > 0 && !supported && !fallback;
   return (
     <Grid
       align="stretch"
@@ -191,7 +190,7 @@ export function PreciseReferenceRow({
           </MediaInputTools>
         </MediaInputPreview>
         <MediaInputSettings>
-          <div data-reference-field="referenceType">
+          <div className="grid min-w-0 gap-space-1" data-reference-field="referenceType">
             <Field
               label={t("references.purpose")}
               htmlFor={`${prefix}-type`}
@@ -200,31 +199,54 @@ export function PreciseReferenceRow({
             >
               <Select
                 id={`${prefix}-type`}
-                value={value.referenceType}
+                value={selectedPurpose}
+                disabled={purposes.size === 0}
                 aria-invalid={hasIssue("referenceType") || undefined}
                 aria-describedby={
                   hasIssue("referenceType") ? `${prefix}-referenceType-issues` : undefined
                 }
-                onValueChange={(referenceType) => onChange({ referenceType })}
+                onValueChange={(purpose) => {
+                  const referenceType = purposes.get(purpose);
+                  if (referenceType) onChange({ referenceType });
+                }}
                 options={[
-                  ...(!options?.referenceTypes.includes(value.referenceType)
+                  ...(!supported
                     ? [
                         {
                           value: value.referenceType,
-                          label: `${typeLabels[value.referenceType] ?? value.referenceType}${t("references.savedTag")}`,
+                          label: `${preciseReferenceTypeLabel(value.referenceType)}${t("references.savedTag")}`,
                         },
                       ]
                     : []),
-                  ...(options?.referenceTypes.map((type) => ({
-                    value: type,
-                    label: typeLabels[type] ?? type,
-                  })) ?? []),
+                  ...Array.from(purposes.keys(), (purpose) => ({
+                    value: purpose,
+                    label: preciseReferenceTypeLabel(purpose),
+                  })),
                 ]}
               />
             </Field>
+            {outfitTypes && (
+              <Row gap={1} align="center" justify="between">
+                <span className="text-muted text-label">{t("references.preferSameOutfit")}</span>
+                <Toggle
+                  checked={value.referenceType === outfitTypes[1]}
+                  label={`${label} · ${t("references.preferSameOutfit")}`}
+                  onChange={(same) => onChange({ referenceType: outfitTypes[same ? 1 : 0] })}
+                />
+              </Row>
+            )}
           </div>
-          {numeric("strength", t("references.strengthLabel"), t("references.strengthHelp"))}
-          {numeric("fidelity", t("references.fidelityLabel"), t("references.fidelityHelp"))}
+          {numeric(
+            "strength",
+            t("references.strengthLabel"),
+            t("references.strengthHelp", {
+              min: options?.strengthSlider?.min ?? 0,
+              max: options?.strengthSlider?.max ?? 1,
+            }),
+          )}
+          {options?.fidelity
+            ? numeric("fidelity", t("references.fidelityLabel"), t("references.fidelityHelp"))
+            : messages("fidelity")}
           {numeric(
             "informationExtracted",
             t("references.informationExtracted"),
@@ -242,6 +264,13 @@ export function PreciseReferenceRow({
       {savedTypeUnsupported && (
         <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">
           {t("references.savedPurposeUnsupported")}
+        </p>
+      )}
+      {fallback && (
+        <p className="precise-reference-status m-0 text-muted text-caption leading-[1.6]">
+          {t("references.savedPurposeFallback", {
+            purpose: preciseReferenceTypeLabel(fallback.to),
+          })}
         </p>
       )}
       <Modal
@@ -283,12 +312,31 @@ export function PreciseReferenceAvailability({
       </output>
     );
   const messages = preciseReferenceMessages(capabilities);
+  const options = capabilities.preciseReferenceOptions;
+  const requiresHighEffort =
+    options.requiredModel !== null &&
+    capabilities.model === options.requiredModel &&
+    capabilities.model !== capabilities.selectedModel;
+  const { maxReferences, activeReferenceCount } = options;
   return (
     <>
       {messages.precise && (
         <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">
           {messages.precise}
         </p>
+      )}
+      {requiresHighEffort && (
+        <output className="precise-reference-status m-0 text-muted text-caption leading-[1.6]">
+          {t("references.highEffortRequired")}
+        </output>
+      )}
+      {maxReferences !== null && activeReferenceCount > maxReferences && (
+        <output className="precise-reference-message m-0 text-danger text-caption leading-[1.6]">
+          {t("references.referenceLimit", {
+            active: activeReferenceCount,
+            limit: maxReferences,
+          })}
+        </output>
       )}
       {messages.vibe && capabilities.vibeReference.reason !== "conflictWithPreciseReference" && (
         <p className="precise-reference-message [&_p]:m-0 m-0 text-danger text-caption leading-[1.6]">

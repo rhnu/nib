@@ -2,8 +2,60 @@ import { t } from "@/shared/i18n";
 import type {
   ModelCapabilities,
   PreciseReferenceInput,
+  PreciseReferenceOptions,
   PreciseReferenceOverride,
 } from "@/bindings/workbench";
+
+export function newPreciseReferenceType(capabilities: ModelCapabilities | null): string | null {
+  return capabilities?.canAddPreciseReference
+    ? capabilities.preciseReferenceOptions.defaultReferenceType
+    : null;
+}
+
+export function preciseReferencePurpose(type: string): string {
+  switch (type) {
+    case "character_mainoutfit":
+      return "character";
+    case "character&style_anyoutfit":
+      return "character&style";
+    default:
+      return type;
+  }
+}
+
+export function preciseReferencePurposes(types: string[]): Map<string, string> {
+  const choices = new Map<string, string>();
+  for (const type of types) {
+    const purpose = preciseReferencePurpose(type);
+    if (!choices.has(purpose) || purpose === type) choices.set(purpose, type);
+  }
+  return choices;
+}
+
+/** Returns the stored captions for the off and on states of the same-outfit control. */
+export function preciseReferenceOutfitTypes(
+  type: string,
+  options: Pick<PreciseReferenceOptions, "referenceTypes"> | undefined,
+): readonly [off: string, on: string] | null {
+  const available = options?.referenceTypes;
+  if (!available?.includes(type)) return null;
+  const purpose = preciseReferencePurpose(type);
+  if (
+    purpose === "character" &&
+    available.includes("character") &&
+    available.includes("character_mainoutfit")
+  ) {
+    return ["character", "character_mainoutfit"];
+  }
+  if (
+    purpose === "character&style" &&
+    available.includes("character&style_anyoutfit") &&
+    available.includes("character&style")
+  ) {
+    return ["character&style_anyoutfit", "character&style"];
+  }
+  return null;
+}
 
 const availabilityReasons: Record<string, string> = {
   get unsupported() {

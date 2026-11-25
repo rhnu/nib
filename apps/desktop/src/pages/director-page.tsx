@@ -1,6 +1,7 @@
 import { Row } from "@/shared/ui";
 
 import { DirectorWorkspace } from "@/features/director";
+import { newPreciseReferenceType } from "@/features/references/model";
 import { useWorkbenchContext } from "@/features/workbench/workbench-context";
 
 export function DirectorPage() {
@@ -32,7 +33,7 @@ export function DirectorPage() {
         onHandoffComplete={() => setDirectorHandoff(null)}
         canMaxEnhance={editorCapabilities?.maxEnhance ?? false}
         canInpaint={editorCapabilities?.inpainting ?? false}
-        canUsePreciseReference={editorCapabilities?.canAddPreciseReference ?? false}
+        canUsePreciseReference={newPreciseReferenceType(editorCapabilities) !== null}
         canUseVibeReference={Boolean(
           editorCapabilities?.canAddVibeReference && editorCapabilities.vibeInputPath === "image",
         )}

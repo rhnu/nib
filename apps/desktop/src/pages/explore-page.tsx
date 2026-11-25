@@ -12,6 +12,7 @@ import { promptApi } from "@/features/prompt/api";
 import { formatLexiconTerms } from "@/features/prompt/format-runtime";
 import { settingLabels, settingValue, type SettingKey } from "@/features/prompt/settings";
 import { lexiconApi } from "@/features/lexicon/api";
+import { newPreciseReferenceType } from "@/features/references/model";
 import { exploreApi, danbooruApi, danbooruConnectionKey } from "@/features/explore/api";
 import { exploreErrorMessage } from "@/features/explore/error";
 import { ExploreImage } from "@/features/explore/explore-image";
@@ -243,7 +244,7 @@ function ExploreSourceBrowser({ source }: { source: ExploreSource }) {
     saveImage,
     copyImage,
     openWebsite: (item: ExploreSummary) => void run(() => openUrl(item.websiteUrl)),
-    precise: editorCapabilities?.canAddPreciseReference ?? false,
+    precise: newPreciseReferenceType(editorCapabilities) !== null,
     vibe: editorCapabilities?.canAddVibeReference ?? false,
   };
 

@@ -14,7 +14,7 @@ export function ParameterDiagnostics({
   onLocate,
 }: {
   diagnostics: ParameterDiagnostic[];
-  onLocate?: (field: string) => void;
+  onLocate?: (field: string, inputId?: string | null) => void;
 }) {
   useTranslation();
 
@@ -30,7 +30,11 @@ export function ParameterDiagnostics({
               {key ? settingLabels[key] : diagnostic.field}:{" "}
               {settingDiagnosticMessage(diagnostic.field, diagnostic.change)}
               {onLocate && (
-                <Button variant="quiet" className="" onClick={() => onLocate(diagnostic.field)}>
+                <Button
+                  variant="quiet"
+                  className=""
+                  onClick={() => onLocate(diagnostic.field, diagnostic.inputId)}
+                >
                   {t("generation.locate")}
                 </Button>
               )}

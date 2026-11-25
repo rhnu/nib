@@ -253,6 +253,7 @@ export const generation = {
   pureInpainting: "Pure inpainting",
   keepOutsideMask: "Keep original outside mask",
   model: "Model",
+  selectedModel: "Selected model",
   blurSigma: "Blur Sigma",
   operation: "Operation",
   informationExtraction: "Information extraction",
