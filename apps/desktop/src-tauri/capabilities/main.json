@@ -126,6 +126,8 @@
     "allow-create-image-operation",
     "allow-create-inpaint-operation",
     "allow-create-precise-reference",
+    "allow-import-precise-reference-zip",
+    "allow-export-precise-reference-zip",
     "allow-create-vibe-encoding-input",
     "allow-get-vibe-encoding-options",
     "allow-create-vibe-reference",

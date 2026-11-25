@@ -8,4 +8,7 @@ export const referenceApi = {
       referenceId,
       referenceType,
     }),
+  importZip: () => invokeHost<PreciseReferenceInput[] | null>("import_precise_reference_zip"),
+  exportZip: (references: PreciseReferenceInput[]) =>
+    invokeHost<boolean>("export_precise_reference_zip", { references }),
 };

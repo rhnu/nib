@@ -2,7 +2,7 @@ import { Grid, ConfirmIconButton, IconButton, Notice } from "@/shared/ui";
 
 import { t, useTranslation, useMessageState } from "@/shared/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, ImagePlus, Trash2, Upload } from "lucide-react";
 import type { ModelCapabilities, PreciseReferenceInput } from "@/bindings/workbench";
 import { trackPendingWork } from "@/shared/host/pending-work";
 
@@ -59,27 +59,38 @@ function EditorContent({
     current.onChange(next);
   };
 
-  async function add(assetId: string, referenceType: string) {
+  async function runReferenceWork(action: () => Promise<unknown>) {
     const current = latest.current;
     if (current.locked) return;
     current.locked = true;
     setBusy(true);
     setError(null);
     try {
-      await trackPendingWork(
-        (async () => {
-          const reference = await referenceApi.create(assetId, crypto.randomUUID(), referenceType);
-          if (!current.active) return;
-          // The pending operation includes this synchronous commit, not just the SDK response.
-          update((value) => [...value, reference]);
-        })(),
-      );
+      await trackPendingWork(action());
     } catch (cause) {
       if (current.active) setError(cause);
     } finally {
       current.locked = false;
       if (current.active) setBusy(false);
     }
+  }
+
+  function add(assetId: string, referenceType: string) {
+    return runReferenceWork(async () => {
+      const reference = await referenceApi.create(assetId, crypto.randomUUID(), referenceType);
+      update((items) => [...items, reference]);
+    });
+  }
+
+  function importZip() {
+    return runReferenceWork(async () => {
+      const references = await referenceApi.importZip();
+      if (references?.length) update((items) => [...items, ...references]);
+    });
+  }
+
+  function exportZip() {
+    return runReferenceWork(() => referenceApi.exportZip(latest.current.value));
   }
 
   if (!showPreciseReferences(capabilities, value.length)) return null;
@@ -101,6 +112,20 @@ function EditorContent({
           {value.length > 0 ? ` · ${value.length}` : ""}
         </h3>
         <span className="flex-1" />
+        <IconButton
+          label={t("references.importPreciseReferenceZip")}
+          disabled={busy}
+          onClick={() => void importZip()}
+        >
+          <Upload size={14} />
+        </IconButton>
+        <IconButton
+          label={t("references.exportPreciseReferenceZip")}
+          disabled={busy || value.length === 0}
+          onClick={() => void exportZip()}
+        >
+          <Download size={14} />
+        </IconButton>
         <IconButton
           label={t("references.addPreciseImage")}
           disabled={

@@ -6,6 +6,7 @@ mod assets;
 mod content;
 mod export;
 mod metadata;
+mod precise_reference;
 mod query;
 pub(crate) mod remote;
 pub use remote::{RemoteImageError, download_image};

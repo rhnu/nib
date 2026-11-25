@@ -123,18 +123,26 @@ impl MediaLibrary {
         image: &EncodedImage,
         source: AssetSource,
     ) -> Result<MediaAsset, PersistenceError> {
+        let asset = self.stage_image_asset(image, source)?;
+        self.database.insert_asset(&asset)?;
+        Ok(asset)
+    }
+
+    pub(super) fn stage_image_asset(
+        &self,
+        image: &EncodedImage,
+        source: AssetSource,
+    ) -> Result<MediaAsset, PersistenceError> {
         self.validate_source(&source)?;
         let format = image_format(image.as_bytes());
         let size = image.size();
-        let asset = self.stage_asset(
+        self.stage_asset(
             AssetKind::Image,
             format.mime_type(),
             image.as_bytes(),
             Some((size.width, size.height)),
             source,
-        )?;
-        self.database.insert_asset(&asset)?;
-        Ok(asset)
+        )
     }
 
     /// Imports an opaque Vibe encoding using the SDK's encoding validation.
@@ -429,12 +437,7 @@ mod tests;
 impl AssetReader for MediaLibrary {
     fn image(&self, id: &str) -> Result<EncodedImage, PersistenceError> {
         let asset = self.asset(id)?;
-        if asset.owner_resource_id.is_some() {
-            return Err(PersistenceError::InvalidData {
-                message: UserMessage::ResourceCoverOwnership,
-            });
-        }
-        self.image_content(&asset)
+        self.input_image_content(&asset)
     }
 
     fn image_identity(&self, id: &str) -> Result<BlobId, PersistenceError> {
@@ -462,6 +465,18 @@ impl AssetReader for MediaLibrary {
 }
 
 impl MediaLibrary {
+    pub(super) fn input_image_content(
+        &self,
+        asset: &MediaAsset,
+    ) -> Result<EncodedImage, PersistenceError> {
+        if asset.owner_resource_id.is_some() {
+            return Err(PersistenceError::InvalidData {
+                message: UserMessage::ResourceCoverOwnership,
+            });
+        }
+        self.image_content(asset)
+    }
+
     pub(super) fn image_content(
         &self,
         asset: &MediaAsset,

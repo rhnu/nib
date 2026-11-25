@@ -1,19 +1,25 @@
 //! Media IPC delivers bytes and identities without exposing arbitrary file paths.
 
-use std::sync::Arc;
+use std::{fs::File, io::Read as _, sync::Arc};
 
 use nib_app::{
-    api::ApiError,
+    api::{ApiError, ErrorCode},
     media::{
         AssetSource, GenerationResult, ImageExportFormat, ImageMetadataReport, MediaAsset,
         MediaLibrary, MetadataRestore, ResultPage, ResultQuery, VibeAssetInspection,
         VibeDocumentInspection,
     },
+    persistence::PersistenceError,
     session::{
         CreationOperation, Draft, ImageOperationKind, ImageOperationOptions, PreciseReferenceInput,
         VibeEncodingInput, VibeReferenceInput,
     },
 };
+use novelai_bridge::{
+    ImageDecodePolicy, ImageLimit, ImagePolicyError, PreciseReferenceDocument,
+    PreciseReferenceDocumentError,
+};
+use tauri_plugin_dialog::DialogExt as _;
 
 use crate::{commands::persistence_error, generation::blocking, state::DesktopState};
 
@@ -248,6 +254,104 @@ pub(crate) async fn create_precise_reference(
             .map_err(persistence_error)
     })
     .await
+}
+
+#[tauri::command]
+pub(crate) async fn import_precise_reference_zip(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Option<Vec<PreciseReferenceInput>>, ApiError> {
+    let Some(document) = blocking(move || read_precise_reference_zip(&app)).await? else {
+        return Ok(None);
+    };
+    with_media_write(state, move |media| {
+        media
+            .import_precise_references(document)
+            .map(Some)
+            .map_err(persistence_error)
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn export_precise_reference_zip(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, DesktopState>,
+    references: Vec<PreciseReferenceInput>,
+) -> Result<bool, ApiError> {
+    let bytes = with_media(state, move |media| {
+        media
+            .export_precise_references(&references)
+            .map_err(precise_reference_zip_error)
+    })
+    .await?;
+    blocking(move || {
+        crate::file_export::save_export_to_dialog(&app, "reference_images.zip", &bytes)
+    })
+    .await
+}
+
+fn read_precise_reference_zip(
+    app: &tauri::AppHandle,
+) -> Result<Option<PreciseReferenceDocument>, ApiError> {
+    let Some(selection) = app
+        .dialog()
+        .file()
+        .add_filter("ZIP", &["zip"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = selection.into_path().map_err(|error| {
+        persistence_error(PersistenceError::failure(
+            "select a precise reference ZIP",
+            error,
+        ))
+    })?;
+    let read_error = |error| {
+        persistence_error(PersistenceError::failure(
+            "read the selected precise reference ZIP",
+            error,
+        ))
+    };
+    let file = File::open(path).map_err(read_error)?;
+    let policy = ImageDecodePolicy::default();
+    policy
+        .check(
+            ImageLimit::TotalImageBytes,
+            file.metadata().map_err(read_error)?.len(),
+        )
+        .map_err(|source| {
+            precise_reference_zip_error(PersistenceError::failure(
+                "budget the selected precise reference ZIP",
+                source,
+            ))
+        })?;
+    let mut bytes = Vec::new();
+    file.take(policy.max_total_image_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(read_error)?;
+    PreciseReferenceDocument::from_bytes_with_policy(&bytes, policy)
+        .map(Some)
+        .map_err(|source| {
+            precise_reference_zip_error(PersistenceError::failure(
+                "decode the selected precise reference ZIP",
+                source,
+            ))
+        })
+}
+
+fn precise_reference_zip_error(error: PersistenceError) -> ApiError {
+    if let PersistenceError::Failure { source, .. } = &error
+        && (source.is::<PreciseReferenceDocumentError>() || source.is::<ImagePolicyError>())
+    {
+        return ApiError {
+            code: ErrorCode::Invalid,
+            message: error.user_message(),
+            validation_fields: Vec::new(),
+        };
+    }
+    persistence_error(error)
 }
 
 #[tauri::command]

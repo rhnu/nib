@@ -112,6 +112,8 @@ const COMMANDS: &[&str] = &[
     "create_image_operation",
     "create_inpaint_operation",
     "create_precise_reference",
+    "import_precise_reference_zip",
+    "export_precise_reference_zip",
     "create_vibe_encoding_input",
     "get_vibe_encoding_options",
     "create_vibe_reference",

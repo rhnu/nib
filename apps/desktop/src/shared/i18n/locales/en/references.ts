@@ -52,4 +52,6 @@ export const references = {
   imageInfoTitle: "{{value0}} · Image information",
   choosePreciseImage: "Choose precise reference image",
   loadingCapabilities: "Loading reference capabilities…",
+  importPreciseReferenceZip: "Import precise reference ZIP",
+  exportPreciseReferenceZip: "Export precise reference ZIP",
 } as const;

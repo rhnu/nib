@@ -149,14 +149,14 @@ impl SqliteDatabase {
     pub(super) fn insert_assets(&self, assets: &[MediaAsset]) -> Result<(), PersistenceError> {
         let mut connection = self.connection()?;
         let transaction = connection.transaction().map_err(|error| {
-            PersistenceError::failure("begin retaining embedded Vibe assets", error)
+            PersistenceError::failure("begin retaining immutable media assets", error)
         })?;
         for asset in assets {
             insert_asset(&transaction, asset)?;
         }
         transaction
             .commit()
-            .map_err(|error| PersistenceError::failure("commit embedded Vibe assets", error))
+            .map_err(|error| PersistenceError::failure("commit immutable media assets", error))
     }
 
     pub(super) fn read_result_asset(&self, id: &str) -> Result<MediaAsset, PersistenceError> {

@@ -49,4 +49,6 @@ export const references = {
   imageInfoTitle: "{{value0}} · 图片信息",
   choosePreciseImage: "选择精确参考图片",
   loadingCapabilities: "正在读取参考能力…",
+  importPreciseReferenceZip: "导入精确参考 ZIP",
+  exportPreciseReferenceZip: "导出精确参考 ZIP",
 } satisfies { [K in keyof typeof source]: string };

@@ -217,6 +217,8 @@ fn invocation_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Sen
         media::create_image_operation,
         media::create_inpaint_operation,
         media::create_precise_reference,
+        media::import_precise_reference_zip,
+        media::export_precise_reference_zip,
         media::create_vibe_encoding_input,
         media::get_vibe_encoding_options,
         media::create_vibe_reference,
