@@ -204,11 +204,7 @@ impl SdkClients {
         };
         Ok(Some((
             id,
-            self.settings
-                .preferences()?
-                .execution
-                .client_config()
-                .image_base_url,
+            self.execution_preferences()?.frozen_endpoint().to_owned(),
         )))
     }
 
@@ -239,7 +235,7 @@ impl SdkClients {
         };
         let execution = self.execution_preferences()?;
         // The sampled identity must describe the endpoint used by this exact client.
-        let identity = (credential_id, execution.client_config().image_base_url);
+        let identity = (credential_id, execution.frozen_endpoint().to_owned());
         let mut state = self
             .sampling
             .lock()
@@ -329,7 +325,7 @@ impl SdkClientProvider for SdkClients {
     }
 
     fn execution_preferences(&self) -> Result<ExecutionPreferences, JobError> {
-        Ok(self.settings.preferences()?.execution)
+        Ok(self.settings.preferences()?.execution.resolve_endpoint()?)
     }
 
     fn client_for(
@@ -383,7 +379,7 @@ impl SdkClientProvider for SdkClients {
         let sample = (state.identity.as_ref()
             == Some(&(
                 credential_id.to_owned(),
-                execution.client_config().image_base_url,
+                execution.frozen_endpoint().to_owned(),
             )))
         .then(|| state.sample.clone())
         .flatten();
@@ -392,10 +388,7 @@ impl SdkClientProvider for SdkClients {
 
     fn request_settled(&self, credential_id: &str, execution: &ExecutionPreferences) {
         if self.active_identity().ok().flatten().as_ref()
-            == Some(&(
-                credential_id.into(),
-                execution.client_config().image_base_url,
-            ))
+            == Some(&(credential_id.into(), execution.frozen_endpoint().to_owned()))
         {
             self.request_refresh();
         }

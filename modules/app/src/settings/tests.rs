@@ -90,9 +90,33 @@ fn custom_base_url_is_passed_to_the_sdk_with_its_path_prefix() {
         ..ExecutionPreferences::default()
     };
     assert_eq!(
-        execution.client_config().image_base_url,
-        "https://example.test/novelai/"
+        execution
+            .resolve_endpoint()
+            .unwrap()
+            .client_config()
+            .image_base_url,
+        "https://example.test/novelai"
     );
+}
+
+#[test]
+fn historical_tasks_with_an_implicit_endpoint_keep_the_official_service() {
+    let frozen: ExecutionPreferences =
+        serde_json::from_str(r#"{"imageRequestEncoding":"json","serverImageCache":false}"#)
+            .unwrap();
+    assert_eq!(frozen.frozen_endpoint(), novelai_bridge::DEFAULT_IMAGE_BASE);
+}
+
+#[test]
+fn an_invalid_explicit_endpoint_returns_the_sdk_error() {
+    let execution = ExecutionPreferences {
+        image_base_url: Some("file:///tmp/novelai".to_owned()),
+        ..ExecutionPreferences::default()
+    };
+    assert!(matches!(
+        execution.resolve_endpoint(),
+        Err(novelai_bridge::ApiBaseError::UnsupportedUrl)
+    ));
 }
 
 #[test]

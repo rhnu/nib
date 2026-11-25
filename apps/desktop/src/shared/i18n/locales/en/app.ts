@@ -19,7 +19,7 @@ export const app = {
   page: "Page",
   advancedExecution: "Advanced execution settings",
   apiBaseUrl: "API base URL",
-  defaultEndpointHint: "Leave blank to use the default endpoint",
+  defaultEndpointHint: "Leave blank for NOVELAI_API_BASE or the official endpoint",
   requestEncoding: "Image request encoding",
   json: "JSON",
   multipart: "Multipart",

@@ -18,7 +18,7 @@ export const app = {
   page: "页面",
   advancedExecution: "高级执行设置",
   apiBaseUrl: "API 端点基址",
-  defaultEndpointHint: "留空使用默认端点",
+  defaultEndpointHint: "留空使用 NOVELAI_API_BASE 或官方地址",
   requestEncoding: "图像请求编码",
   json: "JSON",
   multipart: "Multipart",

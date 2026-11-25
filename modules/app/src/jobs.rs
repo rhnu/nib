@@ -284,6 +284,8 @@ pub enum JobError {
     #[error(transparent)]
     Bridge(#[from] novelai_bridge::BridgeError),
     #[error(transparent)]
+    ApiBase(#[from] novelai_bridge::ApiBaseError),
+    #[error(transparent)]
     Credential(#[from] CredentialError),
     #[error("请先配置 NovelAI API Key。")]
     MissingCredentials,
@@ -749,6 +751,7 @@ fn public_failure(error: &JobError) -> UserMessage {
         JobError::Credential(CredentialError::InvalidKey) => UserMessage::InvalidApiKey,
         JobError::Credential(_) => UserMessage::CredentialUnavailable,
         JobError::MissingCredentials => UserMessage::MissingCredentials,
+        JobError::ApiBase(error) => UserMessage::external(crate::api::error_detail(error)),
         JobError::Unresolved => UserMessage::UnresolvedResources,
         JobError::PromptSource { .. } => UserMessage::InvalidPromptSource,
         JobError::Invalid(message) => message.clone(),

@@ -96,7 +96,8 @@ const fn default_semantic_search_enabled() -> bool { true }
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "typegen", derive(ts_rs::TS))]
 pub struct ExecutionPreferences {
-    /// Absence uses the SDK default for image operations and account/tag queries.
+    /// In application settings, absence selects the environment or the official endpoint.
+    /// In a task written before endpoint capture, absence denotes the historical official endpoint.
     pub image_base_url: Option<String>,
     pub image_request_encoding: ImageRequestEncoding,
     pub server_image_cache: bool,
@@ -113,12 +114,25 @@ pub enum ImageRequestEncoding {
 }
 
 impl ExecutionPreferences {
+    /// Resolves editable settings once, before sampling the account or freezing a task.
+    pub(crate) fn resolve_endpoint(mut self) -> Result<Self, novelai_bridge::ApiBaseError> {
+        let config = match self.image_base_url.as_deref() {
+            Some(base) => novelai_bridge::ClientConfig::default().with_api_base(base)?,
+            None => novelai_bridge::ClientConfig::from_env()?,
+        };
+        self.image_base_url = Some(config.image_base_url);
+        Ok(self)
+    }
+
+    pub(crate) fn frozen_endpoint(&self) -> &str {
+        self.image_base_url
+            .as_deref()
+            .unwrap_or(novelai_bridge::DEFAULT_IMAGE_BASE)
+    }
+
     pub fn client_config(&self) -> novelai_bridge::ClientConfig {
         novelai_bridge::ClientConfig {
-            image_base_url: self
-                .image_base_url
-                .clone()
-                .unwrap_or_else(|| novelai_bridge::ClientConfig::default().image_base_url),
+            image_base_url: self.frozen_endpoint().to_owned(),
             image_request_encoding: match self.image_request_encoding {
                 ImageRequestEncoding::Json => novelai_bridge::ImageRequestEncoding::Json,
                 ImageRequestEncoding::Multipart => novelai_bridge::ImageRequestEncoding::Multipart,

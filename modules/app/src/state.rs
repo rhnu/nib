@@ -164,6 +164,9 @@ impl AppState {
             return Err(JobError::Invalid(UserMessage::RecentImageLimit));
         }
         let previous = self.inner.settings.preferences()?;
+        if previous.execution.image_base_url != preferences.execution.image_base_url {
+            preferences.execution.clone().resolve_endpoint()?;
+        }
         let saved = self.inner.settings.save_preferences(preferences)?;
         if previous.semantic_search_enabled != saved.semantic_search_enabled {
             self.inner

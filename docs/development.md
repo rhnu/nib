@@ -51,7 +51,7 @@ SDK 来自 crates.io，关闭默认 features，显式开启 `reqwest-transport` 
 
 宿主向 `nib_app::bootstrap::Bootstrap` 注入运行时、系统凭据、HTTP 传输和目录 I/O。app 的 bootstrap 组合业务及资源 consumer，读取安装元数据后返回；资源恢复、SDK Tokenizer 初始化与账户采样在后台启动，不阻塞工作台打开。文件校验、索引转换和模型加载使用阻塞工作线程；`AppState` 管理数据库、媒体和队列的按需初始化与共享。`StorageBackend` 归 settings，`TransportFactory` 归 SDK 使用方；宿主实现目录锁、复制、校验、路径发布及传输创建。桌面 state 只保留 app 状态与窗口订阅，app 不持有窗口或 IPC Channel，不安装全局运行时或 tracing subscriber，也不通过服务定位器查找任意依赖。
 
-SDK 客户端及 bundled Tokenizer 由 app 的 `sdk` 模块共享，本地计数和账户读取不初始化生成队列。客户端按不可变凭据版本与执行配置使用；全局基址映射到 `ClientConfig.image_base_url`。传输响应预算、Multipart 和服务端图像缓存直接使用 SDK 能力。
+SDK 客户端及 bundled Tokenizer 由 app 的 `sdk` 模块共享，本地计数和账户读取不初始化生成队列。显式基址经 `ClientConfig::with_api_base` 解析，留空时调用 `ClientConfig::from_env`。采样身份和客户端缓存使用解析后的地址；任务在提交时保存该地址，重试从冻结的执行配置创建客户端。传输响应预算、Multipart 和服务端图像缓存直接使用 SDK 能力。
 
 账户服务合并启动、凭据或端点变化、请求终态及过期采样，身份包含凭据版本和端点，以代次拒绝旧回包。失败只保留同身份上次成功值，通信不透传原始账户响应。前端共用账户查询服务，以采样修订使估费失效；费用观察仅保留 SDK 估算和请求终态，未知费用为空，几何与计价尺寸读取 SDK 结果。
 
