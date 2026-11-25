@@ -626,6 +626,7 @@ use account::sampled_account;
 
 mod cancellation;
 mod inputs;
+mod precise_reference;
 mod stream;
 
 struct ImageAssets;

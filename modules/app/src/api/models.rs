@@ -2,8 +2,8 @@
 
 use novelai_bridge::{
     AlphaMode, CharacterPosition, CharacterPositionProfile, CharacterReferenceType, CharacterSet,
-    GenerationMode, ImageFormat, ImageResponseFormat, Model, NoiseSchedule, QualityPreset,
-    ReferenceAvailability, ReferenceProfile, Sampler, UcPreset,
+    GenerationMode, ImageFormat, ImageResponseFormat, Model, ModelDescriptor, NoiseSchedule,
+    QualityPreset, ReferenceAvailability, ReferenceIntent, Sampler, UcPreset,
 };
 use serde::Serialize;
 
@@ -255,12 +255,6 @@ fn project_capabilities(
     let selected_model = settings.model;
     let selected_descriptor = selected_model.descriptor();
     let model = inputs.effective_model(selected_model, mode);
-    let reference_profile = selected_descriptor
-        .effective_model_for(mode)
-        .descriptor()
-        .support()
-        .character_reference
-        .filter(|profile| profile.modes.allows(mode));
     let settings = ResolvedSettings {
         model,
         steps: selected_descriptor.steps_for_effective_model(model, settings.steps),
@@ -268,6 +262,7 @@ fn project_capabilities(
     };
     let descriptor = model.descriptor();
     let references = inputs.resolution(selected_model, mode);
+    let (can_add_precise_reference, can_add_vibe_reference) = addable_references(descriptor, mode);
     let profile = descriptor.sampling();
     let (sampler, samplers, noise_schedules) = sampling_options(&settings, mode);
     ModelCapabilities {
@@ -291,10 +286,7 @@ fn project_capabilities(
                 .characters
                 .map(|profile| profile.positioning),
         ),
-        precise_reference_options: precise_reference_options(
-            reference_profile,
-            inputs.active_precise_count(selected_model, mode),
-        ),
+        precise_reference_options: precise_reference_options(selected_model, mode, inputs),
         vibe_reference_options: vibe_reference_options(model),
         streaming: descriptor.support().streaming,
         stream_modes: stream_modes(descriptor.support().streaming),
@@ -341,29 +333,30 @@ fn project_capabilities(
         smea: profile.supports_smea(mode, sampler),
         decrisp: descriptor.sampling().dynamic_thresholding,
         variety_boost: descriptor.sampling().variety.is_some(),
-        can_add_precise_reference: descriptor
-            .resolve_references(
-                mode,
-                novelai_bridge::ReferenceIntent {
-                    character: true,
-                    vibe: false,
-                },
-            )
-            .character
-            .is_available(),
-        can_add_vibe_reference: descriptor
-            .resolve_references(
-                mode,
-                novelai_bridge::ReferenceIntent {
-                    character: false,
-                    vibe: true,
-                },
-            )
-            .vibe
-            .is_available(),
+        can_add_precise_reference,
+        can_add_vibe_reference,
         precise_reference: references.character.into(),
         vibe_reference: references.vibe.into(),
     }
+}
+
+/// Queries each group's availability independently of current reference conflicts.
+fn addable_references(descriptor: &ModelDescriptor, mode: GenerationMode) -> (bool, bool) {
+    let precise = descriptor.resolve_references(
+        mode,
+        ReferenceIntent {
+            character: true,
+            vibe: false,
+        },
+    );
+    let vibe = descriptor.resolve_references(
+        mode,
+        ReferenceIntent {
+            character: false,
+            vibe: true,
+        },
+    );
+    (precise.character.is_available(), vibe.vibe.is_available())
 }
 
 /// Projects the SDK constructor's defaults into the editable application settings.
@@ -415,9 +408,17 @@ fn vibe_reference_options(model: Model) -> VibeReferenceOptions {
 }
 
 fn precise_reference_options(
-    profile: Option<ReferenceProfile>,
-    active_reference_count: usize,
+    selected_model: Model,
+    mode: GenerationMode,
+    inputs: &ReferenceInputs,
 ) -> PreciseReferenceOptions {
+    let profile = selected_model
+        .descriptor()
+        .effective_model_for(mode)
+        .descriptor()
+        .support()
+        .character_reference
+        .filter(|profile| profile.modes.allows(mode));
     let unit = || NumericRange { min: 0.0, max: 1.0 };
     PreciseReferenceOptions {
         reference_types: profile.map_or_else(Vec::new, |profile| profile.types.to_vec()),
@@ -433,7 +434,7 @@ fn precise_reference_options(
         required_model: profile
             .and_then(|profile| profile.required_model)
             .map(|model| model.as_str().to_owned()),
-        active_reference_count,
+        active_reference_count: inputs.active_precise_count(selected_model, mode),
         type_fallbacks: profile.map_or_else(Vec::new, |profile| {
             profile
                 .type_fallbacks
